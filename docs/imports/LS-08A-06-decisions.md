@@ -35,6 +35,7 @@ The file PartNos are James's and are the authority; the Rev 3 register numbers w
 - Use James's version (`311v3\SC08\_Shared\TIE_80x40x8`, his numbers) as the one tie file. The `311v3\_Shared` copy is retired; 0806's assemblies are repointed to James's file (same name, path change only).
 - 0806 needs one configuration James's file lacks: `TIE-184-1XEC` (184 mm tie, end cap at one end; used once in SF02-UPPER). Grant adds it when needed; it takes the next number in James's welded series (expected `GNRIC-BRP-16`). The other configurations missing from James's file (474, 104-EDNCAP, 145) aren't used by 0806 and are dropped.
 - Split by type: `GNRIC-BRP` (welded ties, `-10`..`-16`) and `GNRIC-BRA` (bolted ties, `-10`..`-12`). `STOCK` becomes `GNRIC`.
+- **STOCK → GNRIC is done in the tie file during prep** (Grant, 20 Oct 2026), not by the importer: r4 carries `GNRIC-BRP-10..16` and `GNRIC-BRA-10..12`, with `TIE-184-1XEC` = `GNRIC-BRP-16` (Provisional). Tie file only; other STOCK numbers (e.g. `PACKER` `STOCK-PKP-01..04`) are still renamed by the importer.
 - `TIE-1890-LS-08X-04-SF03_TIEBEAM` (`STOCK-BRW-10`) is 0804 only, if used at all: not imported with 0806/0811; it becomes `08X04-BRW-..` when 0804 comes in.
 - **Configuration names stay descriptive** (e.g. `TIE-460-WELDED`); `PartNo` carries the number. Departs from the standard's "configuration name = nn" (see pending spec changes).
 

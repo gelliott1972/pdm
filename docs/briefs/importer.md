@@ -47,3 +47,7 @@ SPEC.md (Bringing files in, step 2) also mentions driving SOLIDWORKS' own Pack a
 
 - Grant opens `LS-08A-06+STRUCTURE` and `08A06-STA-01` from the test vault in SOLIDWORKS: nothing missing, nothing pointing outside the vault, the BOM shows the right PartNos.
 - The ledger lists every rename and number, and Admin has reviewed the run.
+
+## Updates from Admin
+
+- **20 Oct:** the tie files in r4 already carry GNRIC numbers (`GNRIC-BRP-10..16`, `GNRIC-BRA-10..12`; `TIE-184-1XEC` = `GNRIC-BRP-16`, Provisional). Rule: a `PartNo` that already starts `GNRIC` is kept; one that starts `STOCK` (e.g. `PACKER`'s `STOCK-PKP-01..04`) is renamed to `GNRIC` by the importer. Decision 3.

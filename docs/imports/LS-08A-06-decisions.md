@@ -60,3 +60,7 @@ The file PartNos are James's and are the authority; the Rev 3 register numbers w
 
 - Import with the sample register numbers, marked provisional; James corrects them in the PDM. Proposed marking: a `PartNoStatus` custom property set to `Provisional` next to `PartNo` (same level, file or configuration), and the same status in the number ledger, so the PDM can list what's still provisional and James clears it when he confirms or renumbers.
 - `80X40_TIE_BOLTS` is job-wide: `MDL-80X40-TIE-BOLTS-GNRIC` in `APEX\GNRIC`, alongside the tie file (Grant, 20 Oct 2026). The other three kits are scene 08 only: `APEX\SC08\_Shared`, `-08XXX`.
+
+## 10. Repointing after the family splits (20 Oct 2026)
+
+- Grant repoints in SOLIDWORKS (Replace Components), not the importer: about 14 operations across 9 files (LCMM → `08X06-LMW` in 5 subframes; ties → `GNRIC-BRP` in 6 subframes and `GNRIC-BRA` in `08A06-STA-01`; the 2-size plate → the 4-size plate in `08X06-LMW` and the cantilever). r4 therefore arrives already pointing at the split files, and the retired files (`LCMM_40x80x8_SC08`, `TIE_80x40x8`, `LS-08X-X_PLATE_TIE_BEAM_INTERFACE`) drop out of the Pack and Go. The importer sees these as plain renames.

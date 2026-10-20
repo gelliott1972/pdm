@@ -22,8 +22,7 @@ Bring screen 06 shaft A (`LS-08A-06`) into a **test vault** with every file rena
 2. **Write `PartNo`** at the level James uses (file or configuration). Numbers come from the files (James's, the authority); where a file has none, from the sample register, and then also write **`PartNoStatus = Provisional`** at the same level (decision 9).
 3. **Repoint every reference** to the new names and folders, including:
    - renamed files (most of them);
-   - the retired 2-size interface plate, replaced by the 4-size file, configuration for configuration (decision 1);
-   - family files renamed or split: members → `GNRIC-LM` (not split), LCMM → `08X06-LMW`, ties → `GNRIC-BRP` / `GNRIC-BRA` (SW is preparing the split files; agree with SW who repoints what);
+   - family files renamed: members → `GNRIC-LM` (not split). The LCMM and tie splits, and the retired 2-size plate, are repointed by Grant in SOLIDWORKS before r4 (decision 10), so r4 already references `08X06-LMW`, `GNRIC-BRP` and `GNRIC-BRA`: plain renames to the importer;
    - shared files go into the vault once, at their level, and every user points at that one copy.
 4. **Drawings travel with their model** and take its new name.
 5. **Record every rename and number** in `data\rename-ledger.csv`, so numbers aren't allocated twice.

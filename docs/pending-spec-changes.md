@@ -59,3 +59,7 @@ Grant and James prefer **GNRIC** (generic) to STOCK for the job-wide place tag. 
 
 - The standard says a family file's configurations are named by number only (`STOCK-BRP` configuration `07`). Grant prefers to **keep descriptive configuration names** (e.g. `TIE-460-WELDED`) and let `PartNo` carry the number: renaming configurations means changing every assembly that uses them, and bare numbers make generic parts hard to find.
 - To keep generic parts findable, the PDM app should offer a **parts lookup**: search by PartNo, description or size, showing the family file and configuration. A consistent configuration-name pattern per family (e.g. `TIE-<length>-<WELDED|BOLTED>[-<end caps>]`) helps too; tidy names when a family is next edited.
+
+## Family file names (20 Oct 2026)
+
+- A family may hold two types of one category when the parts are the same model with and without a welded end cap: `MEMBER_SHS_40x80x8` becomes `GNRIC-LM`, holding `GNRIC-LMP-01..19` and `GNRIC-LMW-20..24`. The file name is then place and category only, and the PDM's name check accepts a category-only family name. The rule "a family holds one place tag" is unchanged.

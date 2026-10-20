@@ -1,11 +1,11 @@
 {
   "permissions": {
     "additionalDirectories": [
-      "E:\code\pdm\tools",
-      "E:\code\pdm\scratch",
-      "E:\code\pdm\docs",
-      "E:\code\pdm\data",
-      "E:\PDM-work"
+      "E:/code/pdm/tools",
+      "E:/code/pdm/scratch",
+      "E:/code/pdm/docs",
+      "E:/code/pdm/data",
+      "E:/PDM-work"
     ]
   }
 }

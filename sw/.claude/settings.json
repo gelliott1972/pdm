@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "E:\\PDM-work",
+      "E:\\code\\pdm\\tools",
+      "E:\\code\\pdm\\scratch",
+      "E:\\code\\pdm\\docs"
+    ]
+  }
+}

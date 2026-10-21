@@ -1,5 +1,7 @@
 # Brief for SW: prepare LS-08A-06 for its first import
 
+**Done 21 Oct 2026.** r4 accepted by Admin (see `docs\imports\LS-08A-06-decisions.md`, "r4 accepted").
+
 From Admin, 20 Oct 2026. Report progress in `sw\status.md`; questions in `sw\questions.md`.
 
 ## Goal

@@ -45,7 +45,7 @@ The file PartNos are James's and are the authority; the Rev 3 register numbers w
 
 ## 5. Family splits (20 Oct 2026, part decided)
 
-- **LCMM (`LCMM_40x80x8_SC08`):** split into separate files rather than one shared file: the risk of breaking another screen outweighs the odd duplicate. James's numbers already split it by place tag (`08X04-LMW`, `08X06-LMW`, `08X11-LMW`, `08B11-LMW`). 0806 takes the `08X06-LMW` configurations. For 0806: one file `08X06-LMW`, shared by shafts A, B and C (Grant, 20 Oct 2026).
+- **LCMM (`LCMM_40x80x8_SC08`):** split into separate files rather than one shared file: the risk of breaking another screen outweighs the odd duplicate. James's numbers already split it by place tag (`08X04-LMW`, `08X06-LMW`, `08X11-LMW`, `08B11-LMW`). 0806 takes the `08X06-LMW` configurations. For 0806: one file `08X06-LMW`, shared by shafts A, B and C (Grant, 20 Oct 2026). Stays an assembly (Save As + delete configurations); type letters stay P and W, no "both" letter (Grant with James, 21 Oct 2026). Done in r4 with 9 configurations, `08X06-LMW-01..09`; the 2-size plate replaced by the 4-size one inside it; unused brace and K-beam plate deleted.
 - **Members (`MEMBER_SHS_40x80x8`):** not split (Grant, 20 Oct 2026). The only W members are the ones with a welded end cap; otherwise identical, so splitting would mean two models to keep in step and repointing assemblies. One file named `GNRIC-LM` (category only, as it holds both types); James's numbers kept (`GNRIC-LMP-01..19`, `GNRIC-LMW-20..24`); configuration names (end types, end lengths, LED module count) kept. Import the latest copy (changed 19 Oct), not r3. The PDM name check accepts a category-only family name holding several types.
 
 ## 7–8. Bolt kits (20 Oct 2026)
@@ -64,4 +64,14 @@ The file PartNos are James's and are the authority; the Rev 3 register numbers w
 
 ## 10. Repointing after the family splits (20 Oct 2026)
 
-- Grant repoints in SOLIDWORKS (Replace Components), not the importer: about 14 operations across 9 files (LCMM → `08X06-LMW` in 5 subframes; ties → `GNRIC-BRP` in 6 subframes and `GNRIC-BRA` in `08A06-STA-01`; the 2-size plate → the 4-size plate in `08X06-LMW` and the cantilever). r4 therefore arrives already pointing at the split files, and the retired files (`LCMM_40x80x8_SC08`, `TIE_80x40x8`, `LS-08X-X_PLATE_TIE_BEAM_INTERFACE`) drop out of the Pack and Go. The importer sees these as plain renames.
+- **Done with `tools\DmEdit replace-ref` (Document Manager `ReplaceReference`), Grant's choice on 21 Oct 2026**, replacing the Replace Components plan below; SwCheck confirmed SOLIDWORKS loads the new files with the right configurations. This also proved the repointing the importer relies on.
+- Original plan (20 Oct): Grant repoints in SOLIDWORKS (Replace Components), not the importer: about 14 operations across 9 files (LCMM → `08X06-LMW` in 5 subframes; ties → `GNRIC-BRP` in 6 subframes and `GNRIC-BRA` in `08A06-STA-01`; the 2-size plate → the 4-size plate in `08X06-LMW` and the cantilever). r4 therefore arrives already pointing at the split files, and the retired files (`LCMM_40x80x8_SC08`, `TIE_80x40x8`, `LS-08X-X_PLATE_TIE_BEAM_INTERFACE`) drop out of the Pack and Go. The importer sees these as plain renames.
+
+## r4 accepted (21 Oct 2026, Admin review)
+
+`E:\PDM-work\LS-08A-06-r4`, probed into `scratch\inventory\LS-08A-06-r4`. Independently checked against SW's report: 58 files; 108 references, all resolving inside r4; added `08X06-LMW`, `GNRIC-BRP`, `GNRIC-BRA`; dropped `LCMM_40x80x8_SC08`, `TIE_80x40x8`, the 2-size plate, `LS-08X-11_BRACE`, the K-beam plate. PartNos `08X06-LMW-01..09`, `GNRIC-BRP-10..16` (`-16` Provisional), `GNRIC-BRA-10..12`; `<As Welded>` configurations clean. Still `STOCK` (for the importer to rename): `MEMBER_SHS_40x80x8` (24), `PACKER` (4), `PLATE_FLOOR` (9), `PLATE_LED_CABINET` (7). Grout excluded from BOM. r4 is the importer's source for 0806 A.
+
+Carried forward:
+- **Equations `.txt` prompt** when opening `08A06-STA-01`: which file holds the link is still unknown (Document Manager can't see it). Find it in SOLIDWORKS (open the parts one at a time; the skeleton chain first).
+- **0804 tie file:** James's `TIE_80x40x8` (now `GNRIC-BRP`/`-BRA`) should replace the one 0804 uses, when 0804 comes in.
+- **Referenced Documents** picked up the live Dropbox `_Fasteners` again on 21 Oct; SwCheck now warns about it.

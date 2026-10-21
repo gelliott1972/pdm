@@ -75,3 +75,7 @@ Carried forward:
 - **Equations `.txt` prompt: found and fixed (21 Oct 2026).** The link was on the top-level `LS-08A-06 SCREEN+STRUCTURE`. Grant unticked it, deleted its 8 broken equations (`D*@Tie_Beam_Centerline`) and kept the 7 global variables. Also fixed: the Toolbox "missing size M12 x 45" prompt came from `_Shared\TIE_BEAM_ENDPLATE_BOLTS`, cleared by re-saving it. Both fixes were made **directly in r4**, so r4 is now ahead of the tidy copy `E:\PDM-work\LS-08A-06`, which is not used again for 0806 A. Re-probe: 58 files, 108 references, all inside r4.
 - **0804 tie file:** James's `TIE_80x40x8` (now `GNRIC-BRP`/`-BRA`) should replace the one 0804 uses, when 0804 comes in.
 - **Referenced Documents** picked up the live Dropbox `_Fasteners` again on 21 Oct; SwCheck now warns about it.
+
+## 11. Tie-beam post split (21 Oct 2026)
+
+- `LS-08X-X_TIE_BEAM_POST` holds `08XXX-HBW-01` (`Default`, used by A's three tie beams) and `08BXX-HBW-01` (`SHAFT_B_CONCRETE_BEAM`, B only). Two place tags in one family, so it's split now rather than renamed in the vault later: in r4, Save As `08XXX-HBW-01` (single configuration, file name = number), the B configuration deleted, the tie beams repointed with DmEdit. The B post comes in as `08BXX-HBW-01` with B's set. Brief: `docs\briefs\sw-split-tie-beam-post.md`.

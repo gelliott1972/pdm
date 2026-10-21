@@ -1,5 +1,7 @@
 # Brief for SW: split the tie-beam post (0806 A, in r4)
 
+**Done 21 Oct 2026.** Admin re-checked the r4 probe: `08XXX-HBW-01` present (one configuration, numbered), old post gone, all references inside r4.
+
 From Admin, 21 Oct 2026. Decision 11 in `docs\imports\LS-08A-06-decisions.md`.
 
 ## Where

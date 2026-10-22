@@ -7,5 +7,9 @@
       "E:/code/pdm/tools",
       "E:/PDM-test"
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File E:/code/pdm/.claude/statusline.ps1 App"
   }
 }

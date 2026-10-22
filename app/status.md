@@ -1,4 +1,4 @@
-﻿# App status
+# App status
 
 Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page).
 

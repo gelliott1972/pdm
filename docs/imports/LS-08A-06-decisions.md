@@ -79,3 +79,13 @@ Carried forward:
 ## 11. Tie-beam post split (21 Oct 2026)
 
 - `LS-08X-X_TIE_BEAM_POST` holds `08XXX-HBW-01` (`Default`, used by A's three tie beams) and `08BXX-HBW-01` (`SHAFT_B_CONCRETE_BEAM`, B only). Two place tags in one family, so it's split now rather than renamed in the vault later: in r4, Save As `08XXX-HBW-01` (single configuration, file name = number), the B configuration deleted, the tie beams repointed with DmEdit. The B post comes in as `08BXX-HBW-01` with B's set. Brief: `docs\briefs\sw-split-tie-beam-post.md`.
+
+## 12. Re-import of 0806 A (22 Oct 2026)
+
+The first import (22 Oct) passed SwCheck, but SW's vault review and Dev's link listing found problems, so Grant chose to fix r4 and the importer, wipe `P:\` and import again. Brief: `docs\briefs\reimport-0806A.md`.
+
+- **r4 fixes:** end plate equations link unticked, equations kept; interface plate Weight reads its own mass on all 4 configurations; suppressed floor plate deleted from `LS-08A-06_SF04-LOWER`.
+- **Importer:** SOLIDWORKS link-fix step (`tools\SwFixRefs`) with a gate of no links outside the vault; Weight/Material formulas that name the old file are rewritten; BOM settings on `MDL-`/`NONPART-` reported, not set.
+- **Welded parts are W:** the right-angle tie (`LS-10A-06_SF01A_TIE_RIGHT_ANGLE`) becomes `08X06-SFW.SLDPRT`, with SF01_DEEP = `08X06-SFW-02` and SF04_DEEP = `08X06-SFW-03` (Provisional); SF01 and SF04 are kept for B and C and numbered then. The cantilever return (`LS-10X-06_SF02A_CANTILEVER_RETURN`, two RHS and an end cap) becomes `08X06-SFW-04` (Provisional). The brace keeps its reserved `08X06-SFP-03`.
+- **Left as is:** old component names inside assemblies (cosmetic); junk properties on `DL_APEX` and the Hilti anchor; `GNRIC-LM` stays one file until 0806 and 0811 are in for all shafts; drawing links from shared parts to screen 11 drawings are correct.
+- **Ledger:** the first import's 164 rows were removed from `data\rename-ledger.csv`; the re-import writes them fresh.

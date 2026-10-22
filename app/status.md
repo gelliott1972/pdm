@@ -18,11 +18,13 @@ Updated 21 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 | Cognito identity pool | `pdm` (`ap-east-1:e6866600-7344-486c-b450-f4aca45bdb49`), logged-in only. Role from token; default `pdm-engineer`. |
 | Roles | `pdm-engineer`: list and read the vault, upload except `_Shared/*`, `*/_Shared/*`, `APEX/GNRIC/*`; read and write both tables. `pdm-shared-editor`: same plus upload to shared folders. No delete in either. Credentials last 1 hour. |
 | Group | `shared-editors` → `pdm-shared-editor`. Grant and James are members (Grant: shared files still default to read-only and unticked in the app). |
-| Users | Grant created (temporary password emailed), in `shared-editors`. |
+| Users | Grant and James created (temporary passwords emailed by AWS), both in `shared-editors`. |
+| App, step 1 | `src\Pdm` (.NET 8 console). Settings in `pdm.settings.json` (ids only). `Pdm.exe login`: Cognito email and password login (SRP), handles the first-login new password, then reads the vault and the index to prove the role works. Builds; **not yet tried with a real login**. |
 
 ## Next
 
-1. James's Cognito user (asking Grant when to send the invite).
+1. Grant tries `Pdm.exe login`.
+2. Engine: get, lock, check in, index, SUBST.
 4. Engine from a test command line.
 5. Start `docs\setup-machine.md`.
 

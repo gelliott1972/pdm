@@ -1,0 +1,10 @@
+{
+  "region": "ap-east-1",
+  "bucket": "pdm-apex",
+  "filesTable": "pdm-files",
+  "partNosTable": "pdm-partnos",
+  "userPoolId": "ap-east-1_8pzjtaAIo",
+  "appClientId": "7873328kl19l8fphufb1e5mldb",
+  "identityPoolId": "ap-east-1:e6866600-7344-486c-b450-f4aca45bdb49",
+  "localRoot": "P:\\"
+}

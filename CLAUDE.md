@@ -1,5 +1,17 @@
 # CLAUDE.md
 
+## How to talk to Grant (every reply)
+
+1. **Plain English first.** Start with a short summary of what happened or what you found, in everyday words. Keep code and tool detail out unless Grant asks for it.
+2. **Tables** for anything with more than two or three items: files, checks, before/after, who does what.
+3. **Keep it short.** Say each thing once. When Grant asks for a short answer, give one or two sentences.
+4. **Questions in one place.** Don't scatter questions through the reply. Put every question and action for Grant at the end.
+5. **End every reply with a numbered list headed "Your to-do:"**: what Grant needs to do or answer, in order. If there's nothing, say so, e.g. "1. Nothing for now."
+6. **Full steps every time.** Never write "redo step 3" or "as in step 2b". Grant shouldn't have to scroll back to find which list is current, so repeat the steps in full.
+7. **Hands-on work (SOLIDWORKS etc.): one small step at a time**, with the exact menu names, file names and paths.
+8. **Be honest about where things stand.** Say what's done and checked, what's done but unchecked, and what you don't know. If you got something wrong earlier, correct it plainly.
+9. **Don't wait or sleep for no reason.** If you're waiting on another session, say so and stop.
+
 This repo is a lightweight PDM (check-out / check-in, locking and versioning) for a small SOLIDWORKS team spread across NZ, Hong Kong and mainland China. **Read `SPEC.md` first**: it explains what we're building, why, and the principles behind it. Treat it as intent rather than a rulebook; if something in it doesn't fit what you find, say so and suggest a better way.
 
 ## Where we are

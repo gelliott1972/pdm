@@ -1,48 +1,52 @@
 # App status
 
-Updated 21 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page).
+Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page).
+
+## Grant must do
+
+| # | What | How | Why |
+| --- | --- | --- | --- |
+| 1 | Renew the admin login | In Claude's window: `! aws sso login --profile pdm-admin`, approve in the browser | The loader uses it; the SSO session had expired |
+| 2 | Make `P:` permanent | Right-click PowerShell → **Run as administrator**, then `E:\code\pdm\src\Pdm\bin\Debug\net8.0-windows\pdm.exe map E:\PDM-test\P` | Registry method agreed; needs administrator rights once |
+| 3 | Test checkout and check-in | After the load: run `pdm.exe` in a normal PowerShell window (it asks for your password, so Claude can't run it) | Brief tests 1 and 2 |
 
 ## Done
 
 | Item | Result |
 | --- | --- |
-| Brief read | `docs\briefs\app-mvp.md` (revised version) |
 | .NET 8 SDK | Installed by Grant |
 | Organisation choice | Child account under Candelic, not a new organisation (Grant agreed) |
-| PDM account | Created: `PDM`, `588966315587`, root email `grant+pdm@candelic.com` |
-| Hong Kong region | Enabled in the PDM account (22 Oct) |
-| Grant's admin access | `AdministratorAccess` on PDM assigned to `candelic-admin`; profile `pdm-admin` added (reuses the `candelic-admin-sso` session), tested |
+| PDM account | `PDM`, `588966315587`, root email `grant+pdm@candelic.com` (Grant set root password and MFA; console only, no access keys) |
+| Hong Kong region | Enabled in the PDM account |
+| Grant's admin access | `AdministratorAccess` on PDM for `candelic-admin`; profile `pdm-admin` (reuses the `candelic-admin-sso` session) |
 | Bucket | `pdm-apex`, `ap-east-1`: versioning on, all public access blocked, SSE-S3 encryption with bucket key |
-| DynamoDB | `pdm-files` (key `fileId`, a GUID; index `by-path` on `path`) and `pdm-partnos` (key `partNo`, holds `fileId` + configuration). On-demand billing, point-in-time recovery on. GUID key is Grant's idea: renames change one field, references are by `fileId`. Each S3 object also carries its `fileId` as metadata so a rebuild keeps the IDs. PITR kept (Grant). |
-| Cognito login pool | `pdm-users` (`ap-east-1_8pzjtaAIo`): email login, admin-created users only, MFA off, password 12+ chars, deletion protection on. App client `pdm-app` (`7873328kl19l8fphufb1e5mldb`), no secret, SRP login, 30-day refresh. |
+| DynamoDB | `pdm-files` (key `fileId`, a GUID; index `by-path` on `path`) and `pdm-partnos` (key `partNo` → `fileId`, `path`, `config`, `status`). On-demand, point-in-time recovery on (Grant: keep). GUID key is Grant's idea: renames change one field, references are by `fileId`. Each S3 object carries its `fileId` as metadata (`pdm-file-id`) so a rebuild keeps the ids. |
+| Cognito login pool | `pdm-users` (`ap-east-1_8pzjtaAIo`): email login, admin-created users only, MFA off, password 12+ chars, deletion protection on. App client `pdm-app`, no secret, SRP login, 30-day refresh. |
 | Cognito identity pool | `pdm` (`ap-east-1:e6866600-7344-486c-b450-f4aca45bdb49`), logged-in only. Role from token; default `pdm-engineer`. |
-| Roles | `pdm-engineer`: list and read the vault, upload except `_Shared/*`, `*/_Shared/*`, `APEX/GNRIC/*`; read and write both tables. `pdm-shared-editor`: same plus upload to shared folders. No delete in either. Credentials last 1 hour. |
-| Group | `shared-editors` → `pdm-shared-editor`. Grant and James are members (Grant: shared files still default to read-only and unticked in the app). |
-| Users | Grant and James created (temporary passwords emailed by AWS), both in `shared-editors`. |
-| App, step 1 | `src\Pdm` (.NET 8 console). Settings in `pdm.settings.json` (ids only). `Pdm.exe login`: Cognito email and password login (SRP), handles the first-login new password, then reads the vault and the index to prove the role works. Builds; **not yet tried with a real login**. |
+| Roles | `pdm-engineer`: list and read the vault, upload except `_Shared/*`, `*/_Shared/*`, `APEX/GNRIC/*`; read and write both tables. `pdm-shared-editor`: same plus shared folders. No delete. Credentials last 1 hour. |
+| Group | `shared-editors` → `pdm-shared-editor`. Grant and James are members. Shared files still default to read-only and unticked in the app (Grant). |
+| Users | Grant (password set, login tested) and James (temporary password emailed 22 Oct, expires after 7 days). |
+| Admin role | None in Cognito for now: admin jobs run with `pdm-admin` SSO (Grant agreed). |
+| App: engine | `src\Pdm`, builds. `pdm.exe` = log in once, then `get`, `status`, `checkout`, `checkin -m`, `undo`. Check-in of a file not yet in the vault adds it (needed for new drawings). Locks are conditional writes on the file's index row. Local state in `P:\.pdm\state.json`. **Not yet tested end to end** (needs Grant's login). |
+| App: loader | `pdm.exe load [--dry]`, admin, uses `pdm-admin`. Re-runnable: keeps ids and locks, uploads only new or changed files. **Not yet run** (SSO expired). |
+| App: `P:` | `pdm.exe map <folder>`, run as administrator: DOS Devices registry entry plus an immediate `subst`. **Not yet run.** |
+| Document Manager from .NET 8 | Works: `pdm.exe inspect <file>` read references and PartNos from `LS-08A-06+STRUCTURE`, a SKU (`DL_APEX` on `P:\`) and a fastener family. |
+| Setup document | `docs\setup-machine.md`: engineer PC (A) and Grant's build/admin PC (B). |
 
 ## Next
 
-1. Grant tries `Pdm.exe login`.
-2. Engine: get, lock, check in, index, SUBST.
-4. Engine from a test command line.
-5. Start `docs\setup-machine.md`.
+1. Grant renews `pdm-admin` → loader dry run → real load.
+2. Grant: `map`, then tests 1 and 2 with `pdm.exe`.
+3. Page (local web dashboard), after the engine is proven.
 
 ## Open questions
 
-- Bucket name `candelic-pdm-apex`: OK?
-- Cognito users: email addresses for Grant and James.
+- How the built app reaches engineers' PCs (James has no repo access). Options to put to Grant.
+- SOLIDWORKS Referenced Documents setting for `setup-machine.md` A6: confirm what it should be.
 
 ## Notes
 
-- `OrganizationAccountAccessRole` in the new account refused `candelic-admin` (AccessDenied, retried). Not pursued; going via Identity Center instead.
-- Trusted access for Account Management is not enabled in the organisation; not changing it.
-- Identity Center assignment of `AdministratorAccess` on PDM to `candelic-admin`: Grant approved; it **fails repeatedly** ("Obtaining permissions to manage your AWS account ... is taking longer than usual"), 7 tries from 14:2x to 18:51. Account shows ACTIVE in the organisation. Both routes in (step-in role and SSO) fail, so the new account looks stuck in setup on AWS's side.
-- **Cause found (22 Oct):** the Candelic Identity Center and the `candelic-admin` profile's default region are both `ap-east-1`, which is opt-in. A new account hasn't opted in, so Hong Kong refuses to issue access to it. Fix: step in via a non-opt-in region (`--region ap-southeast-2`), enable `ap-east-1` in the account, then retry the SSO assignment. **Lesson for any future account in this organisation: enable `ap-east-1` first.**
-- Grant has set a root password and MFA on the PDM account (console sign-in only, no access keys).
-- Bucket name: `pdm-apex` (Grant). Cognito users: Grant and James (emails from Grant; kept out of the repo).
-
-## Grant to do by hand
-
-- Approve the permission set assignment.
-- Run the SSO logins when asked.
+- New accounts in this organisation: Identity Center and `candelic-admin` are in `ap-east-1` (opt-in), so a new account can't be reached until `ap-east-1` is enabled in it. Step in via `--region ap-southeast-2` to enable it.
+- Trusted access for Account Management is not enabled in the organisation; not changed.
+- 0806 A import: an earlier pointer to stale "component" paths in 4 SKUs was probably wrong; that field is old in nearly every assembly. Grant's SOLIDWORKS Find References on the re-import shows every path on `P:\`.
+- Today `P:` is a temporary `subst P: E:\PDM-test\P`. The desktop's vault is loaded from it, so it becomes the desktop's working copy.

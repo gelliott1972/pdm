@@ -1,24 +1,43 @@
 ﻿using Amazon;
 using Amazon.DynamoDBv2;
-using Amazon.DynamoDBv2.Model;
+using Amazon.Runtime;
+using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
-using Amazon.S3.Model;
 using Pdm;
 
 // Test command line for the engine. The page comes later.
 var settings = Settings.Load();
-var command = args.Length > 0 ? args[0].ToLowerInvariant() : "";
+var command = args.Length > 0 ? args[0].ToLowerInvariant() : "shell";
 
-switch (command)
+try
 {
-    case "login":
-        return await LoginTest(settings);
-    default:
-        Console.WriteLine("Usage: pdm login");
-        return 2;
+    switch (command)
+    {
+        case "shell":
+            return await Shell(settings);
+        case "load":
+            return await Load(settings, args.Contains("--dry"));
+        case "inspect" when args.Length == 2:
+            var info = new DocReader().Read(Path.GetFullPath(args[1]));
+            foreach (var r in info.References) Console.WriteLine($"ref     {r}");
+            foreach (var p in info.PartNos) Console.WriteLine($"partno  {(p.Config == "" ? "(file)" : p.Config)} = {p.PartNo} {p.Status}");
+            return 0;
+        case "map" when args.Length == 2:
+            return Drive.Map(settings.LocalRoot, args[1], Console.WriteLine);
+        default:
+            Console.WriteLine("Usage: pdm              log in and type commands");
+            Console.WriteLine("       pdm load [--dry] admin: load P:\\ into the vault (uses the pdm-admin SSO login)");
+            Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
+            return 2;
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+    return 1;
 }
 
-static async Task<int> LoginTest(Settings s)
+static async Task<int> Shell(Settings s)
 {
     Console.Write("Email: ");
     var email = Console.ReadLine()?.Trim() ?? "";
@@ -43,22 +62,92 @@ static async Task<int> LoginTest(Settings s)
         Console.WriteLine($"Login failed: {ex.Message}");
         return 1;
     }
-
-    Console.WriteLine($"Logged in as {session.Name} ({session.Email}). Shared editor: {(session.SharedEditor ? "yes" : "no")}");
+    Console.WriteLine($"Logged in as {session.Name}.{(session.SharedEditor ? " You may edit shared folders." : "")}");
 
     var region = RegionEndpoint.GetBySystemName(s.Region);
     using var s3 = new AmazonS3Client(session.Credentials, region);
-    var list = await s3.ListObjectsV2Async(new ListObjectsV2Request { BucketName = s.Bucket, MaxKeys = 5 });
-    Console.WriteLine($"Vault read: OK ({list.KeyCount ?? 0} files in the first page)");
-
     using var db = new AmazonDynamoDBClient(session.Credentials, region);
-    await db.GetItemAsync(new GetItemRequest
+    var engine = new Engine(s, new Pdm.Index(db, s), new Vault(s3, s), session.Email, session.Name, session.SharedEditor, Console.WriteLine);
+
+    Console.WriteLine("Commands: get [folder], status [folder], checkout <file> [<file> ...], checkin <file> [-m \"note\"], undo <file>, quit");
+    Console.WriteLine($"Files can be given as full paths or relative to {s.LocalRoot}");
+    while (true)
     {
-        TableName = s.FilesTable,
-        Key = new() { ["fileId"] = new AttributeValue { S = "login-test" } }
-    });
-    Console.WriteLine("Index read: OK");
+        Console.Write("pdm> ");
+        var line = Console.ReadLine();
+        if (line == null) return 0;
+        var words = Split(line);
+        if (words.Count == 0) continue;
+        var cmd = words[0].ToLowerInvariant();
+        var rest = words.Skip(1).ToList();
+        string Full(string p) => Path.IsPathRooted(p) ? p : Path.Combine(s.LocalRoot, p);
+        try
+        {
+            await session.RefreshAsync();
+            switch (cmd)
+            {
+                case "quit" or "exit":
+                    return 0;
+                case "get":
+                    await engine.GetAsync(rest.Count > 0 ? Full(rest[0]) : null);
+                    break;
+                case "status":
+                    await engine.StatusAsync(rest.Count > 0 ? Full(rest[0]) : null);
+                    break;
+                case "checkout" when rest.Count > 0:
+                    await engine.CheckOutAsync(rest.Select(Full));
+                    break;
+                case "checkin" when rest.Count > 0:
+                    var m = rest.IndexOf("-m");
+                    var note = m >= 0 && m + 1 < rest.Count ? rest[m + 1] : "";
+                    await engine.CheckInAsync(Full(rest[0]), note);
+                    break;
+                case "undo" when rest.Count > 0:
+                    await engine.UndoAsync(Full(rest[0]));
+                    break;
+                default:
+                    Console.WriteLine("Commands: get [folder], status [folder], checkout <file> [<file> ...], checkin <file> [-m \"note\"], undo <file>, quit");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+}
+
+// Admin load with Grant's SSO login (profile pdm-admin). Run "aws sso login --profile pdm-admin" first.
+static async Task<int> Load(Settings s, bool dryRun)
+{
+    if (!new CredentialProfileStoreChain().TryGetAWSCredentials("pdm-admin", out AWSCredentials credentials))
+    {
+        Console.WriteLine("No pdm-admin profile on this PC.");
+        return 1;
+    }
+    var region = RegionEndpoint.GetBySystemName(s.Region);
+    using var s3 = new AmazonS3Client(credentials, region);
+    using var db = new AmazonDynamoDBClient(credentials, region);
+    var index = new Pdm.Index(db, s);
+    var vault = new Vault(s3, s);
+    var engine = new Engine(s, index, vault, "", "Admin", true, Console.WriteLine);
+    await new Loader(s, index, vault, engine, "Grant Elliott", Console.WriteLine).RunAsync(dryRun);
     return 0;
+}
+
+static List<string> Split(string line)
+{
+    var words = new List<string>();
+    var current = new System.Text.StringBuilder();
+    bool quoted = false, any = false;
+    foreach (var c in line)
+    {
+        if (c == '"') { quoted = !quoted; any = true; }
+        else if (char.IsWhiteSpace(c) && !quoted) { if (any) words.Add(current.ToString()); current.Clear(); any = false; }
+        else { current.Append(c); any = true; }
+    }
+    if (any) words.Add(current.ToString());
+    return words;
 }
 
 static string ReadHidden(string prompt)

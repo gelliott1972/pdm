@@ -8,12 +8,26 @@ using Amazon.Runtime;
 namespace Pdm;
 
 // A logged-in user: who they are and short-lived AWS credentials for their role.
+// Tokens are kept in memory only; RefreshAsync renews them before they run out.
 public sealed class Session
 {
     public required string Email { get; init; }
     public required string Name { get; init; }
     public required bool SharedEditor { get; init; }
-    public required AWSCredentials Credentials { get; init; }
+    public required CognitoAWSCredentials Credentials { get; init; }
+    public required CognitoUser User { get; init; }
+    public required string LoginProvider { get; init; }
+
+    public async Task RefreshAsync()
+    {
+        if (User.SessionTokens.ExpirationTime > DateTime.Now.AddMinutes(5)) return;
+        await User.StartWithRefreshTokenAuthAsync(new InitiateRefreshTokenAuthRequest
+        {
+            AuthFlowType = AuthFlowType.REFRESH_TOKEN_AUTH
+        });
+        Credentials.Clear();
+        Credentials.AddLogin(LoginProvider, User.SessionTokens.IdToken);
+    }
 }
 
 public static class Login
@@ -43,15 +57,18 @@ public static class Login
         var claims = new JwtSecurityTokenHandler().ReadJwtToken(idToken).Claims.ToList();
         var groups = claims.Where(c => c.Type == "cognito:groups").Select(c => c.Value).ToList();
 
+        var loginProvider = $"cognito-idp.{s.Region}.amazonaws.com/{s.UserPoolId}";
         var credentials = new CognitoAWSCredentials(s.IdentityPoolId, region);
-        credentials.AddLogin($"cognito-idp.{s.Region}.amazonaws.com/{s.UserPoolId}", idToken);
+        credentials.AddLogin(loginProvider, idToken);
 
         return new Session
         {
             Email = claims.FirstOrDefault(c => c.Type == "email")?.Value ?? email,
             Name = claims.FirstOrDefault(c => c.Type == "name")?.Value ?? email,
             SharedEditor = groups.Contains("shared-editors"),
-            Credentials = credentials
+            Credentials = credentials,
+            User = user,
+            LoginProvider = loginProvider
         };
     }
 }

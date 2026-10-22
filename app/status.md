@@ -18,11 +18,11 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 | Hong Kong region | Enabled in the PDM account |
 | Grant's admin access | `AdministratorAccess` on PDM for `candelic-admin`; profile `pdm-admin` (reuses the `candelic-admin-sso` session) |
 | Bucket | `pdm-apex`, `ap-east-1`: versioning on, all public access blocked, SSE-S3 encryption with bucket key |
-| DynamoDB | `pdm-files` (key `fileId`, a GUID; index `by-path` on `path`) and `pdm-partnos` (key `partNo` â†’ `fileId`, `path`, `config`, `status`). On-demand, point-in-time recovery on (Grant: keep). GUID key is Grant's idea: renames change one field, references are by `fileId`. Each S3 object carries its `fileId` as metadata (`pdm-file-id`) so a rebuild keeps the ids. |
+| DynamoDB | `pdm-files` (key `fileId`, a GUID; index `by-path` on `path`) and `pdm-partnos` (key `partNo` → `fileId`, `path`, `config`, `status`). On-demand, point-in-time recovery on (Grant: keep). GUID key is Grant's idea: renames change one field, references are by `fileId`. Each S3 object carries its `fileId` as metadata (`pdm-file-id`) so a rebuild keeps the ids. |
 | Cognito login pool | `pdm-users` (`ap-east-1_8pzjtaAIo`): email login, admin-created users only, MFA off, password 12+ chars, deletion protection on. App client `pdm-app`, no secret, SRP login, 30-day refresh. |
 | Cognito identity pool | `pdm` (`ap-east-1:e6866600-7344-486c-b450-f4aca45bdb49`), logged-in only. Role from token; default `pdm-engineer`. |
 | Roles | `pdm-engineer`: list and read the vault, upload except `_Shared/*`, `*/_Shared/*`, `APEX/GNRIC/*`; read and write both tables. `pdm-shared-editor`: same plus shared folders. No delete. Credentials last 1 hour. |
-| Group | `shared-editors` â†’ `pdm-shared-editor`. Grant and James are members. Shared files still default to read-only and unticked in the app (Grant). |
+| Group | `shared-editors` → `pdm-shared-editor`. Grant and James are members. Shared files still default to read-only and unticked in the app (Grant). |
 | Users | Grant (password set, login tested) and James (temporary password emailed 22 Oct, expires after 7 days). |
 | Admin role | None in Cognito for now: admin jobs run with `pdm-admin` SSO (Grant agreed). |
 | App: engine | `src\Pdm`, builds. `pdm.exe` = log in once, then `get`, `status`, `checkout`, `checkin -m`, `undo`. Check-in of a file not yet in the vault adds it (needed for new drawings). Locks are conditional writes on the file's index row. Local state in `P:\.pdm\state.json`. **Not yet tested end to end** (needs Grant's login). |
@@ -33,8 +33,7 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 
 ## Next
 
-1. Grant renews `pdm-admin` â†’ loader dry run â†’ real load.
-2. Grant: `map`, then tests 1 and 2 with `pdm.exe`.
+1. Grant: tests 1 and 2 with `pdm.exe`.
 2. Page (local web dashboard), after the engine is proven.
 
 ## Open questions

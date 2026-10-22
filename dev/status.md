@@ -4,7 +4,7 @@ Updated 22 Oct 2026.
 
 ## Now: 0806 A import into the test vault (deadline: James draws from it 22 Oct)
 
-**State:** import done and SOLIDWORKS-checked (22 Oct). Waiting for Grant to open it himself, then Admin's review and the ledger rows into `data\rename-ledger.csv`.
+**State (22 Oct, later):** App found 4 SKUs storing r4 paths. Cause: Document Manager `ReplaceReference` doesn't update every path SOLIDWORKS keeps (worst for files that never load). New `tools\SwFixRefs` (SOLIDWORKS `ReplaceReferencedDocument` on closed files) found 27 and repointed 26 in the current `P:\`; 1 left (SF04 floor plate, left out). SwCheck still passes. **On hold:** Grant agreed to fix r4 and the importer, then wipe `P:\` and re-import. Admin is agreeing the list with Dev and SW; no file changes until then. Dev's proposals were sent to Admin (SOLIDWORKS repoint step and gate, property formulas naming old files, floor plate decision, MDL/NONPART BOM check (not yet implemented, contrary to what I told Grant), end-plate fix into r4, ledger rows before re-planning).
 
 | Step | State |
 | --- | --- |

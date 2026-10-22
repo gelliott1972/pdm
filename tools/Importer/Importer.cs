@@ -1,9 +1,10 @@
 // Importer: bring one screen's Pack and Go into the vault with the Document Manager, following the reviewed
 // import plan (tools\importplan\export_actions.py writes the two CSVs).
-// Usage: Importer.exe <files.csv> <partnos.csv> <sourceRoot> <vaultRoot> <ledger.csv> <screen> <report.md> [--apply]
+// Usage: Importer.exe <files.csv> <partnos.csv> <sourceRoot> <vaultRoot> <ledger.csv> <screen> <report.md> [--apply [--existing]]
 // Without --apply it only checks and writes the report (a dry run). With --apply it copies each file into the
 // vault under its new name, repoints every reference, writes PartNo (and PartNoStatus = Provisional), adds the
-// ledger rows, and re-reads every vault file. It never deletes, never edits the source, and refuses Dropbox paths.
+// ledger rows, and re-reads every vault file. --existing re-runs everything after the copy on files already in the
+// vault (no copy, no ledger rows), e.g. to try a new step on a vault from an earlier run. It never deletes, never edits the source, and refuses Dropbox paths.
 // The licence key is read from the SW_DM_KEY environment variable and is never printed.
 // Written in C# 5 so it compiles with the .NET Framework compiler built into Windows.
 
@@ -27,7 +28,7 @@ class PartNoRow { public string File, Config, Level, PartNo, Status, From; }
 static class Importer
 {
     static ISwDMApplication app;
-    static readonly List<string> errors = new List<string>(), warnings = new List<string>(), done = new List<string>();
+    static readonly List<string> errors = new List<string>(), warnings = new List<string>(), done = new List<string>(), bom = new List<string>();
 
     static int Main(string[] args)
     {
@@ -40,7 +41,7 @@ static class Importer
         // Path.Combine gives the drive-relative "P:APEX\...", which then gets written into the files.
         string sourceRoot = Path.GetFullPath(args[2]).TrimEnd('\\'), vaultRoot = Path.GetFullPath(args[3]).TrimEnd('\\');
         string ledgerPath = args[4], screen = args[5], reportPath = args[6];
-        bool apply = args.Contains("--apply");
+        bool apply = args.Contains("--apply"), existing = args.Contains("--existing");
         foreach (var p in new[] { sourceRoot, vaultRoot, ledgerPath, reportPath })
             if (p.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0) { Console.Error.WriteLine("REFUSED (inside Dropbox): " + p); return 2; }
 
@@ -78,7 +79,8 @@ static class Importer
         foreach (var it in imports)
         {
             if (!File.Exists(it.Source)) errors.Add("Source missing: " + it.Source);
-            if (File.Exists(it.Target)) errors.Add("Already in the vault: " + it.Target);
+            if (existing) { if (!File.Exists(it.Target)) errors.Add("Not in the vault (--existing): " + it.Target); }
+            else if (File.Exists(it.Target)) errors.Add("Already in the vault: " + it.Target);
             else if (Directory.Exists(vaultRoot + "\\"))
             {
                 var same = Directory.GetFiles(vaultRoot + "\\", it.NewName, SearchOption.AllDirectories);
@@ -134,15 +136,21 @@ static class Importer
         }
 
         // ---------------------------------------------------------------- apply
-        foreach (var it in imports)
+        if (!existing)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(it.Target));
-            File.Copy(it.Source, it.Target, false);
-            File.SetAttributes(it.Target, File.GetAttributes(it.Target) & ~FileAttributes.ReadOnly);
+            foreach (var it in imports)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(it.Target));
+                File.Copy(it.Source, it.Target, false);
+                File.SetAttributes(it.Target, File.GetAttributes(it.Target) & ~FileAttributes.ReadOnly);
+            }
+            done.Add("Copied " + imports.Count + " files into " + vaultRoot + "\\.");
         }
-        done.Add("Copied " + imports.Count + " files into " + vaultRoot + "\\.");
 
-        int repointed = 0, written = 0;
+        // Old file name -> new, for formulas that name a file (Weight = "SW-Mass@OLD.SLDPRT").
+        var renames = imports.Where(i => !i.OldName.Equals(i.NewName, StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(i => i.OldName, i => i.NewName, StringComparer.OrdinalIgnoreCase);
+        int repointed = 0, written = 0, formulas = 0;
         foreach (var it in imports)
         {
             SwDmDocumentOpenError err;
@@ -173,15 +181,19 @@ static class Importer
                     if (SetProp(doc, p.Level == "file" ? null : p.Config, "PartNo", p.PartNo, it.NewName)) written++;
                     if (p.Status == "Provisional") SetProp(doc, p.Level == "file" ? null : p.Config, "PartNoStatus", "Provisional", it.NewName);
                 }
+                formulas += RewriteFormulas(doc, renames);
                 var saveErr = doc.Save();
                 if (saveErr != SwDmDocumentSaveError.swDmDocumentSaveErrorNone) errors.Add("Save failed on " + it.Target + ": " + saveErr);
             }
             finally { try { doc.CloseDoc(); } catch { } }
         }
-        done.Add("Repointed " + repointed + " stored references; wrote " + written + " PartNo values that differed from the file.");
+        done.Add("Repointed " + repointed + " stored references; wrote " + written + " PartNo values that differed from the file; rewrote " + formulas + " property formulas that named an old file.");
 
-        WriteLedger(ledgerPath, screen, imports, items, partnos, sourceRoot, vaultRoot);
-        done.Add("Added " + (imports.Count + partnos.Count(p => byOld[p.File].Import)) + " rows to " + ledgerPath + ".");
+        if (!existing)
+        {
+            WriteLedger(ledgerPath, screen, imports, items, partnos, sourceRoot, vaultRoot);
+            done.Add("Added " + (imports.Count + partnos.Count(p => byOld[p.File].Import)) + " rows to " + ledgerPath + ".");
+        }
 
         // ---------------------------------------------------------------- check after
         int checkedRefs = 0;
@@ -206,6 +218,8 @@ static class Importer
                     string v = GetProp(doc, p.Level == "file" ? null : p.Config, "PartNo");
                     if (v != p.PartNo) errors.Add("PartNo didn't read back on " + it.NewName + " / " + p.Config + ": " + v);
                 }
+                foreach (var f in OldFormulas(doc, renames)) errors.Add("After import, " + it.NewName + " still has a formula naming an old file: " + f);
+                BomSettings(doc, it);
             }
             finally { try { doc.CloseDoc(); } catch { } }
         }
@@ -296,6 +310,90 @@ static class Importer
         return result;
     }
 
+    // Every property, at file level (config null) and per configuration, with its expression.
+    static List<Tuple<string, string, string>> Expressions(ISwDMDocument31 doc)
+    {
+        var result = new List<Tuple<string, string, string>>();
+        SwDmCustomInfoType t;
+        var names = doc.GetCustomPropertyNames() as string[];
+        if (names != null)
+            foreach (var n in names) result.Add(Tuple.Create((string)null, n, Safe(() => doc.GetCustomProperty(n, out t))));
+        foreach (var cn in (string[])doc.ConfigurationManager.GetConfigurationNames())
+        {
+            var cfg = Config(doc, cn);
+            var cnames = cfg == null ? null : cfg.GetCustomPropertyNames() as string[];
+            if (cnames == null) continue;
+            foreach (var n in cnames) result.Add(Tuple.Create(cn, n, Safe(() => cfg.GetCustomProperty(n, out t))));
+        }
+        return result;
+    }
+
+    static string Renamed(string expr, Dictionary<string, string> renames)
+    {
+        foreach (var r in renames)
+        {
+            int i, from = 0;
+            while ((i = expr.IndexOf("@" + r.Key, from, StringComparison.OrdinalIgnoreCase)) >= 0)
+            {
+                expr = expr.Substring(0, i + 1) + r.Value + expr.Substring(i + 1 + r.Key.Length);
+                from = i + 1 + r.Value.Length;
+            }
+        }
+        return expr;
+    }
+
+    // Formulas such as Weight = "SW-Mass@OLD.SLDPRT" keep the old file name after a rename. SOLIDWORKS fixes
+    // its own name on the next save, but not until then, and not names of other files.
+    static int RewriteFormulas(ISwDMDocument31 doc, Dictionary<string, string> renames)
+    {
+        int n = 0;
+        foreach (var e in Expressions(doc))
+        {
+            string fixedExpr = Renamed(e.Item3, renames);
+            if (fixedExpr == e.Item3) continue;
+            if (e.Item1 == null) doc.SetCustomProperty(e.Item2, fixedExpr);
+            else Config(doc, e.Item1).SetCustomProperty(e.Item2, fixedExpr);
+            n++;
+        }
+        return n;
+    }
+
+    static IEnumerable<string> OldFormulas(ISwDMDocument31 doc, Dictionary<string, string> renames)
+    {
+        return Expressions(doc).Where(e => Renamed(e.Item3, renames) != e.Item3)
+            .Select(e => (e.Item1 ?? "file") + " / " + e.Item2 + " = " + e.Item3);
+    }
+
+    // MDL- assemblies should promote their contents in the BOM; NONPART- parts should be excluded from the BOM
+    // wherever they are placed. Reported only (decision 12).
+    static void BomSettings(ISwDMDocument31 doc, Item it)
+    {
+        if (TypeOf(it.Target) != SwDmDocumentType.swDmDocumentAssembly) return;
+        bool mdl = it.NewName.StartsWith("MDL-", StringComparison.OrdinalIgnoreCase);
+        foreach (var cn in (string[])doc.ConfigurationManager.GetConfigurationNames())
+        {
+            var cfg = Config(doc, cn);
+            if (cfg == null) continue;
+            if (mdl)
+            {
+                var v = (swDmShowChildComponentsInBOMResult)cfg.ShowChildComponentsInBOM2;
+                bool ok = v == swDmShowChildComponentsInBOMResult.swDmShowChildComponentsInBOM_Promote;
+                bom.Add("| " + it.NewName + " | configuration " + cn + " | child components: " + v.ToString().Replace("swDmShowChildComponentsInBOM_", "") + " | Promote " + (ok ? "(ok)" : "**(differs)**") + " |");
+            }
+            var arr = cfg.GetComponents() as object[];
+            if (arr == null) continue;
+            foreach (var o in arr)
+            {
+                var c = o as ISwDMComponent12;
+                string p = c == null ? "" : Safe(() => c.PathName);
+                if (!Path.GetFileName(p).StartsWith("NONPART-", StringComparison.OrdinalIgnoreCase)) continue;
+                var x = (swDmExcludeFromBOMResult)c.ExcludeFromBOM;
+                bool ok = x == swDmExcludeFromBOMResult.swDmExcludeFromBOM_TRUE;
+                bom.Add("| " + Path.GetFileName(p) + " | in " + it.NewName + " / " + cn + " | Exclude from BOM: " + x.ToString().Replace("swDmExcludeFromBOM_", "") + " | TRUE " + (ok ? "(ok)" : "**(differs)**") + " |");
+            }
+        }
+    }
+
     // Writes only when the value differs. Returns true if it wrote.
     static bool SetProp(ISwDMDocument31 doc, string config, string name, string value, string where)
     {
@@ -372,6 +470,15 @@ static class Importer
         sb.AppendLine();
         if (errors.Count > 0) { sb.AppendLine("## Problems" + (apply ? "" : " (the import won't run until these are fixed)")); sb.AppendLine(); foreach (var e in errors) sb.AppendLine("- " + e); sb.AppendLine(); }
         if (done.Count > 0) { sb.AppendLine("## Done"); sb.AppendLine(); foreach (var d in done) sb.AppendLine("- " + d); sb.AppendLine(); }
+        if (bom.Count > 0)
+        {
+            sb.AppendLine("## BOM settings on MDL- and NONPART- files (reported, not changed)");
+            sb.AppendLine();
+            sb.AppendLine("| File | Where | Setting | Expected |");
+            sb.AppendLine("| --- | --- | --- | --- |");
+            foreach (var b in bom.Distinct()) sb.AppendLine(b);
+            sb.AppendLine();
+        }
         if (warnings.Count > 0) { sb.AppendLine("## Notes"); sb.AppendLine(); foreach (var w in warnings.Distinct()) sb.AppendLine("- " + w); sb.AppendLine(); }
         sb.AppendLine("## Files");
         sb.AppendLine();

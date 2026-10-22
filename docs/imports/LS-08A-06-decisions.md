@@ -85,6 +85,7 @@ Carried forward:
 The first import (22 Oct) passed SwCheck, but SW's vault review and Dev's link listing found problems, so Grant chose to fix r4 and the importer, wipe `P:\` and import again. Brief: `docs\briefs\reimport-0806A.md`.
 
 - **r4 fixes:** end plate equations link unticked, equations kept; interface plate Weight reads its own mass on all 4 configurations; suppressed floor plate deleted from `LS-08A-06_SF04-LOWER`.
+The 4 bolt kits set to Promote in all 7 configurations (decision 7–8; they were Show), by Grant on 23 Oct, read back by SW.
 - **Importer:** SOLIDWORKS link-fix step (`tools\SwFixRefs`) with a gate of no links outside the vault; Weight/Material formulas that name the old file are rewritten; BOM settings on `MDL-`/`NONPART-` reported, not set.
 - **Welded parts are W:** the right-angle tie (`LS-10A-06_SF01A_TIE_RIGHT_ANGLE`) becomes `08X06-SFW.SLDPRT`, with SF01_DEEP = `08X06-SFW-02` and SF04_DEEP = `08X06-SFW-03` (Provisional); SF01 and SF04 are kept for B and C and numbered then. The cantilever return (`LS-10X-06_SF02A_CANTILEVER_RETURN`, two RHS and an end cap) becomes `08X06-SFW-04` (Provisional). The brace keeps its reserved `08X06-SFP-03`.
 - **Left as is:** old component names inside assemblies (cosmetic); junk properties on `DL_APEX` and the Hilti anchor; `GNRIC-LM` stays one file until 0806 and 0811 are in for all shafts; drawing links from shared parts to screen 11 drawings are correct.

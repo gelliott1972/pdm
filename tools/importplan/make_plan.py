@@ -26,6 +26,36 @@ SCREEN_FILE = {
     "LS-08BC-11": "LS-08X-11",
 }
 
+# Names and numbers decided for one screen's import (docs\imports\<screen>-decisions.md). Not rules for other screens.
+#   files:   old file -> (new name, new folder or None to keep the proposed one, where decided)
+#   partnos: (old file, configuration or "@file") -> (PartNo, provisional?, where decided)
+#   fasteners: (grade, finish) for the bought-in screw, nut and washer families
+DECIDED = {
+    "LS-08A-06": {
+        "files": {
+            "MEMBER_SHS_40x80x8.SLDPRT": ("GNRIC-LM", r"APEX\GNRIC", "decision 5"),
+            "LS-10X-06_SF02A_CANTILEVER_BRACE.SLDPRT": ("08X06-SFP-03", r"APEX\SC08\LS-08X-06\_Shared", "decision 2"),
+            "LS-08X-06_NARROW_SIDE_CROSS_BRACE.SLDPRT": ("08X06-DBP", None, "Grant, 21 Oct 2026"),
+            "LS-10A-06_SF01A_TIE_RIGHT_ANGLE.SLDPRT": ("08X06-SFP", None, "Grant, 21 Oct 2026"),
+        },
+        "partnos": {
+            ("LS-10X-06_SF02A_CANTILEVER_BRACE.SLDPRT", "Default<As Machined>"): ("08X06-SFP-03", True, "decision 2"),
+            ("LS-10X-06_SF02A_CANTILEVER_RETURN.SLDPRT", "Default<As Machined>"): ("08X06-SFP-02", True, "decision 2"),
+            ("LS-08A-06_SF02_03-CANTILEVERED_SUB_ASSSY.SLDASM", "Default"): ("08X06-SFW-01", True, "decision 2"),
+            ("LS-08X-06_NARROW_SIDE_CROSS_BRACE.SLDPRT", "319X319<As Machined>"): ("08X06-DBP-01", True, "Grant, 21 Oct 2026"),
+            ("LS-08X-06_NARROW_SIDE_CROSS_BRACE.SLDPRT", "319X394<As Machined>"): ("08X06-DBP-02", True, "Grant, 21 Oct 2026"),
+            ("LS-10A-06_SF01A_TIE_RIGHT_ANGLE.SLDPRT", "SF01_DEEP<As Machined>"): ("08X06-SFP-01", True, "Grant, 21 Oct 2026"),
+            ("LS-10A-06_SF01A_TIE_RIGHT_ANGLE.SLDPRT", "SF04_DEEP<As Machined>"): ("08X06-SFP-04", True, "Grant, 21 Oct 2026"),
+            ("08A06-STA-01.SLDASM", "Default"): ("08A06-STA-01", True, "pending spec change (ST category)"),
+            ("LS-08X-X_TIE_BEAM_INTERFACE_PLATE.SLDPRT", "PL_180x140"): ("08XXX-PLP-30", False, "decision 1 (James's number)"),
+            ("LS-08X-X_TIE_BEAM_INTERFACE_PLATE.SLDPRT", "PL_180x140-Perpendicular slots"): ("08XXX-PLP-31", False, "decision 1 (James's number)"),
+            ("LS-08X-X_TIE_BEAM_INTERFACE_PLATE.SLDPRT", "PL_200x140"): ("08XXX-PLP-32", False, "decision 1 (James's number)"),
+            ("LS-08X-X_TIE_BEAM_INTERFACE_PLATE.SLDPRT", "PL_200x140-Perpendicular slots"): ("08XXX-PLP-33", False, "decision 1 (James's number)"),
+        },
+        "fasteners": ("8.8", "HDG"),   # decision 6
+    },
+}
+
 def load(name):
     with open(os.path.join(inv, name), encoding="utf-8-sig") as f:
         return list(csv.DictReader(f))
@@ -70,6 +100,20 @@ for p in props:
             file_partno[key(p["file"])] = gnric(v)
         else:
             cfg_partno[(key(p["file"]), p["config"])] = gnric(v)
+
+file_status, cfg_status = {}, {}                 # PartNoStatus already in the files
+for p in props:
+    if p["name"].lower() == "partnostatus":
+        v = (p["value"] or p["expression"]).strip()
+        if p["config"] == "(file)":
+            file_status[key(p["file"])] = v
+        else:
+            cfg_status[(key(p["file"]), p["config"])] = v
+
+dec = DECIDED.get(screen, {})
+dec_files = {key(k): v for k, v in dec.get("files", {}).items()}
+dec_pn = {(key(f), c): v for (f, c), v in dec.get("partnos", {}).items()}
+fast_spec = dec.get("fasteners")
 
 cfg_list = collections.defaultdict(list)          # file -> [(config, parent)]
 for c in cfgs:
@@ -273,6 +317,8 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
             new_name, source = f"FAST-{m.group(1).upper() if m else 'HILTI'}-{sz}{grade}", "rule (single part, named for the model)"
             if sz != "M12x125":   # Grant measured the job anchor at 125 mm (19 Oct 2026)
                 flags.append(flag(fname, f"model is {sz} but job anchors are HST3-R M12x125: check the model"))
+        elif fast_spec:
+            new_name, source = f"FAST-{t or '?'}-{fast_spec[0]}-{fast_spec[1]}", "rule (family, sizes as configurations); grade and finish decided"
         else:
             new_name, source = f"FAST-{t or '?'}-{{grade}}-{{finish}}", "rule (family, sizes as configurations)"
             flags.append(flag(fname, "grade and finish not recorded in the Toolbox file: fill in"))
@@ -341,6 +387,10 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     elif cls == "combined":
         action, new_name, source = "import, keep name", f"{screen}+STRUCTURE", "rule (screen + structure)"
         new_folder = rf"APEX\SC{scene_no}\LS-{scene_no}X-{screen_no}"
+    elif fk in dec_files and cls == "steel":
+        new_name, new_folder, source = dec_files[fk]
+        if not new_folder:
+            new_folder, ff = folder_for(place_of(new_name))
     elif is_top and cls == "steel" and key(s) not in reg_file and fk not in file_partno and not PN_RE.match(s):
         action, new_name, source = "decide", s, "nothing in this screen uses it"
         flags.append(flag(fname, "not used by any assembly in this Pack and Go: import, or leave out?"))
@@ -417,12 +467,15 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         in_file = cfg_partno.get((fk, cfg), "") or file_partno.get(fk, "")   # a file-level PartNo covers configurations without their own
         in_reg = reg_cfg.get((key(s), key(norm_cfg(cfg))), "")
         n_used = used[fk].get(cfg, 0)
-        if not (in_file or in_reg or n_used):
+        decided = dec_pn.get((fk, cfg))
+        if not (in_file or in_reg or n_used or decided):
             continue
         pflags = []
         if cls == "fastener":
             if "hilti" in fk:
                 proposed = new_name
+            elif fast_spec:   # FAST-HEX-M20x35-8.8-HDG (SPEC.md, Part numbers and file names)
+                proposed = f"FAST-{new_name.split('-')[1]}-{fastener_size(cfg)}-{fast_spec[0]}-{fast_spec[1]}"
             else:
                 proposed = f"{new_name}-{fastener_size(cfg)}" if new_name else ""
             src = "rule"
@@ -441,6 +494,9 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
             else:
                 proposed, src = "", "none"
                 pflags.append("no number")
+            if decided:
+                proposed, src = decided[0], decided[2]
+                pflags = []
             if proposed and n_used and cross_screen(place_of(proposed)):
                 pflags.append(f"numbered for another screen")
             if not n_used:
@@ -448,7 +504,19 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         for pf in pflags:
             if pf not in ("not used in this screen",):
                 issues.append((f"{fname} / {cfg}", pf))
-        pn_rows.append([fname, cfg, parent, n_used, in_file, in_reg, proposed, src, "; ".join(pflags), "", ""])
+        # Where the number goes: the level James used; a configuration with none of its own and no parent
+        # (not an <As Welded> child) gets it at configuration level.
+        if cfg_partno.get((fk, cfg)):
+            level = "config"
+        elif file_partno.get(fk):
+            level = "file"
+        elif parent and not decided:
+            level = ""
+        else:
+            level = "config"
+        provisional = (decided and decided[1]) or src.startswith("sample register")             or (cfg_status.get((fk, cfg)) if level == "config" else file_status.get(fk, "")) == "Provisional"
+        status = "Provisional" if provisional and proposed else ""
+        pn_rows.append([fname, cfg, parent, n_used, in_file, in_reg, proposed, src, level, status, "; ".join(pflags), "", ""])
 
 # Two files can't end up with the same name: SOLIDWORKS matches references by file name.
 by_new_name = collections.defaultdict(list)
@@ -508,9 +576,9 @@ sheet(ws, ["Inbox folder", "File", "Original location", "Class", "Proposed actio
       '"accept,import,leave out,split family,reuse existing"', 11)
 
 ws = out.create_sheet("PartNos")
-sheet(ws, ["File", "Configuration", "Parent config", "Used here (count)", "PartNo in file", "PartNo in register", "Proposed PartNo", "From", "Flags", "Your choice", "Override PartNo"],
-      pn_rows, [44, 44, 22, 8, 18, 18, 26, 22, 40, 14, 22], 8, [9, 10],
-      '"proposed,file,register,override"', 9)
+sheet(ws, ["File", "Configuration", "Parent config", "Used here (count)", "PartNo in file", "PartNo in register", "Proposed PartNo", "From", "Level", "Status", "Flags", "Your choice", "Override PartNo"],
+      pn_rows, [44, 44, 22, 8, 18, 18, 26, 22, 8, 12, 40, 14, 22], 10, [11, 12],
+      '"proposed,file,register,override"', 11)
 
 ws = out.create_sheet("Issues")
 sheet(ws, ["Where", "Issue"], issues, [70, 100], 1, [])

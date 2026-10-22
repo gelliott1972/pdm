@@ -92,6 +92,7 @@ static class SwCheck
                     if (outside) problems++;
                     Console.WriteLine("  " + Rel(p, root) + (outside ? "  ** OUTSIDE ROOT **" : ""));
                     if (d.GetType() == (int)swDocumentTypes_e.swDocPART) problems += PartLinks(d, root);
+                    problems += Equations(d);
                 }
             Console.WriteLine();
             Console.WriteLine(problems == 0 ? "RESULT: all loaded from inside the root, nothing missing" : "RESULT: " + problems + " problem(s)");
@@ -145,6 +146,30 @@ static class SwCheck
             bool exists = File.Exists(p);
             if (outside || !exists) problems++;
             Console.WriteLine("      part link -> " + Rel(p, root) + (outside ? "  ** OUTSIDE ROOT **" : "") + (exists ? "" : "  ** FILE NOT FOUND **"));
+        }
+        return problems;
+    }
+
+    // Equations: a linked equations file is a problem; the equations themselves are listed for reading.
+    // EvaluateAll's return isn't a usable error signal (it gives -1 on healthy Toolbox parts too), so it isn't counted.
+    static int Equations(IModelDoc2 d)
+    {
+        var em = d.GetEquationMgr() as IEquationMgr;
+        if (em == null) return 0;
+        int problems = 0;
+        if (em.LinkToFile || !string.IsNullOrEmpty(em.FilePath))
+        {
+            problems++;
+            Console.WriteLine("      ** EQUATIONS LINKED TO A FILE: " + em.FilePath + " (link " + (em.LinkToFile ? "on" : "off") + ") **");
+        }
+        int n = em.GetCount();
+        if (n == 0) return problems;
+        Console.WriteLine("      equations: " + n);
+        for (int i = 0; i < n; i++)
+        {
+            string eq = em.Equation[i];
+            bool global = em.GlobalVariable[i];
+            Console.WriteLine("        " + (global ? "[global] " : "") + eq);
         }
         return problems;
     }

@@ -27,7 +27,13 @@ static class SwCheck
             return 2;
         }
 
-        var sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application"));
+        ISldWorks sw;
+        try { sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application")); }
+        catch (Exception e)
+        {
+            Console.Error.WriteLine("SOLIDWORKS didn't start (" + e.Message.Split('\n')[0].Trim() + "). Start it by hand once, deal with any licence or activation message, close it and try again.");
+            return 3;
+        }
         // The SOLIDWORKS this run started, so it can be made to exit at the end (ExitApp alone can leave it
         // running with no window, holding files in memory).
         var started = Process.GetProcessesByName("SLDWORKS").FirstOrDefault();

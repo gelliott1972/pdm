@@ -42,7 +42,13 @@ static class SwFixRefs
             }
         }
 
-        var sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application"));
+        ISldWorks sw;
+        try { sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application")); }
+        catch (Exception e)
+        {
+            Console.Error.WriteLine("SOLIDWORKS didn't start (" + e.Message.Split('\n')[0].Trim() + "). Start it by hand once, deal with any licence or activation message, close it and try again.");
+            return 3;
+        }
         var started = Process.GetProcessesByName("SLDWORKS").FirstOrDefault();
         int outside = 0, fixedCount = 0, failed = 0;
         try

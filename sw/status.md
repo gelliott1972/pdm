@@ -77,3 +77,11 @@ No SOLIDWORKS left running. Next: Dev imports r4.
 
 Split `LS-08X-X_TIE_BEAM_POST` in r4: `Default` → `08XXX-HBW-01` (15 uses in TIE_BEAM_1/2/3, one suppressed); `SHAFT_B_CONCRETE_BEAM` (`08BXX-HBW-01`) unused in A, dropped. Backup in `E:\PDM-work\scratch\LS-08A-06-pre-post-split\`. Grant made `_Shared\08XXX-HBW-01.SLDPRT` (13:56): only `Default` left, PartNo `08XXX-HBW-01`, Weight already names the new file. DmEdit replace-ref in TIE_BEAM_1/2/3 (also replaced stale `C:\Users\DELL\Dropbox\...` stored paths in 2 and 3). No references to the old post left; old post removed from r4 (identical copy in the backup). Next: Grant opens SCREEN+STRUCTURE, rebuilds, checks tie beams, Save All; then re-probe.
 - Grant: SCREEN+STRUCTURE rebuilt with no errors, Save All (13:58); the three tie beams re-saved from SOLIDWORKS (14:01–14:02) so their stored component names update. **Re-probe of r4** (`scratch\inventory\LS-08A-06-r4`): 58 files, 108 references, all inside r4; `08XXX-HBW-01` used 15 times (1 suppressed); old post gone; no stale old names (post, LCMM, tie, 2-size plate) anywhere. No SOLIDWORKS running. Post split done; Admin and Dev told.
+
+## Paused (21 Oct 2026, Admin)
+
+Waiting for Dev's import of 0806 A. Keep SOLIDWORKS free for Dev's SwCheck. Next job (when Admin says): check the imported 0806 A in the test vault `E:\PDM-test\P` with Grant: top assemblies open, nothing loaded from outside the vault, BOM shows the right PartNos.
+
+## Notes for B, C and 0811 prep
+
+- **Second equations `.txt` link (Dev, 22 Oct):** the tie-beam end plate `_Shared\LS-08X-X_TIE_BEAM_END_PLATE.SLDPRT` (`08XXX-PLP-20` in the vault) links to `C:\Users\DELL\Dropbox\...\311v3\SC08\LS-08X-11\FRAME\ShaftA\LS_08A-11_Tie_Bar_equations.txt` (7 globals + 4 sketch equations). So the r4 fix on the top-level assembly was only half of it. Grant is fixing the vault copy (untick Link to external file, keep the equations). Still linked: the r4 copy, the live Dropbox copies and the 0811 copies. In B, C and 0811 prep, check equations in every file (SwCheck now lists them per file), not just the top level. The top-level `LS-08A-06+STRUCTURE` fix held (7 globals, no link).

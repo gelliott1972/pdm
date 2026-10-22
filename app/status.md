@@ -6,8 +6,7 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 
 | # | What | How | Why |
 | --- | --- | --- | --- |
-| 1 | Approve the real load | Say "go" in Claude's window | Dry run was clean: 57 files, 0 outside references |
-| 2 | Test checkout and check-in | After the load: run `pdm.exe` in a normal PowerShell window (it asks for your password, so Claude can't run it) | Brief tests 1 and 2 |
+| 1 | Test checkout and check-in | After the load: run `pdm.exe` in a normal PowerShell window (it asks for your password, so Claude can't run it) | Brief tests 1 and 2 |
 
 ## Done
 
@@ -27,7 +26,7 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 | Users | Grant (password set, login tested) and James (temporary password emailed 22 Oct, expires after 7 days). |
 | Admin role | None in Cognito for now: admin jobs run with `pdm-admin` SSO (Grant agreed). |
 | App: engine | `src\Pdm`, builds. `pdm.exe` = log in once, then `get`, `status`, `checkout`, `checkin -m`, `undo`. Check-in of a file not yet in the vault adds it (needed for new drawings). Locks are conditional writes on the file's index row. Local state in `P:\.pdm\state.json`. **Not yet tested end to end** (needs Grant's login). |
-| App: loader | `pdm.exe load [--dry]`, admin, uses `pdm-admin`. Re-runnable: keeps ids and locks, uploads only new or changed files. Dry run 23 Oct: 57 files (28 parts, 29 assemblies, 72 MB), 105 PartNos, 107 references all inside the vault, 0 outside, no PartNo clashes. Real load waiting for Grant's go. |
+| App: loader | `pdm.exe load [--dry]`, admin, uses `pdm-admin`. Re-runnable: keeps ids and locks, uploads only new or changed files. Dry run 23 Oct: 57 files (28 parts, 29 assemblies, 72 MB), 105 PartNos, 107 references all inside the vault, 0 outside, no PartNo clashes. Real load 23 Oct: 57 objects in `pdm-apex`, 57 rows in `pdm-files`, 105 in `pdm-partnos`, all 57 local files read-only; a re-run dry finds 0 changed. |
 | App: `P:` | `pdm.exe map <folder>`, run as administrator: DOS Devices registry entry plus an immediate `subst`. Run on the desktop 23 Oct: registry `P:` = `\??\E:\PDM-test\P`, `subst` shows it. Restart survival not yet checked. |
 | Document Manager from .NET 8 | Works: `pdm.exe inspect <file>` read references and PartNos from `LS-08A-06+STRUCTURE`, a SKU (`DL_APEX` on `P:\`) and a fastener family. |
 | Setup document | `docs\setup-machine.md`: engineer PC (A) and Grant's build/admin PC (B). |
@@ -36,11 +35,11 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 
 1. Grant renews `pdm-admin` â†’ loader dry run â†’ real load.
 2. Grant: `map`, then tests 1 and 2 with `pdm.exe`.
-3. Page (local web dashboard), after the engine is proven.
+2. Page (local web dashboard), after the engine is proven.
 
 ## Open questions
 
-- None open. Decided 23 Oct: the app goes to engineers as a single folder Grant shares (Dropbox or OneDrive); Referenced Documents list empty (`P:\` alone acceptable).
+- None open. Decided 23 Oct: the app goes to engineers as a single folder Grant shares (Dropbox or OneDrive); Referenced Documents list empty (forces paths to be right).
 
 ## Notes
 

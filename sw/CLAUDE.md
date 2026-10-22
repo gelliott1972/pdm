@@ -20,7 +20,7 @@ Read the current brief in `docs\briefs\` (start with `sw-prep-0806A.md`). The de
 - **Report in writing.** Keep `sw\status.md` current: what's done, what's next, open questions.
 - **Don't write memories.** Admin owns the project memory.
 - **Never write to the live Dropbox APEX files** (`E:\Grant\Dropbox\...\Screen Models`). Copying a file out of them into `E:\PDM-work` is fine when Grant asks.
-- **Git:** commit only your own files, by path (never `git add -A`). Grant pushes.
+- **Git:** commit only your own files, by path (never `git add -A`). New commits only: never amend, reset or rebase (one shared working copy). Admin pushes.
 
 ## SOLIDWORKS things learned so far
 

@@ -21,7 +21,7 @@ Read `docs\briefs\app-mvp.md` first.
 - **AWS firm lines:** Grant's admin access is SSO short-lived credentials only (never root, never permanent access keys, never the `credentials` file). Engineers log in through Cognito only, never IAM or SSO. No secrets in the repo or logs. **Ask before anything hard to undo** (deleting buckets or objects, changing the AWS Organization, changing permissions for real users). Grant runs interactive logins himself (`! aws sso login --profile ...` in his prompt).
 - **Report in writing.** Keep `app\status.md` current: done, next, open questions, and what Grant must do by hand.
 - **Don't write memories.** Admin owns the project memory.
-- **Git:** commit only your own files, by path (never `git add -A`). Admin pushes.
+- **Git:** commit only your own files, by path (never `git add -A`). New commits only: never amend, reset or rebase (one shared working copy). Admin pushes.
 - Grant prefers small steps, plain language, tables. Summarise at the workflow level; code detail only when asked.
 
 ## Environment notes

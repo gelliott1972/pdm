@@ -19,7 +19,7 @@ Read `docs\briefs\importer.md` first. The decisions it relies on are in `docs\im
 - **Report in writing.** Keep `dev\status.md` current: what's done, what's next, open questions. Admin reviews from it.
 - **Don't write memories.** Admin owns the project memory.
 - **Never touch the live Dropbox APEX files** (`E:\Grant\Dropbox\...\Screen Models`). Read-only, and only if Grant asks.
-- **Git:** commit only your own files, by path (never `git add -A`). Grant pushes.
+- **Git:** commit only your own files, by path (never `git add -A`). New commits only: never amend, reset or rebase (one shared working copy). Admin pushes.
 - Grant prefers small steps, plain language and tables. Propose before building anything big.
 
 ## Tooling notes

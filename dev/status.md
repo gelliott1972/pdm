@@ -4,7 +4,7 @@ Updated 22 Oct 2026.
 
 ## Now: 0806 A import into the test vault (deadline: James draws from it 22 Oct)
 
-**State:** import done and SOLIDWORKS-checked (22 Oct). Waiting for Grant to open it himself, then Admin's review and the ledger rows into `dataename-ledger.csv`.
+**State:** import done and SOLIDWORKS-checked (22 Oct). Waiting for Grant to open it himself, then Admin's review and the ledger rows into `data\rename-ledger.csv`.
 
 | Step | State |
 | --- | --- |

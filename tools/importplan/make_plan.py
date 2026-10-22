@@ -54,6 +54,9 @@ DECIDED = {
             ("LS-08X-X_TIE_BEAM_INTERFACE_PLATE.SLDPRT", "PL_200x140-Perpendicular slots"): ("08XXX-PLP-33", False, "decision 1 (James's number)"),
         },
         "fasteners": ("8.8", "HDG"),   # decision 6
+        "leave_out": {   # old file -> where decided
+            "LS-08A-06_SF04-LOWER_FLOOR_PLATE.SLDPRT": "decision 12 (component deleted in r4; file unused)",
+        },
     },
 }
 
@@ -115,6 +118,7 @@ dec = DECIDED.get(screen, {})
 dec_files = {key(k): v for k, v in dec.get("files", {}).items()}
 dec_pn = {(key(f), c): v for (f, c), v in dec.get("partnos", {}).items()}
 fast_spec = dec.get("fasteners")
+dec_leave = {key(k): v for k, v in dec.get("leave_out", {}).items()}
 
 cfg_list = collections.defaultdict(list)          # file -> [(config, parent)]
 for c in cfgs:
@@ -306,6 +310,8 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         action, new_name, source = "leave out", s, "only in suppressed or unused configurations"
         new_folder = ""
         flags.append(flag(fname, "carried along by Pack and Go but not used by this screen (only in suppressed or other configurations of " + ", ".join(sorted(parents[fk])) + ")"))
+    elif fk in dec_leave:
+        action, new_name, new_folder, source = "leave out", s, "", dec_leave[fk]
     elif fk in ledger:
         led = ledger[fk]
         action, new_name, new_folder, source = "reuse (already imported)", led["new_file"], led["new_folder"], "ledger"

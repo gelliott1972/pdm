@@ -44,6 +44,8 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 
 - None open. Decided 23 Oct: the app goes to engineers as a single folder Grant shares (Dropbox or OneDrive); Referenced Documents list empty (forces paths to be right).
 
+- Code signing: Smart App Control (Windows 11) blocks the unsigned app; the laptop has it off for now. Azure Artifact Signing isn't open to NZ companies; a commercial certificate (~US$200–500/yr, unverified) is the fix if James's PC has it on. Waiting on James's setting.
+
 ## Notes
 
 - New accounts in this organisation: Identity Center and `candelic-admin` are in `ap-east-1` (opt-in), so a new account can't be reached until `ap-east-1` is enabled in it. Step in via `--region ap-southeast-2` to enable it.

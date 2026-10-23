@@ -2,7 +2,7 @@
 // ReplaceReferencedDocument on closed files. The Document Manager's ReplaceReference doesn't reach every stored
 // path: components that never load (e.g. inside a suppressed sub-assembly) keep their old path in SOLIDWORKS' view.
 // Usage: SwFixRefs.exe <vaultRoot> <files.csv> [--apply] [<file> ...]
-//   For every SOLIDWORKS file under <vaultRoot> (or only the files given), lists the stored references
+//   For every file files.csv imports (or only the files given), lists the stored references
 //   (GetDocumentDependencies2, no search) and repoints any outside the vault to the vault file of that name,
 //   mapping old names to new ones from the importer's files.csv. Without --apply it only lists.
 // Refuses to run while SOLIDWORKS is already open; ends the copy it started. Refuses Dropbox paths.
@@ -28,9 +28,15 @@ static class SwFixRefs
 
         // Where each name now lives in the vault: every vault file by its own name, plus old names from the plan.
         var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".sldprt", ".sldasm", ".slddrw" };
-        var vaultFiles = Directory.GetFiles(root, "*", SearchOption.AllDirectories).Where(f => exts.Contains(Path.GetExtension(f))).ToList();
+        // P:\.pdm is the PDM app's own state: never read or touched.
+        string pdmState = root + ".pdm\\";
+        var vaultFiles = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
+            .Where(f => exts.Contains(Path.GetExtension(f)) && !f.StartsWith(pdmState, StringComparison.OrdinalIgnoreCase)).ToList();
         var target = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in vaultFiles) target[Path.GetFileName(f)] = f;
+        // Only the files this import adds are checked and repointed: files already in the vault are tracked by
+        // the PDM and change only through checkout / checkin.
+        var imported = new List<string>();
         var lines = File.ReadAllLines(args[1]).Skip(1);
         foreach (var l in lines)
         {
@@ -38,7 +44,7 @@ static class SwFixRefs
             if (c.Length >= 4 && c[1] == "import")
             {
                 string p = root + c[3] + "\\" + c[2];
-                if (File.Exists(p)) target[Path.GetFileName(c[0])] = p;
+                if (File.Exists(p)) { target[Path.GetFileName(c[0])] = p; imported.Add(p); }
             }
         }
 
@@ -53,7 +59,7 @@ static class SwFixRefs
         int outside = 0, fixedCount = 0, failed = 0;
         try
         {
-            foreach (var f in (only.Count > 0 ? only : vaultFiles))
+            foreach (var f in (only.Count > 0 ? only : imported))
             {
                 var deps = sw.GetDocumentDependencies2(f, false, false, false) as string[];
                 if (deps == null) continue;

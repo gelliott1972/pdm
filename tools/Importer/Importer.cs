@@ -44,6 +44,8 @@ static class Importer
         bool apply = args.Contains("--apply"), existing = args.Contains("--existing");
         foreach (var p in new[] { sourceRoot, vaultRoot, ledgerPath, reportPath })
             if (p.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0) { Console.Error.WriteLine("REFUSED (inside Dropbox): " + p); return 2; }
+        // A vault the PDM tracks: its files change only through checkout / checkin, never by re-applying an import.
+        if (existing && Directory.Exists(vaultRoot + "\\.pdm")) { Console.Error.WriteLine("REFUSED (--existing on a PDM-tracked vault): " + vaultRoot); return 2; }
 
         string key = Environment.GetEnvironmentVariable("SW_DM_KEY");
         if (string.IsNullOrEmpty(key)) { Console.Error.WriteLine("SW_DM_KEY is not set."); return 2; }
@@ -83,7 +85,8 @@ static class Importer
             else if (File.Exists(it.Target)) errors.Add("Already in the vault: " + it.Target);
             else if (Directory.Exists(vaultRoot + "\\"))
             {
-                var same = Directory.GetFiles(vaultRoot + "\\", it.NewName, SearchOption.AllDirectories);
+                var same = Directory.GetFiles(vaultRoot + "\\", it.NewName, SearchOption.AllDirectories)
+                    .Where(f => !f.StartsWith(vaultRoot + "\\.pdm\\", StringComparison.OrdinalIgnoreCase)).ToArray();   // the PDM app's state
                 if (same.Length > 0) errors.Add("A file named " + it.NewName + " is already in the vault at " + same[0] + ".");
             }
         }

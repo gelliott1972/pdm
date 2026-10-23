@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDM</title>
+<style>
+  :root { --line: #ddd; --muted: #777; --mine: #1d5fbf; --other: #b5651d; --newer: #6a6a6a; --bad: #b00020; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.4 "Segoe UI", system-ui, sans-serif; color: #222; background: #fafafa; }
+  header { display: flex; gap: 12px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); background: #fff; }
+  header b { font-size: 14px; }
+  header .who { margin-left: auto; color: var(--muted); }
+  button { font: inherit; padding: 3px 10px; border: 1px solid #bbb; background: #fff; border-radius: 3px; cursor: pointer; }
+  button:hover:not(:disabled) { background: #f0f0f0; }
+  button:disabled { color: #aaa; cursor: default; }
+  button.main { border-color: var(--mine); color: var(--mine); }
+  input[type=text], input[type=email], input[type=password] { font: inherit; padding: 4px 6px; border: 1px solid #bbb; border-radius: 3px; width: 100%; }
+  main { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(380px, 1fr); height: calc(100vh - 41px); }
+  section { overflow: auto; padding: 10px 14px; }
+  section + section { border-left: 1px solid var(--line); background: #fff; }
+  h2 { font-size: 13px; margin: 14px 0 6px; }
+  h2:first-child { margin-top: 0; }
+  .row { display: flex; align-items: center; gap: 6px; padding: 1px 4px; white-space: nowrap; border-radius: 2px; }
+  .row.file { cursor: pointer; }
+  .row.file:hover, .row.sel { background: #e8eef8; }
+  .row.folder { cursor: pointer; color: #444; }
+  .row.folder .tw { width: 12px; display: inline-block; color: var(--muted); }
+  .name { overflow: hidden; text-overflow: ellipsis; }
+  .tag { font-size: 11px; color: var(--muted); }
+  .tag.mine { color: var(--mine); }
+  .tag.other { color: var(--other); }
+  .tag.newer { color: var(--newer); }
+  .tag.bad { color: var(--bad); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: transparent; }
+  .dot.mine { background: var(--mine); }
+  .dot.other { background: var(--other); }
+  .dot.newer { border: 1px solid var(--newer); }
+  .row.off { color: #999; }
+  .bar { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+  .bar .grow { flex: 1; min-width: 160px; }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 2px 6px 2px 0; vertical-align: top; }
+  .muted { color: var(--muted); }
+  pre { margin: 0; white-space: pre-wrap; font: 12px/1.4 Consolas, monospace; color: #333; }
+  #login { max-width: 300px; margin: 80px auto; display: grid; gap: 8px; }
+  #login .err { color: var(--bad); min-height: 1.4em; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+  .tabs button.on { background: #e8eef8; border-color: var(--mine); }
+</style>
+</head>
+<body>
+<div id="login" hidden>
+  <b>PDM</b>
+  <input id="email" type="email" placeholder="Email" autocomplete="username">
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+  <div id="newpw" hidden style="display:grid;gap:8px">
+    <span class="muted">Choose a new password (12+ characters, with a number).</span>
+    <input id="new1" type="password" placeholder="New password" autocomplete="new-password">
+    <input id="new2" type="password" placeholder="New password again" autocomplete="new-password">
+  </div>
+  <button class="main" id="loginBtn">Log in</button>
+  <div class="err" id="loginErr"></div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <b>PDM</b>
+    <button id="getBtn">Get latest</button>
+    <button id="refreshBtn">Refresh</button>
+    <span class="who" id="who"></span>
+    <button id="logoutBtn">Log out</button>
+  </header>
+  <main>
+    <section>
+      <div class="bar"><input type="text" class="grow" id="filter" placeholder="Filter"></div>
+      <div id="tree"></div>
+    </section>
+    <section>
+      <div class="tabs">
+        <button id="tabOut" class="on">Check out</button>
+        <button id="tabIn">Check in</button>
+        <button id="tabWho">Who has what</button>
+      </div>
+      <div id="panel"></div>
+      <h2>Log</h2>
+      <pre id="log"></pre>
+    </section>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let me = null, files = [], byId = {}, byPath = {}, selected = null, tab = 'out', open = new Set(), busy = false;
+
+async function api(path, body) {
+  const r = await fetch('/api/' + path, {
+    method: 'POST', headers: { 'X-PDM': '1', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {})
+  });
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== 'login') { showLogin(); throw new Error('Logged out'); }
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function base(p) { return p.slice(p.lastIndexOf('/') + 1); }
+function dir(p) { return p.slice(0, p.lastIndexOf('/') + 1); }
+function when(t) {
+  if (!t) return '';
+  const d = new Date(t);
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+function isAsm(p) { return /\.sldasm$/i.test(p); }
+
+function status(f) {
+  if (f.mine) return { cls: 'mine', text: f.changed ? 'checked out, changed' : 'checked out' };
+  if (f.lockedByName) return { cls: 'other', text: f.lockedByName + ', since ' + when(f.lockedAt) };
+  if (f.newer) return { cls: 'newer', text: 'newer in vault' };
+  return { cls: '', text: '' };
+}
+
+// ---- login
+function showLogin() { me = null; $('app').hidden = true; $('login').hidden = false; $('email').focus(); }
+async function login() {
+  $('loginErr').textContent = '';
+  const body = { email: $('email').value.trim(), password: $('password').value };
+  if (!$('newpw').hidden) {
+    if ($('new1').value !== $('new2').value) { $('loginErr').textContent = "New passwords don't match."; return; }
+    body.newPassword = $('new1').value;
+  }
+  $('loginBtn').disabled = true;
+  try {
+    const r = await api('login', body);
+    if (r.newPasswordNeeded) { $('newpw').hidden = false; $('new1').focus(); return; }
+    me = r; $('password').value = $('new1').value = $('new2').value = ''; $('newpw').hidden = true;
+    $('login').hidden = true; $('app').hidden = false;
+    $('who').textContent = me.name + (me.sharedEditor ? ' · shared editor' : '');
+    await load();
+  } catch (e) { $('loginErr').textContent = e.message; }
+  finally { $('loginBtn').disabled = false; }
+}
+
+// ---- data
+async function load() {
+  files = await api('files');
+  byId = {}; byPath = {};
+  for (const f of files) { byId[f.id] = f; byPath[f.path] = f; }
+  if (selected && !byPath[selected]) selected = null;
+  if (open.size === 0) for (const f of files) { const parts = f.path.split('/'); for (let i = 1; i < Math.min(parts.length, 3); i++) open.add(parts.slice(0, i).join('/') + '/'); }
+  drawTree(); drawPanel();
+}
+
+async function run(path, body) {
+  if (busy) return;
+  busy = true; document.querySelectorAll('button').forEach(b => b.disabled = true);
+  $('log').textContent = 'Working…';
+  try {
+    const r = await api(path, body);
+    $('log').textContent = (r.log || []).join('\n') || 'Done.';
+  } catch (e) { $('log').textContent = 'Error: ' + e.message; }
+  busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false);
+  await load().catch(() => {});
+}
+
+// ---- left: the folder tree
+function drawTree() {
+  const q = $('filter').value.trim().toLowerCase();
+  const shown = files.filter(f => !q || f.path.toLowerCase().includes(q));
+  const root = { dirs: {}, files: [] };
+  for (const f of shown) {
+    const parts = f.path.split('/'); let n = root;
+    for (const p of parts.slice(0, -1)) n = n.dirs[p] ??= { dirs: {}, files: [] };
+    n.files.push(f);
+  }
+  const out = [];
+  (function walk(n, prefix, depth) {
+    for (const name of Object.keys(n.dirs).sort((a, b) => a.localeCompare(b))) {
+      const key = prefix + name + '/', isOpen = q || open.has(key);
+      const mineHere = files.some(f => f.mine && f.path.startsWith(key)), otherHere = files.some(f => f.lockedByName && !f.mine && f.path.startsWith(key));
+      out.push(`<div class="row folder" style="padding-left:${depth * 14 + 4}px" data-dir="${esc(key)}"><span class="tw">${isOpen ? '▾' : '▸'}</span>${esc(name)}`
+        + (mineHere ? ' <span class="dot mine"></span>' : '') + (otherHere ? ' <span class="dot other"></span>' : '') + '</div>');
+      if (isOpen) walk(n.dirs[name], key, depth + 1);
+    }
+    for (const f of n.files.sort((a, b) => a.path.localeCompare(b.path))) {
+      const st = status(f);
+      out.push(`<div class="row file${selected === f.path ? ' sel' : ''}" style="padding-left:${depth * 14 + 16}px" data-path="${esc(f.path)}">`
+        + `<span class="dot ${st.cls}"></span><span class="name">${esc(base(f.path))}</span><span class="tag ${st.cls}">${esc(st.text)}</span></div>`);
+    }
+  })(root, '', 0);
+  $('tree').innerHTML = out.join('') || '<span class="muted">No files.</span>';
+}
+
+$('tree').addEventListener('click', e => {
+  const d = e.target.closest('[data-dir]'), f = e.target.closest('[data-path]');
+  if (d) {
+    if (e.detail > 1) return;
+    const k = d.dataset.dir;
+    open.has(k) ? open.delete(k) : open.add(k); drawTree();
+  } else if (f) { selected = f.dataset.path; drawTree(); drawPanel(); }
+});
+$('tree').addEventListener('dblclick', e => {
+  const d = e.target.closest('[data-dir]');
+  if (d) { selected = d.dataset.dir; tab = 'out'; drawTabs(); drawTree(); drawPanel(); }
+});
+
+// ---- right: check out
+// Everything an assembly uses, depth first, each file once.
+function descendants(f) {
+  const seen = new Set([f.id]), list = [];
+  (function walk(x, depth) {
+    for (const id of x.refs) {
+      const c = byId[id];
+      if (!c || seen.has(id)) continue;
+      seen.add(id); list.push({ f: c, depth }); walk(c, depth + 1);
+    }
+  })(f, 1);
+  return list;
+}
+
+function outRows() {
+  if (!selected) return null;
+  if (selected.endsWith('/')) return { title: 'Folder ' + selected, folder: selected, rows: files.filter(f => f.path.startsWith(selected)).map(f => ({ f, depth: 0 })) };
+  const top = byPath[selected];
+  if (!top) return null;
+  return { title: base(top.path), folder: dir(top.path), rows: [{ f: top, depth: 0 }, ...(isAsm(top.path) ? descendants(top) : [])] };
+}
+
+function drawOut() {
+  const v = outRows();
+  if (!v) return '<span class="muted">Pick an assembly or file on the left. Double-click a folder to check out the folder.</span>';
+  const rows = v.rows.map(({ f, depth }) => {
+    const other = f.lockedByName && !f.mine;
+    const canShared = !f.shared || me.sharedEditor;
+    const disabled = other || f.mine || !canShared;
+    const ticked = !disabled && !f.shared && f.path.startsWith(v.folder);
+    let note = '';
+    if (f.mine) note = '<span class="tag mine">yours</span>';
+    else if (other) note = `<span class="tag other">${esc(f.lockedByName)}, since ${esc(when(f.lockedAt))}</span>`;
+    else if (f.shared) note = `<span class="tag">shared${f.usedBy ? ', used by ' + f.usedBy + ' file' + (f.usedBy === 1 ? '' : 's') : ''}${canShared ? '' : ', read-only'}</span>`;
+    if (f.newer && !f.mine && !other) note += ' <span class="tag newer">newer in vault</span>';
+    return `<div class="row${disabled ? ' off' : ''}" style="padding-left:${depth * 16 + 4}px" title="${esc(f.path)}">`
+      + `<input type="checkbox" data-out="${esc(f.path)}"${ticked ? ' checked' : ''}${disabled ? ' disabled' : ''}>`
+      + `<span class="name">${esc(base(f.path))}</span>${note}</div>`;
+  }).join('');
+  return `<h2>${esc(v.title)}</h2>${rows}<div class="bar"><button class="main" id="outBtn">Check out ticked</button><span class="muted" id="outCount"></span></div>`;
+}
+
+// ---- right: check in
+function drawIn() {
+  const mine = files.filter(f => f.mine);
+  if (mine.length === 0) return '<span class="muted">Nothing checked out.</span>';
+  const v = outRows(), under = v ? new Set(v.rows.map(r => r.f.path)) : null;
+  const rows = mine.map(f => {
+    const ticked = !under || under.has(f.path);
+    return `<div class="row" title="${esc(f.path)}"><input type="checkbox" data-in="${esc(f.path)}"${ticked ? ' checked' : ''}>`
+      + `<span class="name">${esc(f.path)}</span><span class="tag ${f.changed ? 'mine' : ''}">${f.changed ? 'changed' : 'no change'}</span></div>`;
+  }).join('');
+  return `<h2>Checked out by me${v ? ' · ticked: under ' + esc(v.title) : ''}</h2>${rows}`
+    + `<div class="bar"><input type="text" class="grow" id="note" placeholder="Note"><button class="main" id="inBtn">Check in ticked</button><button id="undoBtn">Undo ticked</button></div>`;
+}
+
+// ---- right: who has what
+function drawWho() {
+  const held = files.filter(f => f.lockedByName).sort((a, b) => (a.lockedByName + a.path).localeCompare(b.lockedByName + b.path));
+  if (held.length === 0) return '<span class="muted">Nothing is checked out.</span>';
+  return '<table>' + held.map(f => `<tr><td class="${f.mine ? 'tag mine' : 'tag other'}">${esc(f.lockedByName)}</td><td>${esc(f.path)}</td>`
+    + `<td class="muted">${esc(when(f.lockedAt))}${f.lockMachine ? ' · ' + esc(f.lockMachine) : ''}</td></tr>`).join('') + '</table>';
+}
+
+function drawTabs() { for (const [id, t] of [['tabOut', 'out'], ['tabIn', 'in'], ['tabWho', 'who']]) $(id).classList.toggle('on', tab === t); }
+
+function drawPanel() {
+  $('panel').innerHTML = tab === 'out' ? drawOut() : tab === 'in' ? drawIn() : drawWho();
+  const count = () => { const c = $('outCount'); if (c) c.textContent = document.querySelectorAll('[data-out]:checked').length + ' ticked'; };
+  count();
+  $('panel').querySelectorAll('[data-out]').forEach(c => c.addEventListener('change', count));
+  $('outBtn')?.addEventListener('click', () => {
+    const paths = [...document.querySelectorAll('[data-out]:checked')].map(c => c.dataset.out);
+    if (paths.length) run('checkout', { paths });
+  });
+  $('inBtn')?.addEventListener('click', () => {
+    const paths = [...document.querySelectorAll('[data-in]:checked')].map(c => c.dataset.in);
+    if (paths.length) run('checkin', { paths, note: $('note').value.trim() });
+  });
+  $('undoBtn')?.addEventListener('click', () => {
+    const paths = [...document.querySelectorAll('[data-in]:checked')].map(c => c.dataset.in);
+    if (paths.length) run('undo', { paths });
+  });
+}
+
+$('tabOut').onclick = () => { tab = 'out'; drawTabs(); drawPanel(); };
+$('tabIn').onclick = () => { tab = 'in'; drawTabs(); drawPanel(); };
+$('tabWho').onclick = () => { tab = 'who'; drawTabs(); drawPanel(); };
+$('filter').oninput = drawTree;
+$('getBtn').onclick = () => run('get');
+$('refreshBtn').onclick = () => load().catch(e => $('log').textContent = 'Error: ' + e.message);
+$('logoutBtn').onclick = async () => { await api('logout').catch(() => {}); showLogin(); };
+$('loginBtn').onclick = login;
+for (const id of ['email', 'password', 'new1', 'new2']) $(id).addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+// Keep locks current without a reload, so another PC's check-out shows up.
+setInterval(() => { if (me && !busy && document.visibilityState === 'visible') load().catch(() => {}); }, 30000);
+
+api('me').then(r => { me = r; $('app').hidden = false; $('who').textContent = me.name + (me.sharedEditor ? ' · shared editor' : ''); return load(); })
+  .catch(() => showLogin());
+</script>
+</body>
+</html>

@@ -29,12 +29,14 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 | App: loader | `pdm.exe load [--dry]`, admin, uses `pdm-admin`. Re-runnable: keeps ids and locks, uploads only new or changed files. Dry run 23 Oct: 57 files (28 parts, 29 assemblies, 72 MB), 105 PartNos, 107 references all inside the vault, 0 outside, no PartNo clashes. Real load 23 Oct: 57 objects in `pdm-apex`, 57 rows in `pdm-files`, 105 in `pdm-partnos`, all 57 local files read-only; a re-run dry finds 0 changed. |
 | App: `P:` | `pdm.exe map <folder>`, run as administrator: DOS Devices registry entry plus an immediate `subst`. Run on the desktop 23 Oct: registry `P:` = `\??\E:\PDM-test\P`, `subst` shows it. Restart survival not yet checked. |
 | Document Manager from .NET 8 | Works: `pdm.exe inspect <file>` read references and PartNos from `LS-08A-06+STRUCTURE`, a SKU (`DL_APEX` on `P:\`) and a fastener family. |
+| App: page | Built 24 Oct, **not yet tried by Grant**. `pdm.exe` with no arguments serves `http://localhost:5170/` and opens it. Login (with first-login new password), folder tree with status, check out an assembly (tree with tick boxes: same screen folder ticked; shared unticked with "used by n files", tickable only for shared editors; others' files greyed with who and since), folder check-out (double-click a folder), check in / undo with note and changed marks, who has what, get latest. Refreshes every 30 s so another PC's locks show. Only answers localhost requests carrying an `X-PDM` header. Command line moved to `pdm.exe shell`. Checked: builds, serves the page, refuses requests without the header, rejects a bad login. |
 | Setup document | `docs\setup-machine.md`: engineer PC (A) and Grant's build/admin PC (B). |
 
 ## Next
 
-1. Grant: tests 1 and 2 with `pdm.exe`.
-2. Page (local web dashboard), after the engine is proven.
+1. Grant tries the page on the desktop: log in, check out `LS-08A-06` as an assembly, check in.
+2. Laptop set-up, then the lock test with the page (done-when).
+3. Load 08B06 and 08C06 once Dev has imported them.
 
 ## Open questions
 

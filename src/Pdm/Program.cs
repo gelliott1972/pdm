@@ -5,14 +5,16 @@ using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
 using Pdm;
 
-// Test command line for the engine. The page comes later.
+// No arguments: the page. "shell" is the test command line for the engine.
 var settings = Settings.Load();
-var command = args.Length > 0 ? args[0].ToLowerInvariant() : "shell";
+var command = args.Length > 0 ? args[0].ToLowerInvariant() : "page";
 
 try
 {
     switch (command)
     {
+        case "page":
+            return await new Page(settings).RunAsync(openBrowser: !args.Contains("--no-open"));
         case "shell":
             return await Shell(settings);
         case "load":
@@ -25,7 +27,8 @@ try
         case "map" when args.Length == 2:
             return Drive.Map(settings.LocalRoot, args[1], Console.WriteLine);
         default:
-            Console.WriteLine("Usage: pdm              log in and type commands");
+            Console.WriteLine("Usage: pdm              open the PDM page");
+            Console.WriteLine("       pdm shell        log in and type commands");
             Console.WriteLine("       pdm load [--dry] admin: load P:\\ into the vault (uses the pdm-admin SSO login)");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
             return 2;

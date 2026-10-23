@@ -46,9 +46,10 @@ The B and C skeleton equation fix was saved to the live Dropbox skeletons instea
 
 Fix both skeletons; delete the suppressed floor plate in both SF04-LOWERs; repoint LCMM, tie, post, screen (configuration `LS-08BC-06`) and grout/anchor; make `08B06-STA-01` and `08C06-STA-01`; then a clean Pack and Go `-r1` per screen into `E:\PDM-work`.
 
-## Open
+## 9. Open items closed (24 Oct 2026, Grant)
 
-- B's concrete-beam anchor (`200x400_SHAFTB_CONCRETE_BEAM`): new configuration in `MDL-ANCHOR-08X06` (check-out), or an existing one.
-- Expansion-joint brackets' place tag.
-- Members' `<As Welded>` lengths: fix in the vault file or leave.
-- `PACKER` and `TIE_80x40x8` live saves on 23 Oct: waiting on James.
+- **Expansion-joint brackets:** place tag `08BXX` (used by 0806 B and 0811 B), folder `APEX\SC08\_Shared`. `SHAFTB_EXP_JOINT_BRACKET_FOR_CONCRETE_BEAM` becomes `08BXX-MSW-01` (configuration PLATE ONLY = `08BXX-PLP-01`, same file); `SHAFTB_EXP_JOINT_100x100_EA_BRACKET` becomes `08BXX-MSP-01`. Replaces James's `08B11` numbers.
+- **Structure assemblies:** `08B06-STA-01`, `08C06-STA-01`, as A.
+- **Live saves on 23 Oct:** `PACKER` only changed its PartNo prefix (STOCK to GNRIC), and `TIE_80x40x8` only had "b" markers on `<As Welded>`. Vault `GNRIC-PKP`, `GNRIC-BRP` and `GNRIC-BRA` stay unchanged; B and C use only `<As Machined>`.
+- **Members' `<As Welded>` lengths:** leave `GNRIC-LM` as is; check out and change it if ever needed.
+- James is mainly on 08X11 and has closed all his files.

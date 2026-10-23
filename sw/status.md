@@ -115,3 +115,7 @@ Step 2 done: B and C copied from `PDM-inbox` to `E:\PDM-work\LS-08B-06` (59 file
 - Probe: all resolves inside each work copy except old GROUT+ANCHOR and the unused old LCMM.
 - B concrete-beam anchor: Admin says add the config in the vault via `pdm.exe` check-out (first real one), then copy the checked-in file into the B work copy.
 - Next with Grant: skeletons, floor plates, screen config, grout/anchor + STA.
+
+## 23 Oct 19:15: skeleton fix landed in the live files
+
+Grant's skeleton fix (link unticked, 7 globals + 4 equations each; B had one equation deleted) was saved to the **live Dropbox** skeletons (`...\Screen Models\311v3\SC08\LS-08X-06\Shaft B\LS-08B-06 Skeleton.SLDPRT` 19:12, `Shaft C\LS-08C-06 Tie Beam Skeleton.SLDPRT` 19:11), not the work copies. Work copies still 19 Sep (unfixed). Grant to redo in `E:\PDM-work\LS-08B-06|C-06\311v3\...`; whether to keep the live change is Grant's call. Grout/anchor in A was replaced by hand (Grant).

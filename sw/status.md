@@ -106,3 +106,12 @@ Grant set Promote on 7 configurations (80X40_TIE_BOLTS Default; ROOF_SLEEVE_BOLT
 ## Current brief: `docs\briefs\import-0806BC.md` (23 Oct 2026)
 
 Step 2 done: B and C copied from `PDM-inbox` to `E:\PDM-work\LS-08B-06` (59 files) and `E:\PDM-work\LS-08C-06` (57), probed (`scratch\inventory\LS-08B-06`, `...\LS-08C-06`). The list (new files, files already in the vault, known items, questions) is in `sw\0806BC-list.md` and was sent to Admin. No file changes until Admin and Grant agree the list. `P:\` is vault-tracked: never touch it.
+
+### Step 3 prep (23 Oct, no SOLIDWORKS)
+
+- Backups `E:\PDM-work\scratch\LS-08B-06-pre-fix`, `...\LS-08C-06-pre-fix`. Work copies moved to `E:\PDM-work\LS-08x-06\311v3\...` + `PANELS\` (DmEdit refuses "Dropbox" paths).
+- r4 copies of every shared file already in the vault copied over B/C's; added `08X06-LMW`, `GNRIC-BRP/BRA`, `08XXX-HBW-01`, `MDL-ANCHOR-08X06` (+ Hilti), `NONPART-GROUT-08X06`, `LS-08X-06`; their links repointed into each work copy (DmEdit).
+- DmEdit repoints: LCMM → `08X06-LMW`; tie → `GNRIC-BRP` (subframes) / `GNRIC-BRA` (top); post → `08XXX-HBW-01`; `LS-08ABC-06v2` → `LS-08X-06` (config to set in SOLIDWORKS).
+- Probe: all resolves inside each work copy except old GROUT+ANCHOR and the unused old LCMM.
+- B concrete-beam anchor: Admin says add the config in the vault via `pdm.exe` check-out (first real one), then copy the checked-in file into the B work copy.
+- Next with Grant: skeletons, floor plates, screen config, grout/anchor + STA.

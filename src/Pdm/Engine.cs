@@ -11,6 +11,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
     // Downloads what's new or changed in the vault. Files I don't hold end up read-only.
     public async Task GetAsync(string? folder)
     {
+        if (!Directory.Exists(root)) { say($"{root} doesn't exist on this PC. Map it first (pdm.exe map <folder>, then restart)."); return; }
         var prefix = PrefixOf(folder);
         var state = LocalState.Load(root);
         int fetched = 0, current = 0;

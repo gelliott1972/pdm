@@ -47,7 +47,8 @@ For Dev's tools (importer, plan tool, probes, checks). Tested 23 Oct by building
 | The repo | `git clone` | |
 | Build | In PowerShell: `cd <repo>\tools; .\build.ps1`. Builds all six tools into each `bin\` (gitignored) and copies the DLLs | Ends with "All tools built." |
 | For an import: `P:` mapped to the vault | `subst P: <vault folder>` (lost on restart until the permanent mapping exists) | `subst` lists it |
-| For an import: inputs not in git | `scratch\` is gitignored, so copy the numbering register (`scratch\APEX_Structure_Part_Numbering_Standard_Rev3.xlsx`) and the screen's probe (`scratch\inventory\<screen>`) across, and the Pack and Go source folder | |
+| For an import: inputs not in git | `scratch\` is gitignored, so copy the screen's probe (`scratch\inventory\<screen>`) across, and the Pack and Go source folder. The numbering register is in git (`data\APEX_Structure_Part_Numbering_Standard_Rev3.xlsx`), so it comes with the clone | |
+| Plan command | `python -I tools\importplan\make_plan.py scratch\inventory\<screen> data\APEX_Structure_Part_Numbering_Standard_Rev3.xlsx scratch\import\<screen>-import-plan.xlsx data\rename-ledger.csv` | |
 | For SwCheck / SwFixRefs | SOLIDWORKS licensed and activated, and closed before running (they refuse otherwise). If it won't start ("SOLIDWORKS didn't start ..."), start it by hand once, clear any licence message, close it | |
 
 ## Earlier: proving tests for the importer (brief: `docs\briefs\importer.md`)

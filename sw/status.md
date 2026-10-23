@@ -129,3 +129,16 @@ Grant's skeleton fix (link unticked, 7 globals + 4 equations each; B had one equ
 - 24 Oct 10:54: C separated. `Shaft C\08C06-STA-01.SLDASM` = Save As copy of the top with the screen deleted (111 refs, all in the work copy). Grant rebuilt the C top from scratch: `08C06-STA-01` (first, Default) + `LS-08X-06` (LS-08BC-06). Opens without errors. Next: B the same way, then Grant adds anchors (STA) and grout (top) by sketch pattern.
 - Live Dropbox skeletons: Grant leaves the fix in place.
 - 24 Oct 11:18: B separated the same way. `Shaft B\08B06-STA-01.SLDASM` (no screen, no grout, all refs in work copy); B top rebuilt = `08B06-STA-01` + `LS-08X-06` (LS-08BC-06). No errors. Next: Grant adds anchors (STA) and grout (top) by sketch pattern in C, then B (B's concrete beam later, in the PDM).
+
+## 24 Oct: 0806 B/C -r1 ready for Dev (step 3 done)
+
+Grant's choice: anchors and grout are added **in the PDM** (laptop check-out of both STAs, both tops and `MDL-ANCHOR-08X06`), not before import. So `-r1` has no grout/anchor files.
+
+| Pack | Files | References | Outside the pack | Probe |
+| --- | --- | --- | --- | --- |
+| `E:\PDM-work\LS-08B-06-r1` | 56 | 108 (5 part links) | 0 | `scratch\inventory\LS-08B-06-r1` |
+| `E:\PDM-work\LS-08C-06-r1` | 54 | 104 (4 part links) | 0 | `scratch\inventory\LS-08C-06-r1` |
+
+Done in the work copies: skeleton equations links off (B: 5th equation deleted by Grant), suppressed floor plate deleted from both SF04-LOWERs, repoints (LCMM, tie, post, screen `LS-08BC-06`), old GROUT+ANCHOR kits removed, `08B06-STA-01` / `08C06-STA-01` formed (tops = STA + `LS-08X-06`).
+
+Still open: expansion-joint brackets' place tag (08B11 PartNos); PACKER / TIE_80x40x8 live saves (James); members' As Welded lengths; B's concrete-beam anchor config (in the PDM session).

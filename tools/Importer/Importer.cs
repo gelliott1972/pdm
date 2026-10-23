@@ -108,7 +108,13 @@ static class Importer
             foreach (var p in g)
                 if (!p.PartNo.Equals(stem, StringComparison.OrdinalIgnoreCase) && !p.PartNo.StartsWith(stem + "-", StringComparison.OrdinalIgnoreCase)
                     && !(System.Text.RegularExpressions.Regex.IsMatch(stem, @"^\w{5}-[A-Z]{2}$") && categoryOnly.IsMatch(p.PartNo)))
-                    errors.Add("Name and PartNo disagree: " + it.NewName + " / " + p.Config + " = " + p.PartNo + ".");
+                {
+                    // A mismatch decided for that file (e.g. 0806 B decision 9: PLATE ONLY = 08BXX-PLP-01 in 08BXX-MSW-01) is a note.
+                    if ((p.From ?? "").StartsWith("decision", StringComparison.OrdinalIgnoreCase))
+                        warnings.Add("Name and PartNo differ, as decided (" + p.From + "): " + it.NewName + " / " + p.Config + " = " + p.PartNo + ".");
+                    else
+                        errors.Add("Name and PartNo disagree: " + it.NewName + " / " + p.Config + " = " + p.PartNo + ".");
+                }
         }
         // No number used twice.
         foreach (var g in partnos.Where(p => byOld.ContainsKey(p.File) && byOld[p.File].Import)

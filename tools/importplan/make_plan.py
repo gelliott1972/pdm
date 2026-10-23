@@ -58,10 +58,18 @@ DECIDED = {
             "LS-08A-06_SF04-LOWER_FLOOR_PLATE.SLDPRT": "decision 12 (component deleted in r4; file unused)",
         },
     },
-    # docs\imports\LS-08BC-06-decisions.md. The expansion-joint brackets' place tag is still open (not decided here).
+    # docs\imports\LS-08BC-06-decisions.md
     "LS-08B-06": {
+        "files": {
+            "SHAFTB_EXP_JOINT_BRACKET_FOR_CONCRETE_BEAM.SLDPRT": ("08BXX-MSW-01", r"APEX\SC08\_Shared", "decision 9 (PLATE ONLY = 08BXX-PLP-01, same file)"),
+            "SHAFTB_EXP_JOINT_100x100_EA_BRACKET.SLDPRT": ("08BXX-MSP-01", r"APEX\SC08\_Shared", "decision 9"),
+        },
         "partnos": {
             ("08B06-STA-01.SLDASM", "Default"): ("08B06-STA-01", True, "decision 1 (as in A; pending ST category)"),
+            ("SHAFTB_EXP_JOINT_BRACKET_FOR_CONCRETE_BEAM.SLDPRT", "Default"): ("08BXX-MSW-01", True, "decision 9"),
+            ("SHAFTB_EXP_JOINT_BRACKET_FOR_CONCRETE_BEAM.SLDPRT", "PLATE ONLY"): ("08BXX-PLP-01", True, "decision 9 (name differs from the file, decided)"),
+            ("SHAFTB_EXP_JOINT_100x100_EA_BRACKET.SLDPRT", "Default<As Machined>"): ("08BXX-MSP-01", True, "decision 9"),
+            ("SHAFTB_EXP_JOINT_100x100_EA_BRACKET.SLDPRT", "Default<As Welded>"): ("08BXX-MSP-01", True, "decision 9"),
         },
     },
     "LS-08C-06": {

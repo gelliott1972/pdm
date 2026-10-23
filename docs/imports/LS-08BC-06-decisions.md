@@ -28,7 +28,7 @@ Same method as A: repoint to `MDL-ANCHOR-08X06` and `NONPART-GROUT-08X06` (in ea
 
 ## 7. Grout and anchors placed by sketch pattern (24 Oct 2026, Grant: for all screens)
 
-Grout and anchors are placed by a sketch pattern: one sketch of points per type, one seed patterned, as B's top already does. Anchors go in the structure assembly (`STA`), grout in the top. Replaces decision 6's repointing for B and C (Replace Components gave wrong mates). B's concrete-beam anchor comes later, through the PDM. A's anchors in `08A06-STA-01` are still individual instances.
+Grout and anchors are placed by a sketch pattern: one sketch of points per type, one seed patterned, as B's top already does. Anchors go in the structure assembly (`STA`), grout in the top. Replaces decision 6's repointing for B and C (Replace Components gave wrong mates). **Grout and anchors for B and C are added after import, in the PDM, on the laptop** (check-out of `08B06-STA-01`, `08C06-STA-01`, both tops and `MDL-ANCHOR-08X06`, including B's concrete-beam configuration), so the `-r1` packs hold no grout/anchor. A's anchors in `08A06-STA-01` are still individual instances.
 
 ## 8. Structure assemblies formed (24 Oct 2026)
 
@@ -36,7 +36,11 @@ Grout and anchors are placed by a sketch pattern: one sketch of points per type,
 
 ## Live files changed by mistake (23 Oct 2026)
 
-The B and C skeleton equation fix was saved to the live Dropbox skeletons instead of the work copies. Grant keeps the live change. The work copies still need the same fix.
+The B and C skeleton equation fix was saved to the live Dropbox skeletons instead of the work copies. Grant keeps the live change. The work copies were fixed too (B's 5th equation deleted: 7 globals + 4 equations, same as C).
+
+## Step 3 done (24 Oct 2026)
+
+`E:\PDM-work\LS-08B-06-r1` (56 files, 108 refs, 0 outside) and `LS-08C-06-r1` (54 files, 104 refs, 0 outside); probes in `scratch\inventory\LS-08B-06-r1` and `-C-06-r1`.
 
 ## Step 3 agreed (SW with Grant, in the B and C work copies)
 

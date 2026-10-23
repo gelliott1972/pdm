@@ -53,3 +53,17 @@ Different from the vault's copy (22). Most only because Pack and Go re-saved the
 | Floor plate | `LS-08A-06_SF04-LOWER_FLOOR_PLATE` suppressed in B's and C's `SF04-LOWER`: same fix as A |
 | `140x120x10` | Only a suppressed plate inside the old LCMM; goes with the repoint |
 | Dropbox / `PDM-work` paths | Only in `GROUT+ANCHOR_BOLTS` (Hilti, virtual) and the old LCMM (K-beam plate). Both go with the repoints |
+
+## SwCheck results (Dev, 23 Oct; raw output in `scratch\import\LS-08B-06-work-swcheck.txt`, `LS-08C-06-work-swcheck.txt` and the `-skeleton.txt` files)
+
+| File | Equations linked to |
+| --- | --- |
+| End plate (B and C copies) | Screen 11's `LS_08A-11_Tie_Bar_equations.txt` (11 equations). The vault copy is already fixed and reused |
+| `LS-08B-06 Skeleton` | `M:\311v3\SC08\LS-08X-06\Shaft B\LS_08A-06_Tie_Bar_equations.txt` (12 equations). No M: drive; .txt not in the pack |
+| `LS-08C-06 Tie Beam Skeleton` | `M:\311v3\SC08\LS-08X-06\Shaft C\LS_08A-06_Tie_Bar_equations.txt` (11 equations) |
+
+- No other file (tops included) links an equations file.
+- Part links point to the `PDM-inbox` copy (main members to skeleton, cantilever return to brace, B's exp-joint bracket to the EA bracket), because the pack was copied from the inbox to `PDM-work`. A Pack and Go of `-r1` straight into `E:\PDM-work` fixes this, as for A.
+- `GROUT+ANCHOR_BOLTS`: Hilti suppressed everywhere; virtual `Assem1^` loads from SOLIDWORKS' temp folder (normal). Goes with the grout/anchor repoint.
+- B's exp-joint bracket component shows as not loaded. Both tops open with 2 "file not found" errors (which files isn't known; perhaps the Hilti and the EA bracket link).
+- Referenced Documents has no Dropbox folder.

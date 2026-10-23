@@ -2,7 +2,7 @@
 
 From Admin, 23 Oct 2026. Same pattern as A (`docs\imports\LS-08A-06-decisions.md`). Report in your own `status.md`.
 
-**New rule: `P:\` is vault-tracked.** 0806 A is loaded into the PDM (57 files). Nobody changes a file already on `P:\` outside the PDM: no re-applying imports, repointing, property writes or clearing read-only. A change to an existing vault file goes through `pdm.exe checkout` / `checkin`, and App is told first. New files are added by the importer (overwrite off) and then loaded by App with `pdm.exe load`.
+**New rule: `P:\` is vault-tracked.** 0806 A is loaded into the PDM (57 files). Nobody changes a file already on `P:\` outside the PDM: no re-applying imports, repointing, property writes or clearing read-only. A change to an existing vault file goes through `pdm.exe checkout` / `checkin`, and App is told first. New files are added by the importer (overwrite off) and then loaded by App with `pdm.exe load`. Never touch `P:\.pdm` (the app's state). Pack and Go goes to `E:\PDM-work`, never into `P:\`. When an import is applied and SwCheck passes, tell App: it runs `pdm.exe load --dry`, reports to Grant, then loads.
 
 | # | Who | Step |
 |---|---|---|

@@ -58,6 +58,17 @@ DECIDED = {
             "LS-08A-06_SF04-LOWER_FLOOR_PLATE.SLDPRT": "decision 12 (component deleted in r4; file unused)",
         },
     },
+    # docs\imports\LS-08BC-06-decisions.md. The expansion-joint brackets' place tag is still open (not decided here).
+    "LS-08B-06": {
+        "partnos": {
+            ("08B06-STA-01.SLDASM", "Default"): ("08B06-STA-01", True, "decision 1 (as in A; pending ST category)"),
+        },
+    },
+    "LS-08C-06": {
+        "partnos": {
+            ("08C06-STA-01.SLDASM", "Default"): ("08C06-STA-01", True, "decision 1 (as in A; pending ST category)"),
+        },
+    },
 }
 
 def load(name):
@@ -314,7 +325,7 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         action, new_name, new_folder, source = "leave out", s, "", dec_leave[fk]
     elif fk in ledger:
         led = ledger[fk]
-        action, new_name, new_folder, source = "reuse (already imported)", led["new_file"], led["new_folder"], "ledger"
+        action, new_name, new_folder, source = "reuse (already imported)", stem(led["new_file"]), led["new_folder"], "ledger"
     elif cls == "fastener":
         t = next((code for words, code in FAST_TYPE if words in fk), None)
         if "hilti" in fk:

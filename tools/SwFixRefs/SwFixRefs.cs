@@ -41,10 +41,12 @@ static class SwFixRefs
         foreach (var l in lines)
         {
             var c = l.Split(',');   // source,action,new_name,new_folder (no commas in these values)
-            if (c.Length >= 4 && c[1] == "import")
+            if (c.Length >= 4 && (c[1] == "import" || c[1] == "reuse"))   // reuse: already in the vault from an earlier screen
             {
                 string p = root + c[3] + "\\" + c[2];
-                if (File.Exists(p)) { target[Path.GetFileName(c[0])] = p; imported.Add(p); }
+                if (!File.Exists(p)) continue;
+                target[Path.GetFileName(c[0])] = p;
+                if (c[1] == "import") imported.Add(p);
             }
         }
 

@@ -4,7 +4,7 @@ Honours the green columns: 'Your choice', override name/folder on Files, overrid
 Stops if any file still needs a decision (decide, needs number, split family).
 
 Output, next to the workbook:
-  <plan>-files.csv    source (relative to the Pack and Go root), action (import | leave out), new name, new folder
+  <plan>-files.csv    source (relative to the Pack and Go root), action (import | reuse | leave out), new name, new folder
   <plan>-partnos.csv  source file, configuration, level (config | file), PartNo, status (Provisional or blank), from
 
 Usage: python -I export_actions.py <plan.xlsx>
@@ -39,6 +39,9 @@ for r in rows("Files"):
         continue
     if action == "leave out":
         files_out.append([os.path.join(text(r["Inbox folder"]), name), "leave out", "", ""])
+        continue
+    if action.startswith("reuse"):   # already in the vault (ledger): not copied, the new files point at it
+        files_out.append([os.path.join(text(r["Inbox folder"]), name), "reuse", new_name, new_folder])
         continue
     if not action.startswith("import"):
         problems.append(f"{name}: still '{action}'")
@@ -79,6 +82,6 @@ def save(path, header, data):
 
 save(base + "-files.csv", ["source", "action", "new_name", "new_folder"], files_out)
 save(base + "-partnos.csv", ["file", "config", "level", "partno", "status", "from"], pn_out)
-print(f"Files: {sum(1 for x in files_out if x[1] == 'import')} to import, {sum(1 for x in files_out if x[1] == 'leave out')} left out")
+print(f"Files: {sum(1 for x in files_out if x[1] == 'import')} to import, {sum(1 for x in files_out if x[1] == 'reuse')} reused from the vault, {sum(1 for x in files_out if x[1] == 'leave out')} left out")
 print(f"PartNos: {len(pn_out)} ({sum(1 for x in pn_out if x[4] == 'Provisional')} provisional)")
 print("Saved:", base + "-files.csv", base + "-partnos.csv")

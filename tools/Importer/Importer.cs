@@ -3,7 +3,8 @@
 // Usage: Importer.exe <files.csv> <partnos.csv> <sourceRoot> <vaultRoot> <ledger.csv> <screen> <report.md> [--apply [--existing]]
 // Without --apply it only checks and writes the report (a dry run). With --apply it copies each file into the
 // vault under its new name, repoints every reference, writes PartNo (and PartNoStatus = Provisional), adds the
-// ledger rows, and re-reads every vault file. --existing re-runs everything after the copy on files already in the
+// ledger rows, and re-reads every vault file. Files with action "reuse" are already in the vault (from an earlier
+// screen, by the ledger): they aren't copied or changed, only the new files' references are pointed at them. --existing re-runs everything after the copy on files already in the
 // vault (no copy, no ledger rows), e.g. to try a new step on a vault from an earlier run. It never deletes, never edits the source, and refuses Dropbox paths.
 // The licence key is read from the SW_DM_KEY environment variable and is never printed.
 // Written in C# 5 so it compiles with the .NET Framework compiler built into Windows.
@@ -18,7 +19,8 @@ using SolidWorks.Interop.swdocumentmgr;
 class Item
 {
     public string Source, OldName, NewName, NewFolder, Target;
-    public bool Import;
+    public bool Import, Reuse;                                // Reuse: already in the vault, references point at it
+    public bool InVault { get { return Import || Reuse; } }
     public List<string> Refs = new List<string>();           // every reference path the file holds
     public HashSet<string> UnsuppressedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 }
@@ -57,8 +59,8 @@ static class Importer
         var items = new List<Item>();
         foreach (var r in ReadCsv(args[0]))
         {
-            var it = new Item { Source = sourceRoot + "\\" + r["source"], OldName = Path.GetFileName(r["source"]), Import = r["action"] == "import" };
-            if (it.Import)
+            var it = new Item { Source = sourceRoot + "\\" + r["source"], OldName = Path.GetFileName(r["source"]), Import = r["action"] == "import", Reuse = r["action"] == "reuse" };
+            if (it.InVault)
             {
                 it.NewName = r["new_name"];
                 it.NewFolder = r["new_folder"];
@@ -74,6 +76,9 @@ static class Importer
             else byOld[it.OldName] = it;
         }
         var imports = items.Where(i => i.Import).ToList();
+        var reused = items.Where(i => i.Reuse).ToList();
+        foreach (var it in reused)
+            if (!File.Exists(it.Target)) errors.Add("Reused file not in the vault: " + it.Target + " (for " + it.OldName + ").");
 
         // ---------------------------------------------------------------- checks before touching anything
         foreach (var g in imports.GroupBy(i => i.NewName, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
@@ -121,7 +126,7 @@ static class Importer
             foreach (var r in it.Refs.Select(Path.GetFileName).Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 Item target;
-                if (byOld.TryGetValue(r, out target) && target.Import) continue;
+                if (byOld.TryGetValue(r, out target) && target.InVault) continue;
                 if (target != null && !it.UnsuppressedNames.Contains(r))
                     warnings.Add(it.OldName + " still refers to " + r + " (left out). Only suppressed components use it, so it never loads.");
                 else if (target != null)
@@ -151,7 +156,7 @@ static class Importer
         }
 
         // Old file name -> new, for formulas that name a file (Weight = "SW-Mass@OLD.SLDPRT").
-        var renames = imports.Where(i => !i.OldName.Equals(i.NewName, StringComparison.OrdinalIgnoreCase))
+        var renames = imports.Concat(reused).Where(i => !i.OldName.Equals(i.NewName, StringComparison.OrdinalIgnoreCase))
             .ToDictionary(i => i.OldName, i => i.NewName, StringComparer.OrdinalIgnoreCase);
         int repointed = 0, written = 0, formulas = 0;
         foreach (var it in imports)
@@ -168,7 +173,7 @@ static class Importer
                 foreach (var old in it.Refs.Distinct(StringComparer.OrdinalIgnoreCase))
                 {
                     Item target;
-                    if (!byOld.TryGetValue(Path.GetFileName(old), out target) || !target.Import) continue;
+                    if (!byOld.TryGetValue(Path.GetFileName(old), out target) || !target.InVault) continue;
                     if (old.Equals(target.Target, StringComparison.OrdinalIgnoreCase)) continue;
                     doc.ReplaceReference(old, target.Target);
                     repointed++;
@@ -200,7 +205,7 @@ static class Importer
 
         // ---------------------------------------------------------------- check after
         int checkedRefs = 0;
-        var leftOut = new HashSet<string>(items.Where(i => !i.Import).Select(i => i.OldName), StringComparer.OrdinalIgnoreCase);
+        var leftOut = new HashSet<string>(items.Where(i => !i.InVault).Select(i => i.OldName), StringComparer.OrdinalIgnoreCase);
         foreach (var it in imports)
         {
             SwDmDocumentOpenError err;
@@ -465,7 +470,8 @@ static class Importer
         sb.AppendLine("| | Count |");
         sb.AppendLine("| --- | --- |");
         sb.AppendLine("| Files to import | " + imports.Count + " |");
-        sb.AppendLine("| Files left out | " + items.Count(i => !i.Import) + " |");
+        sb.AppendLine("| Files reused from the vault | " + items.Count(i => i.Reuse) + " |");
+        sb.AppendLine("| Files left out | " + items.Count(i => !i.InVault) + " |");
         sb.AppendLine("| PartNo values | " + partnos.Count + " |");
         sb.AppendLine("| Of which Provisional | " + partnos.Count(p => p.Status == "Provisional") + " |");
         sb.AppendLine("| Problems | " + errors.Count + " |");
@@ -487,8 +493,8 @@ static class Importer
         sb.AppendLine();
         sb.AppendLine("| Old name | New name | Folder |");
         sb.AppendLine("| --- | --- | --- |");
-        foreach (var it in items.OrderBy(i => i.Import ? i.NewFolder : "~").ThenBy(i => i.NewName ?? i.OldName))
-            sb.AppendLine("| " + it.OldName + " | " + (it.Import ? it.NewName : "*left out*") + " | " + (it.NewFolder ?? "") + " |");
+        foreach (var it in items.OrderBy(i => i.Reuse ? 1 : i.Import ? 0 : 2).ThenBy(i => i.NewFolder ?? "").ThenBy(i => i.NewName ?? i.OldName))
+            sb.AppendLine("| " + it.OldName + " | " + (it.InVault ? it.NewName + (it.Reuse ? " *(reused)*" : "") : "*left out*") + " | " + (it.NewFolder ?? "") + " |");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
         File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
     }

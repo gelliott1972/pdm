@@ -86,7 +86,7 @@ public sealed class Page(Settings s)
                 await Send(ctx, 200, new { email = session.Email, name = session.Name, sharedEditor = session.SharedEditor });
                 return;
             case "/api/files":
-                await Send(ctx, 200, await FilesAsync());
+                await Send(ctx, 200, await FilesAsync(engine));
                 return;
             case "/api/get":
                 await engine.GetAsync(null);
@@ -132,21 +132,22 @@ public sealed class Page(Settings s)
         await Send(ctx, 200, new { email = session.Email, name = session.Name, sharedEditor = session.SharedEditor });
     }
 
-    // Every file with its state for me: held by me (changed or not), held by someone else, newer in the vault.
-    async Task<object> FilesAsync()
+    // Every file with its state for me on this PC: held here (changed or not), held elsewhere, newer in the vault.
+    // usedBy lists the files that use it, so the page can count the ones outside what's being checked out.
+    async Task<object> FilesAsync(Engine engine)
     {
         var all = await new Index(db!, s).AllAsync();
         var state = LocalState.Load(s.LocalRoot);
-        var usedBy = all.SelectMany(f => f.Refs.Distinct()).GroupBy(id => id).ToDictionary(g => g.Key, g => g.Count());
+        var usedBy = all.SelectMany(f => f.Refs.Distinct().Select(id => (id, by: f.FileId))).GroupBy(x => x.id).ToDictionary(g => g.Key, g => g.Select(x => x.by).ToList());
         return all.OrderBy(f => f.Path, StringComparer.OrdinalIgnoreCase).Select(f =>
         {
             var local = Paths.LocalOf(s.LocalRoot, f.Path);
-            bool mine = f.LockedBy == session!.Email;
+            bool mine = engine.Mine(f);
             state.Files.TryGetValue(f.Path, out var had);
             return new
             {
                 id = f.FileId, path = f.Path, refs = f.Refs, missingRefs = f.MissingRefs.Count,
-                shared = Paths.IsShared(f.Path), usedBy = usedBy.GetValueOrDefault(f.FileId),
+                shared = Paths.IsShared(f.Path), usedBy = usedBy.GetValueOrDefault(f.FileId) ?? new List<string>(),
                 updatedBy = f.UpdatedBy, updatedAt = f.UpdatedAt, note = f.Note,
                 lockedByName = f.LockedByName, lockedAt = f.LockedAt, lockMachine = f.LockMachine, mine,
                 changed = mine && state.IsChanged(f.Path, local),

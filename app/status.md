@@ -30,6 +30,8 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 | App: `P:` | `pdm.exe map <folder>`, run as administrator: DOS Devices registry entry plus an immediate `subst`. Run on the desktop 23 Oct: registry `P:` = `\??\E:\PDM-test\P`, `subst` shows it. Restart survival not yet checked. |
 | Document Manager from .NET 8 | Works: `pdm.exe inspect <file>` read references and PartNos from `LS-08A-06+STRUCTURE`, a SKU (`DL_APEX` on `P:\`) and a fastener family. |
 | App: page | Built 24 Oct, **not yet tried by Grant**. `pdm.exe` with no arguments serves `http://localhost:5170/` and opens it. Login (with first-login new password), folder tree with status, check out an assembly (tree with tick boxes: same screen folder ticked; shared unticked with "used by n files", tickable only for shared editors; others' files greyed with who and since), folder check-out (double-click a folder), check in / undo with note and changed marks, who has what, get latest. Refreshes every 30 s so another PC's locks show. Only answers localhost requests carrying an `X-PDM` header. Command line moved to `pdm.exe shell`. Checked: builds, serves the page, refuses requests without the header, rejects a bad login. |
+| Locks per PC | 24 Oct: a check-out belongs to a person **on one PC** (email + machine name). Needed because Grant is the same user on desktop and laptop; also right for anyone with two PCs. Elsewhere it shows as "you on GGPC" and can't be checked in or undone there. |
+| Page: shared counts | 24 Oct (Grant): shared files show "used by n other assemblies", counting only assemblies outside what's being checked out. |
 | Setup document | `docs\setup-machine.md`: engineer PC (A) and Grant's build/admin PC (B). |
 
 ## Next

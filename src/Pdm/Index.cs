@@ -56,7 +56,7 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
     // Whole-record write, used by the loader.
     public Task PutAsync(FileRecord f) => db.PutItemAsync(new PutItemRequest { TableName = s.FilesTable, Item = ToItem(f) });
 
-    // Takes the lock unless someone else holds it. Holding it already is fine.
+    // Takes the lock unless someone else holds it. A lock belongs to a person on one PC; holding it already there is fine.
     public async Task LockAsync(string fileId, string email, string name, string machine)
     {
         try
@@ -66,7 +66,7 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
                 TableName = s.FilesTable,
                 Key = new() { ["fileId"] = S(fileId) },
                 UpdateExpression = "SET lockedBy = :me, lockedByName = :name, lockedAt = :at, lockMachine = :machine",
-                ConditionExpression = "attribute_exists(fileId) AND (attribute_not_exists(lockedBy) OR lockedBy = :me)",
+                ConditionExpression = "attribute_exists(fileId) AND (attribute_not_exists(lockedBy) OR (lockedBy = :me AND lockMachine = :machine))",
                 ExpressionAttributeValues = new()
                 {
                     [":me"] = S(email), [":name"] = S(name), [":at"] = S(Now()), [":machine"] = S(machine)
@@ -80,7 +80,7 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
         }
     }
 
-    public async Task UnlockAsync(string fileId, string email)
+    public async Task UnlockAsync(string fileId, string email, string machine)
     {
         try
         {
@@ -89,8 +89,8 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
                 TableName = s.FilesTable,
                 Key = new() { ["fileId"] = S(fileId) },
                 UpdateExpression = "REMOVE lockedBy, lockedByName, lockedAt, lockMachine",
-                ConditionExpression = "lockedBy = :me",
-                ExpressionAttributeValues = new() { [":me"] = S(email) }
+                ConditionExpression = "lockedBy = :me AND lockMachine = :machine",
+                ExpressionAttributeValues = new() { [":me"] = S(email), [":machine"] = S(machine) }
             });
         }
         catch (ConditionalCheckFailedException)
@@ -100,7 +100,7 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
     }
 
     // Records a new version and releases the lock, only while I still hold it.
-    public async Task CheckInAsync(FileRecord f, string email)
+    public async Task CheckInAsync(FileRecord f, string email, string machine)
     {
         f.LockedBy = f.LockedByName = f.LockedAt = f.LockMachine = null;
         var item = ToItem(f);
@@ -109,8 +109,8 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
             await db.PutItemAsync(new PutItemRequest
             {
                 TableName = s.FilesTable, Item = item,
-                ConditionExpression = "lockedBy = :me",
-                ExpressionAttributeValues = new() { [":me"] = S(email) }
+                ConditionExpression = "lockedBy = :me AND lockMachine = :machine",
+                ExpressionAttributeValues = new() { [":me"] = S(email), [":machine"] = S(machine) }
             });
         }
         catch (ConditionalCheckFailedException)

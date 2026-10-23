@@ -4,6 +4,7 @@ namespace Pdm;
 public sealed class Engine(Settings s, Index index, Vault vault, string email, string name, bool sharedEditor, Action<string> say)
 {
     readonly string root = s.LocalRoot;
+    readonly string machine = Environment.MachineName;
     DocReader? reader;
     DocReader Reader => reader ??= new DocReader();
 
@@ -16,7 +17,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         foreach (var f in (await index.AllAsync()).Where(f => f.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).OrderBy(f => f.Path))
         {
             var local = Paths.LocalOf(root, f.Path);
-            bool mine = f.LockedBy == email;
+            bool mine = Mine(f);
             state.Files.TryGetValue(f.Path, out var had);
             bool upToDate = had != null && had.VersionId == f.VersionId && File.Exists(local);
 
@@ -56,16 +57,16 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         var state = LocalState.Load(root);
         var files = (await index.AllAsync()).Where(f => f.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).OrderBy(f => f.Path).ToList();
 
-        var mine = files.Where(f => f.LockedBy == email).ToList();
+        var mine = files.Where(Mine).ToList();
         say($"Checked out by me ({mine.Count}):");
         foreach (var f in mine)
             say($"  {f.Path}{(state.IsChanged(f.Path, Paths.LocalOf(root, f.Path)) ? "  [changed]" : "")}");
 
-        var others = files.Where(f => f.LockedBy != null && f.LockedBy != email).ToList();
+        var others = files.Where(f => f.LockedBy != null && !Mine(f)).ToList();
         say($"Checked out by others ({others.Count}):");
-        foreach (var f in others) say($"  {f.Path}  {f.LockedByName}, since {Local(f.LockedAt)}");
+        foreach (var f in others) say($"  {f.Path}  {f.LockedByName} on {f.LockMachine}, since {Local(f.LockedAt)}");
 
-        var newer = files.Where(f => f.LockedBy != email && (!state.Files.TryGetValue(f.Path, out var e) || e.VersionId != f.VersionId)).ToList();
+        var newer = files.Where(f => !Mine(f) && (!state.Files.TryGetValue(f.Path, out var e) || e.VersionId != f.VersionId)).ToList();
         say($"Newer in the vault ({newer.Count}):");
         foreach (var f in newer) say($"  {f.Path}  {f.UpdatedBy}, {Local(f.UpdatedAt)}{(f.Note != "" ? "  \"" + f.Note + "\"" : "")}");
     }
@@ -84,18 +85,18 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
 
             var local = Paths.LocalOf(root, f.Path);
             state.Files.TryGetValue(f.Path, out var had);
-            if (File.Exists(local) && state.IsChanged(f.Path, local) && f.LockedBy != email)
+            if (File.Exists(local) && state.IsChanged(f.Path, local) && !Mine(f))
             {
                 say($"{f.Path} was changed on this PC without a check-out. Move it aside first.");
                 continue;
             }
             try
             {
-                await index.LockAsync(f.FileId, email, name, Environment.MachineName);
+                await index.LockAsync(f.FileId, email, name, machine);
             }
             catch (LockTakenException ex)
             {
-                say($"Can't check out {f.Path}: {ex.Holder.LockedByName} has it, since {Local(ex.Holder.LockedAt)}.");
+                say($"Can't check out {f.Path}: {ex.Holder.LockedByName} has it on {ex.Holder.LockMachine}, since {Local(ex.Holder.LockedAt)}.");
                 continue;
             }
             if (had == null || had.VersionId != f.VersionId || !File.Exists(local))
@@ -125,10 +126,10 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         if (existing != null)
         {
             existing = await index.GetAsync(existing.FileId) ?? existing; // fresh lock state
-            if (existing.LockedBy != email) { say($"You don't have {key} checked out."); return; }
+            if (!Mine(existing)) { say($"You don't have {key} checked out on this PC."); return; }
             if (!state.IsChanged(existing.Path, local))
             {
-                await index.UnlockAsync(existing.FileId, email);
+                await index.UnlockAsync(existing.FileId, email, machine);
                 Paths.SetReadOnly(local, true);
                 say($"No changes in {existing.Path}; released.");
                 return;
@@ -154,7 +155,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
 
         (record.VersionId, record.ETag) = await vault.UploadAsync(local, record.Path, record.FileId);
         record.Size = new FileInfo(local).Length;
-        if (existing != null) await index.CheckInAsync(record, email);
+        if (existing != null) await index.CheckInAsync(record, email, machine);
         else await index.PutAsync(record);
         await index.UpdatePartNosAsync(record, existing?.PartNos ?? new());
 
@@ -171,13 +172,13 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         var key = Paths.KeyOf(root, path);
         var f = (await index.AllAsync()).FirstOrDefault(r => r.Path.Equals(key, StringComparison.OrdinalIgnoreCase));
         if (f == null) { say($"Not in the vault: {key}"); return; }
-        if (f.LockedBy != email) { say($"You don't have {f.Path} checked out."); return; }
+        if (!Mine(f)) { say($"You don't have {f.Path} checked out on this PC."); return; }
 
         var local = Paths.LocalOf(root, f.Path);
         var state = LocalState.Load(root);
         if (!File.Exists(local) || state.IsChanged(f.Path, local) || !state.Files.TryGetValue(f.Path, out var had) || had.VersionId != f.VersionId)
             await vault.DownloadAsync(f.Path, f.VersionId, local);
-        await index.UnlockAsync(f.FileId, email);
+        await index.UnlockAsync(f.FileId, email, machine);
         state.Record(f.Path, local, f.FileId, f.VersionId, f.ETag);
         state.Save(root);
         Paths.SetReadOnly(local, true);
@@ -200,6 +201,9 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         }
         record.PartNos.AddRange(info.PartNos);
     }
+
+    // My lock means mine on this PC: the same person's check-out on another PC is that PC's working copy.
+    public bool Mine(FileRecord f) => f.LockedBy == email && f.LockMachine == machine;
 
     string PrefixOf(string? folder) =>
         string.IsNullOrWhiteSpace(folder) ? "" : Paths.KeyOf(root, folder).TrimEnd('/') + "/";

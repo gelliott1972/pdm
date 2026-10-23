@@ -14,8 +14,25 @@ B and C point at `LS-08X-06` configuration `LS-08BC-06`. Their `SS-08BC-06` was 
 
 Not used any more (Grant). They stay unnumbered.
 
+## 4. Member "b" PartNos (23 Oct 2026, James via Grant)
+
+James put them on the `<As Welded>` configurations of the live members file to mark lengths that differ from `<As Machined>`; machined is correct. Not wanted in the vault (the vault's `GNRIC-LM` has none).
+
+## 5. Skeleton equations (23 Oct 2026)
+
+B's and C's skeletons: untick the link to `M:Év3\...\LS_08A-06_Tie_Bar_equations.txt` and keep the equations, as in A.
+
+## 6. Grout and anchors (23 Oct 2026)
+
+Same method as A: repoint to `MDL-ANCHOR-08X06` and `NONPART-GROUT-08X06` (the grout's `_BIM` configurations already exist there).
+
+## Step 3 agreed (SW with Grant, in the B and C work copies)
+
+Fix both skeletons; delete the suppressed floor plate in both SF04-LOWERs; repoint LCMM, tie, post, screen (configuration `LS-08BC-06`) and grout/anchor; make `08B06-STA-01` and `08C06-STA-01`; then a clean Pack and Go `-r1` per screen into `E:\PDM-work`.
+
 ## Open
 
-- Live edits to the members (`GNRIC-LM`, "b" PartNos on `<As Welded>`), `PACKER` and `TIE_80x40x8` on 22–23 Oct: Grant asking James.
-- Grout/anchor configuration mapping, and B's concrete-beam anchor.
+- B's concrete-beam anchor (`200x400_SHAFTB_CONCRETE_BEAM`): new configuration in `MDL-ANCHOR-08X06` (check-out), or an existing one.
 - Expansion-joint brackets' place tag.
+- Members' `<As Welded>` lengths: fix in the vault file or leave.
+- `PACKER` and `TIE_80x40x8` live saves on 23 Oct: waiting on James.

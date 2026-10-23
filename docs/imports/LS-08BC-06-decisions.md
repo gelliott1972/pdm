@@ -24,7 +24,7 @@ B's and C's skeletons: untick the link to `M:Év3\...\LS_08A-06_Tie_Bar_equation
 
 ## 6. Grout and anchors (23 Oct 2026)
 
-Same method as A: repoint to `MDL-ANCHOR-08X06` and `NONPART-GROUT-08X06` (the grout's `_BIM` configurations already exist there).
+Same method as A: repoint to `MDL-ANCHOR-08X06` and `NONPART-GROUT-08X06` (in each top, the old GROUT+ANCHOR becomes `MDL-ANCHOR-08X06` ROOF_220X220 / FLOOR_200X200 plus `NONPART-GROUT-08X06` in its matching configuration; all exist, including the grout for B's concrete beam).
 
 ## Step 3 agreed (SW with Grant, in the B and C work copies)
 

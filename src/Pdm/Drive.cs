@@ -5,7 +5,7 @@ using Microsoft.Win32;
 namespace Pdm;
 
 // The permanent P: mapping: a DOS Devices entry in the registry, which Windows creates at every start-up
-// for all programs (including ones run as administrator). Also maps it now, so no restart is needed.
+// for all programs (including ones run as administrator). It takes effect at the next restart.
 public static class Drive
 {
     const string Key = @"SYSTEM\CurrentControlSet\Control\Session Manager\DOS Devices";
@@ -38,8 +38,9 @@ public static class Drive
         }
 
         reg.SetValue(letter, @"\??\" + folder, RegistryValueKind.String);
-        if (current == null) Run("subst", $"{letter} \"{folder}\"");
         say($"{letter} now points to {folder}, and will after every restart.");
+        // A subst made here only shows in administrator windows (Windows keeps them apart), so a new mapping needs a restart.
+        if (current == null) say($"Restart Windows now: until then {letter} only shows in administrator windows.");
         return 0;
     }
 

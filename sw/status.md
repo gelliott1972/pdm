@@ -142,3 +142,14 @@ Grant's choice: anchors and grout are added **in the PDM** (laptop check-out of 
 Done in the work copies: skeleton equations links off (B: 5th equation deleted by Grant), suppressed floor plate deleted from both SF04-LOWERs, repoints (LCMM, tie, post, screen `LS-08BC-06`), old GROUT+ANCHOR kits removed, `08B06-STA-01` / `08C06-STA-01` formed (tops = STA + `LS-08X-06`).
 
 Still open: expansion-joint brackets' place tag (08B11 PartNos); PACKER / TIE_80x40x8 live saves (James); members' As Welded lengths; B's concrete-beam anchor config (in the PDM session).
+
+## 24 Oct: open items resolved (Grant)
+
+| Item | Decision |
+| --- | --- |
+| Expansion-joint brackets | `08BXX` (shaft B, two screens): `SHAFTB_EXP_JOINT_BRACKET_FOR_CONCRETE_BEAM` -> `08BXX-MSW-01` (PLATE ONLY = `08BXX-PLP-01`), `SHAFTB_EXP_JOINT_100x100_EA_BRACKET` -> `08BXX-MSP-01`, folder `SC08\_Shared`. Replaces the live 08B11 PartNos |
+| PACKER 23 Oct save | PartNo prefix only (STOCK -> GNRIC). Keep vault `GNRIC-PKP` as is |
+| TIE_80x40x8 23 Oct save | Only "b" markers on `<As Welded>` configs (to spot use; all should be As Machined). Not wanted in the vault; `GNRIC-BRP`/`BRA` unchanged |
+| Members' As Welded lengths | Leave `GNRIC-LM` as is; check out and change if needed |
+
+Checked: B and C -r1 use only `<As Machined>` configs of the ties and members. James works mainly on 08X11; all his files are closed now.

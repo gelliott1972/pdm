@@ -1,7 +1,7 @@
 # DL APEX – Structural Part Numbering Standard
 
 > **Status: DRAFT (Rev 3, 15 Oct 2026).** Details may still be tweaked. If a rule here conflicts with an instruction from Grant or James, follow them and flag the conflict.
-> Master copy: `APEX_Structure_Part_Numbering_Standard_Rev3.xlsx`
+> Master copy: `dataAPEX_Structure_Part_Numbering_Standard_Rev3.xlsx`
 
 ## Scope
 

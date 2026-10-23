@@ -26,6 +26,18 @@ B's and C's skeletons: untick the link to `M:Év3\...\LS_08A-06_Tie_Bar_equation
 
 Same method as A: repoint to `MDL-ANCHOR-08X06` and `NONPART-GROUT-08X06` (in each top, the old GROUT+ANCHOR becomes `MDL-ANCHOR-08X06` ROOF_220X220 / FLOOR_200X200 plus `NONPART-GROUT-08X06` in its matching configuration; all exist, including the grout for B's concrete beam).
 
+## 7. Grout and anchors placed by sketch pattern (24 Oct 2026, Grant: for all screens)
+
+Grout and anchors are placed by a sketch pattern: one sketch of points per type, one seed patterned, as B's top already does. Anchors go in the structure assembly (`STA`), grout in the top. Replaces decision 6's repointing for B and C (Replace Components gave wrong mates). B's concrete-beam anchor comes later, through the PDM. A's anchors in `08A06-STA-01` are still individual instances.
+
+## 8. Structure assemblies formed (24 Oct 2026)
+
+`08B06-STA-01` and `08C06-STA-01` made by Save As of each top with the screen deleted; each top rebuilt as STA + `LS-08X-06` (`LS-08BC-06`). Both open without errors.
+
+## Live files changed by mistake (23 Oct 2026)
+
+The B and C skeleton equation fix was saved to the live Dropbox skeletons instead of the work copies. Grant keeps the live change. The work copies still need the same fix.
+
 ## Step 3 agreed (SW with Grant, in the B and C work copies)
 
 Fix both skeletons; delete the suppressed floor plate in both SF04-LOWERs; repoint LCMM, tie, post, screen (configuration `LS-08BC-06`) and grout/anchor; make `08B06-STA-01` and `08C06-STA-01`; then a clean Pack and Go `-r1` per screen into `E:\PDM-work`.

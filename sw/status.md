@@ -128,3 +128,4 @@ Grant's skeleton fix (link unticked, 7 globals + 4 equations each; B had one equ
 - Vault A: grout in top looks patterned (seeds -1, -15); anchors in `08A06-STA-01` are individual instances (old kit numbers).
 - 24 Oct 10:54: C separated. `Shaft C\08C06-STA-01.SLDASM` = Save As copy of the top with the screen deleted (111 refs, all in the work copy). Grant rebuilt the C top from scratch: `08C06-STA-01` (first, Default) + `LS-08X-06` (LS-08BC-06). Opens without errors. Next: B the same way, then Grant adds anchors (STA) and grout (top) by sketch pattern.
 - Live Dropbox skeletons: Grant leaves the fix in place.
+- 24 Oct 11:18: B separated the same way. `Shaft B\08B06-STA-01.SLDASM` (no screen, no grout, all refs in work copy); B top rebuilt = `08B06-STA-01` + `LS-08X-06` (LS-08BC-06). No errors. Next: Grant adds anchors (STA) and grout (top) by sketch pattern in C, then B (B's concrete beam later, in the PDM).

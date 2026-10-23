@@ -119,3 +119,10 @@ Step 2 done: B and C copied from `PDM-inbox` to `E:\PDM-work\LS-08B-06` (59 file
 ## 23 Oct 19:15: skeleton fix landed in the live files
 
 Grant's skeleton fix (link unticked, 7 globals + 4 equations each; B had one equation deleted) was saved to the **live Dropbox** skeletons (`...\Screen Models\311v3\SC08\LS-08X-06\Shaft B\LS-08B-06 Skeleton.SLDPRT` 19:12, `Shaft C\LS-08C-06 Tie Beam Skeleton.SLDPRT` 19:11), not the work copies. Work copies still 19 Sep (unfixed). Grant to redo in `E:\PDM-work\LS-08B-06|C-06\311v3\...`; whether to keep the live change is Grant's call. Grout/anchor in A was replaced by hand (Grant).
+
+## 24 Oct: grout/anchor method (Grant)
+
+- C's 24 old GROUT+ANCHOR kits deleted in the top (Replace Components gave wrong mates). C has no grout pattern sketches.
+- Grant's choice, **for all screens**: grout and anchors placed by a sketch pattern (one sketch of points per type, pattern one seed), as B's top does. For Admin to record.
+- Order (Grant): form `08B06-STA-01` / `08C06-STA-01` first; Grant adds anchors in the STA, then grout in the top.
+- Vault A: grout in top looks patterned (seeds -1, -15); anchors in `08A06-STA-01` are individual instances (old kit numbers).

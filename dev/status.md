@@ -1,10 +1,21 @@
 # Dev status
 
-Updated 22 Oct 2026.
+Updated 24 Oct 2026.
 
 ## Next: 0806 B and C (brief `docs\briefs\import-0806BC.md`)
 
-Waiting for SW's `-r1` sets. Work copies (SW, 23 Oct) are now `E:\PDM-work\LS-08B-06\311v3\...` and `...\LS-08C-06\311v3\...` (`PANELS\` beside `311v3`), no "Dropbox" in the path; probes in `scratch\inventory\LS-08B-06`, `LS-08C-06`. Dev's SwCheck of the earlier copies (23 Oct, reported to SW): end-plate and both skeletons have linked equations files; part links into `PDM-inbox`. Dev's part is step 4: plan from `-r1` with the ledger (files already in the vault reused, not imported), list every change B/C needs to an existing vault file, dry run, report to Admin.
+**Step 4 (24 Oct):** planned from `-r1` (`E:\PDM-work\LS-08B-06-r1`, `-C-06-r1`) with the ledger and `data\` register. Reuse added to the tools (94b3465): `export_actions` writes `reuse` rows, the Importer checks each reused file is in the vault and points the new files at it (no copy, no change, no ledger rows), SwFixRefs maps old names of reused files. The plan tool no longer doubles the extension on reuse rows. Structure assemblies get `08B06-STA-01` / `08C06-STA-01`, Provisional (decision 1, "as in A").
+
+| | B | C |
+| --- | --- | --- |
+| New files | 19 (17 + 2 expansion-joint brackets) | 17 |
+| Reused from the vault | 37 | 37 |
+| PartNos | 18 (15 Provisional) | 15 (15 Provisional) |
+| Dry run | Passed as a **what-if** with the brackets as `08BXX-MSP-01` / `08BXX-MSW-01` in `APEX\SC08\_Shared` (Admin's proposal, not decided; `scratch\import\LS-08B-06-r1-whatif-08BXX-import-plan.xlsx`). The real plan stops on them: the concrete-beam bracket is a family mixing `08B11-MSW-01` (Default) and `08B11-PLP-01` (PLATE ONLY, not used here) | Passed |
+| Changes to existing vault files | None: every configuration B/C use in a reused file exists and has its PartNo (checked against A's r4 probe and the ledger, not the live vault files) | None |
+| SwCheck of the tops for equations links | Not yet: SOLIDWORKS was open | Not yet |
+
+Earlier: work copies (SW, 23 Oct) are now `E:\PDM-work\LS-08B-06\311v3\...` and `...\LS-08C-06\311v3\...` (`PANELS\` beside `311v3`), no "Dropbox" in the path; probes in `scratch\inventory\LS-08B-06`, `LS-08C-06`. Dev's SwCheck of the earlier copies (23 Oct, reported to SW): end-plate and both skeletons have linked equations files; part links into `PDM-inbox`. Dev's part is step 4: plan from `-r1` with the ledger (files already in the vault reused, not imported), list every change B/C needs to an existing vault file, dry run, report to Admin.
 **Rule from 23 Oct:** `P:\` is vault-tracked (0806 A loaded into the PDM). Never change a file already on `P:\` (re-import, repoint, property writes, clearing read-only) without telling App first. Changes go through `pdm.exe checkout` / `checkin`. Never touch `P:\.pdm`. If the plan needs any existing vault file changed: stop and tell App and Admin. After apply and SwCheck pass: tell App (it runs `pdm load --dry`, then loads).
 Tools brought into line (23 Oct): SwFixRefs now checks and repoints only the files the import adds (was every file under `P:\`) and skips `P:\.pdm`; the Importer's name-clash search skips `P:\.pdm`; `Importer --existing` refuses a vault with `.pdm` (tested on `P:\`). SwFixRefs change built but not run (needs SOLIDWORKS).
 

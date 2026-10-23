@@ -126,3 +126,5 @@ Grant's skeleton fix (link unticked, 7 globals + 4 equations each; B had one equ
 - Grant's choice, **for all screens**: grout and anchors placed by a sketch pattern (one sketch of points per type, pattern one seed), as B's top does. For Admin to record.
 - Order (Grant): form `08B06-STA-01` / `08C06-STA-01` first; Grant adds anchors in the STA, then grout in the top.
 - Vault A: grout in top looks patterned (seeds -1, -15); anchors in `08A06-STA-01` are individual instances (old kit numbers).
+- 24 Oct 10:54: C separated. `Shaft C\08C06-STA-01.SLDASM` = Save As copy of the top with the screen deleted (111 refs, all in the work copy). Grant rebuilt the C top from scratch: `08C06-STA-01` (first, Default) + `LS-08X-06` (LS-08BC-06). Opens without errors. Next: B the same way, then Grant adds anchors (STA) and grout (top) by sketch pattern.
+- Live Dropbox skeletons: Grant leaves the fix in place.

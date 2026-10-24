@@ -37,7 +37,7 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 
 ## Next
 
-1. **Desktop, before the move:** load 0806 B and C once Dev says the import into `E:\PDM-test\P` is applied: `pdm.exe load --dry`, show Grant, then the real load.
+1. ~~Load 0806 B and C~~: **done 24 Oct** on the desktop. 36 new files (B 19, C 17); vault now 93 files, 138 PartNos, 237 references, 0 outside, no clashes; all 93 read-only on the desktop; re-run dry finds 0 changed. The laptop needs **Get latest** to fetch the 36.
 2. **Laptop, after the move:** the updater. See "Handover" below.
 3. Later: Grant's first real check-out on 08B/C (grout and anchors not needed now, per Admin 24 Oct).
 

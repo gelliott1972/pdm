@@ -27,6 +27,18 @@ public static class Paths
         || Path.GetFileName(key).StartsWith("~$")
         || key.EndsWith(".pdm-download", StringComparison.OrdinalIgnoreCase);
 
+    // SOLIDWORKS files on this PC that the page offers to add: parts, assemblies, drawings.
+    // Skips ignored files and SOLIDWORKS's own ~ temp and lock files. Lists names only; never opens a file.
+    public static IEnumerable<string> LocalSolidWorksKeys(string root)
+    {
+        if (!Directory.Exists(root)) return [];
+        string[] exts = [".sldprt", ".sldasm", ".slddrw"];
+        return Directory.EnumerateFiles(root, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true })
+            .Where(p => exts.Contains(Path.GetExtension(p).ToLowerInvariant()) && !Path.GetFileName(p).StartsWith('~'))
+            .Select(p => KeyOf(root, p))
+            .Where(k => !IsIgnored(k));
+    }
+
     public static void SetReadOnly(string localPath, bool readOnly)
     {
         if (!File.Exists(localPath)) return;

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PDM</title>
 <style>
-  :root { --line: #ddd; --muted: #777; --mine: #1d5fbf; --other: #b5651d; --newer: #6a6a6a; --bad: #b00020; }
+  :root { --line: #ddd; --muted: #777; --mine: #1d5fbf; --other: #b5651d; --newer: #6a6a6a; --new: #2e7d32; --bad: #b00020; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   body { margin: 0; font: 13px/1.4 "Segoe UI", system-ui, sans-serif; color: #222; background: #fafafa; }
@@ -34,10 +34,12 @@
   .tag.other { color: var(--other); }
   .tag.newer { color: var(--newer); }
   .tag.bad { color: var(--bad); }
+  .tag.new { color: var(--new); }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: transparent; }
   .dot.mine { background: var(--mine); }
   .dot.other { background: var(--other); }
   .dot.newer { border: 1px solid var(--newer); }
+  .dot.new { background: var(--new); }
   .row.off { color: #999; }
   .bar { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
   .bar .grow { flex: 1; min-width: 160px; }
@@ -131,6 +133,7 @@ function isAsm(p) { return /\.sldasm$/i.test(p); }
 function holder(f) { return f.lockedByName === me.name ? 'you on ' + f.lockMachine : f.lockedByName + ' on ' + f.lockMachine; }
 
 function status(f) {
+  if (f.isNew) return { cls: 'new', text: 'new, not in the vault' };
   if (f.mine) return { cls: 'mine', text: f.changed ? 'checked out, changed' : 'checked out' };
   if (f.lockedByName) return { cls: 'other', text: holder(f) + ', since ' + when(f.lockedAt) };
   if (f.newer) return { cls: 'newer', text: 'newer in vault' };
@@ -186,6 +189,8 @@ function showResult(lines, working) {
     if (n) parts.push(label + ' ' + n + ' file' + (n === 1 ? '' : 's'));
   }
   if (lines.some(l => l.startsWith('Get done')) && !lines.some(l => l.startsWith('Got '))) parts.push('Up to date');
+  const notes = lines.filter(l => l.startsWith('  Note')).length;
+  if (notes) parts.push(notes + ' note' + (notes === 1 ? '' : 's') + ': see Details');
   $('result').hidden = false;
   $('result').classList.toggle('bad', problems.length > 0);
   $('resultText').textContent = working ? lines[0] : (parts.join(' · ') || 'Done.');
@@ -222,8 +227,9 @@ function drawTree() {
     for (const name of Object.keys(n.dirs).sort((a, b) => a.localeCompare(b))) {
       const key = prefix + name + '/', isOpen = q || open.has(key);
       const mineHere = files.some(f => f.mine && f.path.startsWith(key)), otherHere = files.some(f => f.lockedByName && !f.mine && f.path.startsWith(key));
+      const newHere = files.some(f => f.isNew && f.path.startsWith(key));
       out.push(`<div class="row folder" style="padding-left:${depth * 14 + 4}px" data-dir="${esc(key)}"><span class="tw">${isOpen ? '▾' : '▸'}</span>${esc(name)}`
-        + (mineHere ? ' <span class="dot mine"></span>' : '') + (otherHere ? ' <span class="dot other"></span>' : '') + '</div>');
+        + (mineHere ? ' <span class="dot mine"></span>' : '') + (otherHere ? ' <span class="dot other"></span>' : '') + (newHere ? ' <span class="dot new"></span>' : '') + '</div>');
       if (isOpen) walk(n.dirs[name], key, depth + 1);
     }
     for (const f of n.files.sort((a, b) => a.path.localeCompare(b.path))) {
@@ -277,10 +283,11 @@ function drawOut() {
   const rows = v.rows.map(({ f, depth }) => {
     const other = f.lockedByName && !f.mine;
     const canShared = !f.shared || me.sharedEditor;
-    const disabled = other || f.mine || !canShared;
+    const disabled = other || f.mine || !canShared || f.isNew;
     const ticked = !disabled && !f.shared && f.path.startsWith(v.folder);
     let note = '';
-    if (f.mine) note = '<span class="tag mine">yours</span>';
+    if (f.isNew) note = '<span class="tag new">new: add it from Check in</span>';
+    else if (f.mine) note = '<span class="tag mine">yours</span>';
     else if (other) note = `<span class="tag other">${esc(holder(f))}, since ${esc(when(f.lockedAt))}</span>`;
     else if (f.shared) {
       const n = f.usedBy.filter(id => !inView.has(id) && byId[id] && isAsm(byId[id].path)).length;
@@ -296,15 +303,19 @@ function drawOut() {
 
 // ---- right: check in
 function drawIn() {
-  const mine = files.filter(f => f.mine);
-  if (mine.length === 0) return '<span class="muted">Nothing checked out.</span>';
+  const mine = files.filter(f => f.mine || f.isNew);
+  if (mine.length === 0) return '<span class="muted">Nothing checked out, and no new files.</span>';
   const v = outRows(), under = v ? new Set(v.rows.map(r => r.f.path)) : null;
   const rows = mine.map(f => {
-    const ticked = !under || under.has(f.path);
-    return `<div class="row" title="${esc(f.path)}"><input type="checkbox" data-in="${esc(f.path)}"${ticked ? ' checked' : ''}>`
-      + `<span class="name">${esc(f.path)}</span><span class="tag ${f.changed ? 'mine' : ''}">${f.changed ? 'changed' : 'no change'}</span></div>`;
+    // A new file is added by check-in; in a shared folder only shared editors can add it.
+    const canAdd = !f.isNew || !f.shared || me.sharedEditor;
+    const ticked = canAdd && (!under || under.has(f.path) || (f.isNew && f.path.startsWith(v.folder)));
+    const tag = f.isNew ? `<span class="tag new">new${canAdd ? '' : ', shared: only a shared editor can add it'}</span>`
+      : `<span class="tag ${f.changed ? 'mine' : ''}">${f.changed ? 'changed' : 'no change'}</span>`;
+    return `<div class="row${canAdd ? '' : ' off'}" title="${esc(f.path)}"><input type="checkbox" data-in="${esc(f.path)}"${ticked ? ' checked' : ''}${canAdd ? '' : ' disabled'}>`
+      + `<span class="name">${esc(f.path)}</span>${tag}</div>`;
   }).join('');
-  return `<h2>Checked out by me${v ? ' · ticked: under ' + esc(v.title) : ''}</h2>${rows}`
+  return `<h2>Checked out by me, and new files${v ? ' · ticked: under ' + esc(v.title) : ''}</h2>${rows}`
     + `<div class="bar"><input type="text" class="grow" id="note" placeholder="Note"><button class="main" id="inBtn">Check in ticked</button><button id="undoBtn">Undo ticked</button></div>`;
 }
 
@@ -354,8 +365,10 @@ function drawTabs() {
   for (const [id, t] of [['tabOut', 'out'], ['tabIn', 'in'], ['tabWho', 'who'], ['tabNew', 'new']]) $(id).classList.toggle('on', tab === t);
   $('settingsBtn').classList.toggle('on', tab === 'settings');
   const changed = files.filter(f => f.mine && f.changed).length, newer = files.filter(f => f.newer).length;
-  $('tabIn').textContent = 'Check in' + (changed ? ` (${changed} changed)` : '');
-  $('tabIn').classList.toggle('alert', changed > 0);
+  const added = files.filter(f => f.isNew && (!f.shared || me.sharedEditor)).length;
+  const counts = [changed && changed + ' changed', added && added + ' new'].filter(Boolean).join(', ');
+  $('tabIn').textContent = 'Check in' + (counts ? ` (${counts})` : '');
+  $('tabIn').classList.toggle('alert', changed + added > 0);
   $('tabNew').textContent = 'Changes' + (newer ? ` (${newer})` : '');
 }
 
@@ -377,7 +390,7 @@ function drawPanel() {
   $('pwBtn')?.addEventListener('click', changePassword);
   $('pwCancel')?.addEventListener('click', () => { tab = lastTab; drawTabs(); drawPanel(); }); // back to where I was; the form is dropped
   $('undoBtn')?.addEventListener('click', () => {
-    const paths = [...document.querySelectorAll('[data-in]:checked')].map(c => c.dataset.in);
+    const paths = [...document.querySelectorAll('[data-in]:checked')].map(c => c.dataset.in).filter(p => !byPath[p]?.isNew);
     if (paths.length) run('undo', { paths });
   });
 }

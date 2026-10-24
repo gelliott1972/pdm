@@ -108,7 +108,8 @@ public sealed class Page(Settings s)
             case "/api/checkin":
                 // Parts before assemblies before drawings, so a new part is in the index before what uses it.
                 foreach (var p in Strs("paths").OrderBy(Rank))
-                    await engine.CheckInAsync(Local(p), Str("note"));
+                    try { await engine.CheckInAsync(Local(p), Str("note")); }
+                    catch (Exception ex) { log.Add($"Couldn't check in {p}: {ex.Message}"); }
                 break;
             case "/api/undo":
                 foreach (var p in Strs("paths")) await engine.UndoAsync(Local(p));
@@ -145,13 +146,20 @@ public sealed class Page(Settings s)
         Updater.UpdatedTo = null; // the page has shown it
     }
 
-    // Every file with its state for me on this PC: held here (changed or not), held elsewhere, newer in the vault.
+    // Every file with its state for me on this PC: held here (changed or not), held elsewhere, newer in the vault,
+    // and SOLIDWORKS files on this PC that aren't in the vault yet (isNew), which check-in adds.
     // usedBy lists the files that use it, so the page can count the ones outside what's being checked out.
     async Task<object> FilesAsync(Engine engine)
     {
         var all = await new Index(db!, s).AllAsync();
         var state = LocalState.Load(s.LocalRoot);
         var usedBy = all.SelectMany(f => f.Refs.Distinct().Select(id => (id, by: f.FileId))).GroupBy(x => x.id).ToDictionary(g => g.Key, g => g.Select(x => x.by).ToList());
+        var inVault = all.Select(f => f.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = Paths.LocalSolidWorksKeys(s.LocalRoot).Where(k => !inVault.Contains(k)).Select(k => (object)new
+        {
+            id = "new:" + k, path = k, refs = new List<string>(), missingRefs = 0,
+            shared = Paths.IsShared(k), usedBy = new List<string>(), isNew = true
+        });
         return all.OrderBy(f => f.Path, StringComparer.OrdinalIgnoreCase).Select(f =>
         {
             var local = Paths.LocalOf(s.LocalRoot, f.Path);
@@ -166,7 +174,7 @@ public sealed class Page(Settings s)
                 changed = mine && state.IsChanged(f.Path, local), missing = !File.Exists(local),
                 newer = !mine && (had == null || had.VersionId != f.VersionId || !File.Exists(local))
             };
-        }).ToList();
+        }).Concat(added).ToList();
     }
 
     // Cognito's reasons, in the page's words.

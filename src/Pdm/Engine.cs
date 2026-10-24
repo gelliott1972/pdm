@@ -154,7 +154,12 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             return;
         }
 
-        (record.VersionId, record.ETag) = await vault.UploadAsync(local, record.Path, record.FileId);
+        try { (record.VersionId, record.ETag) = await vault.UploadAsync(local, record.Path, record.FileId); }
+        catch (Exception ex) when (ex is IOException || ex.InnerException is IOException)
+        {
+            say($"Couldn't read {record.Path}: close it in SOLIDWORKS first, then check in again.");
+            return;
+        }
         record.Size = new FileInfo(local).Length;
         if (existing != null) await index.CheckInAsync(record, email, machine);
         else await index.PutAsync(record);

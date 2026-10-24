@@ -46,6 +46,11 @@ Bugs found and fixed on the way: `P:\` became drive-relative `P:` (paths written
 
 Known, cosmetic: component instance names in the tree keep their old names (e.g. `LS-08A-06_TIE_BEAM_1-1` for `08A06-HBA-01`). SOLIDWORKS only renames instances when the rename is done in SOLIDWORKS.
 
+## Done: 0806 B and C imported (24 Oct)
+
+SwCheck of the r1 tops: no equations links; C clean; B's concrete-beam bracket component reports no model although it is fully resolved, visible and loaded from inside the root (an API quirk in SwCheck's reading, seen in the work copy too). Applied C then B: C 17 files, B 19, 37 reused each; SwFixRefs repointed 9 in each (new files only); gate 0 outside. No existing vault file was written (none modified in the last 2 h except the 36 new). SwCheck on `P:\` (`LS-08B-06+STRUCTURE`, `08B06-STA-01`, `LS-08C-06+STRUCTURE`, `08C06-STA-01`): errors none, everything inside `P:\`, no equations links, no Dropbox. Each "problem" is the ReadOnly load warning (reused A files are read-only in the PDM, expected) plus B's bracket quirk. Ledger rows added to `data\rename-ledger.csv`. App told to load.
+To fix later: SwCheck should not count the ReadOnly warning on a PDM vault; find why `GetModelDoc2` is null for the `08BXX-MSW-01` component.
+
 ## Moving to the laptop
 
 What the next Dev session needs (everything in git comes with the clone):

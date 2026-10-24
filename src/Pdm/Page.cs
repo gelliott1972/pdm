@@ -136,6 +136,7 @@ public sealed class Page(Settings s)
         db = new AmazonDynamoDBClient(session.Credentials, region);
         updater.Start(new AmazonS3Client(session.Credentials, region), s, Console.WriteLine); // its own client: logout disposes s3
         await Send(ctx, 200, Me());
+        Updater.UpdatedTo = null; // the page has shown it
     }
 
     // Every file with its state for me on this PC: held here (changed or not), held elsewhere, newer in the vault.
@@ -165,7 +166,7 @@ public sealed class Page(Settings s)
     object Me() => new
     {
         email = session!.Email, name = session.Name, sharedEditor = session.SharedEditor,
-        version = Updater.Version, updateReady = updater.ReadyVersion
+        version = Updater.Version, updateReady = updater.ReadyVersion, updatedTo = Updater.UpdatedTo
     };
 
     string Local(string key) => Paths.LocalOf(s.LocalRoot, key);

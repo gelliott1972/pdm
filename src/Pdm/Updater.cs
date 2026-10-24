@@ -48,6 +48,9 @@ public sealed class Updater
 
     public string? ReadyVersion => ready?.Version?.ToString();
 
+    // The version this copy was just updated to, when it was restarted by an update; shown once after login.
+    public static string? UpdatedTo { get; set; }
+
     public void Start(IAmazonS3 s3, Settings s, Action<string> say)
     {
         // Checks again at each login, unless a check is still running or an update is already waiting.

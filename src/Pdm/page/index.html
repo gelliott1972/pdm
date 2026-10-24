@@ -146,6 +146,7 @@ async function login() {
     $('login').hidden = true; $('app').hidden = false;
     showMe();
     await load();
+    if (me.updatedTo) showResult(['Updated to v' + me.updatedTo + '.'], true);
   } catch (e) { $('loginErr').textContent = e.message; }
   finally { $('loginBtn').disabled = false; }
 }

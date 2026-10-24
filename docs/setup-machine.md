@@ -48,9 +48,9 @@ region = ap-east-1
 
 Needs B2, B6 and the packaging tool once: `dotnet tool install -g vpk --version 1.2.161`. Then, with the version one higher than the last:
 
-`powershell -File C:\code\pdm\src\publish.ps1 -Version 0.1.2`
+`powershell -File C:\code\pdm\src\publish.ps1 -Version 0.1.3`
 
-It builds the app with .NET included, packs it, and uploads it to the `pdm-releases` bucket. Installed copies offer it at their next login. A fresh `PDM-win-Setup.exe` for new PCs is left in `%LOCALAPPDATA%\PDM-build\releases\`. Keep that folder: it lets each update be a small download.
+It builds the app with .NET included, packs it, and uploads it to the `pdm-releases` bucket. Installed copies offer it at their next login. A fresh `PDM-win-Setup.exe` for new PCs is left in `%LOCALAPPDATA%\PDM-build\releases\`. Keep that folder: it lets each update be a small download. Publishing from a different PC: copy that folder across first (done for the laptop, 24 Oct).
 
 ## What lives where
 

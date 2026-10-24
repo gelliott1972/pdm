@@ -46,6 +46,22 @@ Bugs found and fixed on the way: `P:\` became drive-relative `P:` (paths written
 
 Known, cosmetic: component instance names in the tree keep their old names (e.g. `LS-08A-06_TIE_BEAM_1-1` for `08A06-HBA-01`). SOLIDWORKS only renames instances when the rename is done in SOLIDWORKS.
 
+## Moving to the laptop
+
+What the next Dev session needs (everything in git comes with the clone):
+
+| Item | Where / how |
+| --- | --- |
+| Repo | Clone; read `dev\CLAUDE.md`, this file, `docs\briefs\import-0806BC.md`, `docs\imports\LS-08BC-06-decisions.md` |
+| Build | PowerShell: `cd <repo>\tools; .\build.ps1` ("All tools built.") |
+| Document Manager key | User environment variable `SW_DM_KEY` (System Properties > Environment Variables; Grant has it) |
+| Python | `python` on PATH with `pip install openpyxl` |
+| Numbering register, ledger | In git: `data\APEX_Structure_Part_Numbering_Standard_Rev3.xlsx`, `data\rename-ledger.csv` |
+| Vault | `P:` mapped to the laptop's vault copy (App sets this up). Never touch `P:\.pdm`; vault files change only through `pdm.exe` |
+| From `scratch\` (gitignored), only if more planning is needed | `scratch\inventory\<screen>` probes (B/C r1, A r4, `vault-P-2026-10-24`) and `scratch\import\` plans and reports. Not needed for routine work once B/C are imported; the reports are also summarised here |
+| Pack and Go sources | `E:\PDM-work\...` on the desktop only. Re-planning needs them, or a fresh Pack and Go on the laptop |
+| SOLIDWORKS | Closed before SwCheck / SwFixRefs. If it won't start from the tools, start it by hand once, clear any licence message, close it |
+
 ## Setup for a new PC
 
 For Dev's tools (importer, plan tool, probes, checks). Tested 23 Oct by building from a clean copy of the tracked source on Grant's PC; not yet tried on another PC.

@@ -10,7 +10,7 @@ From Admin, 24 Oct 2026. The laptop already has the repo (`C:\code\pdm`), the ap
 | 2 | Release the desktop's locks: on the page, check in or undo everything the desktop holds (`LS-08A-06`, `MDL-ANCHOR-08X06`), or the laptop sees them as "you on GGPC" and can't edit them. |
 | 3 | Admin pushes everything. `git status` clean. |
 | 4 | Copy two folders that git doesn't carry (e.g. through Dropbox): `E:\code\pdm\scratch` → `C:\code\pdm\scratch`, and the memory folder `C:\Users\Grant\.claude\projects\E--code-pdm\memory` → on the laptop `C:\Users\<you>\.claude\projects\C--code-pdm\memory`. |
-| 5 | App publishing: copy `%LOCALAPPDATA%\PDM-buildeleases` to the same place on the laptop (keeps updates small). |
+| 5 | App publishing: copy `%LOCALAPPDATA%\PDM-build\releases` to the same place on the laptop (keeps updates small). |
 | 6 | Optional: `E:\PDM-work` (r4 and r1 packs, backups) if SW needs them on the laptop. |
 
 ## On the laptop

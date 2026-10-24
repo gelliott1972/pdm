@@ -7,6 +7,7 @@ Updated 24 Oct 2026, on the laptop after the move. The next Admin session reads 
 | | |
 | --- | --- |
 | MVP done-when | Met 24 Oct: check-out from the page on the desktop, laptop saw the lock |
+| App updates | 0.1.2 published from the laptop 24 Oct; desktop updated itself 0.1.1 → 0.1.2 (Grant checked) |
 | Vault | 0806 A, B and C loaded: 93 files, 138 PartNos, 237 references, nothing checked out |
 | Decisions | `docs\imports\LS-08A-06-decisions.md`, `docs\imports\LS-08BC-06-decisions.md` |
 | Ledger | `data\rename-ledger.csv` (A 164 rows, B/C 70) |

@@ -79,7 +79,7 @@ static class SwCheck
                             string p = c.GetPathName();
                             var m = c.GetModelDoc2() as IModelDoc2;
                             string depth = new string(' ', 2 * (c.Name2.Count(ch => ch == '/') + 1));
-                            string flag = suppressed ? "  (suppressed)" : m == null ? "  ** NOT LOADED **" : !p.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? "  ** OUTSIDE ROOT **" : "";
+                            string flag = suppressed ? "  (suppressed)" : m == null ? "  ** NOT LOADED ** (suppression state " + c.GetSuppression2() + ", visible " + c.Visible + ")" :!p.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? "  ** OUTSIDE ROOT **" : "";
                             if (!suppressed && flag != "") problems++;
                             Console.WriteLine(depth + c.Name2 + " -> " + Rel(p, root) + " [" + c.ReferencedConfiguration + "]" + flag);
                             if (m != null && !suppressed) Props(m, c.ReferencedConfiguration, depth + "    ");

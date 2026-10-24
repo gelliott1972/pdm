@@ -153,3 +153,17 @@ Still open: expansion-joint brackets' place tag (08B11 PartNos); PACKER / TIE_80
 | Members' As Welded lengths | Leave `GNRIC-LM` as is; check out and change if needed |
 
 Checked: B and C -r1 use only `<As Machined>` configs of the ties and members. James works mainly on 08X11; all his files are closed now.
+
+## 24 Oct: handover to the laptop
+
+0806 B and C imported and loaded (Admin: vault holds 93 files). This desktop SW session ends here; the next SW session starts on Grant's laptop (P: = C:\PDM).
+
+**Next for SW (laptop):** guide Grant's first real check-out session:
+- check out `08B06-STA-01`, `08C06-STA-01`, `LS-08B-06 SCREEN+STRUCTURE`, `LS-08C-06 SCREEN+STRUCTURE` and `MDL-ANCHOR-08X06`
+- add config `200x400_SHAFTB_CONCRETE_BEAM` (or Grant's name) to `MDL-ANCHOR-08X06` (4 Hiltis, as the old GROUT+ANCHOR config)
+- in each STA: `MDL-ANCHOR-08X06` 14x ROOF_220X220 + 10x FLOOR_200X200 (+ B: 1x concrete beam), placed by sketch pattern (C has no pattern sketches; B's came across from its old top)
+- in each top: `NONPART-GROUT-08X06` 14x SC08_ROOF_220X220 + 10x SC08_FLOOR_200X200 (+ B: 1x `200x300_SHAFTB_CONCRETE_BEAM`), sketch pattern
+- check in with notes; SwCheck the tops; tell App
+- Close All between vault work and any work-copy work (same file names)
+
+Nothing open otherwise. Desktop-only: backups `E:\PDM-work\scratch\LS-08B-06-pre-fix`, `LS-08C-06-pre-fix`, live copies `E:\PDM-work\scratch\live-2410`.

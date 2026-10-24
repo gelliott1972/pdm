@@ -38,7 +38,7 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 ## Next
 
 1. ~~Load 0806 B and C~~: **done 24 Oct** on the desktop. 36 new files (B 19, C 17); vault now 93 files, 138 PartNos, 237 references, 0 outside, no clashes; all 93 read-only on the desktop; re-run dry finds 0 changed. The laptop needs **Get latest** to fetch the 36.
-2. **Laptop, after the move:** the updater. See "Handover" below.
+2. ~~Updater~~: **done 24 Oct** (built on the desktop). Bucket `pdm-releases` (ap-east-1, private, versioned, SSE-S3); `read-releases` inline policy (GetObject, ListBucket) on `pdm-engineer` and `pdm-shared-editor` (Grant approved). `src\publish.ps1` publishes with `pdm-admin`. Tested: laptop installed 0.1.0 from `Setup.exe`, was offered 0.1.1 (68 KB delta), restarted on it. Since then the app re-checks at every login (not yet published). Next: send James `Setup.exe` when his PC is ready; CI later.
 3. Later: Grant's first real check-out on 08B/C (grout and anchors not needed now, per Admin 24 Oct).
 
 ## Open questions

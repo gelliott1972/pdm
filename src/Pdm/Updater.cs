@@ -50,7 +50,8 @@ public sealed class Updater
 
     public void Start(IAmazonS3 s3, Settings s, Action<string> say)
     {
-        if (running != null || string.IsNullOrEmpty(s.ReleasesBucket)) return;
+        // Checks again at each login, unless a check is still running or an update is already waiting.
+        if (running is { IsCompleted: false } || ready != null || string.IsNullOrEmpty(s.ReleasesBucket)) return;
         manager = new UpdateManager(new S3UpdateSource(s3, s.ReleasesBucket));
         if (!manager.IsInstalled) { manager = null; return; } // a build from source, not an installed copy
         running = Task.Run(async () =>

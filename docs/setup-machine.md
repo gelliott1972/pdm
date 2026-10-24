@@ -9,13 +9,13 @@ Do the steps in order. Lines in `code` are typed into **PowerShell** (Start menu
 | # | Step | How | Check |
 | --- | --- | --- | --- |
 | A1 | SOLIDWORKS 2026 | Already installed and activated | Opens normally |
-| A2 | .NET 8 runtime | `winget install Microsoft.DotNet.Runtime.8` (not needed if the SDK from B2 is installed) | `dotnet --list-runtimes` shows `Microsoft.NETCore.App 8.` |
+| A2 | .NET 8 runtime | Not needed: the installed app carries its own .NET. | |
 | A3 | Document Manager key | Grant gives you the key privately (never by email in plain text, never written in a file). Then: `[Environment]::SetEnvironmentVariable('SW_DM_KEY', '<key>', 'User')`. Close and reopen PowerShell afterwards. | `[bool]$env:SW_DM_KEY` prints `True` (it never prints the key) |
-| A4 | The app | Grant shares the app as one folder (Dropbox or OneDrive). Copy it to `C:\PDM-app` and run `C:\PDM-app\pdm.exe` from there. *The package itself is still to be built.* Grant's PCs build it from source instead (B4). | `pdm.exe` runs and shows its usage |
+| A4 | The app | Grant sends `PDM-win-Setup.exe` once (Dropbox). Double-click it: it installs for you only (no administrator) to `%LOCALAPPDATA%\PDM` with a Start-menu shortcut **PDM**, then opens the page. After that it updates itself: after login the page shows **Update x: restart** when a new version is ready. | The page shows `v…` next to your name |
 | A4a | Windows 11: Smart App Control | The app isn't code-signed yet, so Smart App Control blocks it ("An Application Control policy has blocked this file"). Check: **Settings → Privacy & security → Windows Security → App & browser control → Smart App Control settings**. If it's **On**, ask Grant before changing it. (Grant's laptop: turned off 24 Oct; build 26200.9711, so it can be turned back on later.) | `pdm.exe` starts without that message |
-| A5 | Your PDM folder and `P:` | Pick a folder for your copy of the vault, e.g. `D:\PDM`. Make it. Then **right-click PowerShell → Run as administrator** and run `pdm.exe map D:\PDM`. This maps `P:` to it permanently (a Windows registry setting, so it survives restarts and every program sees it). **Then restart Windows**: until you do, `P:` only shows in administrator windows. If `P:` is already used, the app says so: stop and tell Grant. | `subst` lists `P:\: => D:\PDM`; after a restart, `P:\` still opens in File Explorer |
+| A5 | Your PDM folder and `P:` | Pick a folder for your copy of the vault, e.g. `D:\PDM`. Make it. Then **right-click PowerShell → Run as administrator** and run `& "$env:LOCALAPPDATA\PDM\current\pdm.exe" map D:\PDM`. This maps `P:` to it permanently (a Windows registry setting, so it survives restarts and every program sees it). **Then restart Windows**: until you do, `P:` only shows in administrator windows. If `P:` is already used, the app says so: stop and tell Grant. | `subst` lists `P:\: => D:\PDM`; after a restart, `P:\` still opens in File Explorer |
 | A6 | SOLIDWORKS reference settings | In SOLIDWORKS: **Tools → Options → System Options → File Locations**, choose **Referenced Documents** in "Show folders for". Remove everything so the list is **empty**. Files store full `P:\…` paths, so SOLIDWORKS finds references without the list; an empty list means a wrong path shows up as a missing file instead of being quietly covered. | The list is empty |
-| A7 | First login | Run `pdm.exe`: it opens the PDM page in your browser (`http://localhost:5170/`; keep the black window open while you use it). Log in with your email and the temporary password AWS emailed you; choose a new password (12+ characters, with a number). | Your name shows top right |
+| A7 | First login | Start **PDM** from the Start menu: it opens the PDM page in your browser (`http://localhost:5170/`; keep the black window open while you use it). Log in with your email and the temporary password AWS emailed you; choose a new password (12+ characters, with a number). | Your name shows top right |
 | A8 | Get the vault | On the page: **Get latest** | Files appear under `P:\`, all read-only |
 
 ## B. Extra, for Grant's PCs (build and admin)
@@ -44,6 +44,14 @@ sso_role_name = AdministratorAccess
 region = ap-east-1
 ```
 
+## Publishing an update (Grant's PC)
+
+Needs B2, B6 and the packaging tool once: `dotnet tool install -g vpk --version 1.2.161`. Then, with the version one higher than the last:
+
+`powershell -File C:\code\pdm\src\publish.ps1 -Version 0.1.2`
+
+It builds the app with .NET included, packs it, and uploads it to the `pdm-releases` bucket. Installed copies offer it at their next login. A fresh `PDM-win-Setup.exe` for new PCs is left in `%LOCALAPPDATA%\PDM-build\releases\`. Keep that folder: it lets each update be a small download.
+
 ## What lives where
 
 | Thing | Where | Secret? |
@@ -53,3 +61,5 @@ region = ap-east-1
 | Engineer passwords | Only in each person's head; Cognito holds them | **Yes** |
 | Login tokens | In memory while `pdm.exe` runs; nothing saved to disk | Yes |
 | What this PC last fetched | `P:\.pdm\state.json` | No |
+| The installed app | `%LOCALAPPDATA%\PDM\current\` | No |
+| Releases | S3 `pdm-releases` (private; engineers read-only) | No |

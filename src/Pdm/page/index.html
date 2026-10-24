@@ -153,10 +153,13 @@ async function login() {
     me = r; $('password').value = $('new1').value = $('new2').value = ''; $('newpw').hidden = true;
     $('login').hidden = true; $('app').hidden = false;
     showMe();
+  } catch (e) { $('loginErr').textContent = e.message; return; }
+  finally { $('loginBtn').disabled = false; }
+  // Logged in: a failure from here on shows on the page, not on the hidden login form.
+  try {
     await load();
     if (me.updatedTo) showResult(['Updated to v' + me.updatedTo + '.'], true);
-  } catch (e) { $('loginErr').textContent = e.message; }
-  finally { $('loginBtn').disabled = false; }
+  } catch (e) { showResult(["Can't list files: " + e.message]); }
 }
 
 // ---- data
@@ -414,7 +417,7 @@ $('restartBtn').onclick = async () => {
   setTimeout(function retry() { fetch('/').then(() => location.reload(), () => setTimeout(retry, 1000)); }, 3000);
 };
 
-api('me').then(r => { me = r; $('app').hidden = false; showMe(); return load(); })
+api('me').then(r => { me = r; $('app').hidden = false; showMe(); return load().catch(e => showResult(["Can't list files: " + e.message])); })
   .catch(() => showLogin());
 </script>
 </body>

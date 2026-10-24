@@ -30,9 +30,10 @@ public sealed class Vault(IAmazonS3 s3, Settings s)
         File.Move(temp, localPath, overwrite: true);
     }
 
+    // Shares read and write, so a file SOLIDWORKS has open for editing can still be read.
     public static string Md5(string path)
     {
-        using var stream = File.OpenRead(path);
+        using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         return Convert.ToHexString(MD5.HashData(stream)).ToLowerInvariant();
     }
 }

@@ -43,12 +43,14 @@ public sealed class LocalState
     }
 
     // True when the file on disk differs from what was last fetched or checked in.
+    // A file that can't be read (held by another program) counts as changed, so nothing overwrites it.
     public bool IsChanged(string key, string localPath)
     {
         if (!Files.TryGetValue(key, out var e)) return File.Exists(localPath);
         if (!File.Exists(localPath)) return true;
         var info = new FileInfo(localPath);
         if (info.Length == e.Size && info.LastWriteTimeUtc == e.WriteTimeUtc) return false;
-        return Vault.Md5(localPath) != e.ETag;
+        try { return Vault.Md5(localPath) != e.ETag; }
+        catch (IOException) { return true; }
     }
 }

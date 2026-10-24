@@ -53,3 +53,4 @@ Fix both skeletons; delete the suppressed floor plate in both SF04-LOWERs; repoi
 - **Live saves on 23 Oct:** `PACKER` only changed its PartNo prefix (STOCK to GNRIC), and `TIE_80x40x8` only had "b" markers on `<As Welded>`. Vault `GNRIC-PKP`, `GNRIC-BRP` and `GNRIC-BRA` stay unchanged; B and C use only `<As Machined>`.
 - **Members' `<As Welded>` lengths:** leave `GNRIC-LM` as is; check out and change it if ever needed.
 - James is mainly on 08X11 and has closed all his files.
+- **Grout and anchors** for B and C are not needed for the import; James may add them later in the PDM.

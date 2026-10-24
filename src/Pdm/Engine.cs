@@ -205,7 +205,8 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             if (refKey != null && byPath.TryGetValue(refKey, out var id)) record.Refs.Add(id);
             else record.MissingRefs.Add(r);
         }
-        record.PartNos.AddRange(info.PartNos);
+        // A drawing carries its model's PartNo (SPEC), so only parts and assemblies own one.
+        if (!local.EndsWith(".slddrw", StringComparison.OrdinalIgnoreCase)) record.PartNos.AddRange(info.PartNos);
     }
 
     // My lock means mine on this PC: the same person's check-out on another PC is that PC's working copy.

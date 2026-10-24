@@ -2,14 +2,13 @@
   "model": "claude-opus-5-5",
   "permissions": {
     "additionalDirectories": [
-      "E:/code/pdm/src",
-      "E:/code/pdm/docs",
-      "E:/code/pdm/tools",
-      "E:/PDM-test"
+      "../src",
+      "../docs",
+      "../tools"
     ]
   },
   "statusLine": {
     "type": "command",
-    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File E:/code/pdm/.claude/statusline.ps1 App"
+    "command": "echo [App]"
   }
 }

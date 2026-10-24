@@ -1,6 +1,6 @@
 # Admin status
 
-Updated 24 Oct 2026, at the move to the laptop. The next Admin session reads this first.
+Updated 24 Oct 2026, on the laptop after the move. The next Admin session reads this first.
 
 ## Where we are
 
@@ -14,14 +14,13 @@ Updated 24 Oct 2026, at the move to the laptop. The next Admin session reads thi
 
 ## Next
 
-1. Sessions restart on the laptop (`docs\move-to-laptop.md`).
-2. App: the self-updater (Velopack, private S3 bucket), handover in `app\status.md`. Then James's PC.
-3. 0811 import (same pattern as 0806; Grant stays ahead of the team).
-4. James: grout and anchors for B and C, in the PDM (decision 7). B's concrete-beam anchor needs a new configuration in `MDL-ANCHOR-08X06`.
+1. James's PC: setup from `docs\setup-machine.md` section A. Smart App Control: Grant's decision 24 Oct is to turn it off on James's PC (the app isn't signed).
+2. 0811 import (same pattern as 0806; Grant stays ahead of the team).
+3. James: grout and anchors for B and C, in the PDM (decision 7). B's concrete-beam anchor needs a new configuration in `MDL-ANCHOR-08X06`.
 
 ## Open
 
-- App signing for James's PC (Smart App Control).
+- App signing: shelved 24 Oct (Grant). Azure Artifact Signing isn't open to NZ companies; a bought certificate needs days of identity checks. Until then Smart App Control is off on each engineer's PC.
 - GitHub-to-AWS trust for CI (later).
 - Cantilever brace fix (decision 2, A): first real check-out/check-in edit.
 - 0804 tie file (A decisions, "r4 accepted").

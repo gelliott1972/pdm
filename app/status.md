@@ -37,9 +37,9 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 
 ## Next
 
-1. **Desktop (this App session):** load 0806 B and C into the vault once Dev has imported them into `E:\PDM-test\P` and SwCheck passes: `pdm.exe load --dry`, show Grant, then the real load.
-2. **Laptop (new App session):** the updater (agreed 24 Oct): Velopack, releases in a private S3 bucket in `ap-east-1` read by logged-in engineers through a custom update source, .NET bundled in, "Update ready / Restart" on the page. Stage 1: a publish script run with `pdm-admin`. Stage 2 later: GitHub Action (SOLIDWORKS interop DLL in the private repo: Grant OK; GitHub-to-AWS trust: decide when needed).
-3. Grant's first real check-out on the laptop after the load (SW guides): 08B06-STA-01, 08C06-STA-01, both tops, MDL-ANCHOR-08X06.
+1. **Desktop, before the move:** load 0806 B and C once Dev says the import into `E:\PDM-test\P` is applied: `pdm.exe load --dry`, show Grant, then the real load.
+2. **Laptop, after the move:** the updater. See "Handover" below.
+3. Later: Grant's first real check-out on 08B/C (grout and anchors not needed now, per Admin 24 Oct).
 
 ## Open questions
 
@@ -49,14 +49,38 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 
 ## Handover to the laptop (24 Oct)
 
-- Development moves to Grant's laptop (repo `C:\code\pdm`, `P:` = `C:\PDM`, Smart App Control off). The desktop keeps the 08B/C import and load.
-- Two clones now: who pushes laptop commits needs agreeing with Admin (today Admin pushes from the desktop).
-- The laptop needs `pdm-admin` (setup B6) before publishing updates.
-- Page: one result line under the tabs (Details for the full list), done 24 Oct.
+All sessions move to the laptop after the 08B/C load; one clone (`C:\code\pdm`), Admin keeps pushing.
+
+| Laptop fact | Value |
+| --- | --- |
+| Repo | `C:\code\pdm`, built with `dotnet build C:\code\pdm\src\Pdm` |
+| `P:` | `C:\PDM` (registry DOS Devices; survives restarts), holds the vault from Get latest |
+| Smart App Control | Off (build 26200.9711, so it can be turned back on) |
+| `SW_DM_KEY` | Set (user environment variable) |
+| `pdm-admin` SSO | **Needed** for publishing and loads: setup B5 and B6 |
+| Machine name | Not GGPC; locks are per PC, so anything checked out on GGPC must be released there before it's switched off |
+
+**Updater: agreed with Grant 24 Oct, nothing built yet.**
+
+| Part | Decision / plan |
+| --- | --- |
+| Library | Velopack (`vpk` CLI to pack; `UpdateManager` in the app). Installs per user under `%LocalAppData%`, Start-menu shortcut, applies on restart. |
+| Source | New private S3 bucket in `ap-east-1` (proposed `pdm-releases`: versioning, public access blocked, SSE-S3). Velopack has no S3 source: write a small `IUpdateSource` that reads the release feed and packages with the user's Cognito credentials (`Session.Credentials`). Same route to China as the vault. |
+| Permissions | Add read-only (`s3:GetObject`, `s3:ListBucket`) on the releases bucket to `pdm-engineer` and `pdm-shared-editor`. **This changes real users' roles: tell Grant before applying** (it's additive, read-only). Publishing uses `pdm-admin` only. |
+| App | Self-contained build (.NET bundled; setup step A2 drops out). Version number in `Pdm.csproj`. Check after login; download in the background; page shows "Update ready" with a **Restart** button; never restart mid-operation. |
+| First install | `Setup.exe` from `vpk pack`, shared once by Dropbox. Replaces the "single folder" plan in setup A4; update `docs\setup-machine.md`. |
+| Publishing, stage 1 | A script (under `src\`) that builds, packs and uploads with `pdm-admin`. |
+| Publishing, stage 2 | Later: GitHub Action. Grant OK to put the SOLIDWORKS Document Manager interop DLL in the private repo. The GitHub-to-AWS (OIDC) trust is to be decided when needed. |
+| Signing | Not yet. Smart App Control blocks the unsigned app on Windows 11 (see Open questions). `vpk` can sign once a certificate exists. |
+
+Other things the laptop session should know:
+- `pdm.exe` with no arguments = the page on `http://localhost:5170/` (`PagePort` in `pdm.settings.json`); `pdm.exe shell` = command line; `load [--dry]`, `map <folder>`, `inspect <file>`.
+- A running `pdm.exe` locks `bin\...\pdm.exe`, so the build fails while it runs; build to another folder with `-o` to check code, or ask Grant to close it. The page HTML (`page\index.html`) is read per request: copy it into `bin\Debug\net8.0-windows\page\` to update without a restart.
+- `P:` mapping: an administrator-window `subst` isn't seen by normal windows; `map` now says to restart.
 
 ## Notes
 
 - New accounts in this organisation: Identity Center and `candelic-admin` are in `ap-east-1` (opt-in), so a new account can't be reached until `ap-east-1` is enabled in it. Step in via `--region ap-southeast-2` to enable it.
 - Trusted access for Account Management is not enabled in the organisation; not changed.
 - 0806 A import: an earlier pointer to stale "component" paths in 4 SKUs was probably wrong; that field is old in nearly every assembly. Grant's SOLIDWORKS Find References on the re-import shows every path on `P:\`.
-- Today `P:` is a temporary `subst P: E:\PDM-test\P`. The desktop's vault is loaded from it, so it becomes the desktop's working copy.
+- Desktop `P:` = `E:\PDM-test\P` (registry, made permanent 23 Oct). The vault was loaded from it.

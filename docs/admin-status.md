@@ -7,8 +7,8 @@ Updated 24 Oct 2026, on the laptop after the move. The next Admin session reads 
 | | |
 | --- | --- |
 | MVP done-when | Met 24 Oct: check-out from the page on the desktop, laptop saw the lock |
-| App updates | 0.1.2 published from the laptop 24 Oct; desktop updated itself 0.1.1 → 0.1.2 (Grant checked) |
-| Vault | 0806 A, B and C loaded: 93 files, 138 PartNos, 237 references, nothing checked out |
+| App updates | 0.1.6 live (24 Oct, all published from the laptop). 0.1.4: list no longer blanks when SOLIDWORKS holds a file open. 0.1.5: add new files from the page; drawings carry no PartNo. 0.1.6: Document Manager reads drawings (Phase 0 never read one). Desktop updated itself 0.1.1 → 0.1.2. |
+| Vault | 0806 A, B and C loaded, plus James's first drawing `08A06-HBA-01.SLDDRW` (added from the page 24 Oct): 94 files, 138 PartNos. James has the `LS-08A-06+STRUCTURE` set (18 files) checked out on `DESKTOP-7UGFP45`. |
 | Decisions | `docs\imports\LS-08A-06-decisions.md`, `docs\imports\LS-08BC-06-decisions.md` |
 | Ledger | `data\rename-ledger.csv` (A 164 rows, B/C 70) |
 | Register | `data\APEX_Structure_Part_Numbering_Standard_Rev3.xlsx` |

@@ -61,6 +61,7 @@
   #result.bad #resultText { color: var(--bad); }
   #result a { color: var(--muted); font-size: 12px; }
   #resultLines { margin-top: 6px; }
+  #progress { display: block; width: 100%; height: 6px; margin-top: 6px; accent-color: var(--mine); }
 </style>
 </head>
 <body>
@@ -99,7 +100,7 @@
         <button id="tabWho">Who has what</button>
         <button id="tabNew">Changes</button>
       </div>
-      <div id="result" hidden><span id="resultText"></span> <a href="#" id="resultMore">Details</a><pre id="resultLines" hidden></pre></div>
+      <div id="result" hidden><span id="resultText"></span> <a href="#" id="resultMore">Details</a><pre id="resultLines" hidden></pre><progress id="progress" hidden></progress></div>
       <div id="panel"></div>
     </section>
   </main>
@@ -179,7 +180,8 @@ async function load(fromTimer) {
 
 // ---- the result line: one summary under the tabs, problems first, the full list behind Details
 const done = [['Checked out ', 'Checked out'], ['Checked in ', 'Checked in'], ['Added ', 'Added'], ['No changes in ', 'Released (no changes)'], ['Undone ', 'Undone'], ['Got ', 'Downloaded']];
-function showResult(lines, working) {
+// fraction (0..1) shows the progress bar while working.
+function showResult(lines, working, fraction) {
   const kind = l => done.find(([p]) => l.startsWith(p));
   const problems = working ? [] : lines.filter(l => !kind(l) && !l.startsWith('Get done') && !l.startsWith('  Note'));
   const parts = [];
@@ -197,6 +199,8 @@ function showResult(lines, working) {
   $('resultLines').textContent = [...problems, ...lines.filter(l => !problems.includes(l))].join('\n');
   $('resultLines').hidden = true; $('resultMore').textContent = 'Details';
   $('resultMore').hidden = working || (lines.length < 2 && problems.length < 2);
+  $('progress').hidden = fraction === undefined;
+  if (fraction !== undefined) $('progress').value = fraction;
 }
 function hideResult() { if (!busy) $('result').hidden = true; }
 
@@ -211,6 +215,23 @@ async function run(path, body) {
   busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false);
   await load().catch(() => {});
 }
+
+// One file per request so the page can show progress; the replies are gathered into the usual summary.
+async function runEach(path, paths, body, verb) {
+  if (busy) return;
+  busy = true; document.querySelectorAll('button').forEach(b => b.disabled = true);
+  const log = [];
+  for (const [i, p] of paths.entries()) {
+    showResult([`${verb} ${i + 1} of ${paths.length}: ${base(p)}…`], true, i / paths.length);
+    try { log.push(...((await api(path, { ...body, paths: [p] })).log || [])); }
+    catch (e) { log.push('Error: ' + e.message); if (!me) break; } // logged out: stop
+  }
+  showResult(log);
+  busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false);
+  await load().catch(() => {});
+}
+// Parts before assemblies before drawings, so a new part is in the index before what uses it.
+const rank = p => /\.sldprt$/i.test(p) ? 0 : /\.sldasm$/i.test(p) ? 1 : 2;
 
 // ---- left: the folder tree
 function drawTree() {
@@ -298,7 +319,7 @@ function drawOut() {
       + `<input type="checkbox" data-out="${esc(f.path)}"${ticked ? ' checked' : ''}${disabled ? ' disabled' : ''}>`
       + `<span class="name">${esc(base(f.path))}</span>${note}</div>`;
   }).join('');
-  return `<h2>${esc(v.title)}</h2>${rows}<div class="bar"><button class="main" id="outBtn">Check out ticked</button><span class="muted" id="outCount"></span></div>`;
+  return `<h2>${esc(v.title)}</h2><div class="bar"><button class="main" id="outBtn">Check out ticked</button><span class="muted" id="outCount"></span></div>${rows}`;
 }
 
 // ---- right: check in
@@ -315,8 +336,8 @@ function drawIn() {
     return `<div class="row${canAdd ? '' : ' off'}" title="${esc(f.path)}"><input type="checkbox" data-in="${esc(f.path)}"${ticked ? ' checked' : ''}${canAdd ? '' : ' disabled'}>`
       + `<span class="name">${esc(f.path)}</span>${tag}</div>`;
   }).join('');
-  return `<h2>Checked out by me, and new files${v ? ' · ticked: under ' + esc(v.title) : ''}</h2>${rows}`
-    + `<div class="bar"><input type="text" class="grow" id="note" placeholder="Note"><button class="main" id="inBtn">Check in ticked</button><button id="undoBtn">Undo ticked</button></div>`;
+  return `<h2>Checked out by me, and new files${v ? ' · ticked: under ' + esc(v.title) : ''}</h2>`
+    + `<div class="bar"><input type="text" class="grow" id="note" placeholder="Note"><button class="main" id="inBtn">Check in ticked</button><button id="undoBtn">Undo ticked</button></div>${rows}`;
 }
 
 // ---- right: who has what
@@ -331,10 +352,9 @@ function drawWho() {
 function drawNew() {
   const newer = files.filter(f => f.newer).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
   if (newer.length === 0) return '<span class="muted">Up to date: nothing newer in the vault.</span>';
-  return `<h2>Newer in the vault than on this PC</h2><table>` + newer.map(f => `<tr><td>${esc(f.path)}</td>`
+  return `<h2>Newer in the vault than on this PC</h2><div class="bar"><button class="main" id="newGetBtn">Get latest</button></div><table>` + newer.map(f => `<tr><td>${esc(f.path)}</td>`
     + `<td class="tag newer nw">${f.missing ? 'not on this PC' : 'updated'}</td><td class="muted nw">${esc(f.updatedBy)} · ${esc(when(f.updatedAt))}</td>`
-    + `<td class="muted">${esc(f.note)}</td></tr>`).join('') + '</table>'
-    + '<div class="bar"><button class="main" id="newGetBtn">Get latest</button></div>';
+    + `<td class="muted">${esc(f.note)}</td></tr>`).join('') + '</table>';
 }
 
 // ---- right: settings (from the cog)
@@ -383,8 +403,8 @@ function drawPanel() {
     if (paths.length) run('checkout', { paths });
   });
   $('inBtn')?.addEventListener('click', () => {
-    const paths = [...document.querySelectorAll('[data-in]:checked')].map(c => c.dataset.in);
-    if (paths.length) run('checkin', { paths, note: $('note').value.trim() });
+    const paths = [...document.querySelectorAll('[data-in]:checked')].map(c => c.dataset.in).sort((a, b) => rank(a) - rank(b));
+    if (paths.length) runEach('checkin', paths, { note: $('note').value.trim() }, 'Checking in');
   });
   $('newGetBtn')?.addEventListener('click', () => run('get'));
   $('pwBtn')?.addEventListener('click', changePassword);

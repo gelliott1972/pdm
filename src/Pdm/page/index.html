@@ -272,7 +272,7 @@ function drawIn() {
 function drawWho() {
   const held = files.filter(f => f.lockedByName).sort((a, b) => (a.lockedByName + a.path).localeCompare(b.lockedByName + b.path));
   if (held.length === 0) return '<span class="muted">Nothing is checked out.</span>';
-  return '<table>' + held.map(f => `<tr><td class="${f.mine ? 'tag mine' : 'tag other'}">${esc(f.mine ? 'you' : f.lockedByName)}</td><td>${esc(f.path)}</td>`
+  return '<table>' + held.map(f => `<tr><td class="${f.mine ? 'tag mine' : 'tag other'}">${esc(f.mine || f.lockedByName === me.name ? 'you' : f.lockedByName)}</td><td>${esc(f.path)}</td>`
     + `<td class="muted">${esc(when(f.lockedAt))}${f.lockMachine ? ' · ' + esc(f.lockMachine) : ''}</td></tr>`).join('') + '</table>';
 }
 

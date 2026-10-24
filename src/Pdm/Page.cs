@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Amazon;
+using Amazon.CognitoIdentityProvider.Model;
 using Amazon.DynamoDBv2;
 using Amazon.S3;
 
@@ -86,6 +87,11 @@ public sealed class Page(Settings s)
             case "/api/me":
                 await Send(ctx, 200, Me());
                 return;
+            case "/api/password":
+                try { await session.User.ChangePasswordAsync(Str("old"), Str("new")); }
+                catch (Exception ex) { await Send(ctx, 400, new { error = PasswordError(ex) }); return; }
+                await Send(ctx, 200, new { });
+                return;
             case "/api/restart":
                 await Send(ctx, 200, new { });
                 updater.ApplyAndRestart(); // exits this process when an update is ready
@@ -157,11 +163,20 @@ public sealed class Page(Settings s)
                 shared = Paths.IsShared(f.Path), usedBy = usedBy.GetValueOrDefault(f.FileId) ?? new List<string>(),
                 updatedBy = f.UpdatedBy, updatedAt = f.UpdatedAt, note = f.Note,
                 lockedByName = f.LockedByName, lockedAt = f.LockedAt, lockMachine = f.LockMachine, mine,
-                changed = mine && state.IsChanged(f.Path, local),
+                changed = mine && state.IsChanged(f.Path, local), missing = !File.Exists(local),
                 newer = !mine && (had == null || had.VersionId != f.VersionId || !File.Exists(local))
             };
         }).ToList();
     }
+
+    // Cognito's reasons, in the page's words.
+    static string PasswordError(Exception ex) => ex switch
+    {
+        NotAuthorizedException => "The current password is wrong.",
+        InvalidPasswordException => "The new password isn't allowed: it needs 12 or more characters, with a number.",
+        LimitExceededException or TooManyRequestsException => "Too many tries. Wait a few minutes and try again.",
+        _ => ex.Message
+    };
 
     object Me() => new
     {

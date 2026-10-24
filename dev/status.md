@@ -1,8 +1,12 @@
 # Dev status
 
-Updated 24 Oct 2026.
+Updated 24 Oct 2026 (final for the desktop; the next Dev session runs on Grant's laptop).
 
-## Next: 0806 B and C (brief `docs\briefs\import-0806BC.md`)
+## Now
+
+Screen 06 (A, B, C) is imported and loaded in the PDM: the vault holds 93 files, nothing checked out, everything pushed. No Dev work is open. Start the laptop session with "Moving to the laptop" below. Small tool fixes noted for later: SwCheck counts the ReadOnly warning on a PDM vault, and it misreads the `08BXX-MSW-01` component as not loaded (Grant confirmed it's fine).
+
+## 0806 B and C: planning history (brief `docs\briefs\import-0806BC.md`)
 
 **Step 4 (24 Oct):** planned from `-r1` (`E:\PDM-work\LS-08B-06-r1`, `-C-06-r1`) with the ledger and `data\` register. Reuse added to the tools (94b3465): `export_actions` writes `reuse` rows, the Importer checks each reused file is in the vault and points the new files at it (no copy, no change, no ledger rows), SwFixRefs maps old names of reused files. The plan tool no longer doubles the extension on reuse rows. Structure assemblies get `08B06-STA-01` / `08C06-STA-01`, Provisional (decision 1, "as in A").
 

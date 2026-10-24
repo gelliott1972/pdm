@@ -15,7 +15,7 @@ Updated 24 Oct 2026, on the laptop after the move. The next Admin session reads 
 
 ## Next
 
-1. James's PC: setup from `docs\setup-machine.md` section A. Smart App Control: Grant's decision 24 Oct is to turn it off on James's PC (the app isn't signed).
+1. ~~James's PC~~: **set up 24 Oct** (Smart App Control off, key set, 0.1.2 installed, `P:` = `C:\PDM` survives restart, reference list empty, logged in, Get latest 93 files read-only, `LS-08A-06+STRUCTURE` opens clean).
 2. 0811 import (same pattern as 0806; Grant stays ahead of the team).
 3. James: grout and anchors for B and C, in the PDM (decision 7). B's concrete-beam anchor needs a new configuration in `MDL-ANCHOR-08X06`.
 

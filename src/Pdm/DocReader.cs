@@ -38,7 +38,9 @@ public sealed class DocReader
             var filePartNo = GetProp(doc, null, "PartNo");
             if (!string.IsNullOrEmpty(filePartNo))
                 info.PartNos.Add(new PartNoEntry("", filePartNo, GetProp(doc, null, "PartNoStatus") ?? ""));
-            foreach (var cn in (string[])doc.ConfigurationManager.GetConfigurationNames())
+            // Drawings have no configurations: the Document Manager fails (E_FAIL) rather than returning none.
+            var configs = TypeOf(path) == SwDmDocumentType.swDmDocumentDrawing ? [] : (string[])doc.ConfigurationManager.GetConfigurationNames();
+            foreach (var cn in configs)
             {
                 var partNo = GetProp(doc, cn, "PartNo");
                 if (!string.IsNullOrEmpty(partNo))

@@ -48,6 +48,11 @@
   #login .err { color: var(--bad); min-height: 1.4em; }
   .tabs { display: flex; gap: 4px; margin-bottom: 8px; }
   .tabs button.on { background: #e8eef8; border-color: var(--mine); }
+  #result { margin: 0 0 10px; padding: 6px 8px; border-left: 3px solid var(--mine); background: #f3f6fb; }
+  #result.bad { border-left-color: var(--bad); background: #fbf1f2; }
+  #result.bad #resultText { color: var(--bad); }
+  #result a { color: var(--muted); font-size: 12px; }
+  #resultLines { margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -83,9 +88,8 @@
         <button id="tabIn">Check in</button>
         <button id="tabWho">Who has what</button>
       </div>
+      <div id="result" hidden><span id="resultText"></span> <a href="#" id="resultMore">Details</a><pre id="resultLines" hidden></pre></div>
       <div id="panel"></div>
-      <h2>Log</h2>
-      <pre id="log"></pre>
     </section>
   </main>
 </div>
@@ -155,14 +159,35 @@ async function load() {
   drawTree(); drawPanel();
 }
 
+// ---- the result line: one summary under the tabs, problems first, the full list behind Details
+const done = [['Checked out ', 'Checked out'], ['Checked in ', 'Checked in'], ['Added ', 'Added'], ['No changes in ', 'Released (no changes)'], ['Undone ', 'Undone'], ['Got ', 'Downloaded']];
+function showResult(lines, working) {
+  const kind = l => done.find(([p]) => l.startsWith(p));
+  const problems = working ? [] : lines.filter(l => !kind(l) && !l.startsWith('Get done') && !l.startsWith('  Note'));
+  const parts = [];
+  if (problems.length) parts.push(problems.length === 1 ? problems[0] : problems.length + ' problems');
+  for (const [p, label] of done) {
+    const n = lines.filter(l => l.startsWith(p)).length;
+    if (n) parts.push(label + ' ' + n + ' file' + (n === 1 ? '' : 's'));
+  }
+  if (lines.some(l => l.startsWith('Get done')) && !lines.some(l => l.startsWith('Got '))) parts.push('Up to date');
+  $('result').hidden = false;
+  $('result').classList.toggle('bad', problems.length > 0);
+  $('resultText').textContent = working ? lines[0] : (parts.join(' · ') || 'Done.');
+  $('resultLines').textContent = [...problems, ...lines.filter(l => !problems.includes(l))].join('\n');
+  $('resultLines').hidden = true; $('resultMore').textContent = 'Details';
+  $('resultMore').hidden = working || (lines.length < 2 && problems.length < 2);
+}
+function hideResult() { if (!busy) $('result').hidden = true; }
+
 async function run(path, body) {
   if (busy) return;
   busy = true; document.querySelectorAll('button').forEach(b => b.disabled = true);
-  $('log').textContent = 'Working…';
+  showResult(['Working…'], true);
   try {
     const r = await api(path, body);
-    $('log').textContent = (r.log || []).join('\n') || 'Done.';
-  } catch (e) { $('log').textContent = 'Error: ' + e.message; }
+    showResult(r.log || []);
+  } catch (e) { showResult(['Error: ' + e.message]); }
   busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false);
   await load().catch(() => {});
 }
@@ -297,12 +322,13 @@ function drawPanel() {
   });
 }
 
-$('tabOut').onclick = () => { tab = 'out'; drawTabs(); drawPanel(); };
-$('tabIn').onclick = () => { tab = 'in'; drawTabs(); drawPanel(); };
-$('tabWho').onclick = () => { tab = 'who'; drawTabs(); drawPanel(); };
+$('tabOut').onclick = () => { tab = 'out'; hideResult(); drawTabs(); drawPanel(); };
+$('tabIn').onclick = () => { tab = 'in'; hideResult(); drawTabs(); drawPanel(); };
+$('tabWho').onclick = () => { tab = 'who'; hideResult(); drawTabs(); drawPanel(); };
+$('resultMore').onclick = e => { e.preventDefault(); const l = $('resultLines'); l.hidden = !l.hidden; $('resultMore').textContent = l.hidden ? 'Details' : 'Hide'; };
 $('filter').oninput = drawTree;
 $('getBtn').onclick = () => run('get');
-$('refreshBtn').onclick = () => load().catch(e => $('log').textContent = 'Error: ' + e.message);
+$('refreshBtn').onclick = () => load().catch(e => showResult(['Error: ' + e.message]));
 $('logoutBtn').onclick = async () => { await api('logout').catch(() => {}); showLogin(); };
 $('loginBtn').onclick = login;
 for (const id of ['email', 'password', 'new1', 'new2']) $(id).addEventListener('keydown', e => { if (e.key === 'Enter') login(); });

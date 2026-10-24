@@ -6,6 +6,7 @@ using Amazon.S3;
 using Pdm;
 
 // No arguments: the page. "shell" is the test command line for the engine.
+Velopack.VelopackApp.Build().Run(); // first: lets the installer and updater run their install/update steps
 var settings = Settings.Load();
 var command = args.Length > 0 ? args[0].ToLowerInvariant() : "page";
 

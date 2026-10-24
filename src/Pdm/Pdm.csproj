@@ -17,6 +17,7 @@
     <PackageReference Include="AWSSDK.SSO" Version="4.0.100.22" />
     <PackageReference Include="AWSSDK.SSOOIDC" Version="4.0.100.21" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="SolidWorks.Interop.swdocumentmgr">

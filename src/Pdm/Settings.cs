@@ -14,6 +14,7 @@ public sealed class Settings
     public string IdentityPoolId { get; set; } = "";
     public string LocalRoot { get; set; } = "";
     public int PagePort { get; set; } = 5170;
+    public string ReleasesBucket { get; set; } = "";
 
     public static Settings Load()
     {

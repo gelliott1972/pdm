@@ -17,6 +17,7 @@ public sealed class Page(Settings s)
     static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     Session? session;
+    readonly Updater updater = new();
     AmazonS3Client? s3;
     AmazonDynamoDBClient? db;
 
@@ -83,7 +84,11 @@ public sealed class Page(Settings s)
         switch (path)
         {
             case "/api/me":
-                await Send(ctx, 200, new { email = session.Email, name = session.Name, sharedEditor = session.SharedEditor });
+                await Send(ctx, 200, Me());
+                return;
+            case "/api/restart":
+                await Send(ctx, 200, new { });
+                updater.ApplyAndRestart(); // exits this process when an update is ready
                 return;
             case "/api/files":
                 await Send(ctx, 200, await FilesAsync(engine));
@@ -129,7 +134,8 @@ public sealed class Page(Settings s)
         var region = RegionEndpoint.GetBySystemName(s.Region);
         s3 = new AmazonS3Client(session.Credentials, region);
         db = new AmazonDynamoDBClient(session.Credentials, region);
-        await Send(ctx, 200, new { email = session.Email, name = session.Name, sharedEditor = session.SharedEditor });
+        updater.Start(new AmazonS3Client(session.Credentials, region), s, Console.WriteLine); // its own client: logout disposes s3
+        await Send(ctx, 200, Me());
     }
 
     // Every file with its state for me on this PC: held here (changed or not), held elsewhere, newer in the vault.
@@ -155,6 +161,12 @@ public sealed class Page(Settings s)
             };
         }).ToList();
     }
+
+    object Me() => new
+    {
+        email = session!.Email, name = session.Name, sharedEditor = session.SharedEditor,
+        version = Updater.Version, updateReady = updater.ReadyVersion
+    };
 
     string Local(string key) => Paths.LocalOf(s.LocalRoot, key);
 

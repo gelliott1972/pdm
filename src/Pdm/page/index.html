@@ -75,6 +75,7 @@
     <button id="getBtn">Get latest</button>
     <button id="refreshBtn">Refresh</button>
     <span class="who" id="who"></span>
+    <button id="restartBtn" class="main" hidden></button>
     <button id="logoutBtn">Log out</button>
   </header>
   <main>
@@ -143,7 +144,7 @@ async function login() {
     if (r.newPasswordNeeded) { $('newpw').hidden = false; $('new1').focus(); return; }
     me = r; $('password').value = $('new1').value = $('new2').value = ''; $('newpw').hidden = true;
     $('login').hidden = true; $('app').hidden = false;
-    $('who').textContent = me.name + (me.sharedEditor ? ' · shared editor' : '');
+    showMe();
     await load();
   } catch (e) { $('loginErr').textContent = e.message; }
   finally { $('loginBtn').disabled = false; }
@@ -334,9 +335,27 @@ $('loginBtn').onclick = login;
 for (const id of ['email', 'password', 'new1', 'new2']) $(id).addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
 
 // Keep locks current without a reload, so another PC's check-out shows up.
-setInterval(() => { if (me && !busy && document.visibilityState === 'visible') load().catch(() => {}); }, 30000);
+setInterval(() => {
+  if (!me || busy || document.visibilityState !== 'visible') return;
+  load().catch(() => {});
+  api('me').then(r => { me = r; showMe(); }).catch(() => {});
+}, 30000);
 
-api('me').then(r => { me = r; $('app').hidden = false; $('who').textContent = me.name + (me.sharedEditor ? ' · shared editor' : ''); return load(); })
+// Name, version, and a Restart button once an update has downloaded.
+function showMe() {
+  $('who').textContent = me.name + (me.sharedEditor ? ' · shared editor' : '') + ' · v' + me.version;
+  $('restartBtn').hidden = !me.updateReady;
+  $('restartBtn').textContent = 'Update ' + me.updateReady + ': restart';
+}
+$('restartBtn').onclick = async () => {
+  if (busy) return;
+  busy = true; showResult(['Restarting with the update…'], true);
+  await api('restart').catch(() => {});
+  // The app comes back on the same address in a few seconds; reload to log in again.
+  setTimeout(function retry() { fetch('/').then(() => location.reload(), () => setTimeout(retry, 1000)); }, 3000);
+};
+
+api('me').then(r => { me = r; $('app').hidden = false; showMe(); return load(); })
   .catch(() => showLogin());
 </script>
 </body>

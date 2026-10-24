@@ -67,7 +67,7 @@
   <input id="email" type="email" placeholder="Email" autocomplete="username">
   <input id="password" type="password" placeholder="Password" autocomplete="current-password">
   <div id="newpw" hidden style="display:grid;gap:8px">
-    <span class="muted">Choose a new password (12+ characters, with a number).</span>
+    <span class="muted">Choose a new password (8+ characters, with a lowercase letter and a number).</span>
     <input id="new1" type="password" placeholder="New password" autocomplete="new-password">
     <input id="new2" type="password" placeholder="New password again" autocomplete="new-password">
   </div>
@@ -105,7 +105,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-let me = null, files = [], byId = {}, byPath = {}, selected = null, tab = 'out', open = new Set(), busy = false, panelDirty = false;
+let me = null, files = [], byId = {}, byPath = {}, selected = null, tab = 'out', lastTab = 'out', open = new Set(), busy = false, panelDirty = false;
 
 async function api(path, body) {
   const r = await fetch('/api/' + path, {
@@ -326,16 +326,16 @@ function drawNew() {
 // ---- right: settings (from the cog)
 function drawSettings() {
   return `<div id="settings"><h2>Settings</h2><span class="muted">${esc(me.email)} · v${esc(me.version)}</span>`
-    + '<h2>Change password</h2>'
+    + '<h2>Change password</h2><span class="muted">8+ characters, with a lowercase letter and a number.</span>'
     + '<input id="pwOld" type="password" placeholder="Current password" autocomplete="current-password">'
-    + '<input id="pwNew1" type="password" placeholder="New password (12+ characters, with a number)" autocomplete="new-password">'
+    + '<input id="pwNew1" type="password" placeholder="New password" autocomplete="new-password">'
     + '<input id="pwNew2" type="password" placeholder="New password again" autocomplete="new-password">'
-    + '<div><button class="main" id="pwBtn">Change password</button></div><div id="pwMsg"></div></div>';
+    + '<div class="bar"><button class="main" id="pwBtn">Change password</button><button id="pwCancel">Cancel</button></div><div id="pwMsg"></div></div>';
 }
 async function changePassword() {
   const msg = (text, bad) => { $('pwMsg').textContent = text; $('pwMsg').className = bad ? 'err' : 'muted'; };
   if ($('pwNew1').value !== $('pwNew2').value) return msg("New passwords don't match.", true);
-  if ($('pwNew1').value.length < 12) return msg('The new password needs 12 or more characters.', true);
+  if ($('pwNew1').value.length < 8) return msg('The new password needs 8 or more characters.', true);
   $('pwBtn').disabled = true;
   try {
     await api('password', { old: $('pwOld').value, new: $('pwNew1').value });
@@ -372,6 +372,7 @@ function drawPanel() {
   });
   $('newGetBtn')?.addEventListener('click', () => run('get'));
   $('pwBtn')?.addEventListener('click', changePassword);
+  $('pwCancel')?.addEventListener('click', () => { tab = lastTab; drawTabs(); drawPanel(); }); // back to where I was; the form is dropped
   $('undoBtn')?.addEventListener('click', () => {
     const paths = [...document.querySelectorAll('[data-in]:checked')].map(c => c.dataset.in);
     if (paths.length) run('undo', { paths });
@@ -382,7 +383,7 @@ $('tabOut').onclick = () => { tab = 'out'; hideResult(); drawTabs(); drawPanel()
 $('tabIn').onclick = () => { tab = 'in'; hideResult(); drawTabs(); drawPanel(); };
 $('tabWho').onclick = () => { tab = 'who'; hideResult(); drawTabs(); drawPanel(); };
 $('tabNew').onclick = () => { tab = 'new'; hideResult(); drawTabs(); drawPanel(); };
-$('settingsBtn').onclick = () => { tab = 'settings'; hideResult(); drawTabs(); drawPanel(); };
+$('settingsBtn').onclick = () => { if (tab !== 'settings') lastTab = tab; tab = 'settings'; hideResult(); drawTabs(); drawPanel(); };
 for (const ev of ['input', 'change']) $('panel').addEventListener(ev, () => { panelDirty = true; });
 $('resultMore').onclick = e => { e.preventDefault(); const l = $('resultLines'); l.hidden = !l.hidden; $('resultMore').textContent = l.hidden ? 'Details' : 'Hide'; };
 $('filter').oninput = drawTree;

@@ -173,7 +173,7 @@ public sealed class Page(Settings s)
     static string PasswordError(Exception ex) => ex switch
     {
         NotAuthorizedException => "The current password is wrong.",
-        InvalidPasswordException => "The new password isn't allowed: it needs 12 or more characters, with a number.",
+        InvalidPasswordException => "The new password isn't allowed: it needs 8 or more characters, with a lowercase letter and a number.",
         LimitExceededException or TooManyRequestsException => "Too many tries. Wait a few minutes and try again.",
         _ => ex.Message
     };

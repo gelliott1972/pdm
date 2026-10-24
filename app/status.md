@@ -37,15 +37,22 @@ Updated 23 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 
 ## Next
 
-1. Grant tries the page on the desktop: log in, check out `LS-08A-06` as an assembly, check in.
-2. Laptop set-up, then the lock test with the page (done-when).
-3. Load 08B06 and 08C06 once Dev has imported them.
+1. **Desktop (this App session):** load 0806 B and C into the vault once Dev has imported them into `E:\PDM-test\P` and SwCheck passes: `pdm.exe load --dry`, show Grant, then the real load.
+2. **Laptop (new App session):** the updater (agreed 24 Oct): Velopack, releases in a private S3 bucket in `ap-east-1` read by logged-in engineers through a custom update source, .NET bundled in, "Update ready / Restart" on the page. Stage 1: a publish script run with `pdm-admin`. Stage 2 later: GitHub Action (SOLIDWORKS interop DLL in the private repo: Grant OK; GitHub-to-AWS trust: decide when needed).
+3. Grant's first real check-out on the laptop after the load (SW guides): 08B06-STA-01, 08C06-STA-01, both tops, MDL-ANCHOR-08X06.
 
 ## Open questions
 
 - None open. Decided 23 Oct: the app goes to engineers as a single folder Grant shares (Dropbox or OneDrive); Referenced Documents list empty (forces paths to be right).
 
 - Code signing: Smart App Control (Windows 11) blocks the unsigned app; the laptop has it off for now. Azure Artifact Signing isn't open to NZ companies; a commercial certificate (~US$200–500/yr, unverified) is the fix if James's PC has it on. Waiting on James's setting.
+
+## Handover to the laptop (24 Oct)
+
+- Development moves to Grant's laptop (repo `C:\code\pdm`, `P:` = `C:\PDM`, Smart App Control off). The desktop keeps the 08B/C import and load.
+- Two clones now: who pushes laptop commits needs agreeing with Admin (today Admin pushes from the desktop).
+- The laptop needs `pdm-admin` (setup B6) before publishing updates.
+- Page: one result line under the tabs (Details for the full list), done 24 Oct.
 
 ## Notes
 

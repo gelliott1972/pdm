@@ -261,3 +261,9 @@ Admin 25 Oct (f9dfe25): D25, all 7 file-level properties go (also Definition, Re
 **D21 MAIN_MEMBERS:** link is per configuration (new read-only tool `tools\sw-macros\SwEqLink.cs`): off with As Machined active, on with As Welded active (DELL .txt), still after Grant's 17:41-42 re-save. Grant to look again with As Welded really active; fallback (Grant's OK needed): API set LinkToFile off in As Welded and save.
 
 **D21 done and checked (25 Oct):** Grant unticked the link with As Welded active in the three MAIN_MEMBERS. SwEqLink: link off in every configuration of all 3 MAIN_MEMBERS and all 3 skeletons, equations kept (MAIN_MEMBERS A 10, B/C 8; skeletons 15).
+
+**C D7/D15/D22/D25 done and checked (25 Oct):** `08C11-STA-01` = C top minus screen and 22 grout kits (18:00); no file-level properties; DmEdit at Default: PartNo `08C11-STA-01`, Provisional, Description `LS-08C-11 Structure`. New C top (18:02) = STA + `LS-08X-11` (LS-08BC-11). Drawing repointed. SwCheck: no open errors, all from the work copy; only flag the end plate link (D27, reuse).
+
+**D26:** fresh probes `scratch\inventory\LS-08x-11-2510c`. Fixed with DmEdit (backups `C:\PDM-work\scratch\0811-pre-D26\`, read back): B SF01-UPPER, SF02-UPPER Weight, B TIE_BEAM_2.SLDPRT Material; C beams 1-3 asm Weight, C SF01-UPPER Weight, C TIE_BEAM_2/3.SLDPRT Weight + Material. Left: C SF02-LOWER/UPPER (left out, D20). Held for Admin: A TIE_BEAM_2.SLDPRT reads its assembly; 2-size interface plate (4 configs) reads A's TIE_BEAM_2 assembly; splice kit reads the plate.
+
+**Next:** D14 (LCMM split, plate swap) and D10 (brace split), then -r1 Pack and Go per top.

@@ -14,6 +14,10 @@ Usage: python -I make_plan.py <inventoryDir> <registerXlsx> <outXlsx> [<ledgerCs
   --vault: a fresh read-only DmProbe of the vault (P:\\APEX, P:\\_Shared; never P:\\.pdm); may be given more than once.
           Each file reused from the ledger must be there, with every configuration this screen uses and the same
           PartNo in each; anything else is "decide". Without --vault the ledger rows aren't checked (one issue says so).
+  --swcheck: SwCheck output for a top assembly (or any assembly) of this screen or a --with screen; may be given
+          more than once. After Replace Components the Document Manager can report a stale configuration for the
+          replaced instance (0811, SW 26 Oct), so where DM and SOLIDWORKS disagree on what an assembly configuration
+          uses, SOLIDWORKS wins and the file gets a note. Assemblies no SwCheck covered are listed in one issue.
 Sheet "Vault changes": configurations of files already in the vault that a file this plan imports refers to and
 that have no PartNo in the ledger. Each is a change to an existing vault file (check-out, write, check-in), not part of the import.
 """
@@ -28,6 +32,11 @@ while "--with" in args:
     i = args.index("--with")
     withs.append((args[i + 1], args[i + 2]))
     del args[i:i + 3]
+swchecks = []
+while "--swcheck" in args:
+    i = args.index("--swcheck")
+    swchecks.append(args[i + 1])
+    del args[i:i + 2]
 vaults = []
 while "--vault" in args:
     i = args.index("--vault")
@@ -327,6 +336,25 @@ children = collections.defaultdict(list)          # (assembly, config) -> [(file
 for c in comps:
     if c["suppressed"] != "yes":
         children[(key(c["assembly"]), c["assembly_config"])].append((key(c["component_file"]), c["component_config"]))
+# SOLIDWORKS' own view (SwCheck) replaces DM's where they differ (stale configuration after Replace Components).
+import importlib.util
+_spec = importlib.util.spec_from_file_location("swcheck_used", os.path.join(os.path.dirname(os.path.abspath(__file__)), "swcheck_used.py"))
+swcheck_used = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(swcheck_used)
+sw_kids = {}
+for p in swchecks:
+    sw_kids.update(swcheck_used.parse(p))
+sw_notes = collections.defaultdict(list)   # assembly -> notes for its row
+fmt_kids = lambda cnt: ", ".join(f"{n} x {f}[{fc}]" for (f, fc), n in sorted(cnt.items())) or "none"
+for (a, c), sw in sw_kids.items():
+    if (a, c) in children:
+        dm = collections.Counter(children[(a, c)])
+        if dm != sw:
+            sw_notes[a].append(f"note: DM and SOLIDWORKS disagree on what {c} uses; SOLIDWORKS used. DM only: {fmt_kids(dm - sw)}; SOLIDWORKS only: {fmt_kids(sw - dm)}")
+            children[(a, c)] = list(sw.elements())
+for (ws_, a, c) in list(with_kids):
+    if (a, c) in sw_kids:
+        with_kids[(ws_, a, c)] = collections.Counter(sw_kids[(a, c)])
 all_cfgs = collections.defaultdict(list)
 for c in cfgs:
     all_cfgs[key(c["file"])].append(c["config"])
@@ -763,6 +791,8 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     if cls in ("not a part", "modelling group") and virtual.get(fk):
         flags.append(flag(fname, "contains a virtual component (" + ", ".join(sorted(virtual[fk])) + "): save it to its own file first"))
 
+    for n in sw_notes.get(fk, ()):
+        flags.append(flag(fname, n))
     # A Weight formula should read the file's own mass. One naming another file (often another screen's copy, left by
     # Save As) isn't rewritten by the importer, which only knows this plan's renames.
     foreign = sorted({m.group(1) for (ff, _), e in mass_refs.items() if ff == fk for m in [MASS_RE.search(e)] if m and key(m.group(1)) != fk})
@@ -897,6 +927,13 @@ for o in others or ():
     if key(o["file"]) not in linked_found:
         file_rows.append([o["folder"] or ".", o["file"], "", "other file", "leave out", "", "",
                           "not a SOLIDWORKS file and no model links to it", "", "", "", "", "", "", ""])
+
+asm_used = sorted({(f, c) for f, cc in used.items() for c in cc if c and f.endswith(".sldasm") and (f, c) in children})
+if not swchecks:
+    issues.append(("SwCheck", "no --swcheck given: what each assembly configuration uses is the Document Manager's, not checked in SOLIDWORKS"))
+elif [k for k in asm_used if k not in sw_kids]:
+    left = [k for k in asm_used if k not in sw_kids]
+    issues.append(("SwCheck", f"{len(left)} assembly configuration(s) used here not in any SwCheck (DM's view kept): " + "; ".join(f"{a} [{c}]" for a, c in left)))
 
 if not vaults and any(r[4] == "reuse (already imported)" for r in file_rows):
     issues.append(("ledger", "no --vault probe given: files reused from the ledger weren't checked against P:\\"))

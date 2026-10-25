@@ -24,7 +24,28 @@ Dev (25 Oct): SwCheck of `08C11-SFA-3T` passes (no "not the same document" warni
 
 **Skeleton SwCheck (25 Oct, outputs in `scratch\import\swcheck-08x11-skeleton.txt`):** all three skeletons open with no errors, but the equations are still **linked to a file** (link on). A links to the old path `D:\Dropbox\...\FRAME\ShaftA\LS_08A-11_Tie_Bar_equations.txt` (doesn't exist here); B and C link to the live `M:\311v3\SC08\LS-08X-11\FRAME\ShaftA\LS_08A-11_Tie_Bar_equations.txt` (17 Aug). Identical equations in all three: 7 globals + 8 `D*@Tie_Beam_Centerline`. No dialog blocked SwCheck, and no SOLIDWORKS was left running. The fix as in 0806 (untick Link to external file, keep the equations) waits for Admin's decision.
 
-**Waiting:** Admin on the skeleton equations link; D7–D17 with Grant.
+**Grant's answers (25 Oct, via Admin):** D7, D8, D9 (check P/W letters), D11–D17 settled; D10, D18, D20, D21 open.
+
+**D9 and D20 checks (25 Oct, read-only, new `tools\sw-macros\SwMeasure.exe`; output `scratch\import\swmeasure-0811.txt`):**
+
+| Part (each shaft) | Weldment | Solid bodies | James's letter |
+| --- | --- | --- | --- |
+| `_TIE_BEAM_1_MAIN_MEMBERS` | yes | 5 (B, C As Welded: 6) | W |
+| `_TIE_BEAM_2` | yes | 1 | P |
+| `_TIE_BEAM_3` | yes | 2 | W |
+
+| B/C pair | Mass B / C (kg) | Box B / C | Same? |
+| --- | --- | --- | --- |
+| SF01-LOWER PART 1 / PART 2 | 96.089 / 96.089; 99.821 / 99.821 | equal | yes |
+| SF02-LOWER | 216.636 / 216.636 | 1700 x 3250 x 200 both | yes |
+| SF02-UPPER | 159.352 / 159.352 | 1640 x 3405 x 200 both | yes |
+| SF03-LOWER | 212.904 / 212.904 | 1625 x 3250 x 200 both | yes |
+| SF03-UPPER | 156.546 / 156.546 | 1565 x 3405 x 200 both | yes |
+| SF01-UPPER (for contrast) | 273.671 / 272.720 | 840 / 800 deep | no |
+
+(The tool's component count printed 0 for every assembly, which is wrong; the probe's component lists are the reliable count.) SOLIDWORKS exited after the run.
+
+**Next:** hands-on with Grant, A first: D16 (remove loose screws and washers), then D7 (form `08A11-STA-01`), then B and C D7, then D14 (LCMM split and plate swap).
 
 **Drawings don't come with Pack and Go.** Probed read-only copies of all 52 live drawings (in scratch): every drawing stores its model as `C:\Users\DELL\Dropbox\Models\Screen Models\...` (James's PC), and most are named by James's numbers (`08A11-SFA-1T` draws `LS-08A-11_SF01-UPPER`), so Pack and Go can't pair them by name. Plan: copy the drawings into each work copy in step 2 (same folders) and repoint them there. Seen so far: `08C11-SFA-3T` draws **ShaftB** `LS-08B-11_SF03-UPPER` (looks wrong); some models have two or three drawings (`08A11-SFA-1A`, `-1B` and old `LS-08A-11_SF01-LOWER.SLDDRW` all draw SF01-LOWER; `08A11-HBA-01` and old `LS-08A-11-TIE_BEAM_1.SLDDRW`); `FRAME\_Shared\08XXX-HBW-01.SLDDRW` draws the old `LS-08X-X_TIE_BEAM_POST` (vault part `08XXX-HBW-01`).
 

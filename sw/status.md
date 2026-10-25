@@ -277,3 +277,5 @@ Admin 25 Oct (f9dfe25): D25, all 7 file-level properties go (also Definition, Re
 - Me (DmEdit, backups `C:\PDM-work\scratch\0811-pre-D14\` and `0811-pre-D26\`): Weight formulas of both LMWs name their own file; 08X11-LMW + 08X11-DBP-01 copied into A and C, children repointed; LCMM -> 08X11-LMW in the other 17 subframes (A 6, B 5, C 6).
 - Probe `scratch\inventory\LS-08x-11-2510d`: no references to old LCMM, brace or 2-size plate except A's D3 drawings (`LS-08A-11_SF01-LOWER/UPPER.SLDDRW`, not imported). Old files moved to `scratch\0811-pre-D14\moved-A/B/C\`.
 - To do: SOLIDWORKS re-save of the 17 repointed subframes (stored component names). Note for -r1: Pack and Go "Include drawings" may pick up A's D3 drawings named like the models; exclude them.
+
+Admin 25 Oct: delete the dead suppressed 4-size plate instance (config 140x120x10) in both LMWs (Grant, same visit as the re-saves; then re-copy 08X11-LMW to A and C). A's 9 D3 drawings moved out of A's work copy to `C:\PDM-work\scratch\0811-D3-drawings-A\` so -r1 can't pick them up.

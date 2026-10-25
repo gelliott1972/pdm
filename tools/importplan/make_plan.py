@@ -11,6 +11,9 @@ Usage: python -I make_plan.py <inventoryDir> <registerXlsx> <outXlsx> [<ledgerCs
   --with: another screen planned in the same pass (0811 D19: B and C with A); may be given more than once. Files
           that screen's exported plan (files.csv) imports are reused here, not imported again; their configurations
           and PartNos here are compared with that screen's probe and any difference is flagged.
+  --vault: a fresh read-only DmProbe of the vault (P:\\APEX, P:\\_Shared; never P:\\.pdm); may be given more than once.
+          Each file reused from the ledger must be there, with every configuration this screen uses and the same
+          PartNo in each; anything else is "decide". Without --vault the ledger rows aren't checked (one issue says so).
 Sheet "Vault changes": configurations of files already in the vault that a file this plan imports refers to and
 that have no PartNo in the ledger. Each is a change to an existing vault file (check-out, write, check-in), not part of the import.
 """
@@ -25,6 +28,11 @@ while "--with" in args:
     i = args.index("--with")
     withs.append((args[i + 1], args[i + 2]))
     del args[i:i + 3]
+vaults = []
+while "--vault" in args:
+    i = args.index("--vault")
+    vaults.append(args[i + 1])
+    del args[i:i + 2]
 inv, register_path, out_path = args[0], args[1], args[2]
 ledger_path = args[3] if len(args) > 3 else None
 screen = re.sub(r"-r\d+$", "", os.path.basename(os.path.normpath(inv)))   # LS-08A-06-r2 -> LS-08A-06
@@ -194,6 +202,13 @@ for with_inv, with_files in withs:
         if c["suppressed"] != "yes":
             with_kids[(with_screen, c["assembly"].lower(), c["assembly_config"])][(c["component_file"].lower(), c["component_config"])] += 1
 
+vault_pn = {}   # vault file -> {configuration: PartNo}, from the --vault probes
+for vd in vaults:
+    for f in load_from(vd, "files.csv"):
+        vault_pn.setdefault(f["file"].lower(), {})
+    for c in load_from(vd, "configs.csv"):
+        vault_pn.setdefault(c["file"].lower(), {})[c["config"]] = (c["PartNo"] or "").strip()
+
 views, others = ((load(n) if os.path.isfile(os.path.join(inv, n)) else None) for n in ("views.csv", "others.csv"))
 key = lambda s: s.lower()
 stem = lambda f: os.path.splitext(f)[0]
@@ -220,10 +235,13 @@ for r in wb["Examples"].iter_rows(min_row=5, values_only=True):   # worked examp
 # ---------------------------------------------------------------- ledger of files already imported
 ledger = {}
 ledger_pn = {}   # (old file, old config or "") -> PartNo given at import
+ledger_cfg = {}  # (old file, old config) -> configuration name in the vault
 if ledger_path and os.path.exists(ledger_path):
     with open(ledger_path, encoding="utf-8-sig") as f:
         for r in csv.DictReader(f):
             ledger.setdefault(key(r["old_file"]), r)
+            if r.get("old_config"):
+                ledger_cfg.setdefault((key(r["old_file"]), r["old_config"]), r.get("new_config") or r["old_config"])
             if r.get("partno"):
                 ledger_pn.setdefault((key(r["old_file"]), r["old_config"]), r["partno"])
 
@@ -474,6 +492,29 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     elif fk in ledger:
         led = ledger[fk]
         action, new_name, new_folder, source = "reuse (already imported)", stem(led["new_file"]), led["new_folder"], "ledger"
+        # Safety check against the vault itself: the file is there, with each configuration used here and the same PartNo.
+        if vaults:
+            have = vault_pn.get(key(os.path.basename(led["new_file"])))
+            if have is None:
+                action = "decide"
+                flags.append(flag(fname, f"reused from the ledger as {led['new_file']}, but that file isn't in the vault probe"))
+            else:
+                miss, pd = [], []
+                for c in sorted(c for c in used.get(fk, {}) if c):
+                    vc = ledger_cfg.get((fk, c), c)
+                    # The vault's PartNo must be the one the ledger gave, and one already in this copy must agree with it.
+                    # (A copy without a PartNo is normal: the importer wrote it. No ledger PartNo: the Vault changes sheet.)
+                    if vc not in have:
+                        miss.append(c)
+                        continue
+                    mine, given = cfg_partno.get((fk, c)) or "", ledger_pn.get((fk, c)) or ""
+                    if (given and have[vc] != given) or (mine and have[vc] != mine):
+                        pd.append(f"{c}: vault {have[vc] or '-'}" + (f", ledger {given}" if given else "") + (f", this copy {mine}" if mine else ""))
+                if miss or pd:
+                    action = "decide"
+                    flags.append(flag(fname, f"reused as {led['new_file']}, but it doesn't match the vault's copy: "
+                                      + " | ".join((["configurations not in the vault: " + ", ".join(miss)] if miss else [])
+                                                   + (["PartNos differ: " + "; ".join(pd)] if pd else []))))
     elif fk in dec_same:
         sc, other, why = dec_same[fk]
         if other not in imported_with:
@@ -847,6 +888,9 @@ for o in others or ():
     if key(o["file"]) not in linked_found:
         file_rows.append([o["folder"] or ".", o["file"], "", "other file", "leave out", "", "",
                           "not a SOLIDWORKS file and no model links to it", "", "", "", "", "", "", ""])
+
+if not vaults and any(r[4] == "reuse (already imported)" for r in file_rows):
+    issues.append(("ledger", "no --vault probe given: files reused from the ledger weren't checked against P:\\"))
 
 # ---------------------------------------------------------------- write workbook
 out = openpyxl.Workbook()

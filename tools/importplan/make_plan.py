@@ -37,19 +37,37 @@ SCREEN_FILE = {
     "LS-08BC-11": "LS-08X-11",
 }
 
-def SHAFT_0811(x):
+def SHAFT_0811(x, sf):
     # 0811 D8 and D9, the same for each shaft: James's numbers, Provisional (docs\imports\LS-08X-11-decisions.md).
-    return {
-        (f"LS-08{x}-11_SF01-LOWER.SLDASM", "PART 1"): (f"08{x}11-SFA-1A", True, "D8 (James's number)"),
-        (f"LS-08{x}-11_SF01-LOWER.SLDASM", "PART 2"): (f"08{x}11-SFA-1B", True, "D8 (James's number)"),
-        (f"LS-08{x}-11_TIE_BEAM_2.SLDPRT", "Default<As Machined>"): (f"08{x}11-HBP-02", True, "D9 (James's number; P/W letter being checked)"),
-        (f"LS-08{x}-11_TIE_BEAM_3.SLDPRT", "Default<As Machined>"): (f"08{x}11-HBW-03", True, "D9 (James's number; P/W letter being checked)"),
+    # sf: place letter of SF01-LOWER's numbers (D20: Z in B), or None where that file isn't imported (C).
+    d = {
+        (f"LS-08{x}-11_TIE_BEAM_2.SLDPRT", "Default<As Machined>"): (f"08{x}11-HBP-02", True, "D9 (James's number; P checked by SW)"),
+        (f"LS-08{x}-11_TIE_BEAM_3.SLDPRT", "Default<As Machined>"): (f"08{x}11-HBW-03", True, "D9 (James's number; W checked by SW)"),
     }
+    if sf:
+        src = "D8 (James's number)" + (", D20 (shared by B and C)" if sf == "Z" else "")
+        d[(f"LS-08{x}-11_SF01-LOWER.SLDASM", "PART 1")] = (f"08{sf}11-SFA-1A", True, src)
+        d[(f"LS-08{x}-11_SF01-LOWER.SLDASM", "PART 2")] = (f"08{sf}11-SFA-1B", True, src)
+    return d
+
+# 0811 D20: B's five subframes that are identical in C become 08Z11 files (folder ShaftBC); C's copies are left out
+# and C's top points at B's files. SF01-UPPER differs, so it stays 08B11-SFA-1T / 08C11-SFA-1T.
+D20 = {"SF01-LOWER": "08Z11-SFA", "SF02-LOWER": "08Z11-SFA-2B", "SF02-UPPER": "08Z11-SFA-2T", "SF03-LOWER": "08Z11-SFA-3B", "SF03-UPPER": "08Z11-SFA-3T"}
+
+def STA_0811(x):
+    # D7 and D22: the new structure assembly, PartNo at Default, Provisional. D25: no file-level properties.
+    return {(f"08{x}11-STA-01.SLDASM", "Default"): (f"08{x}11-STA-01", True, "D7, D22")}
+
+D10_OPEN = "D10 open: brace split by place tag (08X11- / 08B11-) waiting on Grant; numbers here are placeholders"
+D15_OPEN = "D15: the old grout kits should be gone from -r1 (SW removes them); still here"
 
 # Names and numbers decided for one screen's import (docs\imports\<screen>-decisions.md). Not rules for other screens.
 #   files:   old file -> (new name, new folder or None to keep the proposed one, where decided)
 #   partnos: (old file, configuration or "@file") -> (PartNo, provisional?, where decided)
 #   fasteners: (grade, finish) for the bought-in screw, nut and washer families
+#   same_as: old file -> (screen, that screen's old file, where decided): left out here, this screen's files point at
+#            the other screen's (needs --with that screen)
+#   no_file_props: old file -> where decided: must have no file-level custom properties (prep deletes them)
 DECIDED = {
     "LS-08A-06": {
         "files": {
@@ -99,7 +117,11 @@ DECIDED = {
     },
     # docs\imports\LS-08X-11-decisions.md
     "LS-08A-11": {
-        "partnos": {**SHAFT_0811("A"),
+        "files": {   # D23: both kits job-wide
+            "SPLICE_JOINT_ASSY.SLDASM": ("MDL-SPLICE-JOINT-GNRIC", r"APEX\GNRIC", "D13, D23"),
+            "Hex Bolt, washers & Nuts assy.SLDASM": ("MDL-HEX-BOLT-WASHERS-NUTS-GNRIC", r"APEX\GNRIC", "D13, D23"),
+        },
+        "partnos": {**SHAFT_0811("A", "A"), **STA_0811("A"),
             # D12: STOCK -> GNRIC, Provisional
             ("PLATE_Bolting_Connector.SLDPRT", "Member 2"): ("GNRIC-MSP-02", True, "D12"),
             ("PLATE_Bolting_Connector.SLDPRT", "Member 3"): ("GNRIC-MSP-03", True, "D12"),
@@ -107,12 +129,8 @@ DECIDED = {
             ("PLATE_Bolting_Connector.SLDPRT", "Member 14"): ("GNRIC-MSP-14", True, "D12"),
         },
         "modelling_groups": {"SPLICE_JOINT_ASSY.SLDASM": "D13 (splice kit is a modelling aid for now)"},
-        "open": {   # D15: SW removes the old grout kits from the tops before -r1; still here = an error
-            "GROUT+ANCHOR_BOLTS.SLDASM": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
-            "GROUT.SLDPRT": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
-            "SPLICE_JOINT_ASSY.SLDASM": "D23 open: kit level GNRIC (as proposed) or 08X11?",
-            "Hex Bolt, washers & Nuts assy.SLDASM": "D23 open: kit level GNRIC (as proposed) or 08X11?",
-        },
+        "open": {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN},
+        "no_file_props": {"08A11-STA-01.SLDASM": "D25"},
         "leave_out": {   # D3: A's older drawings duplicate the numbered ones; listed in the report, never in the PDM
             f: "D3 (older drawing, duplicates a numbered one)" for f in (
                 "LS-08A-11-TIE_BEAM_1.SLDDRW", "LS-08A-11-TIE_BEAM_2.SLDDRW", "LS-08A-11-TIE_BEAM_3.SLDDRW",
@@ -121,20 +139,19 @@ DECIDED = {
         },
     },
     "LS-08B-11": {
-        "partnos": SHAFT_0811("B"),
-        "open": {   # D15: SW removes the old grout kits from the tops before -r1; still here = an error
-            "GROUT+ANCHOR_BOLTS.SLDASM": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
-            "GROUT.SLDPRT": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
+        "files": {f"LS-08B-11_{k}.SLDASM": (v, None, "D20 (shared by B and C)") for k, v in D20.items()},
+        "partnos": {**SHAFT_0811("B", "Z"), **STA_0811("B"),
+            **{(f"LS-08B-11_{k}.SLDASM", "Default"): (v, True, "D20 (shared by B and C)") for k, v in D20.items() if k != "SF01-LOWER"},
         },
+        "open": {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN},
+        "no_file_props": {"08B11-STA-01.SLDASM": "D25"},
     },
     "LS-08C-11": {
-        "partnos": {**SHAFT_0811("C"),
-            ("LS-08C-11_SF03-UPPER.SLDASM", "Default"): ("08C11-SFA-3T", True, "D4 (drawing 08C11-SFA-3T repointed to it)"),
-        },
-        "open": {   # D15: SW removes the old grout kits from the tops before -r1; still here = an error
-            "GROUT+ANCHOR_BOLTS.SLDASM": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
-            "GROUT.SLDPRT": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
-        },
+        # D20 replaces D4: C's SF03-UPPER (and the drawing repointed to it) is left out, B's file is used.
+        "partnos": {**SHAFT_0811("C", None), **STA_0811("C")},
+        "same_as": {f"LS-08C-11_{k}.SLDASM": ("LS-08B-11", f"LS-08B-11_{k}.SLDASM", "D20") for k in D20},
+        "open": {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN},
+        "no_file_props": {"08C11-STA-01.SLDASM": "D25"},
     },
 }
 
@@ -220,6 +237,14 @@ fast_spec = dec.get("fasteners")
 dec_leave = {key(k): v for k, v in dec.get("leave_out", {}).items()}
 dec_mdl = {key(k): v for k, v in dec.get("modelling_groups", {}).items()}
 dec_open = {key(k): v for k, v in dec.get("open", {}).items()}   # still to be decided, or must not be here: blocks the export
+dec_same = {key(k): (sc, key(f), w) for k, (sc, f, w) in dec.get("same_as", {}).items()}
+dec_nofp = {key(k): v for k, v in dec.get("no_file_props", {}).items()}
+file_props = collections.defaultdict(list)       # file -> names of its file-level custom properties
+for p in props:
+    if p["config"] == "(file)":
+        file_props[key(p["file"])].append(p["name"])
+MASS_RE = re.compile(r"SW-Mass@(?:@[^@]*@)?([^@\"]+\.SLD(?:PRT|ASM))", re.I)
+mass_refs = {(key(p["file"]), (p["config"], p["name"])): p["expression"] for p in props if "SW-Mass@" in (p["expression"] or "")}
 
 cfg_list = collections.defaultdict(list)          # file -> [(config, parent)]
 for c in cfgs:
@@ -431,6 +456,18 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     elif fk in ledger:
         led = ledger[fk]
         action, new_name, new_folder, source = "reuse (already imported)", stem(led["new_file"]), led["new_folder"], "ledger"
+    elif fk in dec_same:
+        sc, other, why = dec_same[fk]
+        if other not in imported_with:
+            action, new_name, source = "decide", s, why
+            flags.append(flag(fname, f"{why}: replaced by {sc}'s {other}; plan {sc} first and pass --with its probe and exported files.csv"))
+        else:
+            nn, nf, _ = imported_with[other]
+            action, new_name, new_folder, source = f"reuse ({why}: {sc}'s file)", stem(nn), nf, f"{why} (same as {sc}'s {other}; this copy stays out, listed)"
+            mine, theirs = {c for c, _ in cfg_list[fk]}, with_cfgs[(sc, other)]
+            if mine != theirs:
+                flags.append(flag(fname, f"configurations differ from {sc}'s {other}: only here " + (", ".join(sorted(mine - theirs)) or "none")
+                                  + "; only there " + (", ".join(sorted(theirs - mine)) or "none")))
     elif fk in imported_with:
         nn, nf, with_screen = imported_with[fk]
         action, new_name, new_folder, source = f"reuse (imported with {with_screen})", stem(nn), nf, f"D19 (imported with {with_screen})"
@@ -498,7 +535,13 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
                 if n:
                     numbers.setdefault(key(n), (n, m, c))
             pick = numbers.get(key(s)) or (next(iter(numbers.values())) if len(numbers) == 1 else None)
-            if pick:
+            same = sorted({m for m, c in shown if m in dec_same})
+            if same and len(same) == len({m for m, c in shown}):
+                action, new_name, source = "leave out", s, dec_same[same[0]][2] + f": draws {', '.join(same)}, which is left out; {dec_same[same[0]][0]}'s drawing is the one in the vault"
+            elif same:
+                action, new_name, source = "decide", s, dec_same[same[0]][2]
+                flags.append(flag(fname, "draws a left-out copy (" + ", ".join(same) + ") and other models: which drawing goes in?"))
+            elif pick:
                 n, m, c = pick
                 action = "leave out" if destination[m][0] == "leave out" else "import with its model"
                 new_name, new_folder = n, destination[m][1]
@@ -521,12 +564,15 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         flags.append(flag(fname, "not a part: must be set to Exclude from BOM; one per screen, shared across its shafts"))
     elif cls == "modelling group":
         action, source = "import, no PartNo", "rule (MDL)"
-        if re.match(r"^mdl[-_]", fk):
+        if fk in dec_files:
+            new_name, new_folder, source = dec_files[fk]
+        elif re.match(r"^mdl[-_]", fk):
             new_name = tidy(s)
         else:
             new_name = f"MDL-{tidy(s)}-{level_from_location(original_location(fk))}"
             flags.append(flag(fname, "modelling group: level taken from its old folder, check it covers every screen that uses it"))
-        new_folder, _ = folder_for(new_name.rsplit("-", 1)[-1])
+        if not new_folder:
+            new_folder, _ = folder_for(new_name.rsplit("-", 1)[-1])
         flags.append(flag(fname, "modelling group: must be set to Promote so its contents show in the BOM"))
     elif cls == "skeleton":
         action, source = "import, no PartNo", "rule (named for what it drives)"
@@ -548,7 +594,7 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         else:
             new_name = s
             flags.append(flag(fname, "skeleton drives files with different numbers (" + ", ".join(sorted(tags)) + "): name it by hand"))
-        flags.append(flag(fname, "skeleton: drives " + ", ".join(users) + ". It may link an equations .txt file, which the Document Manager can't see: check Tools > Equations and bring the file along"))
+        flags.append(flag(fname, "skeleton: drives " + ", ".join(users) + ". It may link an equations .txt file, which the Document Manager can't see: check Tools > Equations and untick Link to external file (as 0806, 0811 D21)"))
     elif cls == "screen assembly":
         action, new_name, source = "import, keep name", screen, "screen name (LS- names are fixed)"
         new_folder = rf"APEX\SC{scene_no}\LS-{scene_no}X-{screen_no}"
@@ -628,6 +674,14 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     if cls in ("not a part", "modelling group") and virtual.get(fk):
         flags.append(flag(fname, "contains a virtual component (" + ", ".join(sorted(virtual[fk])) + "): save it to its own file first"))
 
+    # A Weight formula should read the file's own mass. One naming another file (often another screen's copy, left by
+    # Save As) isn't rewritten by the importer, which only knows this plan's renames.
+    foreign = sorted({m.group(1) for (ff, _), e in mass_refs.items() if ff == fk for m in [MASS_RE.search(e)] if m and key(m.group(1)) != fk})
+    if foreign and action.startswith("import"):
+        flags.append(flag(fname, "Weight formula reads another file's mass (" + ", ".join(foreign) + "): SOLIDWORKS often corrects this when it saves the file (0806); if it's still here, point it at this file (DmEdit)"))
+    if fk in dec_nofp and file_props.get(fk):
+        action = "decide"
+        flags.append(flag(fname, f"{dec_nofp[fk]}: file-level properties should be deleted in prep; still here: " + ", ".join(file_props[fk])))
     if fk in dec_open and not action.startswith("reuse"):
         action = "decide"
         flags.append(flag(fname, dec_open[fk]))
@@ -712,9 +766,9 @@ for lf, where in sorted(linked_found.items()):
     fl = "" if where != "MISSING" else flag(lf, "linked file not in the Pack and Go: find it and bring it along")
     if dest[0] == "leave out":
         act = "leave out"
-    elif lf.endswith(".txt"):   # Admin, 25 Oct 2026: an equations file's home in the vault is a question, not a choice
+    elif lf.endswith(".txt"):   # equations file: unlinked in prep, not a vault file (as 0806; 0811 D21)
         act = "decide"
-        fl = "; ".join(x for x in (fl, flag(lf, "equations file: where it lives in the vault is a question for Admin")) if x)
+        fl = "; ".join(x for x in (fl, flag(lf, "equations file still linked: untick Link to external file in the skeleton (D21), it isn't a vault file")) if x)
     elif dest[0].startswith("reuse"):
         act = "leave out"
         fl = "; ".join(x for x in (fl, flag(lf, "its part is already in the vault, so nothing to bring")) if x)

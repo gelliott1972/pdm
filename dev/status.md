@@ -42,17 +42,24 @@ Proposed rule (for Admin, not decided): take the views' (model, configuration) p
 | --- | --- | --- |
 | D2 | DmProbe writes `views.csv`; drawing named by the PartNo its views show (kept / renamed / decide), in the model's folder. A view still naming a repointed model falls back to the drawing's own reference, with a note | A, B, C: every numbered drawing keeps its name beside its model; `08C11-SFA-3T` resolved to C's `SF03-UPPER` |
 | D3 | A's 9 older drawings left out (listed) | 9 left out |
-| D4 | C `SF03-UPPER` = `08C11-SFA-3T`, Provisional (SW already wrote it in the file) | |
-| D8, D9 | James's numbers, Provisional, per shaft | D9's P/W letters may still change (SW checking) |
+| D4 | Replaced by D20: C's `SF03-UPPER` and the `08C11-SFA-3T` drawing are left out | |
+| D8, D9 | James's numbers, Provisional, per shaft (B's `SF01-LOWER` gets `08Z11`, D20) | D9 letters confirmed by SW |
 | D12 | `PLATE_Bolting_Connector` configurations `GNRIC-MSP-02/03/11/14`, Provisional | |
-| D13 | Splice kit treated as a modelling group; the MDL rule names it | `MDL-SPLICE-JOINT-GNRIC` in `APEX\GNRIC` (level from its old folder; question for Admin) |
+| D13, D23 | Splice kit and hex bolt kit are modelling groups, named by the decision: `MDL-SPLICE-JOINT-GNRIC`, `MDL-HEX-BOLT-WASHERS-NUTS-GNRIC` in `APEX\GNRIC` | A imports both; B, C reuse |
 | D17 | New "Vault changes" sheet: configurations of vault files that imported files refer to, with no PartNo in the ledger | A: exactly D17's 10. B, C: none (A brings the kit) |
 | D19 | `--with <A probe> <A files.csv>` (repeatable): files A imports are **reuse** in B and C (their files must point at them), and each copy's configurations and PartNos are compared with A's | B, C: 8 files each, no differences |
+| D20 | B's 5 identical subframes named `08Z11-SFA` (family, `-1A`/`-1B`), `-2B`, `-2T`, `-3B`, `-3T` in `LS-08X-11\ShaftBC`, Provisional; their drawings follow (D2). C's copies are **reuse of B's files** (`same_as`, needs `--with` B), so C's top points at B's; C's drawings of them are left out and listed | B: 5 files, 6 drawings to `08Z11`. C: 5 files reuse, 6 drawings left out, configurations match B's |
+| D21 | An equations `.txt` still linked in `-r1` is "decide" (unlink it; not a vault file) | none linked in today's probes |
+| D22, D25 | `08x11-STA-01` PartNo at Default, Provisional; "decide" if the STA still has any file-level property | only A's STA exists today; its 3 file-level properties are flagged |
+| D10 | Brace is "decide" (placeholder numbers) until Grant decides; this blocks A's export, and so B's and C's plans | |
+| Weight formulas | New flag: an imported file's Weight formula reads another file's mass (the Importer only rewrites this plan's renames) | 10 flags: B `SF01-UPPER`, `SF02-UPPER` (the shared `08Z11-SFA-2T`) read A's; C's beams and `SF01-UPPER` read B's; A `TIE_BEAM_2.SLDPRT` reads its assembly; splice kit reads the plate |
 | Other files | `others.csv` in the probe; loose non-SOLIDWORKS files listed as left out; an equations `.txt` is a "decide" question; a linked file of a reused part is left out | Hilti `.stp`: left out (its part is in the vault) |
 
 Run order this needs: A dry run, A apply, then B (its reuse rows need A's files in the vault), then C.
 
-Waiting on SW's prep before `-r1`: D7 (STA), D14 (LCMM split), repoints of ties, post and member to their vault names, the two interface-plate files sharing a new name, D16, D21; open D10, D18, D20. Until the post is repointed, `08XXX-HBW-01.SLDDRW` has no folder. D24 (25 Oct): SW's prep points the beams and that drawing at a copy of the vault's `08XXX-HBW-01.SLDPRT`, as in 0806; no new reuse rule. D23 (kit level) and D15 (no old grout kits in `-r1`) are "decide" rows in the plan, so the export stops until they're settled (f49de92).
+Waiting on SW's prep before `-r1`: D7 (STA), D14 (LCMM split), repoints of ties, post and member to their vault names, the two interface-plate files sharing a new name, D16, D21, D24 (post repoint), D25; open D10. Until the beams are saved in SOLIDWORKS, they still name the old post, so the plan sees `08XXX-HBW-01` as unused and leaves its drawing out; `-r1` should fix that. D15 (no old grout kits in `-r1`) and D10 are "decide" rows, so the export stops on them.
+
+Run order with D20: plan A, export; plan B `--with` A; export; plan C `--with` A `--with` B. Apply A, then B, then C (C's reuse rows need B's `08Z11` files in the vault).
 
 **Next:** plan from SW's `-r1` probes, dry run, report to Admin.
 

@@ -52,7 +52,7 @@ Proposed rule (for Admin, not decided): take the views' (model, configuration) p
 
 Run order this needs: A dry run, A apply, then B (its reuse rows need A's files in the vault), then C.
 
-Waiting on SW's prep before `-r1`: D7 (STA), D14 (LCMM split), repoints of ties, post and member to their vault names, the two interface-plate files sharing a new name, D16, D21; open D10, D18, D20. Until the post is repointed, `08XXX-HBW-01.SLDDRW` has no folder.
+Waiting on SW's prep before `-r1`: D7 (STA), D14 (LCMM split), repoints of ties, post and member to their vault names, the two interface-plate files sharing a new name, D16, D21; open D10, D18, D20. Until the post is repointed, `08XXX-HBW-01.SLDDRW` has no folder. D24 (25 Oct): SW's prep points the beams and that drawing at a copy of the vault's `08XXX-HBW-01.SLDPRT`, as in 0806; no new reuse rule. D23 (kit level) and D15 (no old grout kits in `-r1`) are "decide" rows in the plan, so the export stops until they're settled (f49de92).
 
 **Next:** plan from SW's `-r1` probes, dry run, report to Admin.
 

@@ -259,3 +259,5 @@ Admin 25 Oct (f9dfe25): D25, all 7 file-level properties go (also Definition, Re
 **D27 (end plate) checked:** work-copy `_Shared\LS-08X-X_TIE_BEAM_END_PLATE.SLDPRT` is byte-identical in A, B, C; vs a scratch copy of vault `08XXX-PLP-20`: Default only in both, all 11 equations identical, mass 1.509 kg, box 200 x 100 x 10 mm, 1 body. Same part: reuse, no untick.
 
 **D21 MAIN_MEMBERS:** link is per configuration (new read-only tool `tools\sw-macros\SwEqLink.cs`): off with As Machined active, on with As Welded active (DELL .txt), still after Grant's 17:41-42 re-save. Grant to look again with As Welded really active; fallback (Grant's OK needed): API set LinkToFile off in As Welded and save.
+
+**D21 done and checked (25 Oct):** Grant unticked the link with As Welded active in the three MAIN_MEMBERS. SwEqLink: link off in every configuration of all 3 MAIN_MEMBERS and all 3 skeletons, equations kept (MAIN_MEMBERS A 10, B/C 8; skeletons 15).

@@ -58,6 +58,7 @@ Updated 24 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 ## Open questions
 
 - **How we work (25 Oct):** Grant decides only in Admin's window. App sends questions to Admin, not to Grant. Decisions are labelled per import (`docs\imports\LS-08X-11-decisions.md`: D1, D2...).
+- **Stale DM component data (26 Oct, Admin asked):** after Replace Components, DM keeps old referenced configurations and pre-import names in its component list. pdm.exe reads only the reference table plus each file's own configurations (for PartNo), so nothing shows wrong. Any future BOM or "configuration used" view must not use DM's component list. For 0811 -r1 the dry run should report 0 references outside the vault.
 - 0.1.7 progress bar and top buttons: check with Grant at his next real check-in, sent to Admin 25 Oct.
 - None open. Decided 23 Oct: the app goes to engineers as a single folder Grant shares (Dropbox or OneDrive); Referenced Documents list empty (forces paths to be right).
 

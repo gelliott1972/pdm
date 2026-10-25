@@ -34,7 +34,9 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
             records.Add((record, local, old == null || old.ETag != md5));
         }
         int toUpload = records.Count(r => r.Upload);
-        say($"{records.Count} files under {root}; {toUpload} new or changed, {records.Count - toUpload} already in the vault.");
+        var uploadMb = records.Where(r => r.Upload).Sum(r => r.Record.Size) / 1048576.0;
+        say($"{records.Count} files under {root}; {toUpload} new or changed ({uploadMb:0.0} MB to upload), {records.Count - toUpload} already in the vault.");
+        foreach (var r in records.Where(r => r.Upload)) say($"  {(r.Record.VersionId == "" ? "new" : "changed")}  {r.Record.Path}");
 
         // Pass 2: references and PartNos, now that every file has an id.
         var all = records.Select(r => r.Record).ToList();

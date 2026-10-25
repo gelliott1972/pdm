@@ -45,6 +45,8 @@ Dev (25 Oct): SwCheck of `08C11-SFA-3T` passes (no "not the same document" warni
 
 (The tool's component count printed 0 for every assembly, which is wrong; the probe's component lists are the reliable count.) SOLIDWORKS exited after the run.
 
+Admin (25 Oct): D22, so the new STA gets PartNo `08x11-STA-01` and PartNoStatus `Provisional` at Default, and the top has no PartNo. D15 means as 0806 B and C: the old `GROUT+ANCHOR_BOLTS` kits are deleted from the tops before `-r1` (not carried into the STA); report any mates or patterns that break. D20: don't merge yet. Backup of the three tops: `C:\PDM-work\scratch\0811-pre-D7-D16\`.
+
 **Next:** hands-on with Grant, A first: D16 (remove loose screws and washers), then D7 (form `08A11-STA-01`), then B and C D7, then D14 (LCMM split and plate swap).
 
 **Drawings don't come with Pack and Go.** Probed read-only copies of all 52 live drawings (in scratch): every drawing stores its model as `C:\Users\DELL\Dropbox\Models\Screen Models\...` (James's PC), and most are named by James's numbers (`08A11-SFA-1T` draws `LS-08A-11_SF01-UPPER`), so Pack and Go can't pair them by name. Plan: copy the drawings into each work copy in step 2 (same folders) and repoint them there. Seen so far: `08C11-SFA-3T` draws **ShaftB** `LS-08B-11_SF03-UPPER` (looks wrong); some models have two or three drawings (`08A11-SFA-1A`, `-1B` and old `LS-08A-11_SF01-LOWER.SLDDRW` all draw SF01-LOWER; `08A11-HBA-01` and old `LS-08A-11-TIE_BEAM_1.SLDDRW`); `FRAME\_Shared\08XXX-HBW-01.SLDDRW` draws the old `LS-08X-X_TIE_BEAM_POST` (vault part `08XXX-HBW-01`).
@@ -223,3 +225,5 @@ Checked: B and C -r1 use only `<As Machined>` configs of the ties and members. J
 - Close All between vault work and any work-copy work (same file names)
 
 Nothing open otherwise. Desktop-only: backups `E:\PDM-work\scratch\LS-08B-06-pre-fix`, `LS-08C-06-pre-fix`, live copies `E:\PDM-work\scratch\live-2410`.
+
+**D24 (25 Oct, work copies only):** backup `C:\PDM-work\scratch\0811-pre-D24\` (9 beam assemblies, 3 post drawings, and the old post from A and C). The vault's `08XXX-HBW-01.SLDPRT` was copied into each work copy's `311v3\SC08\_Shared` (read-only flag cleared). DmEdit `replace-ref` post to `08XXX-HBW-01` in A and C beams 1–3 and B beam 2, and in all three `FRAME\_Shared\08XXX-HBW-01.SLDDRW` (the probe confirms each drawing now draws `08XXX-HBW-01`). The old post was moved out of A and C, as in 0806. **B beams 1 and 3 are left as they are:** they also use `SHAFT_B_CONCRETE_BEAM`, so they wait until `08BXX-HBW-01` exists (made in SOLIDWORKS). As in 0806, the beams' stored component names still say the old post until SOLIDWORKS re-saves them (Save All during D7), so check with SwCheck afterwards.

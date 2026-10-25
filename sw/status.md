@@ -8,9 +8,11 @@ SW's part: steps 1, 2 and 4. No file changes until Admin agrees the step 2 list 
 
 | Top | Pack and Go | Probe |
 | --- | --- | --- |
-| `LS-08A-11 - SCREEN + STRUCTURE` | done 25 Oct: 44 files (24 parts, 19 assemblies, 1 Hilti `.stp`), **no drawings** | |
-| `LS-08B-11 - SCREEN + STRUCTURE` | | |
-| `LS-08C-11 - SCREEN + STRUCTURE` | | |
+| `LS-08A-11 - SCREEN + STRUCTURE` | done 25 Oct: 44 files (24 parts, 19 assemblies, 1 Hilti `.stp`), **no drawings** | `scratch\inventory\LS-08A-11-2510`: 43 opened, 83 references |
+| `LS-08B-11 - SCREEN + STRUCTURE` | done: 47 files (adds `08B11-MSA-01` and the two expansion-joint brackets) | `...\LS-08B-11-2510`: 46 opened, 85 references |
+| `LS-08C-11 - SCREEN + STRUCTURE` | done: 44 files | `...\LS-08C-11-2510`: 43 opened, 81 references |
+
+Work copies `C:\PDM-work\LS-08A-11`, `-08B-11`, `-08C-11` (copies of the inbox). Every reference resolves inside its own work copy, except the old virtual part `Assem1^GROUT+ANCHOR_BOLTS` (stored in James's temp folder), as in 0806. (The older `scratch\inventory\LS-08x-11` folders are the desktop probes, kept for comparison.)
 
 **Drawings don't come with Pack and Go.** Probed read-only copies of all 52 live drawings (in scratch): every drawing stores its model as `C:\Users\DELL\Dropbox\Models\Screen Models\...` (James's PC), and most are named by James's numbers (`08A11-SFA-1T` draws `LS-08A-11_SF01-UPPER`), so Pack and Go can't pair them by name. Plan: copy the drawings into each work copy in step 2 (same folders) and repoint them there. Seen so far: `08C11-SFA-3T` draws **ShaftB** `LS-08B-11_SF03-UPPER` (looks wrong); some models have two or three drawings (`08A11-SFA-1A`, `-1B` and old `LS-08A-11_SF01-LOWER.SLDDRW` all draw SF01-LOWER; `08A11-HBA-01` and old `LS-08A-11-TIE_BEAM_1.SLDDRW`); `FRAME\_Shared\08XXX-HBW-01.SLDDRW` draws the old `LS-08X-X_TIE_BEAM_POST` (vault part `08XXX-HBW-01`).
 

@@ -6,12 +6,12 @@ Status: **proposed** = waiting for Grant; **agreed** = Grant said yes (date); **
 
 | Label | Decision | Recommendation | Status |
 | --- | --- | --- | --- |
-| D1 | Drawings point at James's PC. Copy them into the work copies, then repoint each to its model there. | Yes. (Copy done 25 Oct with Grant's OK.) | proposed |
-| D2 | Drawing names: from the configurations a drawing's views show, look up the PartNo. If the name already matches one, keep it; if there's exactly one PartNo, rename to it; otherwise decide. In the model's folder, no PartNo of its own. | Yes (Dev's rule) | proposed |
-| D3 | A's 9 older drawings (`LS-08A-11-TIE_BEAM_1..3`, `LS-08A-11_SF0x-...`) duplicate numbered ones [Q11] | Leave out, list for James | proposed |
-| D4 | `08C11-SFA-3T` draws B's `SF03-UPPER`; C's `SF03-UPPER` has no PartNo [Q10] | Repoint to C's `LS-08C-11_SF03-UPPER`, give it `08C11-SFA-3T` (Provisional), flag for James | proposed |
-| D5 | A, B and C in one pass | Yes (SW: no reason to split) | proposed |
-| D6 | Set Grant's git name and email on the laptop | Yes | proposed |
+| D1 | Drawings point at James's PC. Copy them into the work copies, then repoint each to its model there. | Yes. (Copy done 25 Oct with Grant's OK.) | agreed 25 Oct |
+| D2 | Drawing names: from the configurations a drawing's views show, look up the PartNo. If the name already matches one, keep it; if there's exactly one PartNo, rename to it; otherwise decide. In the model's folder, no PartNo of its own. | Yes (Dev's rule) | agreed 25 Oct |
+| D3 | A's 9 older drawings (`LS-08A-11-TIE_BEAM_1..3`, `LS-08A-11_SF0x-...`) duplicate numbered ones [Q11] | Leave out, list for James | agreed 25 Oct: they never enter the PDM, only the import report lists them |
+| D4 | `08C11-SFA-3T` draws B's `SF03-UPPER`; C's `SF03-UPPER` has no PartNo [Q10] | Repoint to C's `LS-08C-11_SF03-UPPER`, give it `08C11-SFA-3T` (Provisional), flag for James | agreed 25 Oct. Probe: B and C SF03-UPPER have identical components (3 brackets, 4 LCMM, 2+7 ties); C has no PartNo. Most likely the C drawing was saved from B's and never repointed |
+| D5 | A, B and C in one pass | Yes (SW: no reason to split) | agreed 25 Oct |
+| D6 | Set Grant's git name and email on the laptop | Yes | agreed 25 Oct |
 | D7 | No separate STA assembly in 0811: the top carries `08x11-STA-01` and its drawing draws the top [Q1] | Make `08x11-STA-01` a separate structure assembly as in 0806 (top = STA + `LS-08X-11`), so decision 7 (anchors in the STA) applies the same way; the STA drawing draws it | proposed |
 | D8 | `SF01-LOWER`: James has PART 1 = `-1A`, PART 2 = `-1B`; the register has PART 1 = `-1B` [Q2] | Keep James's (file and drawings agree), Provisional; register mismatch listed for James | proposed |
 | D9 | Header beam parts: James's `08x11-HBP-02` / `08x11-HBW-03` vs register `HBP-01` / `HBP-02` [Q3] | Keep James's, Provisional; listed for James | proposed |

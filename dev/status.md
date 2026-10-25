@@ -23,6 +23,17 @@ Test set: the SOLIDWORKS 2024 `samples\introsw` files copied to `C:\PDM-work\dra
 
 **For step 5 (Admin, 25 Oct):** only SOLIDWORKS files, plus files a model references by name (the end plate's `LS_08A-11_Tie_Bar_equations.txt`), go to `P:\`. Loose CSV, PDF, STEP, SAT, TXT are listed in the plan as left out (the probe lists only SOLIDWORKS files, so the plan needs a list of the other files in the Pack and Go). The equations .txt's home is a question in the plan, not a choice.
 
+**Drawings named by the configuration they show (Admin's proposal to Grant, 25 Oct; not built, waiting for Grant):** the Document Manager can read it. `GetViews()` gives every view with its sheet, model file **name** (no folder) and configuration (`ISwDMView2.ReferencedDocument` / `ReferencedConfiguration`). Tried read-only on the 4 sample drawings and the 2 test-vault drawings (throwaway program in Dev's scratch folder). Findings:
+
+| | |
+| --- | --- |
+| Several views per drawing, mixed | A drawing can show several models and configurations (the bolt-assembly drawing has assembly and part views; one sample has views on 3 sheets) |
+| Odd configurations | An alternate-position view names its own configuration (`AltPosition_Default_1`), which isn't one of the model's real ones |
+| Names not updated by repointing | After the test import, the vault drawings' views **still name the old files** (`bolt-assembly.sldasm`), though the references point at the new ones. To check in SOLIDWORKS (SwCheck) whether that matters |
+| Weldments | Unknown until real data: a view may name `Default` while the PartNo sits on `Default<As Machined>` |
+
+Proposed rule (for Admin, not decided): take the views' (model, configuration) pairs, dropping configurations the model doesn't have; find each pair's PartNo; the drawing's name already equal to one of them = confirmed; else exactly one PartNo = rename to it; else "decide" with the pairs listed. An old-named drawing whose PartNo another drawing already carries = left out and listed. Folder beside the model. DmProbe would write a `views.csv`.
+
 **Next:** when SOLIDWORKS is closed, SwFixRefs (list only) and SwCheck on the two test-vault drawings. Then wait for SW's `-r1` probe and plan (step 5).
 
 ## Earlier: 0806

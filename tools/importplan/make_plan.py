@@ -107,6 +107,12 @@ DECIDED = {
             ("PLATE_Bolting_Connector.SLDPRT", "Member 14"): ("GNRIC-MSP-14", True, "D12"),
         },
         "modelling_groups": {"SPLICE_JOINT_ASSY.SLDASM": "D13 (splice kit is a modelling aid for now)"},
+        "open": {   # D15: SW removes the old grout kits from the tops before -r1; still here = an error
+            "GROUT+ANCHOR_BOLTS.SLDASM": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
+            "GROUT.SLDPRT": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
+            "SPLICE_JOINT_ASSY.SLDASM": "D23 open: kit level GNRIC (as proposed) or 08X11?",
+            "Hex Bolt, washers & Nuts assy.SLDASM": "D23 open: kit level GNRIC (as proposed) or 08X11?",
+        },
         "leave_out": {   # D3: A's older drawings duplicate the numbered ones; listed in the report, never in the PDM
             f: "D3 (older drawing, duplicates a numbered one)" for f in (
                 "LS-08A-11-TIE_BEAM_1.SLDDRW", "LS-08A-11-TIE_BEAM_2.SLDDRW", "LS-08A-11-TIE_BEAM_3.SLDDRW",
@@ -116,10 +122,18 @@ DECIDED = {
     },
     "LS-08B-11": {
         "partnos": SHAFT_0811("B"),
+        "open": {   # D15: SW removes the old grout kits from the tops before -r1; still here = an error
+            "GROUT+ANCHOR_BOLTS.SLDASM": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
+            "GROUT.SLDPRT": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
+        },
     },
     "LS-08C-11": {
         "partnos": {**SHAFT_0811("C"),
             ("LS-08C-11_SF03-UPPER.SLDASM", "Default"): ("08C11-SFA-3T", True, "D4 (drawing 08C11-SFA-3T repointed to it)"),
+        },
+        "open": {   # D15: SW removes the old grout kits from the tops before -r1; still here = an error
+            "GROUT+ANCHOR_BOLTS.SLDASM": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
+            "GROUT.SLDPRT": "D15: the old grout kits should be gone from -r1 (SW removes them); still here",
         },
     },
 }
@@ -205,6 +219,7 @@ dec_pn = {(key(f), c): v for (f, c), v in dec.get("partnos", {}).items()}
 fast_spec = dec.get("fasteners")
 dec_leave = {key(k): v for k, v in dec.get("leave_out", {}).items()}
 dec_mdl = {key(k): v for k, v in dec.get("modelling_groups", {}).items()}
+dec_open = {key(k): v for k, v in dec.get("open", {}).items()}   # still to be decided, or must not be here: blocks the export
 
 cfg_list = collections.defaultdict(list)          # file -> [(config, parent)]
 for c in cfgs:
@@ -613,6 +628,9 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     if cls in ("not a part", "modelling group") and virtual.get(fk):
         flags.append(flag(fname, "contains a virtual component (" + ", ".join(sorted(virtual[fk])) + "): save it to its own file first"))
 
+    if fk in dec_open and not action.startswith("reuse"):
+        action = "decide"
+        flags.append(flag(fname, dec_open[fk]))
     destination[fk] = (action, new_folder)
     named[fk] = new_name
     file_rows.append([f["folder"] or ".", fname, original_location(fk), cls, action, new_name + (ext(fname) if new_name else ""),

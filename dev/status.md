@@ -1,10 +1,33 @@
 # Dev status
 
-Updated 24 Oct 2026 (final for the desktop; the next Dev session runs on Grant's laptop).
+Updated 25 Oct 2026, on Grant's laptop.
 
-## Now
+## Now: 0811 import (brief `docs\briefs\import-0811.md`)
 
-Screen 06 (A, B, C) is imported and loaded in the PDM: the vault holds 93 files, nothing checked out, everything pushed. No Dev work is open. Start the laptop session with "Moving to the laptop" below. Small tool fixes noted for later: SwCheck counts the ReadOnly warning on a PDM vault, and it misreads the `08BXX-MSW-01` component as not loaded (Grant confirmed it's fine).
+**Step 3 (tools read drawings): done for the Document Manager tools; the SOLIDWORKS-side check waits for SOLIDWORKS to be closed** (Grant had it open for the Pack and Go). Tools built on the laptop (`tools\build.ps1`: all six built).
+
+Test set: the SOLIDWORKS 2024 `samples\introsw` files copied to `C:\PDM-work\drawtest\src` (stored paths point at an old `F:\samplefiles\...`, like APEX's old paths). Test vault `C:\PDM-work\drawtest\vault` (not `P:\`). Plan, report and ledger in `scratch\import\drawtest\` (not `data\`). Probes `scratch\inventory\drawtest-src`, `-vault`.
+
+| Tool | Before | Now | Tested |
+| --- | --- | --- | --- |
+| DmProbe | Read drawings, but logged an E_FAIL line per drawing (configuration list) | Skips the configuration list on drawings | Yes: 4 drawings, all references read |
+| Importer | **Crashed on drawings** in the formula step (configuration list, E_FAIL), after copying | Skips configurations on drawings; stops if a PartNo row is on a drawing; a left-out file a drawing reaches only through its model is a note, not a problem | Yes: 9 files incl. 2 drawings renamed and moved, 22 references repointed, re-read all inside the test vault; the PartNo-on-drawing stop tried |
+| DmEdit `replace-ref` | Would crash on a drawing (configuration list) | Reads components only on assemblies | Yes, on a test-vault drawing |
+| SwCheck | Opened a drawing as a part (fails) | Opens it as a drawing; the "documents in memory" list shows where each model loaded from | **No** (needs SOLIDWORKS closed) |
+| SwFixRefs | No configuration use; should work on drawings | Unchanged | **No** (needs SOLIDWORKS closed) |
+| Plan tool | Named a drawing after its alphabetically first reference | See below | Yes, on the samples |
+
+**What I learned:** the Document Manager lists a drawing's references as the drawn model **plus everything inside it** (the bolt-assembly drawing lists the assembly, bolt, nut and washer). Reference status `2` is the normal value on every file. ReplaceReference and Save on a drawing work (App hadn't tried them).
+
+**Plan tool and drawings:** no PartNo rows (unchanged). Model = the reference with the drawing's own name, else the only one not inside another; otherwise "decide" with the question. Named after the model's new name, in the model's folder (unchanged). New notes: "drawing also shows X" when it reaches other models; "its model is already in the vault: the drawing is a new file beside it". A drawing already on `P:\` is still caught by the Importer ("a file named ... is already in the vault"), because drawings added from the PDM page aren't in the ledger.
+
+**For step 5 (Admin, 25 Oct):** only SOLIDWORKS files, plus files a model references by name (the end plate's `LS_08A-11_Tie_Bar_equations.txt`), go to `P:\`. Loose CSV, PDF, STEP, SAT, TXT are listed in the plan as left out (the probe lists only SOLIDWORKS files, so the plan needs a list of the other files in the Pack and Go). The equations .txt's home is a question in the plan, not a choice.
+
+**Next:** when SOLIDWORKS is closed, SwFixRefs (list only) and SwCheck on the two test-vault drawings. Then wait for SW's `-r1` probe and plan (step 5).
+
+## Earlier: 0806
+
+Screen 06 (A, B, C) is imported and loaded in the PDM. Small tool fixes noted for later: SwCheck counts the ReadOnly warning on a PDM vault, and it misreads the `08BXX-MSW-01` component as not loaded (Grant confirmed it's fine).
 
 ## 0806 B and C: planning history (brief `docs\briefs\import-0806BC.md`)
 

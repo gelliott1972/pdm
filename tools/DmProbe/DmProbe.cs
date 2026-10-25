@@ -114,7 +114,9 @@ static class DmProbe
                 // Configurations and their properties.
                 var cm = d.ConfigurationManager;
                 List<string> cfgNames;
-                try { cfgNames = Names(cm.GetConfigurationNames()); }
+                // Drawings have no configurations: the Document Manager fails (E_FAIL) rather than returning none.
+                if (type == SwDmDocumentType.swDmDocumentDrawing) cfgNames = new List<string>();
+                else try { cfgNames = Names(cm.GetConfigurationNames()); }
                 catch (Exception ex) { cfgNames = new List<string>(); Console.Error.WriteLine("  configurations unreadable on " + rel + ": " + ex.Message); }
                 string active = Safe(() => cm.GetActiveConfigurationName());
                 var cfgPartNos = new List<string>();

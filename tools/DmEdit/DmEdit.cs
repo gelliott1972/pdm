@@ -162,18 +162,20 @@ static class DmEdit
         if (!File.Exists(newPath)) { Console.Error.WriteLine("New file does not exist: " + newPath); return 1; }
         var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var cm = doc.ConfigurationManager;
-        foreach (var cn in (string[])cm.GetConfigurationNames())
-        {
-            var cfg = (ISwDMConfiguration18)cm.GetConfigurationByName(cn);
-            var arr = cfg.GetComponents() as object[];
-            if (arr == null) continue;
-            foreach (var o in arr)
+        // Only assemblies have components; drawings have no configurations (the Document Manager fails on them).
+        if (TypeOf(doc.FullName) == SwDmDocumentType.swDmDocumentAssembly)
+            foreach (var cn in (string[])cm.GetConfigurationNames())
             {
-                var c = o as ISwDMComponent12;
-                if (c != null && Path.GetFileName(Safe(() => c.PathName)).Equals(oldName, StringComparison.OrdinalIgnoreCase))
-                    candidates.Add(c.PathName);
+                var cfg = (ISwDMConfiguration18)cm.GetConfigurationByName(cn);
+                var arr = cfg.GetComponents() as object[];
+                if (arr == null) continue;
+                foreach (var o in arr)
+                {
+                    var c = o as ISwDMComponent12;
+                    if (c != null && Path.GetFileName(Safe(() => c.PathName)).Equals(oldName, StringComparison.OrdinalIgnoreCase))
+                        candidates.Add(c.PathName);
+                }
             }
-        }
         var search = app.GetSearchOptionObject();
         search.SearchFilters = (int)(SwDmSearchFilters.SwDmSearchForPart | SwDmSearchFilters.SwDmSearchForAssembly
             | SwDmSearchFilters.SwDmSearchExternalReference | SwDmSearchFilters.SwDmSearchInContextReference

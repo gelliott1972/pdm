@@ -356,16 +356,29 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         new_folder = r"APEX\SC08\SKUS" if cls == "sku" else r"APEX\PANELS"
         flags.append(flag(fname, f"{cls}: folder is provisional until the panel and SKU rebuild decides where they live"))
     elif cls == "drawing":
+        # The Document Manager lists every file inside the drawn model too (an assembly drawing lists its
+        # parts), so the model is the one named like the drawing, else the only one not inside another.
         models = sorted(drawing_models.get(fk, ()))
-        m = models[0] if models else None
-        if m and m in destination:
+        def inside(x, others, seen=()):
+            ps = {key(p) for p in parents.get(x, ())}
+            return bool(ps & others) or any(inside(p, others, seen + (x,)) for p in ps if p not in seen)
+        tops = [x for x in models if not inside(x, set(models) - {x})]
+        same = [x for x in models if stem(x) == key(s)]
+        m = same[0] if same else tops[0] if len(tops) == 1 else None
+        others = [x for x in tops if x != m]
+        if m and others:
+            flags.append(flag(fname, "drawing also shows " + ", ".join(others) + "; kept with " + m))
+        if not m and len(tops) > 1:
+            action, new_name, source = "decide", s, "drawing shows several models"
+            flags.append(flag(fname, "drawing shows several models (" + ", ".join(tops) + "): which one does it belong to?"))
+        elif m and m in destination:
             action, new_folder = ("leave out" if destination[m][0] == "leave out" else "import with its model"), destination[m][1]
             new_name, source = (named.get(m) or s), "named after its model"
+            if destination[m][0].startswith("reuse"):
+                flags.append(flag(fname, "its model is already in the vault: the drawing is a new file beside it"))
         else:
             action, new_name, source = "decide", s, "model not in this Pack and Go"
             flags.append(flag(fname, "drawing whose model isn't in this set"))
-        if len(models) > 1:
-            flags.append(flag(fname, "drawing shows several models (" + ", ".join(models) + "): named after the first"))
     elif cls == "not a part":
         action, source = "import, no PartNo", "rule (NONPART)"
         tag = f"{scene_no}X{screen_no}"

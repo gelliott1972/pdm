@@ -116,6 +116,9 @@ static class Importer
                         errors.Add("Name and PartNo disagree: " + it.NewName + " / " + p.Config + " = " + p.PartNo + ".");
                 }
         }
+        // A drawing carries its model's number and has no PartNo of its own (SPEC; the PDM app ignores one).
+        foreach (var p in partnos.Where(p => TypeOf(p.File) == SwDmDocumentType.swDmDocumentDrawing))
+            errors.Add("PartNo on a drawing: " + p.File + " / " + p.Config + " = " + p.PartNo + ". A drawing carries its model's number.");
         // No number used twice.
         foreach (var g in partnos.Where(p => byOld.ContainsKey(p.File) && byOld[p.File].Import)
                      .GroupBy(p => p.PartNo, StringComparer.OrdinalIgnoreCase))
@@ -126,14 +129,21 @@ static class Importer
         }
 
         // Every reference has somewhere to go.
-        foreach (var it in imports.Where(i => File.Exists(i.Source)))
+        var readable = imports.Where(i => File.Exists(i.Source) && ReadRefs(i, sourceRoot)).ToList();
+        foreach (var it in readable)
         {
-            if (!ReadRefs(it, sourceRoot)) continue;
+            bool drawing = TypeOf(it.Source) == SwDmDocumentType.swDmDocumentDrawing;
             foreach (var r in it.Refs.Select(Path.GetFileName).Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 Item target;
                 if (byOld.TryGetValue(r, out target) && target.InVault) continue;
-                if (target != null && !it.UnsuppressedNames.Contains(r))
+                // A drawing lists everything inside its model too; a left-out file it reaches through a model
+                // being imported is that model's reference, checked there.
+                var via = drawing && target != null ? readable.FirstOrDefault(o => o != it && TypeOf(o.Source) != SwDmDocumentType.swDmDocumentDrawing
+                    && o.Refs.Any(x => Path.GetFileName(x).Equals(r, StringComparison.OrdinalIgnoreCase))) : null;
+                if (via != null)
+                    warnings.Add(it.OldName + " (drawing) lists " + r + " (left out) through its model " + via.OldName + ".");
+                else if (target != null && !it.UnsuppressedNames.Contains(r))
                     warnings.Add(it.OldName + " still refers to " + r + " (left out). Only suppressed components use it, so it never loads.");
                 else if (target != null)
                     errors.Add(it.OldName + " uses " + r + ", which the plan leaves out.");
@@ -195,7 +205,7 @@ static class Importer
                     if (SetProp(doc, p.Level == "file" ? null : p.Config, "PartNo", p.PartNo, it.NewName)) written++;
                     if (p.Status == "Provisional") SetProp(doc, p.Level == "file" ? null : p.Config, "PartNoStatus", "Provisional", it.NewName);
                 }
-                formulas += RewriteFormulas(doc, renames);
+                formulas += RewriteFormulas(doc, it.Target, renames);
                 var saveErr = doc.Save();
                 if (saveErr != SwDmDocumentSaveError.swDmDocumentSaveErrorNone) errors.Add("Save failed on " + it.Target + ": " + saveErr);
             }
@@ -232,7 +242,7 @@ static class Importer
                     string v = GetProp(doc, p.Level == "file" ? null : p.Config, "PartNo");
                     if (v != p.PartNo) errors.Add("PartNo didn't read back on " + it.NewName + " / " + p.Config + ": " + v);
                 }
-                foreach (var f in OldFormulas(doc, renames)) errors.Add("After import, " + it.NewName + " still has a formula naming an old file: " + f);
+                foreach (var f in OldFormulas(doc, it.Target, renames)) errors.Add("After import, " + it.NewName + " still has a formula naming an old file: " + f);
                 BomSettings(doc, it);
             }
             finally { try { doc.CloseDoc(); } catch { } }
@@ -325,14 +335,14 @@ static class Importer
     }
 
     // Every property, at file level (config null) and per configuration, with its expression.
-    static List<Tuple<string, string, string>> Expressions(ISwDMDocument31 doc)
+    static List<Tuple<string, string, string>> Expressions(ISwDMDocument31 doc, string path)
     {
         var result = new List<Tuple<string, string, string>>();
         SwDmCustomInfoType t;
         var names = doc.GetCustomPropertyNames() as string[];
         if (names != null)
             foreach (var n in names) result.Add(Tuple.Create((string)null, n, Safe(() => doc.GetCustomProperty(n, out t))));
-        foreach (var cn in (string[])doc.ConfigurationManager.GetConfigurationNames())
+        foreach (var cn in ConfigNames(doc, path))
         {
             var cfg = Config(doc, cn);
             var cnames = cfg == null ? null : cfg.GetCustomPropertyNames() as string[];
@@ -358,10 +368,10 @@ static class Importer
 
     // Formulas such as Weight = "SW-Mass@OLD.SLDPRT" keep the old file name after a rename. SOLIDWORKS fixes
     // its own name on the next save, but not until then, and not names of other files.
-    static int RewriteFormulas(ISwDMDocument31 doc, Dictionary<string, string> renames)
+    static int RewriteFormulas(ISwDMDocument31 doc, string path, Dictionary<string, string> renames)
     {
         int n = 0;
-        foreach (var e in Expressions(doc))
+        foreach (var e in Expressions(doc, path))
         {
             string fixedExpr = Renamed(e.Item3, renames);
             if (fixedExpr == e.Item3) continue;
@@ -372,9 +382,9 @@ static class Importer
         return n;
     }
 
-    static IEnumerable<string> OldFormulas(ISwDMDocument31 doc, Dictionary<string, string> renames)
+    static IEnumerable<string> OldFormulas(ISwDMDocument31 doc, string path, Dictionary<string, string> renames)
     {
-        return Expressions(doc).Where(e => Renamed(e.Item3, renames) != e.Item3)
+        return Expressions(doc, path).Where(e => Renamed(e.Item3, renames) != e.Item3)
             .Select(e => (e.Item1 ?? "file") + " / " + e.Item2 + " = " + e.Item3);
     }
 
@@ -437,6 +447,12 @@ static class Importer
         var cfg = Config(doc, config);
         if (cfg == null || !Has(cfg.GetCustomPropertyNames(), name)) return null;
         return cfg.GetCustomProperty2(name, out t);
+    }
+
+    // Drawings have no configurations: the Document Manager fails (E_FAIL) rather than returning none.
+    static string[] ConfigNames(ISwDMDocument31 doc, string path)
+    {
+        return TypeOf(path) == SwDmDocumentType.swDmDocumentDrawing ? new string[0] : (string[])doc.ConfigurationManager.GetConfigurationNames();
     }
 
     static ISwDMConfiguration18 Config(ISwDMDocument31 doc, string name)

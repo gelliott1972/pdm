@@ -52,15 +52,16 @@ static class SwCheck
             }
 
             int errs = 0, warns = 0;
-            var type = path.EndsWith(".sldasm", StringComparison.OrdinalIgnoreCase) ? swDocumentTypes_e.swDocASSEMBLY : swDocumentTypes_e.swDocPART;
+            var type = path.EndsWith(".sldasm", StringComparison.OrdinalIgnoreCase) ? swDocumentTypes_e.swDocASSEMBLY
+                : path.EndsWith(".slddrw", StringComparison.OrdinalIgnoreCase) ? swDocumentTypes_e.swDocDRAWING : swDocumentTypes_e.swDocPART;
             var doc = sw.OpenDoc6(path, (int)type, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref errs, ref warns);
             Console.WriteLine("Open " + Path.GetFileName(path) + ": errors=" + Flags(typeof(swFileLoadError_e), errs) + " warnings=" + Flags(typeof(swFileLoadWarning_e), warns));
             if (doc == null) return 1;
             // Needs rebuild is expected for files last saved elsewhere; anything else counts as a problem.
             if (errs != 0 || (warns & ~(int)swFileLoadWarning_e.swFileLoadWarning_NeedsRegen) != 0) problems++;
 
-            var cfgs = args.Length > 2 ? args.Skip(2).ToArray() : (string[])doc.GetConfigurationNames();
-            foreach (var cn in cfgs)
+            // A drawing has no configurations: the models its views show are in the documents in memory below.
+            var cfgs = type == swDocumentTypes_e.swDocDRAWING ? new string[0] : args.Length > 2 ? args.Skip(2).ToArray() : (string[])doc.GetConfigurationNames();            foreach (var cn in cfgs)
             {
                 Console.WriteLine();
                 bool shown = ((IConfiguration)doc.GetActiveConfiguration()).Name == cn || doc.ShowConfiguration2(cn);

@@ -62,8 +62,8 @@ def STA_0811(x):
 # PartNo (as the vault's GNRIC-BRP), so James's -BRP-01 numbers must be gone.
 D10_OPEN = "D10: the brace should be split in -r1 (08X11-DBP-01 for A and C, 08B11-DBP-01 for B); still here"
 D10_WELDED = {f: "D10 (As Welded has no PartNo, as GNRIC-BRP)" for f in ("08X11-DBP-01.SLDPRT", "08B11-DBP-01.SLDPRT")}
-# D25 (revised, on hold for the title block): the STA keeps a file-level Description; PartNo and Part Number go.
-D25_PROPS = ("D25", ("PartNo", "Part Number"))
+# D25: the STA has no file-level properties at all (Description sits at Default, as in the vault's STAs).
+D25_PROPS = "D25"
 D15_OPEN = "D15: the old grout kits should be gone from -r1 (SW removes them); still here"
 
 # Names and numbers decided for one screen's import (docs\imports\<screen>-decisions.md). Not rules for other screens.
@@ -72,7 +72,7 @@ D15_OPEN = "D15: the old grout kits should be gone from -r1 (SW removes them); s
 #   fasteners: (grade, finish) for the bought-in screw, nut and washer families
 #   same_as: old file -> (screen, that screen's old file, where decided): left out here, this screen's files point at
 #            the other screen's (needs --with that screen)
-#   no_file_props: old file -> (where decided, property names): must not have these at file level (prep deletes them)
+#   no_file_props: old file -> where decided: must have no file-level custom properties (prep deletes them)
 #   no_welded_partno: old file -> where decided: its <As Welded> configurations carry no PartNo
 DECIDED = {
     "LS-08A-06": {
@@ -484,8 +484,8 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
             if mine != theirs:
                 diffs.append("configurations: only here " + (", ".join(sorted(mine - theirs)) or "none")
                              + "; only there " + (", ".join(sorted(theirs - mine)) or "none"))
-            # PartNos are compared with the screen letter blanked (08C11-SFA-1A = 08B11-SFA-1A); both become 08Z11 anyway.
-            neutral = lambda v: re.sub(r"^08[A-Z]11-", "08?11-", gnric(v or "").strip(), flags=re.I) or "-"
+            # PartNos are compared with the B/C shaft letter blanked (08C11-SFA-1A = 08B11-SFA-1A), as D20 decides; nothing else.
+            neutral = lambda v: re.sub(r"^08[BC]11-", "08?11-", gnric(v or "").strip(), flags=re.I) or "-"
             mine_pn = {c: v for (ff, c), v in cfg_partno.items() if ff == fk}
             if file_partno.get(fk):
                 mine_pn["(file)"] = file_partno[fk]
@@ -714,10 +714,9 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     foreign = sorted({m.group(1) for (ff, _), e in mass_refs.items() if ff == fk for m in [MASS_RE.search(e)] if m and key(m.group(1)) != fk})
     if foreign and action.startswith("import"):
         flags.append(flag(fname, "Weight formula reads another file's mass (" + ", ".join(foreign) + "): D26, each Weight formula reads its own file; SW fixes it in prep (DmEdit), or Admin says it's deliberate"))
-    left = [n for n in file_props.get(fk, ()) if fk in dec_nofp and key(n) in {key(x) for x in dec_nofp[fk][1]}]
-    if left:
+    if fk in dec_nofp and file_props.get(fk):
         action = "decide"
-        flags.append(flag(fname, f"{dec_nofp[fk][0]}: file-level " + ", ".join(left) + " should be deleted in prep; still here"))
+        flags.append(flag(fname, f"{dec_nofp[fk]}: file-level properties should be deleted in prep; still here: " + ", ".join(file_props[fk])))
     welded = sorted(f"{c} = {v}" for (ff, c), v in cfg_partno.items() if ff == fk and fk in dec_nowp and v and "<As Welded>" in c)
     if welded:
         action = "decide"

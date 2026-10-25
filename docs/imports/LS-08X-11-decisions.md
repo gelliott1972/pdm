@@ -23,3 +23,4 @@ Status: **proposed** = waiting for Grant; **agreed** = Grant said yes (date); **
 | D15 | Grout and anchors (old `GROUT+ANCHOR_BOLTS` in the tops) [Q8] | After import, in the PDM, as 0806 B and C | proposed |
 | D16 | 2 loose M6x12 screws and washers directly in the A top [Q9] | Grant: keep or remove? | proposed |
 | D17 | New fastener PartNos in vault files `FAST-HEX-8.8-HDG` (M6x12, M6x50, M8x55, M8x90, M10x60, M10x140), `FAST-NUT-8.8-HDG` (M6, M8), `FAST-WSH-8.8-HDG` (6, 8) | Yes: Grant checks them out, Dev writes the PartNos, Grant checks in | proposed |
+| D18 | C's `LS-08C-11_SF03-UPPER` has no Description, Weight or Finish; B's identical file has `SF03 TOP WELDED ASSY`, a Weight formula and `HDG` [SW, after D4] | Copy B's three properties, with the Weight formula naming C's own file | proposed |

@@ -24,3 +24,4 @@ Status: **proposed** = waiting for Grant; **agreed** = Grant said yes (date); **
 | D16 | 2 loose M6x12 screws and washers directly in the A top [Q9] | Grant: keep or remove? | proposed |
 | D17 | New fastener PartNos in vault files `FAST-HEX-8.8-HDG` (M6x12, M6x50, M8x55, M8x90, M10x60, M10x140), `FAST-NUT-8.8-HDG` (M6, M8), `FAST-WSH-8.8-HDG` (6, 8) | Yes: Grant checks them out, Dev writes the PartNos, Grant checks in | proposed |
 | D18 | C's `LS-08C-11_SF03-UPPER` has no Description, Weight or Finish; B's identical file has `SF03 TOP WELDED ASSY`, a Weight formula and `HDG` [SW, after D4] | Copy B's three properties, with the Weight formula naming C's own file | proposed |
+| D19 | Shared new files that are in all three work copies (e.g. `08XXX-HBW-01.SLDDRW`, `LS-08X-11`, `08X11-LMW`) [Dev, under D5] | A's plan imports each one once; B's and C's plans list it as "imported with A" | Admin's call 25 Oct (implementation detail of D5; Grant can change) |

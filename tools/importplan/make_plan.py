@@ -65,6 +65,10 @@ D10_WELDED = {f: "D10 (As Welded has no PartNo, as GNRIC-BRP)" for f in ("08X11-
 # D25: the STA has no file-level properties at all (Description sits at Default, as in the vault's STAs).
 D25_PROPS = "D25"
 D15_OPEN = "D15: the old grout kits should be gone from -r1 (SW removes them); still here"
+# D14: SW splits the LCMM into 08X11-LMW / 08B11-LMW-01 with the 4-size plate; the old LCMM and the 2-size plate must be gone.
+D14_OPEN = "D14: should be gone from -r1 (LCMM split into 08X11-LMW / 08B11-LMW-01, 2-size plate swapped for the 4-size 08XXX-PLP); still here"
+OPEN_0811 = {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN,
+             "LCMM_40x80x8_SC08.SLDASM": D14_OPEN, "LS-08X-X_PLATE_TIE_BEAM_INTERFACE.SLDPRT": D14_OPEN}
 
 # Names and numbers decided for one screen's import (docs\imports\<screen>-decisions.md). Not rules for other screens.
 #   files:   old file -> (new name, new folder or None to keep the proposed one, where decided)
@@ -135,7 +139,7 @@ DECIDED = {
             ("PLATE_Bolting_Connector.SLDPRT", "Member 14"): ("GNRIC-MSP-14", True, "D12"),
         },
         "modelling_groups": {"SPLICE_JOINT_ASSY.SLDASM": "D13 (splice kit is a modelling aid for now)"},
-        "open": {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN},
+        "open": OPEN_0811,
         "no_file_props": {"08A11-STA-01.SLDASM": D25_PROPS},
         "no_welded_partno": D10_WELDED,
         "leave_out": {   # D3: A's older drawings duplicate the numbered ones; listed in the report, never in the PDM
@@ -150,7 +154,7 @@ DECIDED = {
         "partnos": {**SHAFT_0811("B", "Z"), **STA_0811("B"),
             **{(f"LS-08B-11_{k}.SLDASM", "Default"): (v, True, "D20 (shared by B and C)") for k, v in D20.items() if k != "SF01-LOWER"},
         },
-        "open": {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN},
+        "open": OPEN_0811,
         "no_file_props": {"08B11-STA-01.SLDASM": D25_PROPS},
         "no_welded_partno": D10_WELDED,
     },
@@ -158,7 +162,7 @@ DECIDED = {
         # D20 replaces D4: C's SF03-UPPER (and the drawing repointed to it) is left out, B's file is used.
         "partnos": {**SHAFT_0811("C", None), **STA_0811("C")},
         "same_as": {f"LS-08C-11_{k}.SLDASM": ("LS-08B-11", f"LS-08B-11_{k}.SLDASM", "D20") for k in D20},
-        "open": {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN},
+        "open": OPEN_0811,
         "no_file_props": {"08C11-STA-01.SLDASM": D25_PROPS},
         "no_welded_partno": D10_WELDED,
     },

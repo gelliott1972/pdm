@@ -86,6 +86,8 @@ OPEN_0811 = {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "L
 #            the other screen's (needs --with that screen)
 #   no_file_props: old file -> where decided: must have no file-level custom properties (prep deletes them)
 #   no_welded_partno: old file -> where decided: its <As Welded> configurations carry no PartNo
+#   replaced_partnos: old file reused from the vault -> where decided: the copy's own PartNos were replaced by a
+#                     decision, so a copy PartNo that differs from the vault's is a note, not a stop
 DECIDED = {
     "LS-08A-06": {
         "files": {
@@ -116,6 +118,7 @@ DECIDED = {
     },
     # docs\imports\LS-08BC-06-decisions.md
     "LS-08B-06": {
+        "replaced_partnos": {"SHAFTB_EXP_JOINT_BRACKET_FOR_CONCRETE_BEAM.SLDPRT": "decision 9 (LS-08BC-06): live 08B11 numbers replaced by 08BXX"},
         "files": {
             "SHAFTB_EXP_JOINT_BRACKET_FOR_CONCRETE_BEAM.SLDPRT": ("08BXX-MSW-01", r"APEX\SC08\_Shared", "decision 9 (PLATE ONLY = 08BXX-PLP-01, same file)"),
             "SHAFTB_EXP_JOINT_100x100_EA_BRACKET.SLDPRT": ("08BXX-MSP-01", r"APEX\SC08\_Shared", "decision 9"),
@@ -158,6 +161,7 @@ DECIDED = {
         },
     },
     "LS-08B-11": {
+        "replaced_partnos": {"SHAFTB_EXP_JOINT_BRACKET_FOR_CONCRETE_BEAM.SLDPRT": "decision 9 (LS-08BC-06): live 08B11 numbers replaced by 08BXX; the copy isn't imported"},
         "files": {f"LS-08B-11_{k}.SLDASM": (v, None, "D20 (shared by B and C)") for k, v in D20.items()},
         "partnos": {**SHAFT_0811("B", "Z"), **STA_0811("B"),
             **{(f"LS-08B-11_{k}.SLDASM", "Default"): (v, True, "D20 (shared by B and C)") for k, v in D20.items() if k != "SF01-LOWER"},
@@ -275,6 +279,7 @@ dec_open = {key(k): v for k, v in dec.get("open", {}).items()}   # still to be d
 dec_same = {key(k): (sc, key(f), w) for k, (sc, f, w) in dec.get("same_as", {}).items()}
 dec_nofp = {key(k): v for k, v in dec.get("no_file_props", {}).items()}
 dec_nowp = {key(k): v for k, v in dec.get("no_welded_partno", {}).items()}
+dec_repl = {key(k): v for k, v in dec.get("replaced_partnos", {}).items()}
 file_props = collections.defaultdict(list)       # file -> names of its file-level custom properties
 for p in props:
     if p["config"] == "(file)":
@@ -499,7 +504,7 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
                 action = "decide"
                 flags.append(flag(fname, f"reused from the ledger as {led['new_file']}, but that file isn't in the vault probe"))
             else:
-                miss, pd = [], []
+                miss, pd, replaced = [], [], []
                 for c in sorted(c for c in used.get(fk, {}) if c):
                     vc = ledger_cfg.get((fk, c), c)
                     # The vault's PartNo must be the one the ledger gave, and one already in this copy must agree with it.
@@ -508,8 +513,12 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
                         miss.append(c)
                         continue
                     mine, given = cfg_partno.get((fk, c)) or "", ledger_pn.get((fk, c)) or ""
-                    if (given and have[vc] != given) or (mine and have[vc] != mine):
+                    if (given and have[vc] != given) or (mine and have[vc] != mine and fk not in dec_repl):
                         pd.append(f"{c}: vault {have[vc] or '-'}" + (f", ledger {given}" if given else "") + (f", this copy {mine}" if mine else ""))
+                    elif mine and have[vc] != mine:
+                        replaced.append(f"{c}: this copy {mine}, vault {have[vc]}")
+                if replaced:
+                    flags.append(flag(fname, f"note, {dec_repl[fk]}: " + "; ".join(replaced)))
                 if miss or pd:
                     action = "decide"
                     flags.append(flag(fname, f"reused as {led['new_file']}, but it doesn't match the vault's copy: "

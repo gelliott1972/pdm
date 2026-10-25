@@ -1,6 +1,23 @@
 # SW status
 
-## Current brief: `docs\briefs\sw-prep-0806A.md` (LS-08A-06 → r4)
+## Current brief: `docs\briefs\import-0811.md` (25 Oct 2026, laptop)
+
+SW's part: steps 1, 2 and 4. No file changes until Admin agrees the step 2 list with Grant.
+
+**25 Oct, start:** Pack and Go targets made: `C:\PDM-work\inbox\LS-08A-11`, `-08B-11`, `-08C-11`. Referenced Documents is empty (checked in the registry). Live folder `M:\311v3\SC08\LS-08X-11` has the three tops, `LS-08X-11.SLDASM`, three STA drawings, `FRAME\` and two conflicted copies of the A top (not imported). Step 1: guiding Grant through A's Pack and Go.
+
+| Top | Pack and Go | Probe |
+| --- | --- | --- |
+| `LS-08A-11 - SCREEN + STRUCTURE` | in progress | |
+| `LS-08B-11 - SCREEN + STRUCTURE` | | |
+| `LS-08C-11 - SCREEN + STRUCTURE` | | |
+
+## Done: 0806 A, B and C (desktop, 20–24 Oct 2026)
+
+Paths below are the desktop's (`E:\`).
+
+
+### Brief: `docs\briefs\sw-prep-0806A.md` (LS-08A-06 → r4)
 
 **State (20 Oct 2026):** Grant repoints in SOLIDWORKS (decision 10). **Step 1 done:** member, packer, bracket, sleeve and James's tie copied from the screen 11 set into the tidy copy (byte-checked); originals backed up to `E:\PDM-work\scratch\LS-08A-06-pre-r4\`. LCMM kept as 0806's (Grant: only opened for Pack and Go, no geometry changes; James works on 0811). Probe after copy: 124 references, all inside the tidy copy, none to Dropbox. Next: step 2 (`TIE-184-1XEC`).
 
@@ -28,15 +45,15 @@
 
 About 14 Replace Components operations across 9 files. No drawings in the set.
 
-## Done
+### Done
 
 - Brief and decisions read.
 
-## Next
+### Next
 
 - Grant chooses who repoints; then step 1 (bring in newer shared files).
 
-## Open questions
+### Open questions
 
 - None yet.
 
@@ -50,7 +67,7 @@ About 14 Replace Components operations across 9 files. No drawings in the set.
 - SwCheck leaves a hidden SOLIDWORKS behind; ended twice. Reported in questions.md.
 - Next: Grant opens `LS-08A-06 SCREEN+STRUCTURE`, rebuilds, checks mates, Save All. Then Pack and Go to r4.
 
-## r4 done (21 Oct 2026)
+### r4 done (21 Oct 2026)
 
 Grant: opened `LS-08A-06 SCREEN+STRUCTURE`, rebuilt with no errors, Find References showed all 134 files loaded from inside the tidy copy (fasteners included), Save All, then Pack and Go to `E:\PDM-work\LS-08A-06-r4` (Include suppressed components). Toolbox "missing size M12x45" warning is harmless (size exists in the tidy screw file; flag cleared). Equations `.txt` prompt still appears (source unknown).
 
@@ -73,24 +90,24 @@ No SOLIDWORKS left running. Next: Dev imports r4.
 - Toolbox "missing size M12 x 45" prompt: came from `_Shared\TIE_BEAM_ENDPLATE_BOLTS`; opening it alone and re-saving cleared it. Saved 13:41.
 - Both now open with no prompts. Re-probe: 58 files, 108 references, all resolve inside r4. No SOLIDWORKS running. Dev told to go ahead.
 
-## Current brief: `docs\briefs\sw-split-tie-beam-post.md` (21 Oct 2026)
+### Brief: `docs\briefs\sw-split-tie-beam-post.md` (21 Oct 2026)
 
 Split `LS-08X-X_TIE_BEAM_POST` in r4: `Default` → `08XXX-HBW-01` (15 uses in TIE_BEAM_1/2/3, one suppressed); `SHAFT_B_CONCRETE_BEAM` (`08BXX-HBW-01`) unused in A, dropped. Backup in `E:\PDM-work\scratch\LS-08A-06-pre-post-split\`. Grant made `_Shared\08XXX-HBW-01.SLDPRT` (13:56): only `Default` left, PartNo `08XXX-HBW-01`, Weight already names the new file. DmEdit replace-ref in TIE_BEAM_1/2/3 (also replaced stale `C:\Users\DELL\Dropbox\...` stored paths in 2 and 3). No references to the old post left; old post removed from r4 (identical copy in the backup). Next: Grant opens SCREEN+STRUCTURE, rebuilds, checks tie beams, Save All; then re-probe.
 - Grant: SCREEN+STRUCTURE rebuilt with no errors, Save All (13:58); the three tie beams re-saved from SOLIDWORKS (14:01–14:02) so their stored component names update. **Re-probe of r4** (`scratch\inventory\LS-08A-06-r4`): 58 files, 108 references, all inside r4; `08XXX-HBW-01` used 15 times (1 suppressed); old post gone; no stale old names (post, LCMM, tie, 2-size plate) anywhere. No SOLIDWORKS running. Post split done; Admin and Dev told.
 
-## Paused (21 Oct 2026, Admin)
+### Paused (21 Oct 2026, Admin)
 
 Waiting for Dev's import of 0806 A. Keep SOLIDWORKS free for Dev's SwCheck. Next job (when Admin says): check the imported 0806 A in the test vault `E:\PDM-test\P` with Grant: top assemblies open, nothing loaded from outside the vault, BOM shows the right PartNos.
 
-## Notes for B, C and 0811 prep
+### Notes for B, C and 0811 prep
 
 - **Second equations `.txt` link (Dev, 22 Oct):** the tie-beam end plate `_Shared\LS-08X-X_TIE_BEAM_END_PLATE.SLDPRT` (`08XXX-PLP-20` in the vault) links to `C:\Users\DELL\Dropbox\...\311v3\SC08\LS-08X-11\FRAME\ShaftA\LS_08A-11_Tie_Bar_equations.txt` (7 globals + 4 sketch equations). So the r4 fix on the top-level assembly was only half of it. Grant is fixing the vault copy (untick Link to external file, keep the equations). Still linked: the r4 copy, the live Dropbox copies and the 0811 copies. In B, C and 0811 prep, check equations in every file (SwCheck now lists them per file), not just the top level. The top-level `LS-08A-06+STRUCTURE` fix held (7 globals, no link).
 
-## Vault clean-up (22 Oct 2026)
+### Vault clean-up (22 Oct 2026)
 
 Grant agreed (via Admin): fix r4 and the importer, wipe `P:\`, re-import 0806 A. Vault probe in `scratch\inventory\vault-P`. My r4 list sent to Admin: end-plate equations link; interface-plate Weight reading `LS-08A-11-TIE_BEAM_2`; suppressed floor plate in SF04-LOWER stored in `E:\PDM-work`; 153 empty properties on `DL_APEX`; Hilti junk properties; question on unused `SF01`/`SF04` configs of the right-angle tie. Importer items (Dev): old file names in Weight/Material formulas, old stored component names. Waiting for Admin's agreed list before changing any file.
 
-## Re-import brief: `docs\briefs\reimport-0806A.md`, steps 1–3 done (22 Oct 2026)
+### Re-import brief: `docs\briefs\reimport-0806A.md`, steps 1–3 done (22 Oct 2026)
 
 - Backups: `E:\PDM-work\scratch\LS-08A-06-r4-pre-reimport\`.
 - Step 1: end plate `LS-08X-X_TIE_BEAM_END_PLATE`: Grant unticked Link to external file, kept 7 globals + 4 equations, no errors, saved 15:23.
@@ -99,11 +116,11 @@ Grant agreed (via Admin): fix r4 and the importer, wipe `P:\`, re-import 0806 A.
 - Re-probe `scratch\inventory\LS-08A-06-r4` (old one moved to `...-r4-pre-reimport`): 58 files, 107 references, all inside r4. Correction: the 21 Oct report "all 108 inside r4" missed the floor plate link to the tidy copy; now gone. The floor plate part is still in r4 but unreferenced.
 - Admin and Dev told; SOLIDWORKS free for Dev. Items 4–5 (DL_APEX, Hilti properties) left for later; item 6 dropped.
 
-## Bolt kits set to Promote in r4 (23 Oct 2026, decision 7–8)
+### Bolt kits set to Promote in r4 (23 Oct 2026, decision 7–8)
 
 Grant set Promote on 7 configurations (80X40_TIE_BOLTS Default; ROOF_SLEEVE_BOLT_ASSY Default, SHAFT_B_CONCRETE_BEAM; TIE_BEAM_ENDPLATE_BOLTS Default; TIE_BEAM_TO_SUBFRAME_BOLTS 130x90, 150x90, 120X90), saved 09:15–09:19. Read back with Document Manager: all Promote (MDL-ANCHOR-08X06 already was). Backup `E:\PDM-work\scratch\LS-08A-06-r4-pre-promote\`. Re-probe `scratch\inventory\LS-08A-06-r4` (previous: `...-r4-pre-promote`): 58 files, 107 references, all inside r4, otherwise unchanged. Admin and Dev told; r4 ready for the re-import.
 
-## Current brief: `docs\briefs\import-0806BC.md` (23 Oct 2026)
+### Brief: `docs\briefs\import-0806BC.md` (23 Oct 2026)
 
 Step 2 done: B and C copied from `PDM-inbox` to `E:\PDM-work\LS-08B-06` (59 files) and `E:\PDM-work\LS-08C-06` (57), probed (`scratch\inventory\LS-08B-06`, `...\LS-08C-06`). The list (new files, files already in the vault, known items, questions) is in `sw\0806BC-list.md` and was sent to Admin. No file changes until Admin and Grant agree the list. `P:\` is vault-tracked: never touch it.
 
@@ -116,11 +133,11 @@ Step 2 done: B and C copied from `PDM-inbox` to `E:\PDM-work\LS-08B-06` (59 file
 - B concrete-beam anchor: Admin says add the config in the vault via `pdm.exe` check-out (first real one), then copy the checked-in file into the B work copy.
 - Next with Grant: skeletons, floor plates, screen config, grout/anchor + STA.
 
-## 23 Oct 19:15: skeleton fix landed in the live files
+### 23 Oct 19:15: skeleton fix landed in the live files
 
 Grant's skeleton fix (link unticked, 7 globals + 4 equations each; B had one equation deleted) was saved to the **live Dropbox** skeletons (`...\Screen Models\311v3\SC08\LS-08X-06\Shaft B\LS-08B-06 Skeleton.SLDPRT` 19:12, `Shaft C\LS-08C-06 Tie Beam Skeleton.SLDPRT` 19:11), not the work copies. Work copies still 19 Sep (unfixed). Grant to redo in `E:\PDM-work\LS-08B-06|C-06\311v3\...`; whether to keep the live change is Grant's call. Grout/anchor in A was replaced by hand (Grant).
 
-## 24 Oct: grout/anchor method (Grant)
+### 24 Oct: grout/anchor method (Grant)
 
 - C's 24 old GROUT+ANCHOR kits deleted in the top (Replace Components gave wrong mates). C has no grout pattern sketches.
 - Grant's choice, **for all screens**: grout and anchors placed by a sketch pattern (one sketch of points per type, pattern one seed), as B's top does. For Admin to record.
@@ -130,7 +147,7 @@ Grant's skeleton fix (link unticked, 7 globals + 4 equations each; B had one equ
 - Live Dropbox skeletons: Grant leaves the fix in place.
 - 24 Oct 11:18: B separated the same way. `Shaft B\08B06-STA-01.SLDASM` (no screen, no grout, all refs in work copy); B top rebuilt = `08B06-STA-01` + `LS-08X-06` (LS-08BC-06). No errors. Next: Grant adds anchors (STA) and grout (top) by sketch pattern in C, then B (B's concrete beam later, in the PDM).
 
-## 24 Oct: 0806 B/C -r1 ready for Dev (step 3 done)
+### 24 Oct: 0806 B/C -r1 ready for Dev (step 3 done)
 
 Grant's choice: anchors and grout are added **in the PDM** (laptop check-out of both STAs, both tops and `MDL-ANCHOR-08X06`), not before import. So `-r1` has no grout/anchor files.
 
@@ -143,7 +160,7 @@ Done in the work copies: skeleton equations links off (B: 5th equation deleted b
 
 Still open: expansion-joint brackets' place tag (08B11 PartNos); PACKER / TIE_80x40x8 live saves (James); members' As Welded lengths; B's concrete-beam anchor config (in the PDM session).
 
-## 24 Oct: open items resolved (Grant)
+### 24 Oct: open items resolved (Grant)
 
 | Item | Decision |
 | --- | --- |
@@ -154,7 +171,7 @@ Still open: expansion-joint brackets' place tag (08B11 PartNos); PACKER / TIE_80
 
 Checked: B and C -r1 use only `<As Machined>` configs of the ties and members. James works mainly on 08X11; all his files are closed now.
 
-## 24 Oct: handover to the laptop
+### 24 Oct: handover to the laptop
 
 0806 B and C imported and loaded (Admin: vault holds 93 files). This desktop SW session ends here; the next SW session starts on Grant's laptop (P: = C:\PDM).
 

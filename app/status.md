@@ -45,6 +45,16 @@ Updated 24 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 2. ~~Updater~~: **done 24 Oct** (built on the desktop). Bucket `pdm-releases` (ap-east-1, private, versioned, SSE-S3); `read-releases` inline policy (GetObject, ListBucket) on `pdm-engineer` and `pdm-shared-editor` (Grant approved). `src\publish.ps1` publishes with `pdm-admin`. Tested: laptop installed 0.1.0 from `Setup.exe`, was offered 0.1.1 (68 KB delta), restarted on it. **0.1.2 published from the laptop 24 Oct** (first publish there; the releases folder carried over, 93 KB delta from 0.1.1): re-checks at every login, and after an update the page says "Updated to v0.1.2" once. Desktop (GGPC) updated itself 0.1.1 → 0.1.2 (Grant checked). James's PC installed 0.1.2 from Setup.exe 24 Oct. Next: send James `Setup.exe` when his PC is ready; CI later.
 3. Later: Grant's first real check-out on 08B/C (grout and anchors not needed now, per Admin 24 Oct).
 
+## 0811 import (brief `docs\briefs\import-0811.md`, 25 Oct)
+
+| Item | State |
+| --- | --- |
+| My part | Step 6: `pdm.exe load --dry`, then the load (upload size to Grant first: he may be on a flight). |
+| Loader dry run | Now says how many MB would upload and lists each new or changed file. Checked 25 Oct on the laptop: 94 files, 0 to upload, 138 PartNos, 238 references inside, 0 outside (James's drawing included, no PartNo). |
+| Dev | Told exactly what changed for drawings (0.1.5 PartNo, 0.1.6 configurations); `ReplaceReference`, `AddCustomProperty` and `Save` on a drawing untested by App. |
+| Watch | The loader takes **every** file under `P:\` except ignored ones, so CSV, PDF, STEP or TXT left there would be loaded. Close SOLIDWORKS before loading (an open file stops the upload; the load can be re-run). |
+| 0.1.7 | Progress bar and top buttons checked on dummy data only: confirm with Grant at his next real check-in. |
+
 ## Open questions
 
 - None open. Decided 23 Oct: the app goes to engineers as a single folder Grant shares (Dropbox or OneDrive); Referenced Documents list empty (forces paths to be right).

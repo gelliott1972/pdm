@@ -4,13 +4,17 @@
 
 SW's part: steps 1, 2 and 4. No file changes until Admin agrees the step 2 list with Grant.
 
-**25 Oct, start:** Pack and Go targets made: `C:\PDM-work\inbox\LS-08A-11`, `-08B-11`, `-08C-11`. Referenced Documents is empty (checked in the registry). Live folder `M:\311v3\SC08\LS-08X-11` has the three tops, `LS-08X-11.SLDASM`, three STA drawings, `FRAME\` and two conflicted copies of the A top (not imported). Step 1: guiding Grant through A's Pack and Go.
+**25 Oct, start:** Pack and Go targets made: `C:\PDM-work\inbox\LS-08A-11`, `-08B-11`, `-08C-11`. Referenced Documents is empty (checked in the registry). Live folder `M:\311v3\SC08\LS-08X-11` has the three tops, `LS-08X-11.SLDASM`, three STA drawings, `FRAME\` and two conflicted copies of the A top (not imported). Step 1: guiding Grant through the Pack and Go per top.
 
 | Top | Pack and Go | Probe |
 | --- | --- | --- |
-| `LS-08A-11 - SCREEN + STRUCTURE` | in progress | |
+| `LS-08A-11 - SCREEN + STRUCTURE` | done 25 Oct: 44 files (24 parts, 19 assemblies, 1 Hilti `.stp`), **no drawings** | |
 | `LS-08B-11 - SCREEN + STRUCTURE` | | |
 | `LS-08C-11 - SCREEN + STRUCTURE` | | |
+
+**Drawings don't come with Pack and Go.** Probed read-only copies of all 52 live drawings (in scratch): every drawing stores its model as `C:\Users\DELL\Dropbox\Models\Screen Models\...` (James's PC), and most are named by James's numbers (`08A11-SFA-1T` draws `LS-08A-11_SF01-UPPER`), so Pack and Go can't pair them by name. Plan: copy the drawings into each work copy in step 2 (same folders) and repoint them there. Seen so far: `08C11-SFA-3T` draws **ShaftB** `LS-08B-11_SF03-UPPER` (looks wrong); some models have two or three drawings (`08A11-SFA-1A`, `-1B` and old `LS-08A-11_SF01-LOWER.SLDDRW` all draw SF01-LOWER; `08A11-HBA-01` and old `LS-08A-11-TIE_BEAM_1.SLDDRW`); `FRAME\_Shared\08XXX-HBW-01.SLDDRW` draws the old `LS-08X-X_TIE_BEAM_POST` (vault part `08XXX-HBW-01`).
+
+A's Find References showed 5 "Not Found" (floor plate, interface plate, brace, KBEAM plate, bolted-tie bracket in SF01-LOWER); Pack and Go found and copied all of them from `M:\`.
 
 ## Done: 0806 A, B and C (desktop, 20–24 Oct 2026)
 

@@ -58,7 +58,12 @@ def STA_0811(x):
     # D7 and D22: the new structure assembly, PartNo at Default, Provisional. D25: no file-level properties.
     return {(f"08{x}11-STA-01.SLDASM", "Default"): (f"08{x}11-STA-01", True, "D7, D22")}
 
-D10_OPEN = "D10 open: brace split by place tag (08X11- / 08B11-) waiting on Grant; numbers here are placeholders"
+# D10: SW splits the brace in -r1; still here unsplit = an error. <As Welded> configurations of the new files get no
+# PartNo (as the vault's GNRIC-BRP), so James's -BRP-01 numbers must be gone.
+D10_OPEN = "D10: the brace should be split in -r1 (08X11-DBP-01 for A and C, 08B11-DBP-01 for B); still here"
+D10_WELDED = {f: "D10 (As Welded has no PartNo, as GNRIC-BRP)" for f in ("08X11-DBP-01.SLDPRT", "08B11-DBP-01.SLDPRT")}
+# D25 (revised, on hold for the title block): the STA keeps a file-level Description; PartNo and Part Number go.
+D25_PROPS = ("D25", ("PartNo", "Part Number"))
 D15_OPEN = "D15: the old grout kits should be gone from -r1 (SW removes them); still here"
 
 # Names and numbers decided for one screen's import (docs\imports\<screen>-decisions.md). Not rules for other screens.
@@ -67,7 +72,8 @@ D15_OPEN = "D15: the old grout kits should be gone from -r1 (SW removes them); s
 #   fasteners: (grade, finish) for the bought-in screw, nut and washer families
 #   same_as: old file -> (screen, that screen's old file, where decided): left out here, this screen's files point at
 #            the other screen's (needs --with that screen)
-#   no_file_props: old file -> where decided: must have no file-level custom properties (prep deletes them)
+#   no_file_props: old file -> (where decided, property names): must not have these at file level (prep deletes them)
+#   no_welded_partno: old file -> where decided: its <As Welded> configurations carry no PartNo
 DECIDED = {
     "LS-08A-06": {
         "files": {
@@ -130,7 +136,8 @@ DECIDED = {
         },
         "modelling_groups": {"SPLICE_JOINT_ASSY.SLDASM": "D13 (splice kit is a modelling aid for now)"},
         "open": {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN},
-        "no_file_props": {"08A11-STA-01.SLDASM": "D25"},
+        "no_file_props": {"08A11-STA-01.SLDASM": D25_PROPS},
+        "no_welded_partno": D10_WELDED,
         "leave_out": {   # D3: A's older drawings duplicate the numbered ones; listed in the report, never in the PDM
             f: "D3 (older drawing, duplicates a numbered one)" for f in (
                 "LS-08A-11-TIE_BEAM_1.SLDDRW", "LS-08A-11-TIE_BEAM_2.SLDDRW", "LS-08A-11-TIE_BEAM_3.SLDDRW",
@@ -144,14 +151,16 @@ DECIDED = {
             **{(f"LS-08B-11_{k}.SLDASM", "Default"): (v, True, "D20 (shared by B and C)") for k, v in D20.items() if k != "SF01-LOWER"},
         },
         "open": {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN},
-        "no_file_props": {"08B11-STA-01.SLDASM": "D25"},
+        "no_file_props": {"08B11-STA-01.SLDASM": D25_PROPS},
+        "no_welded_partno": D10_WELDED,
     },
     "LS-08C-11": {
         # D20 replaces D4: C's SF03-UPPER (and the drawing repointed to it) is left out, B's file is used.
         "partnos": {**SHAFT_0811("C", None), **STA_0811("C")},
         "same_as": {f"LS-08C-11_{k}.SLDASM": ("LS-08B-11", f"LS-08B-11_{k}.SLDASM", "D20") for k in D20},
         "open": {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN},
-        "no_file_props": {"08C11-STA-01.SLDASM": "D25"},
+        "no_file_props": {"08C11-STA-01.SLDASM": D25_PROPS},
+        "no_welded_partno": D10_WELDED,
     },
 }
 
@@ -239,6 +248,7 @@ dec_mdl = {key(k): v for k, v in dec.get("modelling_groups", {}).items()}
 dec_open = {key(k): v for k, v in dec.get("open", {}).items()}   # still to be decided, or must not be here: blocks the export
 dec_same = {key(k): (sc, key(f), w) for k, (sc, f, w) in dec.get("same_as", {}).items()}
 dec_nofp = {key(k): v for k, v in dec.get("no_file_props", {}).items()}
+dec_nowp = {key(k): v for k, v in dec.get("no_welded_partno", {}).items()}
 file_props = collections.defaultdict(list)       # file -> names of its file-level custom properties
 for p in props:
     if p["config"] == "(file)":
@@ -679,9 +689,14 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     foreign = sorted({m.group(1) for (ff, _), e in mass_refs.items() if ff == fk for m in [MASS_RE.search(e)] if m and key(m.group(1)) != fk})
     if foreign and action.startswith("import"):
         flags.append(flag(fname, "Weight formula reads another file's mass (" + ", ".join(foreign) + "): D26, each Weight formula reads its own file; SW fixes it in prep (DmEdit), or Admin says it's deliberate"))
-    if fk in dec_nofp and file_props.get(fk):
+    left = [n for n in file_props.get(fk, ()) if fk in dec_nofp and key(n) in {key(x) for x in dec_nofp[fk][1]}]
+    if left:
         action = "decide"
-        flags.append(flag(fname, f"{dec_nofp[fk]}: file-level properties should be deleted in prep; still here: " + ", ".join(file_props[fk])))
+        flags.append(flag(fname, f"{dec_nofp[fk][0]}: file-level " + ", ".join(left) + " should be deleted in prep; still here"))
+    welded = sorted(f"{c} = {v}" for (ff, c), v in cfg_partno.items() if ff == fk and fk in dec_nowp and v and "<As Welded>" in c)
+    if welded:
+        action = "decide"
+        flags.append(flag(fname, f"{dec_nowp[fk]}: delete these PartNos in prep: " + "; ".join(welded)))
     if fk in dec_open and not action.startswith("reuse"):
         action = "decide"
         flags.append(flag(fname, dec_open[fk]))

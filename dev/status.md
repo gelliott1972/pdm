@@ -61,6 +61,8 @@ Run order this needs: A dry run, A apply, then B (its reuse rows need A's files 
 
 Waiting on SW's prep before `-r1`: D7 (STA), D14 (LCMM split), repoints of ties, post and member to their vault names, the two interface-plate files sharing a new name, D16, D21, D24 (post repoint), D10 (brace split), D25 (all 7 file-level properties). Until the beams are saved in SOLIDWORKS, they still name the old post, so the plan sees `08XXX-HBW-01` as unused and leaves its drawing out; `-r1` should fix that. D15 (no old grout kits), D10 (no unsplit brace) and D14 (no old LCMM or 2-size plate) are "decide" rows if `-r1` still has them, so the export stops on them.
 
+**Hold (Admin, 26 Oct): don't export or apply 0811 until D29 (shaft codes) is settled.** If option (b) drops Z, D20's `08Z11-SFA-...` become `08X11-SFA-...`: the plan changes in `D20` and `SHAFT_0811("B", "Z")` (letter Z to X), and the folder follows `SHAFT_FOLDER` (X = `LS-08X-11\_Shared`, not `ShaftBC`) unless Admin says otherwise. Under (a) or (c) nothing changes.
+
 Run order with D20: plan A, export; plan B `--with` A; export; plan C `--with` A `--with` B. Apply A, then B, then C (C's reuse rows need B's `08Z11` files in the vault).
 
 **Next:** plan from SW's `-r1` probes, dry run, report to Admin.

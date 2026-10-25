@@ -175,6 +175,7 @@ def load_from(d, name):
 
 imported_with = {}   # old file -> (new name, new folder, screen), imported by another screen's plan in this pass
 with_cfgs, with_pns = collections.defaultdict(set), {}   # that screen's probe, by file
+with_kids = collections.defaultdict(collections.Counter)  # (screen, assembly, config) -> unsuppressed (child, config) counts
 for with_inv, with_files in withs:
     with_screen = re.sub(r"-r\d+$", "", os.path.basename(os.path.normpath(with_inv)))
     for r in load_from(os.path.dirname(os.path.abspath(with_files)), os.path.basename(with_files)):
@@ -185,6 +186,9 @@ for with_inv, with_files in withs:
     for p in load_from(with_inv, "properties.csv"):
         if p["name"].lower() == "partno":
             with_pns[(with_screen, p["file"].lower(), p["config"])] = (p["value"] or p["expression"]).strip()
+    for c in load_from(with_inv, "components.csv"):
+        if c["suppressed"] != "yes":
+            with_kids[(with_screen, c["assembly"].lower(), c["assembly_config"])][(c["component_file"].lower(), c["component_config"])] += 1
 
 views, others = ((load(n) if os.path.isfile(os.path.join(inv, n)) else None) for n in ("views.csv", "others.csv"))
 key = lambda s: s.lower()
@@ -474,10 +478,31 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         else:
             nn, nf, _ = imported_with[other]
             action, new_name, new_folder, source = f"reuse ({why}: {sc}'s file)", stem(nn), nf, f"{why} (same as {sc}'s {other}; this copy stays out, listed)"
+            # The copy must match the other screen's file: any difference stops the plan (Admin, D20).
+            diffs = []
             mine, theirs = {c for c, _ in cfg_list[fk]}, with_cfgs[(sc, other)]
             if mine != theirs:
-                flags.append(flag(fname, f"configurations differ from {sc}'s {other}: only here " + (", ".join(sorted(mine - theirs)) or "none")
-                                  + "; only there " + (", ".join(sorted(theirs - mine)) or "none")))
+                diffs.append("configurations: only here " + (", ".join(sorted(mine - theirs)) or "none")
+                             + "; only there " + (", ".join(sorted(theirs - mine)) or "none"))
+            # PartNos are compared with the screen letter blanked (08C11-SFA-1A = 08B11-SFA-1A); both become 08Z11 anyway.
+            neutral = lambda v: re.sub(r"^08[A-Z]11-", "08?11-", gnric(v or "").strip(), flags=re.I) or "-"
+            mine_pn = {c: v for (ff, c), v in cfg_partno.items() if ff == fk}
+            if file_partno.get(fk):
+                mine_pn["(file)"] = file_partno[fk]
+            theirs_pn = {c: v for (s2, ff, c), v in with_pns.items() if s2 == sc and ff == other}
+            pd = sorted(f"{c}: here {mine_pn.get(c) or '-'}, there {theirs_pn.get(c) or '-'}" for c in set(mine_pn) | set(theirs_pn)
+                        if neutral(mine_pn.get(c)) != neutral(theirs_pn.get(c)))
+            if pd:
+                diffs.append("PartNos: " + "; ".join(pd))
+            for c in sorted(mine & theirs):
+                here = collections.Counter(children.get((fk, c), ()))
+                there = with_kids[(sc, other, c)]
+                if here != there:
+                    diffs.append(f"children of {c}: only here " + (", ".join(f"{n} x {k}[{kc}]" for (k, kc), n in sorted((here - there).items())) or "none")
+                                 + "; only there " + (", ".join(f"{n} x {k}[{kc}]" for (k, kc), n in sorted((there - here).items())) or "none"))
+            if diffs:
+                action = "decide"
+                flags.append(flag(fname, f"{why}: differs from {sc}'s {other}, so it can't simply be replaced: " + " | ".join(diffs)))
     elif fk in imported_with:
         nn, nf, with_screen = imported_with[fk]
         action, new_name, new_folder, source = f"reuse (imported with {with_screen})", stem(nn), nf, f"D19 (imported with {with_screen})"

@@ -34,7 +34,27 @@ Test set: the SOLIDWORKS 2024 `samples\introsw` files copied to `C:\PDM-work\dra
 
 Proposed rule (for Admin, not decided): take the views' (model, configuration) pairs, dropping configurations the model doesn't have; find each pair's PartNo; the drawing's name already equal to one of them = confirmed; else exactly one PartNo = rename to it; else "decide" with the pairs listed. An old-named drawing whose PartNo another drawing already carries = left out and listed. Folder beside the model. DmProbe would write a `views.csv`.
 
-**Next:** when SOLIDWORKS is closed, SwFixRefs (list only) and SwCheck on the two test-vault drawings. Then wait for SW's `-r1` probe and plan (step 5).
+**SOLIDWORKS checks (25 Oct, done):** test vault: SwFixRefs (list only) 0 stored references outside; SwCheck on both drawings: no errors or warnings, all inside the vault (the old names left in views don't matter). `08C11-SFA-3T` after SW's repoint: passes, no "not the same document", loads C's `SF03-UPPER`. **Bug fixed:** the laptop has SOLIDWORKS 2024 (`SOLIDWORKS (2)`) beside 2026; the plain `SldWorks.Application` started 2024, which refused 0811 files (swFutureVersion). SwCheck and SwFixRefs now start the newest install and print its version (932b66a).
+
+**Plan tool for 0811 (built 25 Oct; decisions in `docs\imports\LS-08X-11-decisions.md`):**
+
+| Decision | In the plan tool | Trial on today's work copies (`scratch\inventory\LS-08x-11-r0`, not `-r1`) |
+| --- | --- | --- |
+| D2 | DmProbe writes `views.csv`; drawing named by the PartNo its views show (kept / renamed / decide), in the model's folder. A view still naming a repointed model falls back to the drawing's own reference, with a note | A, B, C: every numbered drawing keeps its name beside its model; `08C11-SFA-3T` resolved to C's `SF03-UPPER` |
+| D3 | A's 9 older drawings left out (listed) | 9 left out |
+| D4 | C `SF03-UPPER` = `08C11-SFA-3T`, Provisional (SW already wrote it in the file) | |
+| D8, D9 | James's numbers, Provisional, per shaft | D9's P/W letters may still change (SW checking) |
+| D12 | `PLATE_Bolting_Connector` configurations `GNRIC-MSP-02/03/11/14`, Provisional | |
+| D13 | Splice kit treated as a modelling group; the MDL rule names it | `MDL-SPLICE-JOINT-GNRIC` in `APEX\GNRIC` (level from its old folder; question for Admin) |
+| D17 | New "Vault changes" sheet: configurations of vault files that imported files refer to, with no PartNo in the ledger | A: exactly D17's 10. B, C: none (A brings the kit) |
+| D19 | `--with <A probe> <A files.csv>` (repeatable): files A imports are **reuse** in B and C (their files must point at them), and each copy's configurations and PartNos are compared with A's | B, C: 8 files each, no differences |
+| Other files | `others.csv` in the probe; loose non-SOLIDWORKS files listed as left out; an equations `.txt` is a "decide" question; a linked file of a reused part is left out | Hilti `.stp`: left out (its part is in the vault) |
+
+Run order this needs: A dry run, A apply, then B (its reuse rows need A's files in the vault), then C.
+
+Waiting on SW's prep before `-r1`: D7 (STA), D14 (LCMM split), repoints of ties, post and member to their vault names, the two interface-plate files sharing a new name, D16, D21; open D10, D18, D20. Until the post is repointed, `08XXX-HBW-01.SLDDRW` has no folder.
+
+**Next:** plan from SW's `-r1` probes, dry run, report to Admin.
 
 ## Earlier: 0806
 

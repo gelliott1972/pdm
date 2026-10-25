@@ -7,15 +7,26 @@ Output:  <screen>-import-plan.xlsx with three sheets:
            Issues   - every flag in one list
 Nothing here touches SOLIDWORKS files. The import step reads the reviewed workbook later.
 
-Usage: python -I make_plan.py <inventoryDir> <registerXlsx> <outXlsx> [<ledgerCsv>]
+Usage: python -I make_plan.py <inventoryDir> <registerXlsx> <outXlsx> [<ledgerCsv>] [--with <inventoryDir> <files.csv>] ...
+  --with: another screen planned in the same pass (0811 D19: B and C with A); may be given more than once. Files
+          that screen's exported plan (files.csv) imports are reused here, not imported again; their configurations
+          and PartNos here are compared with that screen's probe and any difference is flagged.
+Sheet "Vault changes": configurations of files already in the vault that a file this plan imports refers to and
+that have no PartNo in the ledger. Each is a change to an existing vault file (check-out, write, check-in), not part of the import.
 """
 import csv, collections, os, re, sys
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.worksheet.datavalidation import DataValidation
 
-inv, register_path, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
-ledger_path = sys.argv[4] if len(sys.argv) > 4 else None
+args = sys.argv[1:]
+withs = []
+while "--with" in args:
+    i = args.index("--with")
+    withs.append((args[i + 1], args[i + 2]))
+    del args[i:i + 3]
+inv, register_path, out_path = args[0], args[1], args[2]
+ledger_path = args[3] if len(args) > 3 else None
 screen = re.sub(r"-r\d+$", "", os.path.basename(os.path.normpath(inv)))   # LS-08A-06-r2 -> LS-08A-06
 
 # Screens whose screen file holds several screens as configurations, decided screen by screen (not a rule).
@@ -25,6 +36,15 @@ SCREEN_FILE = {
     "LS-08A-11": "LS-08X-11",    # configurations LS-08A-11 and LS-08BC-11 (Grant, 20 Oct 2026)
     "LS-08BC-11": "LS-08X-11",
 }
+
+def SHAFT_0811(x):
+    # 0811 D8 and D9, the same for each shaft: James's numbers, Provisional (docs\imports\LS-08X-11-decisions.md).
+    return {
+        (f"LS-08{x}-11_SF01-LOWER.SLDASM", "PART 1"): (f"08{x}11-SFA-1A", True, "D8 (James's number)"),
+        (f"LS-08{x}-11_SF01-LOWER.SLDASM", "PART 2"): (f"08{x}11-SFA-1B", True, "D8 (James's number)"),
+        (f"LS-08{x}-11_TIE_BEAM_2.SLDPRT", "Default<As Machined>"): (f"08{x}11-HBP-02", True, "D9 (James's number; P/W letter being checked)"),
+        (f"LS-08{x}-11_TIE_BEAM_3.SLDPRT", "Default<As Machined>"): (f"08{x}11-HBW-03", True, "D9 (James's number; P/W letter being checked)"),
+    }
 
 # Names and numbers decided for one screen's import (docs\imports\<screen>-decisions.md). Not rules for other screens.
 #   files:   old file -> (new name, new folder or None to keep the proposed one, where decided)
@@ -77,6 +97,31 @@ DECIDED = {
             ("08C06-STA-01.SLDASM", "Default"): ("08C06-STA-01", True, "decision 1 (as in A; pending ST category)"),
         },
     },
+    # docs\imports\LS-08X-11-decisions.md
+    "LS-08A-11": {
+        "partnos": {**SHAFT_0811("A"),
+            # D12: STOCK -> GNRIC, Provisional
+            ("PLATE_Bolting_Connector.SLDPRT", "Member 2"): ("GNRIC-MSP-02", True, "D12"),
+            ("PLATE_Bolting_Connector.SLDPRT", "Member 3"): ("GNRIC-MSP-03", True, "D12"),
+            ("PLATE_Bolting_Connector.SLDPRT", "Member 11"): ("GNRIC-MSP-11", True, "D12"),
+            ("PLATE_Bolting_Connector.SLDPRT", "Member 14"): ("GNRIC-MSP-14", True, "D12"),
+        },
+        "modelling_groups": {"SPLICE_JOINT_ASSY.SLDASM": "D13 (splice kit is a modelling aid for now)"},
+        "leave_out": {   # D3: A's older drawings duplicate the numbered ones; listed in the report, never in the PDM
+            f: "D3 (older drawing, duplicates a numbered one)" for f in (
+                "LS-08A-11-TIE_BEAM_1.SLDDRW", "LS-08A-11-TIE_BEAM_2.SLDDRW", "LS-08A-11-TIE_BEAM_3.SLDDRW",
+                "LS-08A-11_SF01-LOWER.SLDDRW", "LS-08A-11_SF01-UPPER.SLDDRW", "LS-08A-11_SF02-LOWER.SLDDRW",
+                "LS-08A-11_SF02-UPPER.SLDDRW", "LS-08A-11_SF03-LOWER.SLDDRW", "LS-08A-11_SF03-UPPER.SLDDRW")
+        },
+    },
+    "LS-08B-11": {
+        "partnos": SHAFT_0811("B"),
+    },
+    "LS-08C-11": {
+        "partnos": {**SHAFT_0811("C"),
+            ("LS-08C-11_SF03-UPPER.SLDASM", "Default"): ("08C11-SFA-3T", True, "D4 (drawing 08C11-SFA-3T repointed to it)"),
+        },
+    },
 }
 
 def load(name):
@@ -84,6 +129,24 @@ def load(name):
         return list(csv.DictReader(f))
 
 files, cfgs, props, comps, refs = (load(n) for n in ("files.csv", "configs.csv", "properties.csv", "components.csv", "references.csv"))
+def load_from(d, name):
+    with open(os.path.join(d, name), encoding="utf-8-sig") as f:
+        return list(csv.DictReader(f))
+
+imported_with = {}   # old file -> (new name, new folder, screen), imported by another screen's plan in this pass
+with_cfgs, with_pns = collections.defaultdict(set), {}   # that screen's probe, by file
+for with_inv, with_files in withs:
+    with_screen = re.sub(r"-r\d+$", "", os.path.basename(os.path.normpath(with_inv)))
+    for r in load_from(os.path.dirname(os.path.abspath(with_files)), os.path.basename(with_files)):
+        if r["action"] == "import":
+            imported_with.setdefault(os.path.basename(r["source"]).lower(), (r["new_name"], r["new_folder"], with_screen))
+    for c in load_from(with_inv, "configs.csv"):
+        with_cfgs[(with_screen, c["file"].lower())].add(c["config"])
+    for p in load_from(with_inv, "properties.csv"):
+        if p["name"].lower() == "partno":
+            with_pns[(with_screen, p["file"].lower(), p["config"])] = (p["value"] or p["expression"]).strip()
+
+views, others = ((load(n) if os.path.isfile(os.path.join(inv, n)) else None) for n in ("views.csv", "others.csv"))
 key = lambda s: s.lower()
 stem = lambda f: os.path.splitext(f)[0]
 ext = lambda f: os.path.splitext(f)[1].upper()
@@ -108,10 +171,13 @@ for r in wb["Examples"].iter_rows(min_row=5, values_only=True):   # worked examp
 
 # ---------------------------------------------------------------- ledger of files already imported
 ledger = {}
+ledger_pn = {}   # (old file, old config or "") -> PartNo given at import
 if ledger_path and os.path.exists(ledger_path):
     with open(ledger_path, encoding="utf-8-sig") as f:
         for r in csv.DictReader(f):
             ledger.setdefault(key(r["old_file"]), r)
+            if r.get("partno"):
+                ledger_pn.setdefault((key(r["old_file"]), r["old_config"]), r["partno"])
 
 # ---------------------------------------------------------------- facts from the inventory
 file_partno = {}                                  # file -> PartNo at file level
@@ -138,6 +204,7 @@ dec_files = {key(k): v for k, v in dec.get("files", {}).items()}
 dec_pn = {(key(f), c): v for (f, c), v in dec.get("partnos", {}).items()}
 fast_spec = dec.get("fasteners")
 dec_leave = {key(k): v for k, v in dec.get("leave_out", {}).items()}
+dec_mdl = {key(k): v for k, v in dec.get("modelling_groups", {}).items()}
 
 cfg_list = collections.defaultdict(list)          # file -> [(config, parent)]
 for c in cfgs:
@@ -278,7 +345,7 @@ def classify(f):
         return "drawing"
     if base[n]:
         return base[n]
-    if re.match(r"^mdl[-_]", n):
+    if re.match(r"^mdl[-_]", n) or n in dec_mdl:
         return "modelling group"
     if re.match(r"^nonpart[-_]", n) or n.startswith("grout"):
         return "not a part"
@@ -291,6 +358,21 @@ def classify(f):
     if "+structure" in n:
         return "combined"
     return "steel"
+
+def planned_partno(m, c):
+    """The PartNo model m's configuration c gets: this plan's (models come before drawings), else the ledger's, else the file's."""
+    for r in pn_rows:
+        if key(r[0]) == m and r[1] == c and r[6]:
+            return r[6]
+    return ledger_pn.get((m, c)) or ledger_pn.get((m, "")) or cfg_partno.get((m, c)) or file_partno.get(m, "")
+
+def inside(x, others, seen=()):
+    """x is a component of (or built into) one of others, at any depth."""
+    ps = {key(p) for p in parents.get(x, ())}
+    return bool(ps & others) or any(inside(p, others, seen + (x,)) for p in ps if p not in seen)
+
+def partno_flagged(m, c):
+    return any(key(r[0]) == m and r[1] == c and r[10] for r in pn_rows)
 
 PN_RE = re.compile(r"^(\d\d[ABCZX0](\d\d|XX)|GNRIC|STOCK|\d\dMG[LR])-[A-Z]{2}[AWP]-\w+$", re.I)
 
@@ -334,6 +416,20 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     elif fk in ledger:
         led = ledger[fk]
         action, new_name, new_folder, source = "reuse (already imported)", stem(led["new_file"]), led["new_folder"], "ledger"
+    elif fk in imported_with:
+        nn, nf, with_screen = imported_with[fk]
+        action, new_name, new_folder, source = f"reuse (imported with {with_screen})", stem(nn), nf, f"D19 (imported with {with_screen})"
+        mine, theirs = {c for c, _ in cfg_list[fk]}, with_cfgs[(with_screen, fk)]
+        if mine != theirs:
+            flags.append(flag(fname, f"configurations differ from {with_screen}'s copy: only here " + (", ".join(sorted(mine - theirs)) or "none")
+                              + "; only there " + (", ".join(sorted(theirs - mine)) or "none")))
+        mine_pn = {c: v for (ff, c), v in cfg_partno.items() if ff == fk}
+        if file_partno.get(fk):
+            mine_pn["(file)"] = file_partno[fk]
+        theirs_pn = {c: gnric(v) for (sc, ff, c), v in with_pns.items() if sc == with_screen and ff == fk}
+        diff = sorted(f"{c}: here {mine_pn.get(c) or '-'}, {with_screen} {theirs_pn.get(c) or '-'}" for c in set(mine_pn) | set(theirs_pn) if mine_pn.get(c) != theirs_pn.get(c))
+        if diff:
+            flags.append(flag(fname, f"PartNos differ from {with_screen}'s copy: " + "; ".join(diff)))
     elif cls == "fastener":
         t = next((code for words, code in FAST_TYPE if words in fk), None)
         if "hilti" in fk:
@@ -356,29 +452,52 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         new_folder = r"APEX\SC08\SKUS" if cls == "sku" else r"APEX\PANELS"
         flags.append(flag(fname, f"{cls}: folder is provisional until the panel and SKU rebuild decides where they live"))
     elif cls == "drawing":
-        # The Document Manager lists every file inside the drawn model too (an assembly drawing lists its
-        # parts), so the model is the one named like the drawing, else the only one not inside another.
-        models = sorted(drawing_models.get(fk, ()))
-        def inside(x, others, seen=()):
-            ps = {key(p) for p in parents.get(x, ())}
-            return bool(ps & others) or any(inside(p, others, seen + (x,)) for p in ps if p not in seen)
-        tops = [x for x in models if not inside(x, set(models) - {x})]
-        same = [x for x in models if stem(x) == key(s)]
-        m = same[0] if same else tops[0] if len(tops) == 1 else None
-        others = [x for x in tops if x != m]
-        if m and others:
-            flags.append(flag(fname, "drawing also shows " + ", ".join(others) + "; kept with " + m))
-        if not m and len(tops) > 1:
-            action, new_name, source = "decide", s, "drawing shows several models"
-            flags.append(flag(fname, "drawing shows several models (" + ", ".join(tops) + "): which one does it belong to?"))
-        elif m and m in destination:
-            action, new_folder = ("leave out" if destination[m][0] == "leave out" else "import with its model"), destination[m][1]
-            new_name, source = (named.get(m) or s), "named after its model"
-            if destination[m][0].startswith("reuse"):
-                flags.append(flag(fname, "its model is already in the vault: the drawing is a new file beside it"))
+        # D2 (0811): a drawing is named by the PartNo of the model configuration its views show. Name already
+        # that PartNo = kept; exactly one PartNo = renamed to it; otherwise decide. Beside its model, no PartNo.
+        if views is None:
+            action, new_name, source = "decide", s, "probe has no drawing views"
+            flags.append(flag(fname, "re-probe with the current DmProbe (views.csv) to name this drawing"))
         else:
-            action, new_name, source = "decide", s, "model not in this Pack and Go"
-            flags.append(flag(fname, "drawing whose model isn't in this set"))
+            pairs = sorted({(key(v["model"]), v["config"]) for v in views if key(v["drawing"]) == fk})
+            # A view keeps the model name it had when SOLIDWORKS last saved the drawing; a drawing repointed with
+            # the Document Manager (0811 D4) still names the old model. Its reference is the truth.
+            refs_here = drawing_models.get(fk, set())
+            tops = [x for x in refs_here if not inside(x, refs_here - {x})]
+            fixed = []
+            for m, c in pairs:
+                if m in refs_here:
+                    fixed.append((m, c))
+                    continue
+                cand = [x for x in tops if any(c == y for y, _ in cfg_list[x])]
+                if len(cand) == 1:
+                    fixed.append((cand[0], c))
+                    flags.append(flag(fname, f"its views still name {m}, but the drawing refers to {cand[0]} (repointed): {cand[0]} used"))
+                else:
+                    fixed.append((m, c))
+            pairs = sorted(set(fixed))
+            shown = [(m, c) for m, c in pairs if m in destination and any(c == x for x, _ in cfg_list[m])]
+            missing = sorted({m for m, c in pairs if m not in destination})
+            numbers = {}
+            for m, c in shown:
+                n = planned_partno(m, c)
+                if n:
+                    numbers.setdefault(key(n), (n, m, c))
+            pick = numbers.get(key(s)) or (next(iter(numbers.values())) if len(numbers) == 1 else None)
+            if pick:
+                n, m, c = pick
+                action = "leave out" if destination[m][0] == "leave out" else "import with its model"
+                new_name, new_folder = n, destination[m][1]
+                source = ("its name is " if key(n) == key(s) else "renamed to ") + f"the PartNo of {m} [{c}] (D2)"
+                if destination[m][0].startswith("reuse"):
+                    flags.append(flag(fname, "its model is already in the vault: the drawing is a new file beside it"))
+                if partno_flagged(m, c):
+                    flags.append(flag(fname, f"named after a PartNo with a flag ({m} [{c}]): if that PartNo changes in the review, change this name too"))
+            else:
+                action, new_name, source = "decide", s, "D2: not exactly one PartNo"
+                listed = "; ".join(f"{m} [{c}] = {planned_partno(m, c) or 'no PartNo'}" for m, c in shown) or "none in this set"
+                flags.append(flag(fname, "which configuration does this drawing belong to? Its views show: " + listed))
+            if missing:
+                flags.append(flag(fname, "views show a model that isn't in this set: " + ", ".join(missing)))
     elif cls == "not a part":
         action, source = "import, no PartNo", "rule (NONPART)"
         tag = f"{scene_no}X{screen_no}"
@@ -572,10 +691,47 @@ for name, rows_ in by_new_name.items():
 for lf, where in sorted(linked_found.items()):
     owners = sorted(f2 for f2, links in part_links.items() if lf in links)
     dest = next((destination[o] for o in owners if o in destination), ("", ""))
-    act = "leave out" if dest[0] == "leave out" else "import with its part"
     fl = "" if where != "MISSING" else flag(lf, "linked file not in the Pack and Go: find it and bring it along")
+    if dest[0] == "leave out":
+        act = "leave out"
+    elif lf.endswith(".txt"):   # Admin, 25 Oct 2026: an equations file's home in the vault is a question, not a choice
+        act = "decide"
+        fl = "; ".join(x for x in (fl, flag(lf, "equations file: where it lives in the vault is a question for Admin")) if x)
+    elif dest[0].startswith("reuse"):
+        act = "leave out"
+        fl = "; ".join(x for x in (fl, flag(lf, "its part is already in the vault, so nothing to bring")) if x)
+    else:
+        act = "import with its part"
     file_rows.append([os.path.dirname(where) or ".", os.path.basename(where) or lf, "", "linked file", act, os.path.basename(where) or lf,
                       dest[1], "used by " + ", ".join(owners), "", "", fl, "", "", "", ""])
+
+# Changes to files already in the vault: configurations of a reused file that a file this plan imports refers to
+# (in any of its configurations) and that the ledger gives no PartNo (0811 D17).
+vault_rows = []
+refd = collections.defaultdict(lambda: collections.defaultdict(set))   # reused file -> config -> assemblies here
+for c in comps:
+    a = key(c["assembly"])
+    if a in destination and destination[a][0].startswith("import"):
+        refd[key(c["component_file"])][c["component_config"]].add(c["assembly"])
+for r in file_rows:
+    if r[4] != "reuse (already imported)" or r[3] not in ("steel", "fastener"):
+        continue
+    fk, led_new = key(r[1]), r[5]
+    for cfg, asms in sorted(refd[fk].items()):
+        if ledger_pn.get((fk, cfg)) or ledger_pn.get((fk, "")):
+            continue
+        m = re.match(r"^FAST-([A-Z]+)-(.+)$", stem(led_new), re.I) if r[3] == "fastener" else None
+        proposed = f"FAST-{m.group(1)}-{fastener_size(cfg)}-{m.group(2)}" if m and "hilti" not in fk else ""
+        vault_rows.append([led_new, r[6], r[1], cfg, ", ".join(sorted(asms)), used[fk].get(cfg, 0), proposed,
+                           "rule (FAST-type-size-grade-finish)" if proposed else "", "add PartNo (check-out, write, check-in)", ""])
+        issues.append((f"{led_new} / {cfg}", "vault file needs a PartNo for this configuration: change by check-out (Vault changes sheet)"))
+
+# Everything else in the Pack and Go (CSV, PDF, STEP, TXT exports) stays out of the vault (Admin, 25 Oct 2026):
+# only SOLIDWORKS files and files they reference go onto P:\. Listed so nothing goes missing unseen.
+for o in others or ():
+    if key(o["file"]) not in linked_found:
+        file_rows.append([o["folder"] or ".", o["file"], "", "other file", "leave out", "", "",
+                          "not a SOLIDWORKS file and no model links to it", "", "", "", "", "", "", ""])
 
 # ---------------------------------------------------------------- write workbook
 out = openpyxl.Workbook()
@@ -619,6 +775,10 @@ sheet(ws, ["File", "Configuration", "Parent config", "Used here (count)", "PartN
       pn_rows, [44, 44, 22, 8, 18, 18, 26, 22, 8, 12, 40, 14, 22], 10, [11, 12],
       '"proposed,file,register,override"', 11)
 
+ws = out.create_sheet("Vault changes")
+sheet(ws, ["Vault file", "Vault folder", "File here", "Configuration", "Referred to by", "Reached by the tops (count)", "Proposed PartNo", "From", "Change", "Flags"],
+      vault_rows, [34, 26, 44, 34, 44, 10, 30, 30, 36, 30], 9, [])
+
 ws = out.create_sheet("Issues")
 sheet(ws, ["Where", "Issue"], issues, [70, 100], 1, [])
 
@@ -632,10 +792,11 @@ for line in [
 ]:
     ws.append([line])
 ws.column_dimensions["A"].width = 130
-out.move_sheet("Read me", offset=-3)
+out.move_sheet("Read me", offset=-4)
 
 out.save(out_path)
 print(f"Files: {len(file_rows)}  PartNo rows: {len(pn_rows)}  Issues: {len(issues)}")
 print("Classes:", dict(collections.Counter(r[3] for r in file_rows)))
 print("Actions:", dict(collections.Counter(r[4] for r in file_rows)))
+print(f"Vault changes: {len(vault_rows)}")
 print("Saved:", out_path)

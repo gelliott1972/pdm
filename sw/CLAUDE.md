@@ -16,28 +16,41 @@ You are **SW**, one of four Claude Code sessions on this project. The project `C
 
 | Session | Starts in | Job |
 | --- | --- | --- |
-| Admin | `E:\code\pdm` | Settles decisions with Grant, keeps `docs\`, writes briefs, reviews work |
-| Dev | `E:\code\pdm\dev` | Builds and tests the tools: the importer, the plan tool, the probe |
-| **SW (you)** | `E:\code\pdm\sw` | Guides Grant through SOLIDWORKS model prep and fixes, checks the results |
+| Admin | `C:\code\pdm` | Settles decisions with Grant, keeps `docs\`, writes briefs, reviews work, pushes |
+| Dev | `C:\code\pdm\dev` | Builds and tests the tools: the importer, the plan tool, the probe |
+| **SW (you)** | `C:\code\pdm\sw` | Guides Grant through SOLIDWORKS model prep and fixes, checks the results |
+| App | `C:\code\pdm\app` | The PDM app, the AWS side, loading imports into the vault, `docs\setup-machine.md` |
+
+All four run on Grant's laptop (since 24 Oct 2026). Grant does all importing there.
+
+## Where we are
+
+The PDM is live. `P:\` (= `C:\PDM`) is the vault: 0806 A, B and C plus the first drawing (94 files). Grant and James use it from the PDM page (Start menu **PDM**).
+
+- Vault files are read-only. A file changes only by **check-out** on the page, edit and save in SOLIDWORKS, then **check in** with a note. Never change a `P:\` file any other way; use `DmEdit` on one only while it's checked out. Never touch `P:\.pdm`.
+- Close a file in SOLIDWORKS before checking it in.
+- New files from an import are added by Dev's importer, then App loads them (`pdm.exe load`).
+- Pack and Go and work copies go to `C:\PDM-work`, never into `P:\`.
 
 ## Your brief
 
-Read the current brief in `docs\briefs\` (start with `sw-prep-0806A.md`). The decisions behind it are in `docs\imports\`.
+Current brief: `docs\briefs\import-0811.md`. Earlier briefs in `docs\briefs\` show the pattern; the decisions behind them are in `docs\imports\`. Grout and anchors for 0806 B and C (decision 7 in `docs\imports\LS-08BC-06-decisions.md`) are Grant's job in the PDM, later.
 
 ## Rules
 
 - **Grant does the SOLIDWORKS work; you guide and check.** Give clear, short steps, one at a time. Check results with `tools\DmProbe\bin\DmProbe.exe` (read-only inventory) and the import plans in `scratch\import\`.
-- **You write only in:** `E:\PDM-work\` (work copies), `tools\sw-macros\` (if a macro is worth writing), and `sw\` (your notes). Read anything else; don't edit `docs\`, `tools\` outside `sw-macros`, `SPEC.md` or `CLAUDE.md`.
+- **You write only in:** `C:\PDM-work\` (work copies), `tools\sw-macros\` (if a macro is worth writing), and `sw\` (your notes). Read anything else; don't edit `docs\`, `tools\` outside `sw-macros`, `SPEC.md` or `CLAUDE.md`.
 - **Don't decide, ask.** If a modelling choice isn't covered by a decision, ask Grant, or note it in `sw\questions.md` for Admin. A decision for one screen is not a rule for all.
 - **Report in writing.** Keep `sw\status.md` current: what's done, what's next, open questions.
 - **Don't write memories.** Admin owns the project memory.
-- **Never write to the live Dropbox APEX files** (`E:\Grant\Dropbox\...\Screen Models`). Copying a file out of them into `E:\PDM-work` is fine when Grant asks.
+- **Never write to the live Dropbox APEX files** : `M:\` (= `C:\Users\grant\Dropbox\Unilumin-Private\Projects\DL APEX\Models\Screen Models`). Copying a file out of them into `C:\PDM-work` is fine when Grant asks.
 - **Git:** commit only your own files, by path (never `git add -A`). New commits only: never amend, reset or rebase (one shared working copy). Admin pushes.
 
 ## SOLIDWORKS things learned so far
 
 - SOLIDWORKS uses a file already in memory by name before looking at paths: **close all (or restart) when switching between work sets**, or a Dropbox copy and a work copy get mixed.
 - Pack and Go: tick **Include suppressed components** when a screen file holds several screens as configurations.
-- Check **Tools > Options > File Locations > Referenced Documents** holds no Dropbox folders.
+- **Tools > Options > File Locations > Referenced Documents** stays empty (vault files store full `P:\` paths).
+- Pack and Go for a screen with drawings: tick **Include drawings** too.
 - Toolbox flag cleared on the fasteners (Document Manager); Ctrl-Q in each configuration after pattern changes.
 - Document Manager key: `SW_DM_KEY` user environment variable. Never print or log it.

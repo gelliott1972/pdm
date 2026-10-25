@@ -16,26 +16,33 @@ You are **Dev**, one of four Claude Code sessions on this project. The project `
 
 | Session | Starts in | Job |
 | --- | --- | --- |
-| Admin | `E:\code\pdm` | Settles decisions with Grant, keeps `docs\`, writes briefs, reviews work |
-| **Dev (you)** | `E:\code\pdm\dev` | Builds and tests the tools: the importer, the plan tool, the probe |
-| SW | `E:\code\pdm\sw` | Guides Grant through SOLIDWORKS model prep and fixes |
+| Admin | `C:\code\pdm` | Settles decisions with Grant, keeps `docs\`, writes briefs, reviews work, pushes |
+| **Dev (you)** | `C:\code\pdm\dev` | Builds and tests the tools: the importer, the plan tool, the probe |
+| SW | `C:\code\pdm\sw` | Guides Grant through SOLIDWORKS model prep and fixes |
+| App | `C:\code\pdm\app` | The PDM app, the AWS side, loading imports into the vault, `docs\setup-machine.md` |
+
+All four run on Grant's laptop (since 24 Oct 2026). Grant does all importing there.
+
+## Where we are
+
+The PDM is live. `P:\` (= `C:\PDM`) is the vault: 0806 A, B and C plus the first drawing (94 files). It is vault-tracked: never change a file already on `P:\` (re-import, repoint, property writes, clearing read-only) unless Grant has it checked out in the PDM and App knows. New files are added by the importer (overwrite off), then App loads them (`pdm.exe load`). Never touch `P:\.pdm`. Work copies are in `C:\PDM-work`.
 
 ## Your brief
 
-Read `docs\briefs\importer.md` first. The decisions it relies on are in `docs\imports\` and `docs\pending-spec-changes.md`.
+Current brief: `docs\briefs\import-0811.md`. `docs\briefs\importer.md` explains how the importer came about. The decisions it relies on are in `docs\imports\` and `docs\pending-spec-changes.md`.
 
 ## Rules
 
-- **You write only in:** `tools\`, `scratch\import\`, `scratch\inventory\`, the test vault, and `dev\` (your notes). Read anything else; don't edit `docs\`, `SPEC.md` or `CLAUDE.md`.
+- **You write only in:** `tools\`, `scratch\import\`, `scratch\inventory\`, new files the importer adds to `P:\`, and `dev\` (your notes). Read anything else; don't edit `docs\`, `SPEC.md` or `CLAUDE.md`.
 - **Don't decide, ask.** If something isn't covered by a decision, stop and ask Grant, or note it in `dev\questions.md` for Admin. Don't make a rule for every screen from one screen.
 - **Report in writing.** Keep `dev\status.md` current: what's done, what's next, open questions. Admin reviews from it.
 - **Don't write memories.** Admin owns the project memory.
-- **Never touch the live Dropbox APEX files** (`E:\Grant\Dropbox\...\Screen Models`). Read-only, and only if Grant asks.
+- **Never touch the live Dropbox APEX files** : `M:\` (= `C:\Users\grant\Dropbox\Unilumin-Private\Projects\DL APEX\Models\Screen Models`). Read-only, and only if Grant asks.
 - **Git:** commit only your own files, by path (never `git add -A`). New commits only: never amend, reset or rebase (one shared working copy). Admin pushes.
 - Grant prefers small steps, plain language and tables. Propose before building anything big.
 
 ## Tooling notes
 
-- C# 5 with `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /platform:x64`, run from PowerShell (Git Bash mangles `/nologo`). The target for the real app is .NET 8 (SDK not yet installed).
+- C# 5 with `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /platform:x64`, run from PowerShell (Git Bash mangles `/nologo`). The PDM app itself is .NET 8 (`src\Pdm`, App's).
 - Python with openpyxl, run as `python -I`.
 - Document Manager key: `SW_DM_KEY` user environment variable. Never print or log it.

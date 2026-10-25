@@ -71,6 +71,11 @@ static class DmProbe
         var propRows = new Csv("file", "config", "name", "type", "expression", "value");
         var compRows = new Csv("assembly", "assembly_config", "component_file", "component_config", "stored_path", "stored_exists", "found_in_inbox", "suppressed", "virtual", "exclude_from_bom");
         var refRows = new Csv("file", "kind", "reference", "broken", "virtual", "found_in_inbox");
+        var viewRows = new Csv("drawing", "sheet", "view", "model", "config");
+        // Everything else in the folder (CSV, PDF, STEP, TXT exports, ...), so the plan can list it.
+        var otherRows = new Csv("file", "folder", "extension");
+        foreach (var f in allFiles.Where(f => !exts.Contains(Path.GetExtension(f))).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            otherRows.Add(Path.GetFileName(f), Path.GetDirectoryName(f.Substring(root.Length).TrimStart('\\')), Path.GetExtension(f).ToLowerInvariant());
 
         int ok = 0, failed = 0;
         foreach (var path in files)
@@ -182,6 +187,19 @@ static class DmProbe
                     foreach (var ip in importedArr.Where(p => !string.IsNullOrEmpty(p)))
                         refRows.Add(Path.GetFileName(path), "imported", ip, "", "", FoundIn(byName, root, ip));
 
+                // Drawing views: the model file (name only) and the configuration each view shows.
+                if (type == SwDmDocumentType.swDmDocumentDrawing)
+                {
+                    object[] views = null;
+                    try { views = d.GetViews() as object[]; } catch (Exception ex) { Console.Error.WriteLine("  views unreadable on " + rel + ": " + ex.Message); }
+                    if (views != null)
+                        foreach (var o in views)
+                        {
+                            var v = o as ISwDMView2;
+                            if (v != null) viewRows.Add(Path.GetFileName(path), Safe(() => v.SheetName), Safe(() => v.Name), Safe(() => v.ReferencedDocument), Safe(() => v.ReferencedConfiguration));
+                        }
+                }
+
                 fileRows.Add(Path.GetFileName(path), folder, Short(type), "yes", toolbox, version, cfgNames.Count.ToString(), active,
                     filePartNo, string.Join("; ", cfgPartNos), string.Join("; ", fileProps));
             }
@@ -196,6 +214,8 @@ static class DmProbe
         propRows.Save(Path.Combine(outDir, "properties.csv"));
         compRows.Save(Path.Combine(outDir, "components.csv"));
         refRows.Save(Path.Combine(outDir, "references.csv"));
+        viewRows.Save(Path.Combine(outDir, "views.csv"));
+        otherRows.Save(Path.Combine(outDir, "others.csv"));
 
         Console.WriteLine("Files found:   " + files.Count);
         Console.WriteLine("Opened:        " + ok);
@@ -204,6 +224,8 @@ static class DmProbe
         Console.WriteLine("Properties:    " + propRows.Count);
         Console.WriteLine("Components:    " + compRows.Count);
         Console.WriteLine("References:    " + refRows.Count);
+        Console.WriteLine("Drawing views: " + viewRows.Count);
+        Console.WriteLine("Other files:   " + otherRows.Count);
         Console.WriteLine("Output:        " + outDir);
         return failed == 0 ? 0 : 1;
     }

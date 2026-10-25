@@ -51,13 +51,14 @@ static class SwFixRefs
         }
 
         ISldWorks sw;
-        try { sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application")); }
+        try { sw = (ISldWorks)Activator.CreateInstance(NewestSolidWorks()); }
         catch (Exception e)
         {
             Console.Error.WriteLine("SOLIDWORKS didn't start (" + e.Message.Split('\n')[0].Trim() + "). Start it by hand once, deal with any licence or activation message, close it and try again.");
             return 3;
         }
         var started = Process.GetProcessesByName("SLDWORKS").FirstOrDefault();
+        Console.WriteLine("SOLIDWORKS " + sw.RevisionNumber() + " started.");
         int outside = 0, fixedCount = 0, failed = 0;
         try
         {
@@ -105,5 +106,19 @@ static class SwFixRefs
     static string Rel(string p, string root)
     {
         return p.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? p.Substring(root.Length) : p;
+    }
+
+    // The newest SOLIDWORKS installed. The plain ProgID can start an older install (Grant's laptop has 2024
+    // beside 2026, and the plain name starts 2024), which refuses newer files as "future version".
+    static Type NewestSolidWorks()
+    {
+        int best = -1;
+        foreach (var n in Microsoft.Win32.Registry.ClassesRoot.GetSubKeyNames())
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(n, @"^SldWorks\.Application\.(\d+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            int v;
+            if (m.Success && int.TryParse(m.Groups[1].Value, out v) && v > best) best = v;
+        }
+        return Type.GetTypeFromProgID(best >= 0 ? "SldWorks.Application." + best : "SldWorks.Application");
     }
 }

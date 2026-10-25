@@ -32,12 +32,14 @@ public static class Paths
     public static IEnumerable<string> LocalSolidWorksKeys(string root)
     {
         if (!Directory.Exists(root)) return [];
-        string[] exts = [".sldprt", ".sldasm", ".slddrw"];
         return Directory.EnumerateFiles(root, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true })
-            .Where(p => exts.Contains(Path.GetExtension(p).ToLowerInvariant()) && !Path.GetFileName(p).StartsWith('~'))
             .Select(p => KeyOf(root, p))
-            .Where(k => !IsIgnored(k));
+            .Where(k => IsSolidWorksFile(k) && !IsIgnored(k));
     }
+
+    // A part, assembly or drawing, not one of SOLIDWORKS's ~ temp or lock files.
+    public static bool IsSolidWorksFile(string key) =>
+        Path.GetExtension(key).ToLowerInvariant() is ".sldprt" or ".sldasm" or ".slddrw" && !Path.GetFileName(key).StartsWith('~');
 
     public static void SetReadOnly(string localPath, bool readOnly)
     {

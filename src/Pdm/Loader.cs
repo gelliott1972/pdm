@@ -2,6 +2,8 @@ namespace Pdm;
 
 // Admin: loads the local root (P:\) into the vault and the index. Safe to run again:
 // unchanged files aren't re-uploaded, file ids and locks are kept.
+// Takes SOLIDWORKS files, plus any other file a SOLIDWORKS file refers to (e.g. an equations .txt);
+// anything else under P:\ (old PDF, CSV, STEP exports) is skipped and listed.
 public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, string adminName, Action<string> say)
 {
     static readonly HashSet<string> Junk = new(StringComparer.OrdinalIgnoreCase) { "desktop.ini", "Thumbs.db" };
@@ -33,14 +35,22 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
             };
             records.Add((record, local, old == null || old.ETag != md5));
         }
-        int toUpload = records.Count(r => r.Upload);
-        var uploadMb = records.Where(r => r.Upload).Sum(r => r.Record.Size) / 1048576.0;
-        say($"{records.Count} files under {root}; {toUpload} new or changed ({uploadMb:0.0} MB to upload), {records.Count - toUpload} already in the vault.");
-        foreach (var r in records.Where(r => r.Upload)) say($"  {(r.Record.VersionId == "" ? "new" : "changed")}  {r.Record.Path}");
 
         // Pass 2: references and PartNos, now that every file has an id.
+        var candidates = records.Select(r => r.Record).ToList();
+        foreach (var (record, local, _) in records) engine.Describe(record, local, candidates);
+
+        // Keep SOLIDWORKS files and what they refer to; list the rest.
+        var referenced = candidates.SelectMany(r => r.Refs).ToHashSet();
+        var skipped = records.Where(r => !Paths.IsSolidWorksFile(r.Record.Path) && !referenced.Contains(r.Record.FileId)).ToList();
+        records = records.Except(skipped).ToList();
+        foreach (var r in skipped) say($"  skipped (not a SOLIDWORKS file, and nothing refers to it): {r.Record.Path}");
         var all = records.Select(r => r.Record).ToList();
-        foreach (var (record, local, _) in records) engine.Describe(record, local, all);
+
+        int toUpload = records.Count(r => r.Upload);
+        var uploadMb = records.Where(r => r.Upload).Sum(r => r.Record.Size) / 1048576.0;
+        say($"{records.Count} files to load from {root} ({skipped.Count} skipped); {toUpload} new or changed ({uploadMb:0.0} MB to upload), {records.Count - toUpload} already in the vault.");
+        foreach (var r in records.Where(r => r.Upload)) say($"  {(r.Record.VersionId == "" ? "new" : "changed")}  {r.Record.Path}");
 
         var dupes = all.SelectMany(r => r.PartNos.Select(p => (p.PartNo, r.Path)))
             .GroupBy(x => x.PartNo, StringComparer.OrdinalIgnoreCase).Where(g => g.Select(x => x.Path).Distinct().Count() > 1).ToList();

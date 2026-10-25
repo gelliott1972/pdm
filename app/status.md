@@ -52,7 +52,7 @@ Updated 24 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 | My part | Step 6: `pdm.exe load --dry`, then the load (upload size to Grant first: he may be on a flight). |
 | Loader dry run | Now says how many MB would upload and lists each new or changed file. Checked 25 Oct on the laptop: 94 files, 0 to upload, 138 PartNos, 238 references inside, 0 outside (James's drawing included, no PartNo). |
 | Dev | Told exactly what changed for drawings (0.1.5 PartNo, 0.1.6 configurations); `ReplaceReference`, `AddCustomProperty` and `Save` on a drawing untested by App. |
-| Watch | The loader takes **every** file under `P:\` except ignored ones, so CSV, PDF, STEP or TXT left there would be loaded. Close SOLIDWORKS before loading (an open file stops the upload; the load can be re-run). |
+| Loader: what it takes | Admin agreed 25 Oct: SOLIDWORKS files only, plus any other file a SOLIDWORKS file refers to (e.g. the equations .txt); everything else under `P:\` is skipped and listed in the dry run. Checked with a stray CSV: skipped and listed, 94 vault files unaffected. **Not checked:** whether the Document Manager reports an equations .txt as a reference; if it doesn't, the dry run lists the .txt as skipped. Close SOLIDWORKS before loading (an open file stops the upload; the load can be re-run). |
 | 0.1.7 | Progress bar and top buttons checked on dummy data only: confirm with Grant at his next real check-in. |
 
 ## Open questions

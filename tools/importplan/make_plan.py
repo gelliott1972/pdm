@@ -678,7 +678,7 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     # Save As) isn't rewritten by the importer, which only knows this plan's renames.
     foreign = sorted({m.group(1) for (ff, _), e in mass_refs.items() if ff == fk for m in [MASS_RE.search(e)] if m and key(m.group(1)) != fk})
     if foreign and action.startswith("import"):
-        flags.append(flag(fname, "Weight formula reads another file's mass (" + ", ".join(foreign) + "): SOLIDWORKS often corrects this when it saves the file (0806); if it's still here, point it at this file (DmEdit)"))
+        flags.append(flag(fname, "Weight formula reads another file's mass (" + ", ".join(foreign) + "): D26, each Weight formula reads its own file; SW fixes it in prep (DmEdit), or Admin says it's deliberate"))
     if fk in dec_nofp and file_props.get(fk):
         action = "decide"
         flags.append(flag(fname, f"{dec_nofp[fk]}: file-level properties should be deleted in prep; still here: " + ", ".join(file_props[fk])))

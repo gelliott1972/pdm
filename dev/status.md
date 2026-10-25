@@ -52,7 +52,7 @@ Proposed rule (for Admin, not decided): take the views' (model, configuration) p
 | D21 | An equations `.txt` still linked in `-r1` is "decide" (unlink it; not a vault file) | none linked in today's probes |
 | D22, D25 | `08x11-STA-01` PartNo at Default, Provisional; "decide" if the STA still has any file-level property | only A's STA exists today; its 3 file-level properties are flagged |
 | D10 | Brace is "decide" (placeholder numbers) until Grant decides; this blocks A's export, and so B's and C's plans | |
-| Weight formulas | New flag: an imported file's Weight formula reads another file's mass (the Importer only rewrites this plan's renames) | 10 flags: B `SF01-UPPER`, `SF02-UPPER` (the shared `08Z11-SFA-2T`) read A's; C's beams and `SF01-UPPER` read B's; A `TIE_BEAM_2.SLDPRT` reads its assembly; splice kit reads the plate |
+| D26 (Weight formulas) | Flag (doesn't block): each Weight formula must read its own file; `-r1` reports any still foreign. New flag: an imported file's Weight formula reads another file's mass (the Importer only rewrites this plan's renames) | 10 flags: B `SF01-UPPER`, `SF02-UPPER` (the shared `08Z11-SFA-2T`) read A's; C's beams and `SF01-UPPER` read B's; A `TIE_BEAM_2.SLDPRT` reads its assembly; splice kit reads the plate |
 | Other files | `others.csv` in the probe; loose non-SOLIDWORKS files listed as left out; an equations `.txt` is a "decide" question; a linked file of a reused part is left out | Hilti `.stp`: left out (its part is in the vault) |
 
 Run order this needs: A dry run, A apply, then B (its reuse rows need A's files in the vault), then C.

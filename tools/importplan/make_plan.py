@@ -91,7 +91,7 @@ D15_OPEN = "D15: the old grout kits should be gone from -r1 (SW removes them); s
 D14_OPEN = "D14: should be gone from -r1 (LCMM split into 08X11-LMW / 08B11-LMW-01, 2-size plate swapped for the 4-size 08XXX-PLP); still here"
 # D33 (with Grant): True = every number the plan writes on a new 0811 steel import is Provisional until James
 # confirms (a); False = only those D8 / D9 / D20 / D32 or the register make Provisional (b). Re-plan after changing.
-D33_ALL_PROVISIONAL = False
+D33_ALL_PROVISIONAL = True
 # D32: as 0806, no new import keeps a file-level PartNo: James's go in prep (DmEdit delprop), the plan writes them
 # at the configuration (Default, or As Machined for weldment parts), Provisional.
 D30_OPEN = "D30: every TIE_80x40x8 instance should be repointed to the vault's GNRIC-BRP / GNRIC-BRA in prep; still here"

@@ -347,6 +347,7 @@ for c in comps:
         children[(key(c["assembly"]), c["assembly_config"])].append((key(c["component_file"]), c["component_config"]))
 # SOLIDWORKS' own view (SwCheck) replaces DM's where they differ (stale configuration after Replace Components).
 import importlib.util
+sys.dont_write_bytecode = True   # no __pycache__ in the repo
 _spec = importlib.util.spec_from_file_location("swcheck_used", os.path.join(os.path.dirname(os.path.abspath(__file__)), "swcheck_used.py"))
 swcheck_used = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(swcheck_used)

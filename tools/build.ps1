@@ -21,7 +21,7 @@ Write-Host "SOLIDWORKS: $SwFolder"
 # Tool -> interop DLLs it references.
 $dm = @('SolidWorks.Interop.swdocumentmgr.dll')
 $sw = @('SolidWorks.Interop.sldworks.dll', 'SolidWorks.Interop.swconst.dll')
-$tools = [ordered]@{ DmEdit = $dm; DmProbe = $dm; DmToolbox = $dm; Importer = $dm; SwCheck = $sw; SwFixRefs = $sw }
+$tools = [ordered]@{ DmEdit = $dm; DmProbe = $dm; DmToolbox = $dm; Importer = $dm; SwCheck = $sw; SwFixRefs = $sw; SwSuppDump = $sw }
 
 $failed = 0
 foreach ($t in $tools.Keys) {

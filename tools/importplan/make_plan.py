@@ -767,6 +767,11 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         for (rs, rc), v in reg_cfg.items():
             if rs == key(s):
                 numbers.add(v)
+        # A decided number (D8, D9, D32...) names the file, before the register: with James's file-level
+        # PartNos deleted (D32), the register's number would otherwise win (HBP-01 for TIE_BEAM_2, D9 says HBP-02).
+        decided_numbers = set(v[0] for (ff, _), v in dec_pn.items() if ff == fk and v[0])
+        if decided_numbers:
+            numbers = decided_numbers
         if not numbers and reg and reg[1]:
             numbers.add(str(reg[1]))
         if not numbers and PN_RE.match(s):

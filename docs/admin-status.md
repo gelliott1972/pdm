@@ -9,7 +9,7 @@ Updated 26 Oct 2026 (after the 0811 import), on the laptop. The next Admin sessi
 | MVP done-when | Met 24 Oct: check-out from the page on the desktop, laptop saw the lock |
 | App updates | 0.1.7 (25 Oct): buttons on top; check-in one file at a time with a progress bar; checked on dummy data only. 0.1.6: Document Manager reads drawings. 0.1.5: add new files from the page; drawings carry no PartNo. 0.1.4: list no longer blanks when SOLIDWORKS holds a file open. All published from the laptop. |
 | Vault | 181 files, 186 PartNos (26 Oct): 0806 A, B, C, `08A06-HBA-01.SLDDRW`, and **0811 A, B, C imported and loaded 26 Oct** (87 new files, 53.8 MB; index = S3 = 181). `08XXX-PLP` has a new version (drain hole, D28). |
-| Decisions | `docs\imports\LS-08A-06-decisions.md`, `docs\imports\LS-08BC-06-decisions.md`, `docs\imports\LS-08X-11-decisions.md` (D1–D29, all settled) |
+| Decisions | `docs\imports\LS-08A-06-decisions.md`, `docs\imports\LS-08BC-06-decisions.md`, `docs\imports\LS-08X-11-decisions.md` (D1–D33, all settled) |
 | Ledger | `data\rename-ledger.csv` (A 164 rows, B/C 70) |
 | Register | `data\APEX_Structure_Part_Numbering_Standard_Rev3.xlsx` |
 | Way of working | Since 25 Oct: Grant decides only in Admin; SW gives SOLIDWORKS steps; Dev and App ask Admin. Fixed labels per import (memory `one-window-for-decisions`). |
@@ -20,7 +20,7 @@ Done 26 Oct. Decisions D1-D33 in `docs\imports\LS-08X-11-decisions.md`. Import r
 
 ## Known issue
 
-Document Manager keeps a stale referenced configuration after Replace Components (and old component names and `E:\PDM-work` paths in its component list). In the vault: `08X06-LMW` [02A] and `08X06-SFW-01` [Default] say `08XXX-PLP-31`; SOLIDWORKS uses `-32`. No harm: the app uses only the reference table (App, 26 Oct), and Dev's plan takes SOLIDWORKS' list (`--swcheck`). Any future BOM or "configuration used" view must not come from DM's component list. 0806 A not yet checked (needs a P:\ SwCheck of its top).
+Document Manager keeps a stale referenced configuration after Replace Components (and old component names and `E:\PDM-work` paths in its component list). In the vault: `08X06-LMW` [02A] and `08X06-SFW-01` [Default] say `08XXX-PLP-31`; SOLIDWORKS uses `-32`. No harm: the app uses only the reference table (App, 26 Oct), and Dev's plan takes SOLIDWORKS' list (`--swcheck`). Any future BOM or "configuration used" view must not come from DM's component list. 0806 A checked 26 Oct: same 2 entries only.
 
 ## Next
 

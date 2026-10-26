@@ -3,11 +3,13 @@
 //   refs        <file>                               list stored component paths (per configuration) and references
 //   getprop     <file> <config|@file> <name>         read a custom property
 //   setprop     <file> <config|@file> <name> <value> add or change a text custom property, then save
+//   delprop     <file> <config|@file> <name>         delete a custom property, save, then re-open and check it's gone
 //   replace-ref <file> <oldFileName> <newPath>       ReplaceReference for every stored path with that file name, then save
 //   replace-comp <asm> <oldFileName> <newPath> [<oldCfg>=<newCfg> ...]
 //                                                    Component.Replace in every configuration, mapping the
 //                                                    referenced configuration (unmapped names are kept), then save
-// Refuses any path inside a Dropbox folder, so live project files can't be changed by mistake.
+// Refuses any path inside a Dropbox folder, so live project files can't be changed by mistake, and refuses to
+// change anything in the vault (P:\ = C:\PDM): vault files change only by check-out in the PDM.
 // The licence key is read from the SW_DM_KEY environment variable and is never printed.
 // Written in C# 5 so it compiles with the .NET Framework compiler built into Windows.
 
@@ -25,16 +27,21 @@ static class DmEdit
     {
         if (args.Length < 2)
         {
-            Console.Error.WriteLine("Usage: DmEdit refs|getprop|setprop|replace-ref|replace-comp <file> ...");
+            Console.Error.WriteLine("Usage: DmEdit refs|getprop|setprop|delprop|replace-ref|replace-comp <file> ...");
             return 2;
         }
         string cmd = args[0];
         string path = Path.GetFullPath(args[1]);
-        bool write = cmd == "setprop" || cmd == "replace-ref" || cmd == "replace-comp";
+        bool write = cmd == "setprop" || cmd == "delprop" || cmd == "replace-ref" || cmd == "replace-comp";
 
         if (path.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0)
         {
             Console.Error.WriteLine("REFUSED (inside Dropbox): " + path);
+            return 2;
+        }
+        if (write && (path.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || path.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase)))
+        {
+            Console.Error.WriteLine("REFUSED (inside the vault): " + path);
             return 2;
         }
         if (!File.Exists(path)) { Console.Error.WriteLine("No such file: " + path); return 2; }
@@ -56,6 +63,7 @@ static class DmEdit
                 case "refs": rc = Refs(doc, path); break;
                 case "getprop": rc = args.Length == 4 ? GetProp(doc, args[2], args[3]) : Usage(); break;
                 case "setprop": rc = args.Length == 5 ? SetProp(doc, args[2], args[3], args[4]) : Usage(); break;
+                case "delprop": rc = args.Length == 4 ? DelProp(doc, args[2], args[3]) : Usage(); break;
                 case "replace-ref": rc = args.Length == 4 ? ReplaceRef(doc, args[2], Path.GetFullPath(args[3])) : Usage(); break;
                 case "replace-comp": rc = args.Length >= 4 ? ReplaceComp(doc, args[2], Path.GetFullPath(args[3]), args.Skip(4).ToArray()) : Usage(); break;
                 default: rc = Usage(); break;
@@ -69,6 +77,15 @@ static class DmEdit
                     return 1;
                 }
                 Console.WriteLine("Saved " + Path.GetFileName(path));
+            }
+            if (rc == 0 && cmd == "delprop")
+            {
+                doc.CloseDoc();
+                doc = app.GetDocument(path, TypeOf(path), true, out err) as ISwDMDocument31;
+                if (doc == null) { Console.Error.WriteLine("Could not re-open " + Path.GetFileName(path) + ": " + err); return 1; }
+                var names = args[2] == "@file" ? doc.GetCustomPropertyNames() : Config(doc, args[2]) == null ? null : Config(doc, args[2]).GetCustomPropertyNames();
+                if (Has(names, args[3])) { Console.Error.WriteLine("Read back: " + args[3] + " is still there at " + args[2]); return 1; }
+                Console.WriteLine("Read back: " + args[3] + " is gone at " + args[2]);
             }
             return rc;
         }
@@ -152,6 +169,26 @@ static class DmEdit
             else cfg.AddCustomProperty(name, SwDmCustomInfoType.swDmCustomInfoText, value);
         }
         Console.WriteLine("Set " + name + " = " + value + " at " + level);
+        return 0;
+    }
+
+    static int DelProp(ISwDMDocument31 doc, string level, string name)
+    {
+        bool ok;
+        if (level == "@file")
+        {
+            if (!Has(doc.GetCustomPropertyNames(), name)) { Console.Error.WriteLine(name + " is not set at @file"); return 1; }
+            ok = doc.DeleteCustomProperty(name);
+        }
+        else
+        {
+            var cfg = Config(doc, level);
+            if (cfg == null) return 1;
+            if (!Has(cfg.GetCustomPropertyNames(), name)) { Console.Error.WriteLine(name + " is not set at " + level); return 1; }
+            ok = cfg.DeleteCustomProperty(name);
+        }
+        if (!ok) { Console.Error.WriteLine("Delete refused: " + name + " at " + level); return 1; }
+        Console.WriteLine("Deleted " + name + " at " + level);
         return 0;
     }
 

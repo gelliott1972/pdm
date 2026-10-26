@@ -74,6 +74,8 @@ D29 settled (Admin, 26 Oct): shaft codes stay (08Z11 for D20, 08X11 for A+C), ho
 | B | 61 | 33 | 21 / 6 / 0 | 1 (`08X11-DBP-01`, carried along) | 21 (9) | 0 | only "reused file not in the vault" for A's 6 (expected before A is applied) |
 | C | 49 | 18 | 19 / 7 / 5 | 0 | 11 (3) | 0 | only "not in the vault" for A's 7 and B's 5 (expected) |
 
+**D32 (26 Oct):** plan writes the beams' numbers at the As Machined configuration, Provisional (beam 1 added, `D32`); a file-level PartNo still on any of the 9 beam parts = "decide". `DmEdit delprop <file> <config|@file> <name>` added (deletes, saves, re-opens and checks it's gone; DmEdit now refuses to write anything under `P:\` or `C:\PDM\`). Tested on a scratch copy of A's TIE_BEAM_3: only that property changed (probe before/after). Mock of -r1 with the 9 deleted: A's beams `config`, Provisional, nothing on As Welded; 0 decide. Real -r1 now: 3 decide per screen until SW deletes them.
+
 Vault changes (D17), all from A: 9 fastener configurations need a PartNo by check-out (`FAST-HEX` M10x140, M10x60, M6x50, M8x55, M8x90; `FAST-NUT` M6, M8; `FAST-WSH` 6, 8); only M10x60 is reached by the tops. Open: James's beam numbers sit at file level, so the plan carries them onto the `<As Welded>` configurations too (0806: As Machined only); asked Admin.
 
 Rehearsal (trial, not `P:\`): A, B, C applied in order into a scratch copy of `P:\APEX` + `P:\_Shared` with a copy of the ledger (A's TIE_BEAM_3 file-level row dropped): all checks passed; probe of the result: 181 files, all open, 438 references, 0 outside the vault, 0 broken; C's STA points at `ShaftBC 8Z11-*`. SwFixRefs not run (SOLIDWORKS open).

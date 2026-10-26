@@ -10,11 +10,11 @@ Updated 26 Oct 2026 (after the 0811 import), on the laptop. The next Admin sessi
 | App updates | 0.1.7 (25 Oct): buttons on top; check-in one file at a time with a progress bar; checked on dummy data only. 0.1.6: Document Manager reads drawings. 0.1.5: add new files from the page; drawings carry no PartNo. 0.1.4: list no longer blanks when SOLIDWORKS holds a file open. All published from the laptop. |
 | Vault | 181 files, 186 PartNos (26 Oct): 0806 A, B, C, `08A06-HBA-01.SLDDRW`, and **0811 A, B, C imported and loaded 26 Oct** (87 new files, 53.8 MB; index = S3 = 181). `08XXX-PLP` has a new version (drain hole, D28). |
 | Decisions | `docs\imports\LS-08A-06-decisions.md`, `docs\imports\LS-08BC-06-decisions.md`, `docs\imports\LS-08X-11-decisions.md` (D1–D33, all settled) |
-| Ledger | `data\rename-ledger.csv` (A 164 rows, B/C 70) |
+| Ledger | `data\rename-ledger.csv` (0806 A 164 rows, B/C 70; 0811 135: A 58, B 51, C 26) |
 | Register | `data\APEX_Structure_Part_Numbering_Standard_Rev3.xlsx` |
 | Way of working | Since 25 Oct: Grant decides only in Admin; SW gives SOLIDWORKS steps; Dev and App ask Admin. Fixed labels per import (memory `one-window-for-decisions`). |
 
-## 0811 import (brief `docsriefs\import-0811.md`)
+## 0811 import (brief `docs\briefs\import-0811.md`)
 
 Done 26 Oct. Decisions D1-D33 in `docs\imports\LS-08X-11-decisions.md`. Import route as 0806 plus a new step: SwResave-import of the new assemblies after SwFixRefs (Importer DM renames left stale instance names; a configuration switch then lost suppression). After-import checks now include SwSuppDump (every sub-assembly configuration). Rehearsed 4 times on scratch copies of P:\ first. Work copies kept aside as `C:\PDM-work\LS-08x-11-hold` (pre-import record). Left: D17 fastener PartNos by Grant's check-out.
 

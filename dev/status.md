@@ -66,6 +66,20 @@ D29 settled (Admin, 26 Oct): shaft codes stay (08Z11 for D20, 08X11 for A+C), ho
 
 **-r1 A, first plan (26 Oct, no SwCheck yet, drawings not copied in):** `scratch\import\LS-08A-11-r1-import-plan.xlsx`, vault probe `vault-P-2610b` (unchanged). 40 files: 17 import, 17 reuse, 3 modelling groups, 1 keep name, 1 drawing; 9 Vault changes (D17 fastener PartNos). Clean: D10 (`08X11-DBP-01`, no As Welded PartNo), D14 (`08X11-LMW`, old LCMM and 2-size plate gone), D15, D21, D25 (STA has no file-level properties), D26 (splice kit now a note), vault check. Still stopping: `TIE_80x40x8` (D30: SW repoints every instance to the vault's `GNRIC-BRP`/`GNRIC-BRA` and redoes -r1 for all three; the plan stops on any left). D31 in: the tops become `LS-08x-11+STRUCTURE` in `APEX\SC08\LS-08X-11`, no PartNo (A's `-r1` top has no properties). App confirmed `pdm.exe` reads only the reference table. Pack and Go layout `PDM-work\LS-08A-11Év3\...` is the same as 0806 B/C: no move needed. Component paths into other work copies: the Importer and SwFixRefs match by file name, and the after-import gate reads the reference table, so no false stops.
 
+**-r1 planned (26 Oct).** Vault probe `vault-P-2610c`; all three with `--swcheck` (the 3 `-r1` tops) and `--vault`; plans and exports in `scratch\import\LS-08x-11-r1-import-plan*`.
+
+| Screen | Files | Import | Reuse (vault / earlier screen / D20) | Left out | PartNos (Provisional) | Decide | Dry run |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| A | 55 | 36 | 19 / 0 / 0 | 0 | 25 (9) | 0 | 1 problem: `08A11-HBW-03` on TIE_BEAM_3 at both config (As Machined) and file level |
+| B | 61 | 33 | 21 / 6 / 0 | 1 (`08X11-DBP-01`, carried along) | 21 (9) | 0 | only "reused file not in the vault" for A's 6 (expected before A is applied) |
+| C | 49 | 18 | 19 / 7 / 5 | 0 | 11 (3) | 0 | only "not in the vault" for A's 7 and B's 5 (expected) |
+
+Vault changes (D17), all from A: 9 fastener configurations need a PartNo by check-out (`FAST-HEX` M10x140, M10x60, M6x50, M8x55, M8x90; `FAST-NUT` M6, M8; `FAST-WSH` 6, 8); only M10x60 is reached by the tops. Open: James's beam numbers sit at file level, so the plan carries them onto the `<As Welded>` configurations too (0806: As Machined only); asked Admin.
+
+Rehearsal (trial, not `P:\`): A, B, C applied in order into a scratch copy of `P:\APEX` + `P:\_Shared` with a copy of the ledger (A's TIE_BEAM_3 file-level row dropped): all checks passed; probe of the result: 181 files, all open, 438 references, 0 outside the vault, 0 broken; C's STA points at `ShaftBC 8Z11-*`. SwFixRefs not run (SOLIDWORKS open).
+
+Gates made strict (Admin): the Importer's after-import check fails on any reference under `C:\PDM-work\` or the Pack and Go, even to a left-out file, and its pre-check now stops (was a warning) on a left-out file still named by a suppressed component; the SwFixRefs gate (no `--apply`) fails on any stored link outside the vault. Built; not yet seen failing on a real case.
+
 Run order with D20: plan A, export; plan B `--with` A; export; plan C `--with` A `--with` B. Apply A, then B, then C (C's reuse rows need B's `08Z11` files in the vault).
 
 **Next:** plan from SW's `-r1` probes, dry run, report to Admin.

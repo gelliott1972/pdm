@@ -30,6 +30,7 @@ class PartNoRow { public string File, Config, Level, PartNo, Status, From; }
 static class Importer
 {
     static ISwDMApplication app;
+    const string WorkRoot = @"C:\PDM-work\";   // work copies and the inbox: no vault file may point here
     static readonly List<string> errors = new List<string>(), warnings = new List<string>(), done = new List<string>(), bom = new List<string>();
 
     static int Main(string[] args)
@@ -143,8 +144,8 @@ static class Importer
                     && o.Refs.Any(x => Path.GetFileName(x).Equals(r, StringComparison.OrdinalIgnoreCase))) : null;
                 if (via != null)
                     warnings.Add(it.OldName + " (drawing) lists " + r + " (left out) through its model " + via.OldName + ".");
-                else if (target != null && !it.UnsuppressedNames.Contains(r))
-                    warnings.Add(it.OldName + " still refers to " + r + " (left out). Only suppressed components use it, so it never loads.");
+                else if (target != null && !it.UnsuppressedNames.Contains(r))   // its Pack and Go path would stay and fail the check after import
+                    errors.Add(it.OldName + " still refers to " + r + " (left out), though only suppressed components use it: the path into the Pack and Go would stay in the vault. Delete the component or import the file.");
                 else if (target != null)
                     errors.Add(it.OldName + " uses " + r + ", which the plan leaves out.");
                 else
@@ -234,7 +235,9 @@ static class Importer
                     checkedRefs++;
                     bool inside = r.StartsWith(vaultRoot + "\\", StringComparison.OrdinalIgnoreCase) && File.Exists(r);
                     if (inside) continue;
-                    if (leftOut.Contains(Path.GetFileName(r))) continue;   // reported above
+                    // A path into the Pack and Go or a work copy is never acceptable, even to a left-out file.
+                    bool work = r.StartsWith(sourceRoot + "\\", StringComparison.OrdinalIgnoreCase) || r.StartsWith(WorkRoot, StringComparison.OrdinalIgnoreCase);
+                    if (!work && leftOut.Contains(Path.GetFileName(r))) continue;   // reported above
                     errors.Add("After import, " + it.NewName + " still points outside the vault: " + r);
                 }
                 foreach (var p in partnos.Where(p => p.File.Equals(it.OldName, StringComparison.OrdinalIgnoreCase)))

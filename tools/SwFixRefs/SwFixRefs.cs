@@ -100,6 +100,8 @@ static class SwFixRefs
         }
         Console.WriteLine();
         Console.WriteLine("Stored references outside the vault: " + outside + (apply ? ", repointed: " + fixedCount : "") + ", problems: " + failed);
+        // Without --apply this is the gate: any stored link outside the vault fails it, even one that could be repointed.
+        if (!apply && outside > 0) { Console.WriteLine("GATE FAILED: " + outside + " stored link(s) outside the vault."); return 1; }
         return failed == 0 ? 0 : 1;
     }
 

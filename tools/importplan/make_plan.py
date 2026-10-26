@@ -89,6 +89,9 @@ D25_PROPS = "D25"
 D15_OPEN = "D15: the old grout kits should be gone from -r1 (SW removes them); still here"
 # D14: SW splits the LCMM into 08X11-LMW / 08B11-LMW-01 with the 4-size plate; the old LCMM and the 2-size plate must be gone.
 D14_OPEN = "D14: should be gone from -r1 (LCMM split into 08X11-LMW / 08B11-LMW-01, 2-size plate swapped for the 4-size 08XXX-PLP); still here"
+# D33 (with Grant): True = every number the plan writes on a new 0811 steel import is Provisional until James
+# confirms (a); False = only those D8 / D9 / D20 / D32 or the register make Provisional (b). Re-plan after changing.
+D33_ALL_PROVISIONAL = False
 # D32: as 0806, no new import keeps a file-level PartNo: James's go in prep (DmEdit delprop), the plan writes them
 # at the configuration (Default, or As Machined for weldment parts), Provisional.
 D30_OPEN = "D30: every TIE_80x40x8 instance should be repointed to the vault's GNRIC-BRP / GNRIC-BRA in prep; still here"
@@ -175,6 +178,7 @@ DECIDED = {
         "no_file_props": {"08A11-STA-01.SLDASM": D25_PROPS},
         "combined": {"LS-08A-11 - SCREEN + STRUCTURE.SLDASM": "D31 (as 0806)"},
         "no_file_partno_imports": "D32",
+        "all_provisional": "D33" if D33_ALL_PROVISIONAL else None,
         "no_welded_partno": D10_WELDED,
         "leave_out": {   # D3: A's older drawings duplicate the numbered ones; listed in the report, never in the PDM
             f: "D3 (older drawing, duplicates a numbered one)" for f in (
@@ -193,6 +197,7 @@ DECIDED = {
         "no_file_props": {"08B11-STA-01.SLDASM": D25_PROPS},
         "combined": {"LS-08B-11 - SCREEN + STRUCTURE.SLDASM": "D31 (as 0806)"},
         "no_file_partno_imports": "D32",
+        "all_provisional": "D33" if D33_ALL_PROVISIONAL else None,
         "no_welded_partno": D10_WELDED,
     },
     "LS-08C-11": {
@@ -203,6 +208,7 @@ DECIDED = {
         "no_file_props": {"08C11-STA-01.SLDASM": D25_PROPS},
         "combined": {"LS-08C-11 - SCREEN + STRUCTURE.SLDASM": "D31 (as 0806)"},
         "no_file_partno_imports": "D32",
+        "all_provisional": "D33" if D33_ALL_PROVISIONAL else None,
         "no_welded_partno": D10_WELDED,
     },
 }
@@ -894,7 +900,7 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
             level = ""
         else:
             level = "config"
-        provisional = (decided and decided[1]) or src.startswith("sample register")             or (cfg_status.get((fk, cfg)) if level == "config" else file_status.get(fk, "")) == "Provisional"
+        provisional = (decided and decided[1]) or src.startswith("sample register")             or (cls == "steel" and bool(dec.get("all_provisional"))) or (cfg_status.get((fk, cfg)) if level == "config" else file_status.get(fk, "")) == "Provisional"
         status = "Provisional" if provisional and proposed else ""
         pn_rows.append([fname, cfg, parent, n_used, in_file, in_reg, proposed, src, level, status, "; ".join(pflags), "", ""])
 

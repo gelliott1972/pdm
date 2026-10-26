@@ -64,6 +64,8 @@ Waiting on SW's prep before `-r1`: D7 (STA), D14 (LCMM split), repoints of ties,
 
 D29 settled (Admin, 26 Oct): shaft codes stay (08Z11 for D20, 08X11 for A+C), hold lifted. D28 done: Grant fixed the drain hole in vault `08XXX-PLP` by check-out. Fresh vault probe `scratch\inventory\vault-P-2610` (94 files): configurations and PartNos identical to `vault-P-2510d`; 0811 A on 2510 passes the vault check. Re-probe `P:\` again right before the `-r1` plans.
 
+**-r1 A, first plan (26 Oct, no SwCheck yet, drawings not copied in):** `scratch\import\LS-08A-11-r1-import-plan.xlsx`, vault probe `vault-P-2610b` (unchanged). 40 files: 17 import, 17 reuse, 3 modelling groups, 1 keep name, 1 drawing; 9 Vault changes (D17 fastener PartNos). Clean: D10 (`08X11-DBP-01`, no As Welded PartNo), D14 (`08X11-LMW`, old LCMM and 2-size plate gone), D15, D21, D25 (STA has no file-level properties), D26 (splice kit now a note), vault check. Still stopping: `TIE_80x40x8` (split family: not repointed to `GNRIC-BRP`/`GNRIC-BRA`), and the top `LS-08A-11 - SCREEN + STRUCTURE` (name not decided for 0811). Pack and Go layout `PDM-work\LS-08A-11Év3\...` is the same as 0806 B/C: no move needed. Component paths into other work copies: the Importer and SwFixRefs match by file name, and the after-import gate reads the reference table, so no false stops.
+
 Run order with D20: plan A, export; plan B `--with` A; export; plan C `--with` A `--with` B. Apply A, then B, then C (C's reuse rows need B's `08Z11` files in the vault).
 
 **Next:** plan from SW's `-r1` probes, dry run, report to Admin.

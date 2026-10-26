@@ -95,6 +95,7 @@ OPEN_0811 = {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "L
 #            the other screen's (needs --with that screen)
 #   no_file_props: old file -> where decided: must have no file-level custom properties (prep deletes them)
 #   no_welded_partno: old file -> where decided: its <As Welded> configurations carry no PartNo
+#   weight_reads_other: old file -> where decided: its Weight formula reading another file is deliberate (a note)
 #   replaced_partnos: old file reused from the vault -> where decided: the copy's own PartNos were replaced by a
 #                     decision, so a copy PartNo that differs from the vault's is a note, not a stop
 DECIDED = {
@@ -159,6 +160,7 @@ DECIDED = {
             ("PLATE_Bolting_Connector.SLDPRT", "Member 14"): ("GNRIC-MSP-14", True, "D12"),
         },
         "modelling_groups": {"SPLICE_JOINT_ASSY.SLDASM": "D13 (splice kit is a modelling aid for now)"},
+        "weight_reads_other": {"SPLICE_JOINT_ASSY.SLDASM": "D26: reads its plate's mass (not plate plus bolts), as James made it; listed for him"},
         "open": OPEN_0811,
         "no_file_props": {"08A11-STA-01.SLDASM": D25_PROPS},
         "no_welded_partno": D10_WELDED,
@@ -289,6 +291,7 @@ dec_same = {key(k): (sc, key(f), w) for k, (sc, f, w) in dec.get("same_as", {}).
 dec_nofp = {key(k): v for k, v in dec.get("no_file_props", {}).items()}
 dec_nowp = {key(k): v for k, v in dec.get("no_welded_partno", {}).items()}
 dec_repl = {key(k): v for k, v in dec.get("replaced_partnos", {}).items()}
+dec_wro = {key(k): v for k, v in dec.get("weight_reads_other", {}).items()}
 file_props = collections.defaultdict(list)       # file -> names of its file-level custom properties
 for p in props:
     if p["config"] == "(file)":
@@ -796,7 +799,9 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     # A Weight formula should read the file's own mass. One naming another file (often another screen's copy, left by
     # Save As) isn't rewritten by the importer, which only knows this plan's renames.
     foreign = sorted({m.group(1) for (ff, _), e in mass_refs.items() if ff == fk for m in [MASS_RE.search(e)] if m and key(m.group(1)) != fk})
-    if foreign and action.startswith("import"):
+    if foreign and action.startswith("import") and fk in dec_wro:
+        flags.append(flag(fname, f"note, {dec_wro[fk]}: Weight reads " + ", ".join(foreign)))
+    elif foreign and action.startswith("import"):
         flags.append(flag(fname, "Weight formula reads another file's mass (" + ", ".join(foreign) + "): D26, each Weight formula reads its own file; SW fixes it in prep (DmEdit), or Admin says it's deliberate"))
     if fk in dec_nofp and file_props.get(fk):
         action = "decide"

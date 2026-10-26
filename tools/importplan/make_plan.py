@@ -84,7 +84,8 @@ D25_PROPS = "D25"
 D15_OPEN = "D15: the old grout kits should be gone from -r1 (SW removes them); still here"
 # D14: SW splits the LCMM into 08X11-LMW / 08B11-LMW-01 with the 4-size plate; the old LCMM and the 2-size plate must be gone.
 D14_OPEN = "D14: should be gone from -r1 (LCMM split into 08X11-LMW / 08B11-LMW-01, 2-size plate swapped for the 4-size 08XXX-PLP); still here"
-OPEN_0811 = {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN,
+D30_OPEN = "D30: every TIE_80x40x8 instance should be repointed to the vault's GNRIC-BRP / GNRIC-BRA in prep; still here"
+OPEN_0811 = {"TIE_80x40x8.SLDPRT": D30_OPEN, "GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN,
              "LCMM_40x80x8_SC08.SLDASM": D14_OPEN, "LS-08X-X_PLATE_TIE_BEAM_INTERFACE.SLDPRT": D14_OPEN}
 
 # Names and numbers decided for one screen's import (docs\imports\<screen>-decisions.md). Not rules for other screens.
@@ -95,6 +96,7 @@ OPEN_0811 = {"GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "L
 #            the other screen's (needs --with that screen)
 #   no_file_props: old file -> where decided: must have no file-level custom properties (prep deletes them)
 #   no_welded_partno: old file -> where decided: its <As Welded> configurations carry no PartNo
+#   combined: old file -> where decided: screen and structure in one top assembly, named <screen>+STRUCTURE, no PartNo
 #   weight_reads_other: old file -> where decided: its Weight formula reading another file is deliberate (a note)
 #   replaced_partnos: old file reused from the vault -> where decided: the copy's own PartNos were replaced by a
 #                     decision, so a copy PartNo that differs from the vault's is a note, not a stop
@@ -163,6 +165,7 @@ DECIDED = {
         "weight_reads_other": {"SPLICE_JOINT_ASSY.SLDASM": "D26: reads its plate's mass (not plate plus bolts), as James made it; listed for him"},
         "open": OPEN_0811,
         "no_file_props": {"08A11-STA-01.SLDASM": D25_PROPS},
+        "combined": {"LS-08A-11 - SCREEN + STRUCTURE.SLDASM": "D31 (as 0806)"},
         "no_welded_partno": D10_WELDED,
         "leave_out": {   # D3: A's older drawings duplicate the numbered ones; listed in the report, never in the PDM
             f: "D3 (older drawing, duplicates a numbered one)" for f in (
@@ -179,6 +182,7 @@ DECIDED = {
         },
         "open": OPEN_0811,
         "no_file_props": {"08B11-STA-01.SLDASM": D25_PROPS},
+        "combined": {"LS-08B-11 - SCREEN + STRUCTURE.SLDASM": "D31 (as 0806)"},
         "no_welded_partno": D10_WELDED,
     },
     "LS-08C-11": {
@@ -187,6 +191,7 @@ DECIDED = {
         "same_as": {f"LS-08C-11_{k}.SLDASM": ("LS-08B-11", f"LS-08B-11_{k}.SLDASM", "D20") for k in D20},
         "open": OPEN_0811,
         "no_file_props": {"08C11-STA-01.SLDASM": D25_PROPS},
+        "combined": {"LS-08C-11 - SCREEN + STRUCTURE.SLDASM": "D31 (as 0806)"},
         "no_welded_partno": D10_WELDED,
     },
 }
@@ -292,6 +297,7 @@ dec_nofp = {key(k): v for k, v in dec.get("no_file_props", {}).items()}
 dec_nowp = {key(k): v for k, v in dec.get("no_welded_partno", {}).items()}
 dec_repl = {key(k): v for k, v in dec.get("replaced_partnos", {}).items()}
 dec_wro = {key(k): v for k, v in dec.get("weight_reads_other", {}).items()}
+dec_comb = {key(k): v for k, v in dec.get("combined", {}).items()}
 file_props = collections.defaultdict(list)       # file -> names of its file-level custom properties
 for p in props:
     if p["config"] == "(file)":
@@ -467,7 +473,7 @@ def classify(f):
         return "modelling group"      # bolt kits are modelling groups, not bagged sets (decided 18 Oct 2026)
     if f["type"] == "assembly" and contents[n] and contents[n] <= {"sku", "panel"}:
         return "screen assembly"
-    if "+structure" in n:
+    if "+structure" in n or n in dec_comb:
         return "combined"
     return "steel"
 

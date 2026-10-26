@@ -49,7 +49,7 @@ Updated 24 Oct 2026. Working to the revised brief (Cognito, DynamoDB, local page
 
 | Item | State |
 | --- | --- |
-| My part | Step 6: `pdm.exe load --dry`, then the load (upload size to Grant first: he may be on a flight). |
+| My part | **Done 26 Oct.** Screens A, B, C loaded from the laptop: 87 new files (A 36, B 33, C 18), 53.8 MB, 0 changed, 0 skipped. Vault now 181 files (index and S3), 186 PartNos, 438 references, 0 outside. New files set read-only. D17 fastener PartNos still wait for Grant's check-out. |
 | Loader dry run | Now says how many MB would upload and lists each new or changed file. Checked 25 Oct on the laptop: 94 files, 0 to upload, 138 PartNos, 238 references inside, 0 outside (James's drawing included, no PartNo). |
 | Dev | Told exactly what changed for drawings (0.1.5 PartNo, 0.1.6 configurations); Dev then tested `ReplaceReference` and `Save` on a sample drawing: both work (`AddCustomProperty` on a drawing still untested). A drawing's references list the model **and everything inside it**, so its index row refers to the model's parts too (harmless here: "used by n other assemblies" counts assemblies only). |
 | Loader: what it takes | Admin agreed 25 Oct: SOLIDWORKS files only, plus any other file a SOLIDWORKS file refers to (e.g. the equations .txt); everything else under `P:\` is skipped and listed in the dry run. Checked with a stray CSV: skipped and listed, 94 vault files unaffected. **Not checked:** whether the Document Manager reports an equations .txt as a reference; if it doesn't, the dry run lists the .txt as skipped. Close SOLIDWORKS before loading (an open file stops the upload; the load can be re-run). |

@@ -60,8 +60,11 @@ def SHAFT_0811(x, sf):
     d = {
         (f"LS-08{x}-11_TIE_BEAM_2.SLDPRT", "Default<As Machined>"): (f"08{x}11-HBP-02", True, "D9 (James's number; P checked by SW)"),
         (f"LS-08{x}-11_TIE_BEAM_3.SLDPRT", "Default<As Machined>"): (f"08{x}11-HBW-03", True, "D9 (James's number; W checked by SW)"),
-        # D32: beam 1 Provisional too, at As Machined only (A's configurations are Default, B's and C's ASSY / PART)
+        # D32: James's file-level numbers move to the configuration, Provisional (beam 1 at As Machined only: A's
+        # configurations are Default, B's and C's ASSY / PART; the beam assemblies and SF01-UPPER at Default).
         (f"LS-08{x}-11_TIE_BEAM_1_MAIN_MEMBERS.SLDPRT", "Default<As Machined>" if x == "A" else "ASSY<As Machined>"): (f"08{x}11-HBW-01", True, "D32 (James's number)"),
+        **{(f"LS-08{x}-11-TIE_BEAM_{n}.SLDASM", "Default"): (f"08{x}11-HBA-0{n}", True, "D32 (James's number)") for n in (1, 2, 3)},
+        (f"LS-08{x}-11_SF01-UPPER.SLDASM", "Default"): (f"08{x}11-SFA-1T", True, "D32 (James's number)"),
     }
     if sf:
         src = "D8 (James's number)" + (", D20 (shared by B and C)" if sf == "Z" else "")
@@ -86,8 +89,8 @@ D25_PROPS = "D25"
 D15_OPEN = "D15: the old grout kits should be gone from -r1 (SW removes them); still here"
 # D14: SW splits the LCMM into 08X11-LMW / 08B11-LMW-01 with the 4-size plate; the old LCMM and the 2-size plate must be gone.
 D14_OPEN = "D14: should be gone from -r1 (LCMM split into 08X11-LMW / 08B11-LMW-01, 2-size plate swapped for the 4-size 08XXX-PLP); still here"
-# D32: the beams as 0806, PartNo at As Machined only; James's file-level PartNos go in prep (DmEdit delprop).
-D32_BEAMS = lambda x: {f"LS-08{x}-11_{b}.SLDPRT": "D32" for b in ("TIE_BEAM_1_MAIN_MEMBERS", "TIE_BEAM_2", "TIE_BEAM_3")}
+# D32: as 0806, no new import keeps a file-level PartNo: James's go in prep (DmEdit delprop), the plan writes them
+# at the configuration (Default, or As Machined for weldment parts), Provisional.
 D30_OPEN = "D30: every TIE_80x40x8 instance should be repointed to the vault's GNRIC-BRP / GNRIC-BRA in prep; still here"
 OPEN_0811 = {"TIE_80x40x8.SLDPRT": D30_OPEN, "GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN,
              "LCMM_40x80x8_SC08.SLDASM": D14_OPEN, "LS-08X-X_PLATE_TIE_BEAM_INTERFACE.SLDPRT": D14_OPEN}
@@ -100,7 +103,7 @@ OPEN_0811 = {"TIE_80x40x8.SLDPRT": D30_OPEN, "GROUT+ANCHOR_BOLTS.SLDASM": D15_OP
 #            the other screen's (needs --with that screen)
 #   no_file_props: old file -> where decided: must have no file-level custom properties (prep deletes them)
 #   no_welded_partno: old file -> where decided: its <As Welded> configurations carry no PartNo
-#   no_file_partno: old file -> where decided: its PartNo belongs at configuration level, so a file-level one must go in prep
+#   no_file_partno_imports: where decided: no file this plan imports may keep a file-level PartNo (prep deletes them)
 #   combined: old file -> where decided: screen and structure in one top assembly, named <screen>+STRUCTURE, no PartNo
 #   weight_reads_other: old file -> where decided: its Weight formula reading another file is deliberate (a note)
 #   replaced_partnos: old file reused from the vault -> where decided: the copy's own PartNos were replaced by a
@@ -171,7 +174,7 @@ DECIDED = {
         "open": OPEN_0811,
         "no_file_props": {"08A11-STA-01.SLDASM": D25_PROPS},
         "combined": {"LS-08A-11 - SCREEN + STRUCTURE.SLDASM": "D31 (as 0806)"},
-        "no_file_partno": D32_BEAMS("A"),
+        "no_file_partno_imports": "D32",
         "no_welded_partno": D10_WELDED,
         "leave_out": {   # D3: A's older drawings duplicate the numbered ones; listed in the report, never in the PDM
             f: "D3 (older drawing, duplicates a numbered one)" for f in (
@@ -189,7 +192,7 @@ DECIDED = {
         "open": OPEN_0811,
         "no_file_props": {"08B11-STA-01.SLDASM": D25_PROPS},
         "combined": {"LS-08B-11 - SCREEN + STRUCTURE.SLDASM": "D31 (as 0806)"},
-        "no_file_partno": D32_BEAMS("B"),
+        "no_file_partno_imports": "D32",
         "no_welded_partno": D10_WELDED,
     },
     "LS-08C-11": {
@@ -199,7 +202,7 @@ DECIDED = {
         "open": OPEN_0811,
         "no_file_props": {"08C11-STA-01.SLDASM": D25_PROPS},
         "combined": {"LS-08C-11 - SCREEN + STRUCTURE.SLDASM": "D31 (as 0806)"},
-        "no_file_partno": D32_BEAMS("C"),
+        "no_file_partno_imports": "D32",
         "no_welded_partno": D10_WELDED,
     },
 }
@@ -306,7 +309,7 @@ dec_nowp = {key(k): v for k, v in dec.get("no_welded_partno", {}).items()}
 dec_repl = {key(k): v for k, v in dec.get("replaced_partnos", {}).items()}
 dec_wro = {key(k): v for k, v in dec.get("weight_reads_other", {}).items()}
 dec_comb = {key(k): v for k, v in dec.get("combined", {}).items()}
-dec_nfpn = {key(k): v for k, v in dec.get("no_file_partno", {}).items()}
+dec_nfpn = dec.get("no_file_partno_imports")
 file_props = collections.defaultdict(list)       # file -> names of its file-level custom properties
 for p in props:
     if p["config"] == "(file)":
@@ -819,9 +822,9 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         flags.append(flag(fname, f"note, {dec_wro[fk]}: Weight reads " + ", ".join(foreign)))
     elif foreign and action.startswith("import"):
         flags.append(flag(fname, "Weight formula reads another file's mass (" + ", ".join(foreign) + "): D26, each Weight formula reads its own file; SW fixes it in prep (DmEdit), or Admin says it's deliberate"))
-    if fk in dec_nfpn and file_partno.get(fk):
+    if dec_nfpn and action.startswith("import") and file_partno.get(fk):
         action = "decide"
-        flags.append(flag(fname, f"{dec_nfpn[fk]}: file-level PartNo {file_partno[fk]} should be deleted in prep (PartNo at configuration level only); still here"))
+        flags.append(flag(fname, f"{dec_nfpn}: file-level PartNo {file_partno[fk]} should be deleted in prep (PartNo at configuration level only); still here"))
     if fk in dec_nofp and file_props.get(fk):
         action = "decide"
         flags.append(flag(fname, f"{dec_nofp[fk]}: file-level properties should be deleted in prep; still here: " + ", ".join(file_props[fk])))

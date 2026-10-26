@@ -30,13 +30,23 @@ static class SwResave
     {
         if (args.Length < 1) return Usage();
         // Internal: one file in this process (the parent starts one of these per file).
-        if (args[0] == "--one" && args.Length == 2) return One(args[1]);
-        if (args[0] == "--import-one" && args.Length == 4)
+        // Exit 2 there means bad arguments or refused (no retry); 3 means SOLIDWORKS failed mid-run (retried once).
+        if (args[0] == "--one" || args[0] == "--import-one")
         {
-            var allowed = AllowList(args[1], args[2]);
-            if (allowed == null) return 2;
-            string f = Path.GetFullPath(args[3]);
-            if (!allowed.Contains(f, StringComparer.OrdinalIgnoreCase) || Forbidden(f)) { Console.Error.WriteLine("REFUSED (not in the import allow-list): " + f); return 2; }
+            string f;
+            try
+            {
+                if (args[0] == "--one" && args.Length == 2) f = Path.GetFullPath(args[1]);
+                else if (args[0] == "--import-one" && args.Length == 4)
+                {
+                    var allowed = AllowList(args[1], args[2]);
+                    if (allowed == null) return 2;
+                    f = Path.GetFullPath(args[3]);
+                    if (!allowed.Contains(f, StringComparer.OrdinalIgnoreCase) || Forbidden(f)) { Console.Error.WriteLine("REFUSED (not in the import allow-list): " + f); return 2; }
+                }
+                else return Usage();
+            }
+            catch (Exception ex) { Console.Error.WriteLine("Bad arguments (" + ex.GetType().Name + "): " + ex.Message); return 2; }
             return One(f);
         }
 
@@ -74,8 +84,9 @@ static class SwResave
             {
                 if (!WaitForNoSolidWorks()) { Console.WriteLine(Path.GetFileName(f) + ": SOLIDWORKS still running from the previous file  ** NOT SAVED **"); rc = 1; break; }
                 rc = RunChild(self, childPrefix.Concat(new[] { Quote(f) }));
-                if (rc == 0 || rc == 1 || rc == 2) break;  // ran to the end (saved, failed, refused): don't retry
-                Console.WriteLine(Path.GetFileName(f) + ": SOLIDWORKS start crashed (exit " + rc + ")" + (attempt == 1 ? ", retrying once" : ""));
+                if (rc == 0 || rc == 1) break;  // ran to the end (saved or failed): don't retry
+                if (rc == 2) { Console.WriteLine(Path.GetFileName(f) + ": refused or bad arguments (see above), not retried"); break; }
+                Console.WriteLine(Path.GetFileName(f) + ": SOLIDWORKS failed mid-run (exit " + rc + ")" + (attempt == 1 ? ", retrying once" : ""));
             }
             if (rc != 0) problems++;
         }
@@ -117,6 +128,12 @@ static class SwResave
             bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref serr, ref swarn);
             Console.WriteLine("  rebuilt " + names.Length + " config(s), save " + (ok ? "ok" : "FAILED") + " (errors=" + serr + " warnings=" + swarn + ")");
             return ok ? 0 : 1;
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            Console.WriteLine();
+            Console.WriteLine(Path.GetFileName(path) + ": SOLIDWORKS error 0x" + ex.ErrorCode.ToString("X8") + "  ** NOT SAVED **");
+            return 3;
         }
         finally
         {
@@ -235,7 +252,22 @@ static class SwResave
         return p.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || p.IndexOf(@"\.pdm\", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
-    static string Quote(string s) { return "\"" + s + "\""; }
+    // Quote one argument for the Windows command line: backslashes before a quote (or at the end, before the
+    // closing quote) are doubled, so a root like "P:\" reaches the child intact.
+    static string Quote(string s)
+    {
+        var b = new System.Text.StringBuilder("\"");
+        int slashes = 0;
+        foreach (char ch in s)
+        {
+            if (ch == '\\') { slashes++; continue; }
+            if (ch == '"') { b.Append('\\', slashes * 2 + 1); b.Append('"'); }
+            else { b.Append('\\', slashes); b.Append(ch); }
+            slashes = 0;
+        }
+        b.Append('\\', slashes * 2);
+        return b.Append('"').ToString();
+    }
 
     static List<string> SplitCsv(string line)
     {

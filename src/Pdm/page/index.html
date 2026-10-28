@@ -212,23 +212,44 @@ async function run(path, body) {
     const r = await api(path, body);
     showResult(r.log || []);
   } catch (e) { showResult(['Error: ' + e.message]); }
+  await load().catch(() => {}); // still busy, so nothing acts on the old list
   busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false);
-  await load().catch(() => {});
 }
 
-// One file per request so the page can show progress; the replies are gathered into the usual summary.
-async function runEach(path, paths, body, verb) {
+// A few files per request so the page can show progress. Each step is { path, paths, body, verb };
+// the replies are gathered into the usual summary. plan: the steps, or a function that works them out.
+async function runSteps(plan) {
   if (busy) return;
   busy = true; document.querySelectorAll('button').forEach(b => b.disabled = true);
-  const log = [];
-  for (const [i, p] of paths.entries()) {
-    showResult([`${verb} ${i + 1} of ${paths.length}: ${base(p)}…`], true, i / paths.length);
-    try { log.push(...((await api(path, { ...body, paths: [p] })).log || [])); }
+  showResult(['Working…'], true);
+  const steps = typeof plan === 'function' ? await plan().catch(() => []) : plan;
+  const log = [], total = steps.reduce((n, s) => n + s.paths.length, 0);
+  let n = 0;
+  for (const s of steps) {
+    const what = s.paths.length === 1 ? base(s.paths[0]) : s.paths.length + ' files';
+    showResult([`${s.verb} ${what} (${n + s.paths.length} of ${total})…`], true, n / total);
+    try { log.push(...((await api(s.path, { ...s.body, paths: s.paths })).log || [])); }
     catch (e) { log.push('Error: ' + e.message); if (!me) break; } // logged out: stop
+    n += s.paths.length;
   }
-  showResult(log);
+  // Each get reports its own "Get done" line; one is enough.
+  const gets = log.filter(l => l.startsWith('Get done'));
+  showResult([...log.filter(l => !l.startsWith('Get done')), ...(gets.length ? ['Get done.'] : [])]);
+  await load().catch(() => {}); // still busy, so nothing acts on the old list
   busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false);
-  await load().catch(() => {});
+}
+function chunks(list, size) { const out = []; for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size)); return out; }
+const steps = (path, paths, size, verb, body) => chunks(paths, size).map(p => ({ path, paths: p, verb, body }));
+
+// Get latest: what's newer one file at a time, then one quick pass over the rest
+// (sets them read-only, and flags files changed here without a check-out).
+function getLatest() {
+  runSteps(async () => {
+    await load(); // what's newer right now
+    const vault = files.filter(f => !f.isNew && !f.mine);
+    const newer = vault.filter(f => f.newer).map(f => f.path), rest = vault.filter(f => !f.newer).map(f => f.path);
+    return [...steps('get', newer, 1, 'Getting'), ...steps('get', rest, rest.length || 1, 'Checking')];
+  });
 }
 // Parts before assemblies before drawings, so a new part is in the index before what uses it.
 const rank = p => /\.sldprt$/i.test(p) ? 0 : /\.sldasm$/i.test(p) ? 1 : 2;
@@ -289,12 +310,27 @@ function descendants(f) {
   return list;
 }
 
+// A model's drawing is the one with the same name (08A11-HBA-01.SLDDRW for 08A11-HBA-01.SLDASM).
+// Other drawings that show the model (e.g. the whole station's) don't come with it.
+const stem = p => base(p).replace(/\.[^.]*$/, '').toLowerCase();
+function drawingOf(f) {
+  if (/\.slddrw$/i.test(f.path)) return null;
+  return f.usedBy.map(id => byId[id]).find(d => d && /\.slddrw$/i.test(d.path) && stem(d.path) === stem(f.path)) || null;
+}
+
+// What the check-out list shows: a folder's files, or a file with everything it uses and their drawings.
 function outRows() {
   if (!selected) return null;
   if (selected.endsWith('/')) return { title: 'Folder ' + selected, folder: selected, rows: files.filter(f => f.path.startsWith(selected)).map(f => ({ f, depth: 0 })) };
   const top = byPath[selected];
   if (!top) return null;
-  return { title: base(top.path), folder: dir(top.path), rows: [{ f: top, depth: 0 }, ...(isAsm(top.path) ? descendants(top) : [])] };
+  const models = [{ f: top, depth: 0 }, ...(isAsm(top.path) ? descendants(top) : [])], seen = new Set(models.map(r => r.f.id)), rows = [];
+  for (const r of models) {
+    rows.push(r);
+    const d = drawingOf(r.f);
+    if (d && !seen.has(d.id)) { seen.add(d.id); rows.push({ f: d, depth: r.depth }); }
+  }
+  return { title: base(top.path), folder: dir(top.path), file: true, rows };
 }
 
 function drawOut() {
@@ -319,7 +355,8 @@ function drawOut() {
       + `<input type="checkbox" data-out="${esc(f.path)}"${ticked ? ' checked' : ''}${disabled ? ' disabled' : ''}>`
       + `<span class="name">${esc(base(f.path))}</span>${note}</div>`;
   }).join('');
-  return `<h2>${esc(v.title)}</h2><div class="bar"><button class="main" id="outBtn">Check out ticked</button><span class="muted" id="outCount"></span></div>${rows}`;
+  return `<h2>${esc(v.title)}</h2><div class="bar"><button class="main" id="outBtn">Check out ticked</button>`
+    + `<label class="nw"><input type="checkbox" data-all="out"> Tick all</label><span class="muted" id="outCount"></span></div>${rows}`;
 }
 
 // ---- right: check in
@@ -337,7 +374,8 @@ function drawIn() {
       + `<span class="name">${esc(f.path)}</span>${tag}</div>`;
   }).join('');
   return `<h2>Checked out by me, and new files${v ? ' · ticked: under ' + esc(v.title) : ''}</h2>`
-    + `<div class="bar"><input type="text" class="grow" id="note" placeholder="Note"><button class="main" id="inBtn">Check in ticked</button><button id="undoBtn">Undo ticked</button></div>${rows}`;
+    + `<div class="bar"><input type="text" class="grow" id="note" placeholder="Note"><button class="main" id="inBtn">Check in ticked</button><button id="undoBtn">Undo ticked</button>`
+    + `<label class="nw"><input type="checkbox" data-all="in"> Tick all</label></div>${rows}`;
 }
 
 // ---- right: who has what
@@ -395,18 +433,34 @@ function drawTabs() {
 function drawPanel() {
   $('panel').innerHTML = { out: drawOut, in: drawIn, who: drawWho, new: drawNew, settings: drawSettings }[tab]();
   panelDirty = false;
-  const count = () => { const c = $('outCount'); if (c) c.textContent = document.querySelectorAll('[data-out]:checked').length + ' ticked'; };
-  count();
-  $('panel').querySelectorAll('[data-out]').forEach(c => c.addEventListener('change', count));
+  // "Tick all" ticks or clears every row that can be ticked, and shows ticked / part-ticked as the rows change.
+  const boxes = k => [...$('panel').querySelectorAll(`[data-${k}]:not(:disabled)`)];
+  const sync = () => {
+    for (const all of $('panel').querySelectorAll('[data-all]')) {
+      const b = boxes(all.dataset.all), on = b.filter(c => c.checked).length;
+      all.checked = b.length > 0 && on === b.length; all.indeterminate = on > 0 && on < b.length;
+    }
+    const c = $('outCount'); if (c) c.textContent = document.querySelectorAll('[data-out]:checked').length + ' ticked';
+  };
+  sync();
+  $('panel').querySelectorAll('[data-out], [data-in]').forEach(c => c.addEventListener('change', sync));
+  $('panel').querySelectorAll('[data-all]').forEach(all => all.addEventListener('change', () => { boxes(all.dataset.all).forEach(c => c.checked = all.checked); sync(); }));
   $('outBtn')?.addEventListener('click', () => {
     const paths = [...document.querySelectorAll('[data-out]:checked')].map(c => c.dataset.out);
-    if (paths.length) run('checkout', { paths });
+    if (!paths.length) return;
+    // Checking out a file also gets the latest of everything it uses (and their drawings), ticked or not.
+    const v = outRows(), ticked = new Set(paths);
+    const get = v?.file ? v.rows.filter(r => r.f.newer && !r.f.isNew && !ticked.has(r.f.path)).map(r => r.f.path) : [];
+    runSteps([...steps('checkout', paths, 5, 'Checking out'), ...steps('get', get, 5, 'Getting')]);
   });
   $('inBtn')?.addEventListener('click', () => {
     const paths = [...document.querySelectorAll('[data-in]:checked')].map(c => c.dataset.in).sort((a, b) => rank(a) - rank(b));
-    if (paths.length) runEach('checkin', paths, { note: $('note').value.trim() }, 'Checking in');
+    // Unchanged files are only released, so they go several at a time; changed and new ones one by one.
+    const quick = paths.filter(p => byPath[p]?.mine && !byPath[p].changed), slow = paths.filter(p => !quick.includes(p));
+    const body = { note: $('note').value.trim() };
+    if (paths.length) runSteps([...steps('checkin', quick, 10, 'Releasing', body), ...steps('checkin', slow, 1, 'Checking in', body)]);
   });
-  $('newGetBtn')?.addEventListener('click', () => run('get'));
+  $('newGetBtn')?.addEventListener('click', getLatest);
   $('pwBtn')?.addEventListener('click', changePassword);
   $('pwCancel')?.addEventListener('click', () => { tab = lastTab; drawTabs(); drawPanel(); }); // back to where I was; the form is dropped
   $('undoBtn')?.addEventListener('click', () => {
@@ -423,7 +477,7 @@ $('settingsBtn').onclick = () => { if (tab !== 'settings') lastTab = tab; tab = 
 for (const ev of ['input', 'change']) $('panel').addEventListener(ev, () => { panelDirty = true; });
 $('resultMore').onclick = e => { e.preventDefault(); const l = $('resultLines'); l.hidden = !l.hidden; $('resultMore').textContent = l.hidden ? 'Details' : 'Hide'; };
 $('filter').oninput = drawTree;
-$('getBtn').onclick = () => run('get');
+$('getBtn').onclick = getLatest;
 $('refreshBtn').onclick = () => load().catch(e => showResult(['Error: ' + e.message]));
 $('logoutBtn').onclick = async () => { await api('logout').catch(() => {}); showLogin(); };
 $('loginBtn').onclick = login;

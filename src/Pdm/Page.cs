@@ -100,7 +100,8 @@ public sealed class Page(Settings s)
                 await Send(ctx, 200, await FilesAsync(engine));
                 return;
             case "/api/get":
-                await engine.GetAsync(null);
+                var only = Strs("paths");
+                await engine.GetAsync(null, only.Count > 0 ? only : null);
                 break;
             case "/api/checkout":
                 await engine.CheckOutAsync(Strs("paths").Select(Local));

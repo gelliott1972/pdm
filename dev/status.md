@@ -19,7 +19,17 @@ Admin's working assumptions until Grant and James answer (28 Oct): leave file-le
 - Guard tests: P:\ without the flag refused. P:\ with the flag refused while read-only. `.pdm` refused. Outside the root refused. Single setprop on P:\ refused. All 106 P:\ targets were read-only during the tests, so nothing could be written there.
 - Re-run after Grant and James edit the sheet: fresh DmProbe of P:\APEX and P:\_Shared, then `props_actions.py`, then batch, then probe, then compare.
 
-**Step 3, rehearsal with SW's units change: waiting for SW's tool.** Still to check: that Weight evaluates (needs SOLIDWORKS; the Document Manager only sees the formula text).
+**Step 3, rehearsal with SW's units change: not started (paused 28 Oct, laptop shut down).**
+- Resume:
+  - Get SW's answer: SwKg usage, and whether it reports Weight per configuration (asked pdm-sw 28 Oct). SwUnits reads file-level Weight only.
+  - If SwKg doesn't report it, write the read-only SwWeights check: open each file, show each configuration, Get6 Weight raw and evaluated, never save.
+- Then, on a fresh scratch copy of P:\APEX + _Shared:
+  - batch, probe, compare;
+  - SwKg;
+  - probe and compare again;
+  - SwCheck and SwSuppDump of the 0806 and 0811 tops;
+  - the Weight check.
+  - Trial scripts: the session scratchpad's props-trial.ps1 and props-guard.ps1.
 
 ## Earlier: 0811 import (brief `docs\briefs\import-0811.md`)
 

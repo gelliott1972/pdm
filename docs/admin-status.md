@@ -37,6 +37,11 @@ Document Manager keeps a stale referenced configuration after Replace Components
    - J4 mass units grams to kg: strategy agreed; when is still open.
    - J5 Issue/PDF: build 29 Oct.
    - J6 check-out ticking, "check all" with drawings, check in unchanged files, filter: asked App 28 Oct.
+   - State at end of 28 Oct:
+     - App: 0.1.8 built (same-name drawings, tick all, check-out gets what's under it, check-out and Get latest progress). Not published: the laptop couldn't reach AWS (network).
+     - Dev: sheet `scratch\import\vault-props-J2J3.xlsx` sent to Grant. Writer (DmEdit batch --checked-out, 6a65bce) tested on scratch: 288 changes in 106 files. Q1–Q6 (in the sheet) for Grant and James on 29 Oct.
+     - SW: units survey done; kg tool (SwUnits/SwKg) in progress. Joint rehearsal with Dev not yet run.
+     - Overnight run: another night, after the sheet is filled in.
 
 ## Open
 

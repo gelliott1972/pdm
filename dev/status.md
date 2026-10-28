@@ -1,8 +1,17 @@
 # Dev status
 
-Updated 25 Oct 2026, on Grant's laptop.
+Updated 28 Oct 2026, on Grant's laptop.
 
-## Now: 0811 import (brief `docs\briefs\import-0811.md`)
+## Now: J2 / J3 property update (James's notes 28 Oct, plus D17)
+
+Admin's job, agreed with Grant: Finish once at file level, Description and Weight per configuration (as James's `08A11-SFA`, Weight `"SW-Mass@@<config>@<file>"`), every DrawingRef deleted, drawings left out, As Welded listed only. No overnight run: Grant goes through the sheet with James first. Nothing touches P:\ until Grant has checked out and Admin says go.
+
+**Step 1, sheet: done.** `tools\importplan\props_sheet.py` (read-only, from a DmProbe of P:\APEX and P:\_Shared, plus the ledger for old names) wrote `scratch\import\vault-props-J2J3.xlsx` from a fresh probe `scratch\inventory\vault-P-2810` (identical to the post-import probe). 195 rows (0806 62, 0811 43, Shared 70, fasteners 20 incl. the 9 D17): complete 5, pre-filled 81 (54 with a guess marked to check), blank 109 (Finish 100, Description 22). Weight is pre-filled on every row (formula). DrawingRef: 31 rows, all to delete (sheet DrawingRef). As Welded: 70 configurations, listed only. Questions to Admin: file-level copies once moved to the configuration, configuration-level Finish once moved to file level, file-level-PartNo files, fasteners in or out, D17 count (doc lists 10, vault uses 9), M8x55 described as M8x50, "ASSYY" typo, 0806 SFA-1B copying "ASSY B".
+
+**Step 2, writer: not started.** DmEdit's P:\ guard stays until Admin agrees the override.
+**Step 3, rehearsal on a scratch copy of P:\ with SW's units change: not started.**
+
+## Earlier: 0811 import (brief `docs\briefs\import-0811.md`)
 
 **Step 3 (tools read drawings): done for the Document Manager tools; the SOLIDWORKS-side check waits for SOLIDWORKS to be closed** (Grant had it open for the Pack and Go). Tools built on the laptop (`tools\build.ps1`: all six built).
 

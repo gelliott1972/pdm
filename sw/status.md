@@ -1,6 +1,12 @@
 # SW status
 
-## Current brief: `docs\briefs\import-0811.md` (25 Oct 2026, laptop)
+## Now: J4 mass units g to kg (28 Oct 2026, paused for shutdown)
+
+- Step 1 survey (`tools\sw-macros\SwUnits.cs`, read-only) stopped at the pause after 74 of 177 vault files (`scratch\import\swunits-vault-APEX.tsv`): 69 Custom, 5 MMGS; 64 in g, 10 already kg; length mm 2 dp throughout except one at 3 dp; mass dp mostly 2. Next: rerun the survey in full, test Custom switch on a scratch copy.
+- Step 2 `tools\sw-macros\SwKg.cs` built (switch to Custom only if needed, check nothing else changes, set kg, rebuild, save, report evaluated Weight per config; `--vault` needed for P:\; refuses Dropbox/.pdm). Dry run tested only; not yet run on a real save.
+- Step 3 rehearsal with Dev (Dev's batch first, then SwKg on Dev's scratch copy): not started.
+
+## Earlier brief: `docs\briefs\import-0811.md` (25 Oct 2026, laptop)
 
 SW's part: steps 1, 2 and 4. No file changes until Admin agrees the step 2 list with Grant.
 

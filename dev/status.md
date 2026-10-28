@@ -8,8 +8,18 @@ Admin's job, agreed with Grant: Finish once at file level, Description and Weigh
 
 **Step 1, sheet: done.** `tools\importplan\props_sheet.py` (read-only, from a DmProbe of P:\APEX and P:\_Shared, plus the ledger for old names) wrote `scratch\import\vault-props-J2J3.xlsx` from a fresh probe `scratch\inventory\vault-P-2810` (identical to the post-import probe). 195 rows (0806 62, 0811 43, Shared 70, fasteners 20 incl. the 9 D17): complete 5, pre-filled 81 (54 with a guess marked to check), blank 109 (Finish 100, Description 22). Weight is pre-filled on every row (formula). DrawingRef: 31 rows, all to delete (sheet DrawingRef). As Welded: 70 configurations, listed only. Questions to Admin: file-level copies once moved to the configuration, configuration-level Finish once moved to file level, file-level-PartNo files, fasteners in or out, D17 count (doc lists 10, vault uses 9), M8x55 described as M8x50, "ASSYY" typo, 0806 SFA-1B copying "ASSY B".
 
-**Step 2, writer: not started.** DmEdit's P:\ guard stays until Admin agrees the override.
-**Step 3, rehearsal on a scratch copy of P:\ with SW's units change: not started.**
+Admin's working assumptions until Grant and James answer (28 Oct): leave file-level copies, keep configuration-level Finish, file-level PartNo stays at file level, 9 D17 PartNos. Fasteners' Description/Finish/Weight are in the sheet as pre-filled (Q4 still open).
+
+**Step 2, writer: done and tested on scratch.**
+- `DmEdit batch <actions.tsv> <root> [--checked-out]`. Pass 1 writes nothing unless every file is inside the root, exists, is writable, is outside Dropbox and `.pdm`, and every old value still matches the probe. Pass 2 goes file by file: log old -> new, apply, save, re-open, check that each change landed and nothing else changed; it stops at the first failure.
+- `--checked-out` (Admin approved 28 Oct) is the only way to write under P:\, and then only for the files on the list, only when none is read-only, never `.pdm`. Single setprop/delprop still refuse P:\.
+- `props_actions.py <sheet> <probe> <out.tsv>` turns the sheet into the change list: blank proposals are skipped, unchanged values left out, Finish must agree across a file's rows.
+- `props_compare.py <before> <after> <tsv>`: every property difference must be on the list; files, configurations, components and references must be unchanged.
+- Trial on a fresh scratch copy of P:\APEX + _Shared: 288 changes in 106 files (Description 97, Weight 110, Finish 41, PartNo 9, DrawingRef deleted 31), all read back. The compare is clean. A second run refused (old values no longer match). Read-only copies refused.
+- Guard tests: P:\ without the flag refused. P:\ with the flag refused while read-only. `.pdm` refused. Outside the root refused. Single setprop on P:\ refused. All 106 P:\ targets were read-only during the tests, so nothing could be written there.
+- Re-run after Grant and James edit the sheet: fresh DmProbe of P:\APEX and P:\_Shared, then `props_actions.py`, then batch, then probe, then compare.
+
+**Step 3, rehearsal with SW's units change: waiting for SW's tool.** Still to check: that Weight evaluates (needs SOLIDWORKS; the Document Manager only sees the formula text).
 
 ## Earlier: 0811 import (brief `docs\briefs\import-0811.md`)
 

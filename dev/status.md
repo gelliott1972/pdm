@@ -22,7 +22,7 @@ Admin's working assumptions until Grant and James answer (28 Oct): leave file-le
 **Step 3, rehearsal with SW's units change: not started (paused 28 Oct, laptop shut down).**
 - Resume:
   - Get SW's answer: SwKg usage, and whether it reports Weight per configuration (asked pdm-sw 28 Oct). SwUnits reads file-level Weight only.
-  - If SwKg doesn't report it, write the read-only SwWeights check: open each file, show each configuration, Get6 Weight raw and evaluated, never save.
+  - SW answered (28 Oct, 3e8ad4a): `tools\sw-macros\bin\SwKg.exe <APEX folder> <_Shared folder>`, no `--vault` on scratch. It prints `WEIGHT`, config, raw, evaluated for @file and each configuration, so no SwWeights is needed. SW wants to run it on my copy: send SW the path.
 - Then, on a fresh scratch copy of P:\APEX + _Shared:
   - batch, probe, compare;
   - SwKg;

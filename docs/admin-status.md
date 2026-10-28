@@ -29,6 +29,14 @@ Document Manager keeps a stale referenced configuration after Replace Components
 3. Tidy later: Dev's scratch vaults; the `-hold` work copies.
 4. Ask Grant about App 0.1.7 at his next real multi-file check-in: did the bar show "Checking in n of m" and fill? Are the buttons at the top?
 5. List for James: D3 drawings, D8/D9 register mismatches, D4/D20 changes, the splice kit weight (D26), D28.
+6. James's notes 28 Oct (`scratch\notes_from_james_2026-10-28.txt`), Grant's answers:
+   - J1 failed open of 08A11-STA-01: James hadn't done Get latest; likely the cause.
+   - J8 read-only after check-out: normal; close the file, check out, reopen. No app feature.
+   - J2 Description/Finish/Weight missing in 0806 (never in the source): add from a spreadsheet, as an overnight job.
+   - J3 DrawingRef (31 rows, all 0811): remove in the same job as J2.
+   - J4 mass units grams to kg: strategy agreed; when is still open.
+   - J5 Issue/PDF: build 29 Oct.
+   - J6 check-out ticking, "check all" with drawings, check in unchanged files, filter: asked App 28 Oct.
 
 ## Open
 

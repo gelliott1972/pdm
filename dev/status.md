@@ -19,7 +19,7 @@ Admin's working assumptions until Grant and James answer (28 Oct): leave file-le
 - Guard tests: P:\ without the flag refused. P:\ with the flag refused while read-only. `.pdm` refused. Outside the root refused. Single setprop on P:\ refused. All 106 P:\ targets were read-only during the tests, so nothing could be written there.
 - Re-run after Grant and James edit the sheet: fresh DmProbe of P:\APEX and P:\_Shared, then `props_actions.py`, then batch, then probe, then compare.
 
-**Step 3, rehearsal with SW's units change (29 Oct): done except the evaluated Weight of 16 files.**
+**Step 3, rehearsal with SW's units change (29 Oct): done, all checks pass.** Weight: SW's read-only `SwUnits --weights` pass (`rehearsal-J2J3\weights-all.txt`) shows all 110 Weights set by the batch evaluate to a number in kg (props_weights: 110 / 0 wrong / 0 unchecked), and the 470 values read by both passes agree with SwKg's. MDL-HEX-BOLT-WASHERS-NUTS-GNRIC crashes SOLIDWORKS on a read-only open in the configuration loop; it does the same on P:\, and it has no Weight. SW's units recheck: only mass units changed (6 MMGS files also changed system).
 Fresh scratch copy of P:\APEX + _Shared at 8:21, in `scratch\import\rehearsal-J2J3\vault` (181 files).
 - Before the writes, the copy's probe matched vault-P-2810 exactly.
 - DmEdit batch: 288 changes in 106 files, all read back. props_compare (probe0 vs probe1): CLEAN.

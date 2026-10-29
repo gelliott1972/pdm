@@ -31,9 +31,15 @@ public sealed class Vault(IAmazonS3 s3, Settings s)
     }
 
     // Shares read and write, so a file SOLIDWORKS has open for editing can still be read.
+    // Remembered while the file's size and time stay the same, so the 30 s refresh doesn't re-read every changed file.
     public static string Md5(string path)
     {
+        var info = new FileInfo(path);
+        if (Hashes.TryGetValue(path, out var h) && h.Size == info.Length && h.Time == info.LastWriteTimeUtc) return h.Md5;
         using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        return Convert.ToHexString(MD5.HashData(stream)).ToLowerInvariant();
+        var md5 = Convert.ToHexString(MD5.HashData(stream)).ToLowerInvariant();
+        Hashes[path] = (info.Length, info.LastWriteTimeUtc, md5);
+        return md5;
     }
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Size, DateTime Time, string Md5)> Hashes = new(StringComparer.OrdinalIgnoreCase);
 }

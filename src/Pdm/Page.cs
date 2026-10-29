@@ -21,6 +21,9 @@ public sealed class Page(Settings s)
     readonly Updater updater = new();
     AmazonS3Client? s3;
     AmazonDynamoDBClient? db;
+    // The index as read by the current run of requests (one check-in or check-out from the page), so it's read once.
+    string runId = "";
+    List<FileRecord>? runIndex;
 
     public async Task<int> RunAsync(bool openBrowser)
     {
@@ -82,6 +85,8 @@ public sealed class Page(Settings s)
 
         var log = new List<string>();
         var engine = new Engine(s, new Index(db!, s), new Vault(s3!, s), session.Email, session.Name, session.SharedEditor, log.Add);
+        var run = Str("run");
+        engine.Known = run != "" && run == runId ? runIndex : null;
         switch (path)
         {
             case "/api/me":
@@ -108,9 +113,7 @@ public sealed class Page(Settings s)
                 break;
             case "/api/checkin":
                 // Parts before assemblies before drawings, so a new part is in the index before what uses it.
-                foreach (var p in Strs("paths").OrderBy(Rank))
-                    try { await engine.CheckInAsync(Local(p), Str("note")); }
-                    catch (Exception ex) { log.Add($"Couldn't check in {p}: {ex.Message}"); }
+                await engine.CheckInManyAsync(Strs("paths").OrderBy(Rank).Select(Local), Str("note"));
                 break;
             case "/api/undo":
                 foreach (var p in Strs("paths")) await engine.UndoAsync(Local(p));
@@ -119,7 +122,8 @@ public sealed class Page(Settings s)
                 await Send(ctx, 404, new { error = "not found" });
                 return;
         }
-        await Send(ctx, 200, new { log });
+        if (run != "") (runId, runIndex) = (run, engine.Known);
+        await Send(ctx, 200, new { log, timing = engine.Time.Snapshot() });
     }
 
     async Task LoginAsync(HttpListenerContext ctx, string email, string password, string newPassword)

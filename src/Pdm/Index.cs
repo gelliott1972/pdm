@@ -119,10 +119,13 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
         }
     }
 
+    // A file with many configurations (fasteners) has many PartNos: their reads and writes go several at a time.
+    static readonly ParallelOptions Several = new() { MaxDegreeOfParallelism = 10 };
+
     // PartNo register: point each PartNo at its file and configuration, and drop ones the file no longer has.
     public async Task UpdatePartNosAsync(FileRecord f, IEnumerable<PartNoEntry> previous)
     {
-        foreach (var p in f.PartNos)
+        await Parallel.ForEachAsync(f.PartNos, Several, async (p, _) =>
             await db.PutItemAsync(new PutItemRequest
             {
                 TableName = s.PartNosTable,
@@ -131,8 +134,9 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
                     ["partNo"] = S(p.PartNo), ["fileId"] = S(f.FileId), ["path"] = S(f.Path),
                     ["config"] = S(p.Config), ["status"] = S(p.Status)
                 }
-            });
-        foreach (var old in previous.Where(o => !f.PartNos.Any(p => p.PartNo.Equals(o.PartNo, StringComparison.OrdinalIgnoreCase))))
+            }));
+        var dropped = previous.Where(o => !f.PartNos.Any(p => p.PartNo.Equals(o.PartNo, StringComparison.OrdinalIgnoreCase)));
+        await Parallel.ForEachAsync(dropped, Several, async (old, _) =>
         {
             try
             {
@@ -145,14 +149,14 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
                 });
             }
             catch (ConditionalCheckFailedException) { } // now belongs to another file
-        }
+        });
     }
 
     // PartNos already registered to a different file.
     public async Task<List<string>> PartNoClashesAsync(FileRecord f)
     {
-        var clashes = new List<string>();
-        foreach (var p in f.PartNos)
+        var clashes = new System.Collections.Concurrent.ConcurrentBag<string>();
+        await Parallel.ForEachAsync(f.PartNos, Several, async (p, _) =>
         {
             var r = await db.GetItemAsync(new GetItemRequest
             {
@@ -160,8 +164,8 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
             });
             if (r.Item is { Count: > 0 } && r.Item["fileId"].S != f.FileId)
                 clashes.Add($"{p.PartNo} is already on {r.Item["path"].S}");
-        }
-        return clashes;
+        });
+        return clashes.Order().ToList();
     }
 
     public static string Now() => DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");

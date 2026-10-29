@@ -82,7 +82,7 @@
   <header>
     <b>PDM</b>
     <button id="refreshBtn" title="Shows the latest list from the vault. Downloads nothing.">Reload list</button>
-    <button id="getBtn" title="Downloads every file that's newer in the vault than on this PC. Your checked-out files are left alone.">Get latest</button>
+    <button id="getBtn" title="Downloads every file that's newer in the vault than on this PC. Your checked-out files are left alone.">Download latest</button>
     <span class="who" id="who"></span>
     <button id="restartBtn" class="main" hidden title="Installs the new version of PDM and restarts it. Log in again afterwards."></button>
     <button id="settingsBtn" title="Settings: your account, the version, and change password.">⚙</button>
@@ -183,7 +183,7 @@ const done = [['Checked out ', 'Checked out'], ['Checked in ', 'Checked in'], ['
 // fraction (0..1) shows the progress bar while working.
 function showResult(lines, working, fraction) {
   const kind = l => done.find(([p]) => l.startsWith(p));
-  const problems = working ? [] : lines.filter(l => !kind(l) && !l.startsWith('Get done') && !l.startsWith('  Note'));
+  const problems = working ? [] : lines.filter(l => !kind(l) && !l.startsWith('Get done') && !l.startsWith('  Note') && !l.startsWith('  Time'));
   const parts = [];
   if (problems.length) parts.push(problems.length === 1 ? problems[0] : problems.length + ' problems');
   for (const [p, label] of done) {
@@ -223,25 +223,36 @@ async function runSteps(plan) {
   busy = true; document.querySelectorAll('button').forEach(b => b.disabled = true);
   showResult(['Working…'], true);
   const steps = typeof plan === 'function' ? await plan().catch(() => []) : plan;
-  const log = [], total = steps.reduce((n, s) => n + s.paths.length, 0);
+  const log = [], total = steps.reduce((n, s) => n + s.paths.length, 0), time = {}, started = Date.now();
+  const run = String(started); // the app reads the vault's index once per run, not once per request
   let n = 0;
   for (const s of steps) {
     const what = s.paths.length === 1 ? base(s.paths[0]) : s.paths.length + ' files';
     showResult([`${s.verb} ${what} (${n + s.paths.length} of ${total})…`], true, n / total);
-    try { log.push(...((await api(s.path, { ...s.body, paths: s.paths })).log || [])); }
+    try {
+      const r = await api(s.path, { ...s.body, paths: s.paths, run });
+      log.push(...(r.log || []));
+      for (const [k, v] of Object.entries(r.timing || {})) time[k] = (time[k] || 0) + v;
+    }
     catch (e) { log.push('Error: ' + e.message); if (!me) break; } // logged out: stop
     n += s.paths.length;
   }
   // Each get reports its own "Get done" line; one is enough.
   const gets = log.filter(l => l.startsWith('Get done'));
-  showResult([...log.filter(l => !l.startsWith('Get done')), ...(gets.length ? ['Get done.'] : [])]);
+  showResult([...log.filter(l => !l.startsWith('Get done')), ...(gets.length ? ['Get done.'] : []), timeLine(Date.now() - started, time)]);
   await load().catch(() => {}); // still busy, so nothing acts on the old list
   busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false);
+}
+// Where the time went, under Details: "  Time: 95 s in all; uploads 40 s, Document Manager 30 s, ...".
+function timeLine(ms, time) {
+  const s = x => x >= 90 ? Math.floor(x / 60) + ' min ' + Math.round(x % 60) + ' s' : (x < 10 ? x.toFixed(1) : Math.round(x)) + ' s';
+  const parts = Object.entries(time).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + s(v));
+  return '  Time: ' + s(ms / 1000) + ' in all' + (parts.length ? '; ' + parts.join(', ') + ' (work done several at a time can add up to more)' : '') + '.';
 }
 function chunks(list, size) { const out = []; for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size)); return out; }
 const steps = (path, paths, size, verb, body) => chunks(paths, size).map(p => ({ path, paths: p, verb, body }));
 
-// Get latest: what's newer one file at a time, then one quick pass over the rest
+// Download latest: what's newer one file at a time, then one quick pass over the rest
 // (sets them read-only, and flags files changed here without a check-out).
 function getLatest() {
   runSteps(async () => {
@@ -390,7 +401,7 @@ function drawWho() {
 function drawNew() {
   const newer = files.filter(f => f.newer).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
   if (newer.length === 0) return '<span class="muted">Up to date: nothing newer in the vault.</span>';
-  return `<h2>Newer in the vault than on this PC</h2><div class="bar"><button class="main" id="newGetBtn">Get latest</button></div><table>` + newer.map(f => `<tr><td>${esc(f.path)}</td>`
+  return `<h2>Newer in the vault than on this PC</h2><div class="bar"><button class="main" id="newGetBtn" title="Downloads every file that's newer in the vault than on this PC. Your checked-out files are left alone.">Download latest</button></div><table>` + newer.map(f => `<tr><td>${esc(f.path)}</td>`
     + `<td class="tag newer nw">${f.missing ? 'not on this PC' : 'updated'}</td><td class="muted nw">${esc(f.updatedBy)} · ${esc(when(f.updatedAt))}</td>`
     + `<td class="muted">${esc(f.note)}</td></tr>`).join('') + '</table>';
 }
@@ -451,14 +462,14 @@ function drawPanel() {
     // Checking out a file also gets the latest of everything it uses (and their drawings), ticked or not.
     const v = outRows(), ticked = new Set(paths);
     const get = v?.file ? v.rows.filter(r => r.f.newer && !r.f.isNew && !ticked.has(r.f.path)).map(r => r.f.path) : [];
-    runSteps([...steps('checkout', paths, 5, 'Checking out'), ...steps('get', get, 5, 'Getting')]);
+    runSteps([...steps('checkout', paths, 24, 'Checking out'), ...steps('get', get, 5, 'Getting')]);
   });
   $('inBtn')?.addEventListener('click', () => {
     const paths = [...document.querySelectorAll('[data-in]:checked')].map(c => c.dataset.in).sort((a, b) => rank(a) - rank(b));
-    // Unchanged files are only released, so they go several at a time; changed and new ones one by one.
+    // Unchanged files are only released, so they all go in one request; changed and new ones one by one.
     const quick = paths.filter(p => byPath[p]?.mine && !byPath[p].changed), slow = paths.filter(p => !quick.includes(p));
     const body = { note: $('note').value.trim() };
-    if (paths.length) runSteps([...steps('checkin', quick, 10, 'Releasing', body), ...steps('checkin', slow, 1, 'Checking in', body)]);
+    if (paths.length) runSteps([...steps('checkin', quick, quick.length || 1, 'Releasing unchanged:', body), ...steps('checkin', slow, 1, 'Checking in', body)]);
   });
   $('newGetBtn')?.addEventListener('click', getLatest);
   $('pwBtn')?.addEventListener('click', changePassword);

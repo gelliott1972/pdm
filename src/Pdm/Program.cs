@@ -90,6 +90,7 @@ static async Task<int> Shell(Settings s)
         try
         {
             await session.RefreshAsync();
+            engine.Known = null; // each command reads the index afresh
             switch (cmd)
             {
                 case "quit" or "exit":

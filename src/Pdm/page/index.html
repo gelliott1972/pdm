@@ -82,7 +82,7 @@
   <header>
     <b>PDM</b>
     <button id="getBtn">Get latest</button>
-    <button id="refreshBtn">Refresh</button>
+    <button id="refreshBtn" title="Reload the file list from the vault (downloads nothing)">Reload list</button>
     <span class="who" id="who"></span>
     <button id="restartBtn" class="main" hidden></button>
     <button id="settingsBtn" title="Settings">⚙</button>
@@ -490,15 +490,15 @@ setInterval(() => {
   api('me').then(r => { me = r; showMe(); }).catch(() => {});
 }, 30000);
 
-// Name, version, and a Restart button once an update has downloaded.
+// Name, version, and an Update button once an update has downloaded (it restarts the app).
 function showMe() {
   $('who').textContent = me.name + (me.sharedEditor ? ' · shared editor' : '') + ' · v' + me.version;
   $('restartBtn').hidden = !me.updateReady;
-  $('restartBtn').textContent = 'Update ' + me.updateReady + ': restart';
+  $('restartBtn').textContent = 'Update to ' + me.updateReady;
 }
 $('restartBtn').onclick = async () => {
   if (busy) return;
-  busy = true; showResult(['Restarting with the update…'], true);
+  busy = true; showResult(['Updating to ' + me.updateReady + '…'], true);
   await api('restart').catch(() => {});
   // The app comes back on the same address in a few seconds; reload to log in again.
   setTimeout(function retry() { fetch('/').then(() => location.reload(), () => setTimeout(retry, 1000)); }, 3000);

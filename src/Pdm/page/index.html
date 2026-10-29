@@ -81,12 +81,12 @@
 <div id="app" hidden>
   <header>
     <b>PDM</b>
-    <button id="getBtn">Get latest</button>
-    <button id="refreshBtn" title="Reload the file list from the vault (downloads nothing)">Reload list</button>
+    <button id="refreshBtn" title="Shows the latest list from the vault. Downloads nothing.">Reload list</button>
+    <button id="getBtn" title="Downloads every file that's newer in the vault than on this PC. Your checked-out files are left alone.">Get latest</button>
     <span class="who" id="who"></span>
-    <button id="restartBtn" class="main" hidden></button>
-    <button id="settingsBtn" title="Settings">⚙</button>
-    <button id="logoutBtn">Log out</button>
+    <button id="restartBtn" class="main" hidden title="Installs the new version of PDM and restarts it. Log in again afterwards."></button>
+    <button id="settingsBtn" title="Settings: your account, the version, and change password.">⚙</button>
+    <button id="logoutBtn" title="Logs you out of PDM on this PC. Your check-outs stay as they are.">Log out</button>
   </header>
   <main>
     <section>

@@ -3,7 +3,10 @@
 // Usage: SwUnits.exe <file-or-folder> [...]           folders are searched for .sldprt/.sldasm/.slddrw
 //        SwUnits.exe --try-custom <file> [...]        work copies only: in memory, switch to Custom and set mass to kg,
 //                                                      then report again, so the side effects can be seen. Never saves.
-// Output: tab-separated, one line per file. Refuses to run while SOLIDWORKS is already open, and refuses Dropbox.
+//        SwUnits.exe --weights <file-or-folder> [...] instead of the table, per file "<path>: ..." then the evaluated Weight
+//                                                      for @file and each configuration (shown and rebuilt in memory), in
+//                                                      SwKg's format: "    WEIGHT<tab>@file|config<tab>raw<tab>evaluated".
+// Output: tab-separated, one line per file. If SOLIDWORKS crashes, it is restarted and that file tried once more. Refuses to run while SOLIDWORKS is already open, and refuses Dropbox.
 // Build (from tools\sw-macros):
 //   csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwUnits.exe SwUnits.cs
 
@@ -42,9 +45,9 @@ static class SwUnits
 
     static int Main(string[] args)
     {
-        bool tryCustom = args.Length > 0 && args[0] == "--try-custom";
-        var inputs = args.Skip(tryCustom ? 1 : 0).ToList();
-        if (inputs.Count == 0) { Console.Error.WriteLine("Usage: SwUnits [--try-custom] <file-or-folder> [...]"); return 2; }
+        bool tryCustom = args.Length > 0 && args[0] == "--try-custom", weights = args.Length > 0 && args[0] == "--weights";
+        var inputs = args.Skip(tryCustom || weights ? 1 : 0).ToList();
+        if (inputs.Count == 0) { Console.Error.WriteLine("Usage: SwUnits [--try-custom | --weights] <file-or-folder> [...]"); return 2; }
         var files = new List<string>();
         foreach (var a in inputs)
         {
@@ -62,45 +65,122 @@ static class SwUnits
         }
         if (Process.GetProcessesByName("SLDWORKS").Length > 0) { Console.Error.WriteLine("SOLIDWORKS is already running. Close it first."); return 2; }
 
-        var sw = (ISldWorks)Activator.CreateInstance(NewestSolidWorks());
-        var started = Process.GetProcessesByName("SLDWORKS").FirstOrDefault();
+        // A long run can lose SOLIDWORKS (RPC_E 0x800706BE, as in SwResave). Each file's lines are buffered and printed
+        // only when the file is done; after a crash SOLIDWORKS is restarted and that file tried once more.
+        Process started;
+        var sw = Start(out started);
         Console.Error.WriteLine("SOLIDWORKS " + sw.RevisionNumber() + " started; " + files.Count + " file(s).");
+        int crashed = 0;
         try
         {
-            Console.WriteLine("# templates");
-            Console.WriteLine("default_part\t" + sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplatePart));
-            Console.WriteLine("default_assembly\t" + sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplateAssembly));
-            Console.WriteLine("default_drawing\t" + sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplateDrawing));
-            Console.WriteLine("template_folders\t" + sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swFileLocationsDocumentTemplates));
-            Console.WriteLine("always_use_default_templates\t" + sw.GetUserPreferenceToggle((int)swUserPreferenceToggle_e.swAlwaysUseDefaultTemplates));
-            Console.WriteLine("# files");
-            Console.WriteLine("file\topen_err\tstate\t" + string.Join("\t", Prefs.Select(p => p.Key)) + "\tWeight(file) raw\tWeight(file) value");
+            if (!weights)
+            {
+                Console.WriteLine("# templates");
+                Console.WriteLine("default_part\t" + sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplatePart));
+                Console.WriteLine("default_assembly\t" + sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplateAssembly));
+                Console.WriteLine("default_drawing\t" + sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplateDrawing));
+                Console.WriteLine("template_folders\t" + sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swFileLocationsDocumentTemplates));
+                Console.WriteLine("always_use_default_templates\t" + sw.GetUserPreferenceToggle((int)swUserPreferenceToggle_e.swAlwaysUseDefaultTemplates));
+                Console.WriteLine("# files");
+                Console.WriteLine("file\topen_err\tstate\t" + string.Join("\t", Prefs.Select(p => p.Key)) + "\tWeight(file) raw\tWeight(file) value");
+            }
             foreach (var f in files)
             {
-                int errs = 0, warns = 0;
-                var doc = sw.OpenDoc6(f, Kind(f), (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_ReadOnly), "", ref errs, ref warns);
-                if (doc == null) { Console.WriteLine(f + "\t" + errs + "\tNOT OPENED"); continue; }
-                Console.WriteLine(f + "\t" + errs + "\tas is\t" + Row(doc));
-                if (tryCustom)
+                for (int attempt = 1; ; attempt++)
                 {
-                    var x = doc.Extension;
-                    bool a = x.SetUserPreferenceInteger((int)swUserPreferenceIntegerValue_e.swUnitSystem, 0, (int)swUnitSystem_e.swUnitSystem_Custom);
-                    Console.WriteLine(f + "\t\tCustom (set " + a + ")\t" + Row(doc));
-                    bool b = x.SetUserPreferenceInteger((int)swUserPreferenceIntegerValue_e.swUnitsMassPropMass, 0, (int)swUnitsMassPropMass_e.swUnitsMassPropMass_Kilograms);
-                    doc.ForceRebuild3(false);
-                    Console.WriteLine(f + "\t\tCustom+kg (set " + b + ")\t" + Row(doc));
+                    var o = new System.Text.StringBuilder();
+                    try
+                    {
+                        OneFile(sw, f, weights, tryCustom, o);
+                        Console.Write(o);
+                        break;
+                    }
+                    catch (System.Runtime.InteropServices.COMException ex)
+                    {
+                        Console.Error.WriteLine("SOLIDWORKS failed on " + f + " (0x" + ex.ErrorCode.ToString("X8") + "); restarting it.");
+                        Stop(sw, started);
+                        sw = Start(out started);
+                        if (attempt == 2)
+                        {
+                            Console.WriteLine(f + (weights ? ": " : "\t\t") + "CRASHED TWICE, not read");
+                            crashed++;
+                            break;
+                        }
+                    }
                 }
-                sw.CloseAllDocuments(true);
             }
         }
-        finally
+        finally { Stop(sw, started); }
+        if (crashed > 0) Console.Error.WriteLine(crashed + " file(s) not read (SOLIDWORKS crashed twice).");
+        return crashed == 0 ? 0 : 1;
+    }
+
+    static void OneFile(ISldWorks sw, string f, bool weights, bool tryCustom, System.Text.StringBuilder o)
+    {
+        int errs = 0, warns = 0;
+        var doc = sw.OpenDoc6(f, Kind(f), (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_ReadOnly), "", ref errs, ref warns);
+        if (weights)
         {
-            try { sw.CloseAllDocuments(true); sw.ExitApp(); } catch { }
-            System.Runtime.InteropServices.Marshal.FinalReleaseComObject(sw);
-            if (started != null && !started.WaitForExit(30000))
-                try { started.Kill(); started.WaitForExit(10000); } catch { }
+            var wx = doc == null ? null : doc.Extension;
+            o.AppendLine(f + ": open errors=" + errs + " warnings=" + warns + (doc == null ? "  NOT OPENED" :
+                "  units " + UnitSystems[wx.GetUserPreferenceInteger((int)swUserPreferenceIntegerValue_e.swUnitSystem, 0)] + "/"
+                + Masses[wx.GetUserPreferenceInteger((int)swUserPreferenceIntegerValue_e.swUnitsMassPropMass, 0)]
+                + ", mass dp " + wx.GetUserPreferenceInteger((int)swUserPreferenceIntegerValue_e.swUnitsMassPropDecimalPlaces, 0)));
+            if (doc != null) Weights(doc, o);
         }
-        return 0;
+        else if (doc == null) o.AppendLine(f + "\t" + errs + "\tNOT OPENED");
+        else
+        {
+            o.AppendLine(f + "\t" + errs + "\tas is\t" + Row(doc));
+            if (tryCustom)
+            {
+                var x = doc.Extension;
+                bool a = x.SetUserPreferenceInteger((int)swUserPreferenceIntegerValue_e.swUnitSystem, 0, (int)swUnitSystem_e.swUnitSystem_Custom);
+                o.AppendLine(f + "\t\tCustom (set " + a + ")\t" + Row(doc));
+                bool b = x.SetUserPreferenceInteger((int)swUserPreferenceIntegerValue_e.swUnitsMassPropMass, 0, (int)swUnitsMassPropMass_e.swUnitsMassPropMass_Kilograms);
+                doc.ForceRebuild3(false);
+                o.AppendLine(f + "\t\tCustom+kg (set " + b + ")\t" + Row(doc));
+            }
+        }
+        sw.CloseAllDocuments(true);
+    }
+
+    static ISldWorks Start(out Process started)
+    {
+        var sw = (ISldWorks)Activator.CreateInstance(NewestSolidWorks());
+        started = Process.GetProcessesByName("SLDWORKS").FirstOrDefault();
+        return sw;
+    }
+
+    static void Stop(ISldWorks sw, Process started)
+    {
+        try { sw.CloseAllDocuments(true); sw.ExitApp(); } catch { }
+        try { System.Runtime.InteropServices.Marshal.FinalReleaseComObject(sw); } catch { }
+        if (started != null && !started.WaitForExit(30000))
+            try { started.Kill(); started.WaitForExit(10000); } catch { }
+    }
+
+    // Read-only: configurations are shown and rebuilt in memory only; the file is never saved.
+    static void Weights(IModelDoc2 doc, System.Text.StringBuilder o)
+    {
+        o.AppendLine("    WEIGHT\t@file\t" + Weight(doc.Extension.CustomPropertyManager[""]));
+        if (doc.GetType() == (int)swDocumentTypes_e.swDocDRAWING) return;
+        bool asm = doc.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY;
+        foreach (string cn in (string[])doc.GetConfigurationNames())
+        {
+            doc.ShowConfiguration2(cn);
+            if (asm) ((IAssemblyDoc)doc).ResolveAllLightWeightComponents(false);
+            doc.ForceRebuild3(false);
+            o.AppendLine("    WEIGHT\t" + cn + "\t" + Weight(doc.Extension.CustomPropertyManager[cn]));
+        }
+    }
+
+    static string Weight(ICustomPropertyManager cpm)
+    {
+        string raw, val; bool wasResolved, linked;
+        int r = cpm.Get6("Weight", false, out raw, out val, out wasResolved, out linked);
+        if (r == (int)swCustomInfoGetResult_e.swCustomInfoGetResult_NotPresent) return "-";
+        return raw + "\t" + val + (wasResolved ? "" : "\t(not resolved)");
     }
 
     static string Row(IModelDoc2 doc)

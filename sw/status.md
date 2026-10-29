@@ -1,10 +1,10 @@
 # SW status
 
-## Now: J4 mass units g to kg (28 Oct 2026, paused for shutdown)
+## Now: J4 mass units g to kg (28–29 Oct 2026)
 
-- Step 1 survey (`tools\sw-macros\SwUnits.cs`, read-only) stopped at the pause after 74 of 177 vault files (`scratch\import\swunits-vault-APEX.tsv`): 69 Custom, 5 MMGS; 64 in g, 10 already kg; length mm 2 dp throughout except one at 3 dp; mass dp mostly 2. Next: rerun the survey in full, test Custom switch on a scratch copy.
-- Step 2 `tools\sw-macros\SwKg.cs` built (switch to Custom only if needed, check nothing else changes, set kg, rebuild, save, report evaluated Weight per config; `--vault` needed for P:\; refuses Dropbox/.pdm). Dry run tested only; not yet run on a real save.
-- Step 3 rehearsal with Dev (Dev's batch first, then SwKg on Dev's scratch copy): not started.
+- Step 1 survey done (`tools\sw-macros\SwUnits.cs`, read-only; `scratch\import\swunits-vault-APEX.tsv`): 181 files in P:\APEX + P:\_Shared, all opened. 175 Custom, 6 MMGS; 74 already kg, 107 in g; length mm everywhere. Templates: `C:\ProgramData\SolidWorks\SOLIDWORKS 2026\templates\` MMGS_Part.prtdot / Assembly.asmdot / Drawing.drwdot ("always use default templates" on). Reported to Admin, with an open question on kg decimals.
+- Step 2 `tools\sw-macros\SwKg.cs`: switches to Custom only if needed, checks 22 other unit settings are unchanged, sets kg, rebuilds, saves, reports the evaluated Weight per config; `--vault` needed for P:\; refuses Dropbox/.pdm.
+- Step 3 rehearsal on Dev's copy `scratch\import\rehearsal-J2J3\vault` (after Dev's property writes): SwKg 107 saved, 74 already kg, 0 failures; all 6 MMGS switched cleanly; Weight 0.001–1750.42 kg, all resolved (`rehearsal-J2J3\swkg.txt`). Next: Dev's probe compare, SwCheck/SwSuppDump; then my read-only SwUnits recheck of the copy.
 
 ## Earlier brief: `docs\briefs\import-0811.md` (25 Oct 2026, laptop)
 

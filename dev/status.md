@@ -1,6 +1,6 @@
 # Dev status
 
-Updated 28 Oct 2026, on Grant's laptop.
+Updated 29 Oct 2026, on Grant's laptop.
 
 ## Now: J2 / J3 property update (James's notes 28 Oct, plus D17)
 
@@ -19,17 +19,36 @@ Admin's working assumptions until Grant and James answer (28 Oct): leave file-le
 - Guard tests: P:\ without the flag refused. P:\ with the flag refused while read-only. `.pdm` refused. Outside the root refused. Single setprop on P:\ refused. All 106 P:\ targets were read-only during the tests, so nothing could be written there.
 - Re-run after Grant and James edit the sheet: fresh DmProbe of P:\APEX and P:\_Shared, then `props_actions.py`, then batch, then probe, then compare.
 
-**Step 3, rehearsal with SW's units change: not started (paused 28 Oct, laptop shut down).**
-- Resume:
-  - Get SW's answer: SwKg usage, and whether it reports Weight per configuration (asked pdm-sw 28 Oct). SwUnits reads file-level Weight only.
-  - SW answered (28 Oct, 3e8ad4a): `tools\sw-macros\bin\SwKg.exe <APEX folder> <_Shared folder>`, no `--vault` on scratch. It prints `WEIGHT`, config, raw, evaluated for @file and each configuration, so no SwWeights is needed. SW wants to run it on my copy: send SW the path.
-- Then, on a fresh scratch copy of P:\APEX + _Shared:
-  - batch, probe, compare;
-  - SwKg;
-  - probe and compare again;
-  - SwCheck and SwSuppDump of the 0806 and 0811 tops;
-  - the Weight check.
-  - Trial scripts: the session scratchpad's props-trial.ps1 and props-guard.ps1.
+**Step 3, rehearsal with SW's units change (29 Oct): done except the evaluated Weight of 16 files.**
+Fresh scratch copy of P:\APEX + _Shared at 8:21, in `scratch\import\rehearsal-J2J3\vault` (181 files).
+- Before the writes, the copy's probe matched vault-P-2810 exactly.
+- DmEdit batch: 288 changes in 106 files, all read back. props_compare (probe0 vs probe1): CLEAN.
+- SW's SwKg on the copy: 107 files switched to kg and saved, 74 already in kg (not saved), 0 failures.
+- props_compare after SwKg (probe1 vs probe2): no property, configuration or reference changed.
+  - Component rows changed only because SOLIDWORKS replaced DM's stale pre-import component names and paths with the vault names. Components not in their assembly's reference table went 127 -> 4, all 4 in 08X06-LMW, which was already kg and not saved.
+  - props_compare now normalises component stored paths, as it does references.
+- Weight (`props_weights.py` on SwKg's output): 94 of 110 evaluate to a number, 0 wrong. 16 are in files SwKg didn't save. SW is writing `weights-all.txt` (SwUnits --weights, read-only) for every file.
+- SwCheck (root = the copy) and SwSuppDump of all 6 +STRUCTURE tops, in `rehearsal-J2J3\swcheck\`:
+  - opened with no errors;
+  - every loaded component is from the copy;
+  - only part links (HB-SKEL, 08X06-SFP-03, 08BXX-MSP-01) load from P:\, read-only;
+  - SwSuppDump's P:\ rows are all suppressed and unloaded;
+  - asked SW about its "COULD NOT SHOW" lines.
+- P:\ was not touched by the rehearsal.
+- Scripts: the session scratchpad's props-rehearsal.ps1 and props-rehearsal-after-sw.ps1.
+
+**P:\ changed on 29 Oct, 9:46–9:47, not by Dev or SW (Admin is asking Grant who).**
+- 20 new drawings, plus 2 PDFs that aren't read-only (10:46).
+- 44 property values changed on 15 existing files, mostly file-level Description, Finish, Weight and Material on 0806 A, 08X06 and 08A11-SFA.
+- Four formulas point at another file: SFA-1B and SFA-2T Weight -> SFA-1T; HBW-03 Material and Weight -> HBW-02.
+- 11 assemblies re-saved: DM component names refreshed. 08A06-STA-01 gained 6 MDL-SPLICE-JOINT-GNRIC [M14] instances.
+- Probe: `scratch\inventory\vault-P-2910`.
+- `props_actions --since <sheet's probe>` (68f72e6) now stops if any Description, Finish, Weight, PartNo or DrawingRef on a sheet file has changed since the sheet was made.
+- New sheet (Admin, 29 Oct): `scratch\import\vault-props-J2J3-2910.xlsx` from `props_sheet.py vault-P-2910 data\rename-ledger.csv <out> --since vault-P-2810` (654d7e3).
+  - Changed values are kept as current: 26 rows marked, 44 values on a "Changed since" sheet, the 4 above flagged "needs fixing by James", 16 file-level values flagged "left as is until Grant decides".
+  - 274 actions, none touching a value changed on 29 Oct.
+  - The 28 Oct sheet is unchanged; without --since it is reproduced exactly.
+- Real run from the new sheet: fresh probe, then `props_actions <sheet> <fresh probe> <tsv> --since vault-P-2910`, then batch `--checked-out`, then probe, then compare.
 
 ## Earlier: 0811 import (brief `docs\briefs\import-0811.md`)
 

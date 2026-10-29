@@ -15,8 +15,9 @@ def load(d, name, keyf):
     out = {}
     for area in ("APEX", "_Shared"):
         for r in csv.DictReader(open(os.path.join(d, area, name), encoding="utf-8-sig")):
-            if "reference" in r:   # a scratch copy resolves references inside itself: compare from APEX\ or _Shared\ on
-                r["reference"] = re.sub(r"^.*?\\(?=(APEX|_Shared)\\)", "<vault>\\\\", r["reference"], flags=re.I)
+            for c in ("reference", "stored_path"):   # a scratch copy resolves (and SOLIDWORKS re-saves) paths
+                if c in r:                            # inside itself: compare from APEX\ or _Shared\ on
+                    r[c] = re.sub(r"^.*?\\(?=(APEX|_Shared)\\)", "<vault>\\\\", r[c], flags=re.I)
             out[keyf(area, r)] = r
     return out
 

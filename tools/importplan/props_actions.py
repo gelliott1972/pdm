@@ -9,23 +9,37 @@ James have filled it in), compares them with a fresh DmProbe of the vault, and w
 Each line carries the value the probe saw, so DmEdit batch refuses to write if a file has changed since.
 Nothing is written where the vault already has the proposed value; blank proposals are skipped and listed.
 
-Usage: python -I props_actions.py <sheet.xlsx> <probeDir> <out.tsv>
+With --since <sheetProbeDir> (the probe the sheet was built from), any Description, Finish, Weight, PartNo or
+DrawingRef on a sheet file that changed in the vault since then is a problem: someone else has edited it, so the
+sheet must be checked against the new value before anything is written.
+
+Usage: python -I props_actions.py <sheet.xlsx> <probeDir> <out.tsv> [--since <sheetProbeDir>]
        (probeDir holds APEX\ and _Shared\ from DmProbe; paths in the .tsv are relative to the vault root, P:\)
 """
 import collections, csv, os, sys
 import openpyxl
 
-if len(sys.argv) != 4:
-    sys.exit("Usage: python -I props_actions.py <sheet.xlsx> <probeDir> <out.tsv>")
-sheet, probe, out = sys.argv[1:4]
+args = sys.argv[1:]
+since = None
+if "--since" in args:
+    i = args.index("--since")
+    since = args[i + 1] if i + 1 < len(args) else None
+    del args[i:i + 2]
+if len(args) != 3 or ("--since" in sys.argv and not since):
+    sys.exit("Usage: python -I props_actions.py <sheet.xlsx> <probeDir> <out.tsv> [--since <sheetProbeDir>]")
+sheet, probe, out = args
 
-expr, cfgs, folder = {}, set(), {}
+def props(probe):
+    e = {}
+    for area in ("APEX", "_Shared"):
+        for p in csv.DictReader(open(os.path.join(probe, area, "properties.csv"), encoding="utf-8-sig")):
+            if p["name"]:
+                e[(p["file"].lower(), "@file" if p["config"] == "(file)" else p["config"], p["name"].lower())] = p["expression"]
+    return e
+
+expr, cfgs, folder = props(probe), set(), {}
 for area in ("APEX", "_Shared"):
     d = os.path.join(probe, area)
-    for p in csv.DictReader(open(os.path.join(d, "properties.csv"), encoding="utf-8-sig")):
-        if p["name"]:
-            lvl = "@file" if p["config"] == "(file)" else p["config"]
-            expr[(p["file"].lower(), lvl, p["name"].lower())] = p["expression"]
     for c in csv.DictReader(open(os.path.join(d, "configs.csv"), encoding="utf-8-sig")):
         cfgs.add((c["file"].lower(), c["config"]))
     for f in csv.DictReader(open(os.path.join(d, "files.csv"), encoding="utf-8-sig")):
@@ -94,6 +108,13 @@ for r in list(wb["DrawingRef"].iter_rows(values_only=True))[1:]:
         problems.append("%s [%s]: no DrawingRef in the probe" % (f, lvl))
     else:
         acts.append([folder[f.lower()] + "\\" + f, lvl, "DrawingRef", "del", "", cur(f, lvl, "DrawingRef")])
+
+if since:
+    old = props(since)
+    files = {val(r, "File").lower() for r in rows[1:] if val(r, "File")}
+    for k in sorted(set(old) | set(expr)):
+        if k[0] in files and k[2] in ("description", "finish", "weight", "partno", "drawingref") and old.get(k) != expr.get(k):
+            problems.append("%s [%s] %s changed in the vault since the sheet: %r -> %r" % (k[0], k[1], k[2], old.get(k), expr.get(k)))
 
 if problems:
     print("PROBLEMS (no .tsv written):")

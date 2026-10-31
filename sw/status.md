@@ -1,5 +1,10 @@
 # SW status
 
+## Drawing revisions: read-only survey for the release design (31 Oct 2026)
+
+- `tools\sw-macros\SwRev.cs` over all 58 P:\ drawings (`scratch\import\swrev-vault.txt`), no saves: every title block shows A from `$PRP:"Revision-SheetN"` on the drawing. 55 have a revision table with the one row A / ORIGINAL DESIGN / J MCKILLOP / G ELLIOTT; the 3 0811 STA drawings have no table. `Revision` itself is `?` in all 58.
+- Test on one drawing (08A06-HBA-01), scratch copies in `C:\PDM-work\scratch\rev-test`: delete the row, then set the `Revision*` properties to P1. After save and reopen: empty table, title block P1. Deleting the row alone leaves A. Not looked at on screen; no tool built; waiting on Admin.
+
 ## Now: J4 mass units g to kg (28–29 Oct 2026)
 
 - Step 1 survey done (`tools\sw-macros\SwUnits.cs`, read-only; `scratch\import\swunits-vault-APEX.tsv`): 181 files in P:\APEX + P:\_Shared, all opened. 175 Custom, 6 MMGS; 74 already kg, 107 in g; length mm everywhere. Templates: `C:\ProgramData\SolidWorks\SOLIDWORKS 2026\templates\` MMGS_Part.prtdot / Assembly.asmdot / Drawing.drwdot ("always use default templates" on). Reported to Admin, with an open question on kg decimals.

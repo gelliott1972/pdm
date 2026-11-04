@@ -1,8 +1,34 @@
 # Dev status
 
-Updated 29 Oct 2026, on Grant's laptop.
+Updated 4 Nov 2026, on Grant's laptop.
 
-## Now: J2 / J3 property update (James's notes 28 Oct, plus D17)
+## Now: 0804 import, step 3 (brief `docs\briefs\import-0804.md`)
+
+Admin asked: is the importer ready for a full-rename 0804 import from the register? Properties sheet not drafted (item 5 not agreed). No writes to P:\ or M:\.
+
+**How I checked.** Read the register's 0804 rows; then a trial plan (`make_plan.py`, read-only, output in my scratchpad only) on SW's whole-folder probe of M:\ (`scratch\inventory\LS-08X-04-M-0411`), cut down to what the three v4 tops reach. The whole-folder probe holds old Pack and Go copies with the same names, so its counts are rough; the real plan comes from the `-r1` Pack and Go.
+
+**Ready: the same tool and route as 0806.** Register numbers, place-tag folders (08Z04 → `ShaftBC`, 08X04 → `_Shared`), virtual-component flags, ledger reuse, the vault check and the Vault changes sheet all work for 0804. The trial ran without errors.
+
+**Fixed (commit below):** the register lookup ignored ASM/PRT. 0804's K-beams have an assembly and a part with the same name (`LS-08A-04_KBEAM_S1.SLDASM` and `.SLDPRT`, 18 pairs), so each part would have been given its assembly's number. The plan now matches by name and type. Also, configuration numbers are found under the new family file the register names (`08X04-LMW`), so the split LCMM file is checked against the register. Regression: the six earlier plans (0806 A r4, B r1, C r1; 0811 A, B, C r1) come out identical.
+
+**For Grant (through Admin): not code, decisions or prep.**
+
+| # | What the trial found | Needs |
+| --- | --- | --- |
+| 1 | 11 files already carry PartNos that differ from the register: e.g. `LS-08A-04_BEAM_SF02_TOP_80x40x8_WELDED` 08A04-HBW-02 (register 08A04-SFP-02), `..._SF02_TIE_CORNER_RIGHTANGLE` also 08A04-HBW-02 (register 08X04-SFP-01), `LS-08X-04_SF02_LOWER_BRACE` 08A04-BRP-01 (register 08X04-SFP-03), `LS-08A-04_SF04` per-configuration 08A04-SFA-41..49 (register one number 08A04-SFA-4X), the interface plate 08X04-PLP-30..33 (register -PLP-04). Two files share 08A04-HBW-02. | Register or file numbers? (Plan currently prefers the file and flags the difference.) |
+| 2 | Register clashes: `LS-08B-04_SF02-UPPER` and `-UPPERv2` both 08B04-SFA-2T (register says renumber); `LCMM_40x40x4_0804` 08X04-LMW-01 = LCMM config `-010` 08X04-LMW-01. | Which file is used, new numbers |
+| 3 | Not in the register: the 18 K-beam parts inside the by-others K-beam assemblies (`LS-08x-04_KBEAM_S1..S6.SLDPRT`; 17 have no number, A's S1 carries 08A04-KBA-01, the same as `KBEAM_ASSY_SHAFTAv2`), the part `LS-08X-04_KBEAM_BRACKET.SLDPRT` (the register numbers the assembly), plus 9 others (3 KBEAM wall-mount expansion joints, 2 EA expansion brackets, KBEAM wall plate EA expansion joint, KBEAM packers + bolts, floor plate EA bolt to stairs, `LS-08A-04_SF02`). Some may not be used by v4 (SW's probe will say). | Numbers, or how by-others parts load |
+| 4 | Tops: `LS-08x-04_WITH_STRUCTUREv4` → register says place tag (08A04 etc.). 0806/0811 instead kept the screen+structure top as `<screen>+STRUCTURE` (D31) and built a new `08x0x-STA-01`. | Which for 0804 |
+| 5 | B's SF01 also has virtual components (`LOWER_BRACE^LS-08B-04_SF01` etc.); the register lists A's and C's only and has no `LS-08B-04_SF01` row. Virtual components saved out should be named as their register row (or by their number) so the plan finds them. | B's numbers; SW naming |
+| 6 | 5 Weight formulas read another file's mass (as 0811 D26). | SW fixes in prep, as 0811 |
+| 7 | The tops use `LCMM_40x80x8` and `LCMM_40x40x4` (not the register's `LCMM_40x80x8_SC08` / `LCMM_40x40x4_0804`) from `LS-08X-04\FRAME\_Shared` and `SC08\_Shared`, and neither file is in the M:\ probe. | SW's probe to confirm |
+| 8 | Per-screen settings used for 0811 (numbers Provisional D33, no file-level PartNo D32, no As Welded PartNo D10, fastener grade/finish) aren't set for 0804; not carried over without a decision. | Decide per 0804 |
+| 9 | Fastener configurations 0804 uses that the vault's `FAST-HEX/NUT/WSH-8.8-HDG` have no PartNo for (8, e.g. M12x80, M20x180, M16 nut, M16 washer): vault changes by check-out. | Listed in the plan's Vault changes sheet; done by check-out |
+
+Next: SW's list via Admin, then the `-r1` plan (step 5). The probe of each `-r1` must be named `LS-08A-04-r1` etc. (the plan takes the screen from the folder name).
+
+## Earlier: J2 / J3 property update (James's notes 28 Oct, plus D17)
 
 Admin's job, agreed with Grant: Finish once at file level, Description and Weight per configuration (as James's `08A11-SFA`, Weight `"SW-Mass@@<config>@<file>"`), every DrawingRef deleted, drawings left out, As Welded listed only. No overnight run: Grant goes through the sheet with James first. Nothing touches P:\ until Grant has checked out and Admin says go.
 

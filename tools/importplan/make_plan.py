@@ -257,17 +257,27 @@ def gnric(n):
 
 # ---------------------------------------------------------------- register
 wb = openpyxl.load_workbook(register_path, read_only=True, data_only=True)
-reg_file = {}   # stem -> (place, proposed PartNo, note)
+REG_TYPE = {".SLDASM": "ASM", ".SLDPRT": "PRT"}
+reg_file = {}   # (stem, "ASM" | "PRT" | "" where no type is given) -> (place, proposed PartNo, note)
 for r in wb["Rename Register SC08"].iter_rows(min_row=5, values_only=True):
     if r[0]:
-        reg_file.setdefault(key(str(r[0]).strip()), (gnric(r[4]), gnric(r[8]), r[10]))
-reg_cfg = {}    # (stem, config) -> PartNo
+        t = str(r[1] or "").strip().upper()
+        reg_file.setdefault((key(str(r[0]).strip()), t if t in ("ASM", "PRT") else ""), (gnric(r[4]), gnric(r[8]), r[10]))
+reg_cfg = {}    # (stem, config) -> PartNo; also under the new family file a configuration moves to (08X04-LMW)
 for r in wb["Configurations SC08"].iter_rows(min_row=5, values_only=True):
     if r[0] and r[1] and r[5]:
         reg_cfg[(key(str(r[0]).strip()), key(str(r[1]).strip()))] = gnric(str(r[5]))
+        if r[6] and str(r[6]).strip():
+            reg_cfg.setdefault((key(gnric(str(r[6]).strip())), key(str(r[1]).strip())), gnric(str(r[5])))
 for r in wb["Examples"].iter_rows(min_row=5, values_only=True):   # worked examples fill a few gaps (e.g. bolt kits)
     if r[3] and r[4] and " config " not in str(r[4]) and "(" not in str(r[4]):
-        reg_file.setdefault(key(str(r[4]).strip()), (gnric(r[0]), gnric(r[3]), "from Examples tab"))
+        reg_file.setdefault((key(str(r[4]).strip()), ""), (gnric(r[0]), gnric(r[3]), "from Examples tab"))
+
+def reg_row(fname):
+    """The register row for a file, by name and type: a part and an assembly can share a name (0804's K-beams,
+    LS-08A-04_KBEAM_S1.SLDASM and .SLDPRT; the register numbers the assembly). A row without a type matches either."""
+    s = key(stem(os.path.basename(fname)))
+    return reg_file.get((s, REG_TYPE.get(ext(fname), "?"))) or reg_file.get((s, ""))
 
 # ---------------------------------------------------------------- ledger of files already imported
 ledger = {}
@@ -729,7 +739,7 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         for u in users:
             vals = [v for (ff, _), v in cfg_partno.items() if ff == u and v not in ("", "?")]
             vals += [v for (rs, _), v in reg_cfg.items() if rs == key(stem(u))]
-            r_ = reg_file.get(key(stem(u)))
+            r_ = reg_row(u)
             if r_ and r_[1]:
                 vals.append(r_[1])
             tags.update(t for t in map(tag_of, vals) if t)
@@ -755,11 +765,11 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         new_name, new_folder, source = dec_files[fk]
         if not new_folder:
             new_folder, ff = folder_for(place_of(new_name))
-    elif is_top and cls == "steel" and key(s) not in reg_file and fk not in file_partno and not PN_RE.match(s):
+    elif is_top and cls == "steel" and not reg_row(fname) and fk not in file_partno and not PN_RE.match(s):
         action, new_name, source = "decide", s, "nothing in this screen uses it"
         flags.append(flag(fname, "not used by any assembly in this Pack and Go: import, or leave out?"))
     else:  # steel
-        reg = reg_file.get(key(s))
+        reg = reg_row(fname)
         # Collect the PartNo each configuration should carry.
         numbers = set(v for (ff, _), v in cfg_partno.items() if ff == fk and v not in ("", "?"))
         if fk in file_partno and file_partno[fk]:
@@ -873,7 +883,7 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         else:
             single = len(set(v for (ff, _), v in cfg_partno.items() if ff == fk and v not in ("", "?"))) <= 1 and not any(rs == key(s) for (rs, _) in reg_cfg)
             if single and not in_file and not in_reg:
-                in_reg = str(reg_file.get(key(s), (None, ""))[1] or "")
+                in_reg = str((reg_row(fname) or (None, ""))[1] or "")
             if in_file and in_reg and in_file != in_reg:
                 proposed, src = in_file, "file (differs from register)"
                 pflags.append("file and register differ")

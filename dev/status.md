@@ -26,6 +26,8 @@ Admin asked: is the importer ready for a full-rename 0804 import from the regist
 | 8 | Per-screen settings used for 0811 (numbers Provisional D33, no file-level PartNo D32, no As Welded PartNo D10, fastener grade/finish) aren't set for 0804; not carried over without a decision. | Decide per 0804 |
 | 9 | Fastener configurations 0804 uses that the vault's `FAST-HEX/NUT/WSH-8.8-HDG` have no PartNo for (8, e.g. M12x80, M20x180, M16 nut, M16 washer): vault changes by check-out. | Listed in the plan's Vault changes sheet; done by check-out |
 
+**Admin's calls (4 Nov, `docs\imports\LS-08X-04-decisions.md` D1–D10), now in `make_plan.py`:** D1 the file's PartNo wins, each difference flagged (the default already); D4 tops `LS-08x-04+STRUCTURE` (no PartNo) plus `08x04-STA-01` at Default, Provisional; D8 as 0811: every number Provisional, no file-level PartNo, no PartNo on As Welded (now for every steel file imported, `"*"`), fasteners 8.8 HDG as the vault. Regression: the six earlier plans still identical. Trial: A's top becomes `LS-08A-04+STRUCTURE`; 444 of 528 PartNo rows Provisional; 16 files carry a file-level PartNo (James's numbers) that D8 says go in prep, as 0811's delprop list, and the plan then writes them at configuration level. D2/D3/D7 wait for SW's list.
+
 Next: SW's list via Admin, then the `-r1` plan (step 5). The probe of each `-r1` must be named `LS-08A-04-r1` etc. (the plan takes the screen from the folder name).
 
 ## Earlier: J2 / J3 property update (James's notes 28 Oct, plus D17)

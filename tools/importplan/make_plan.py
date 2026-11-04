@@ -105,7 +105,7 @@ OPEN_0811 = {"TIE_80x40x8.SLDPRT": D30_OPEN, "GROUT+ANCHOR_BOLTS.SLDASM": D15_OP
 #   same_as: old file -> (screen, that screen's old file, where decided): left out here, this screen's files point at
 #            the other screen's (needs --with that screen)
 #   no_file_props: old file -> where decided: must have no file-level custom properties (prep deletes them)
-#   no_welded_partno: old file -> where decided: its <As Welded> configurations carry no PartNo
+#   no_welded_partno: old file (or "*" for every steel file imported) -> where decided: its <As Welded> configurations carry no PartNo
 #   no_file_partno_imports: where decided: no file this plan imports may keep a file-level PartNo (prep deletes them)
 #   combined: old file -> where decided: screen and structure in one top assembly, named <screen>+STRUCTURE, no PartNo
 #   weight_reads_other: old file -> where decided: its Weight formula reading another file is deliberate (a note)
@@ -211,6 +211,16 @@ DECIDED = {
         "all_provisional": "D33" if D33_ALL_PROVISIONAL else None,
         "no_welded_partno": D10_WELDED,
     },
+    # docs\imports\LS-08X-04-decisions.md (Admin's calls 4 Nov; Grant can change). D1 (the file's PartNo wins, each
+    # difference from the register flagged) is the plan's default. D2/D3 wait for SW's list of what the v4 tops use.
+    **{f"LS-08{x}-04": {
+        "combined": {f"LS-08{x}-04_WITH_STRUCTUREv4.SLDASM": "D4 (as 0811 D31)"},
+        "partnos": {(f"08{x}04-STA-01.SLDASM", "Default"): (f"08{x}04-STA-01", True, "D4 (new structure assembly, as 0811 D7)")},
+        "no_file_partno_imports": "D8 (as 0811 D32)",
+        "all_provisional": "D8 (as 0811 D33)",
+        "no_welded_partno": {"*": "D8 (as 0811 D10: As Welded has no PartNo)"},
+        "fasteners": ("8.8", "HDG"),   # D8: as the vault's FAST-HEX/NUT/WSH-8.8-HDG
+    } for x in "ABC"},
 }
 
 def load(name):
@@ -849,10 +859,11 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     if fk in dec_nofp and file_props.get(fk):
         action = "decide"
         flags.append(flag(fname, f"{dec_nofp[fk]}: file-level properties should be deleted in prep; still here: " + ", ".join(file_props[fk])))
-    welded = sorted(f"{c} = {v}" for (ff, c), v in cfg_partno.items() if ff == fk and fk in dec_nowp and v and "<As Welded>" in c)
+    nowp = dec_nowp.get(fk) or (dec_nowp.get("*") if cls == "steel" and action.startswith("import") else None)   # "*": every steel file imported
+    welded = sorted(f"{c} = {v}" for (ff, c), v in cfg_partno.items() if ff == fk and nowp and v and "<As Welded>" in c)
     if welded:
         action = "decide"
-        flags.append(flag(fname, f"{dec_nowp[fk]}: delete these PartNos in prep: " + "; ".join(welded)))
+        flags.append(flag(fname, f"{nowp}: delete these PartNos in prep: " + "; ".join(welded)))
     if fk in dec_open and not action.startswith("reuse"):
         action = "decide"
         flags.append(flag(fname, dec_open[fk]))

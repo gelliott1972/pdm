@@ -1,0 +1,16 @@
+# LS-08X-04 import: decisions
+
+Brief: `docs\briefs\import-0804.md`. Labels D1, D2, … for this import only. Source of points: Dev's step 3 trial plan (4 Nov, `dev\status.md`), SW's probe of the three v4 tops (to follow).
+
+| # | Question | Decision | Status |
+| --- | --- | --- | --- |
+| D1 | 11 files carry PartNos that differ from the register (e.g. `BEAM_SF02_TOP` has `08A04-HBW-02`, register `08A04-SFP-02`; `SF04` has `08A04-SFA-41..49`, register `4X`; interface plate `08X04-PLP-30..33`, register `PLP-04`) [Dev] | The file's number wins, as agreed 19 Oct (James numbers in the files; the register was a sample). Flag each difference for James. | Admin's call 4 Nov (19 Oct rule) |
+| D2 | Same number on two files: `08A04-HBW-02` on `BEAM_SF02_TOP` and on `SF02_TIE_CORNER_RIGHTANGLE`; register gives `08B04-SFA-2T` to both `LS-08B-04_SF02-UPPER` and `-UPPERv2`; `08X04-LMW-01` to both `LCMM_40x40x4_0804` and LCMM configuration `-010` [Dev] | Only the files the v4 tops use count (SW's list will likely drop `-UPPERv2` and the old LCMM). Any clash left after that goes to James. | waiting on SW's list |
+| D3 | Not in the register: 18 K-beam parts inside the by-others assemblies, `KBEAM_BRACKET.SLDPRT`, 9 others (expansion joints and brackets, packers + bolts, floor plate EA bolt to stairs, `LS-08A-04_SF02`) [Dev] | Only those the v4 tops use. By-others K-beam parts: open (number each, or carry them inside the by-others assemblies unnumbered). The rest: numbers proposed by Dev in the register's pattern, Provisional (D8), listed for James. | waiting on SW's list |
+| D4 | Names of the three tops [Dev] | As 0806 and 0811 (0811 D31): `LS-08A-04+STRUCTURE`, `LS-08B-04+STRUCTURE`, `LS-08C-04+STRUCTURE` in `APEX\SC08\LS-08X-04`, no PartNo; plus a new `08A04-STA-01` etc. as 0811. | Admin's call 4 Nov (precedent); Grant can change |
+| D5 | Virtual components (A's SF01 per the register; B's SF01 has them too, no register rows) [Dev] | Saved out in prep (SW), each named as its register row, or by its number where there's no row, so the plan finds it. | Admin's call 4 Nov |
+| D6 | 5 Weight formulas read another file's mass [Dev] | As 0811 D26: each Weight formula reads its own file; SW repoints in prep; anything that looks intended goes to Admin. | Admin's call 4 Nov (precedent) |
+| D7 | The tops use `LCMM_40x80x8` and `LCMM_40x40x4`, not the register's `_SC08` / `_0804` names, and neither is in the M:\ probe [Dev] | SW to confirm where they resolve from. | waiting on SW |
+| D8 | 0811 settings for 0804 [Dev] | Carry over as for 0811: every new number Provisional until James confirms (0811 D33); PartNo at configuration level, no file-level PartNo (D32); no PartNo on As Welded (D10); fastener grade and finish as the vault's. | Admin's call 4 Nov (precedent); Grant can change |
+| D9 | 8 fastener configurations have no PartNo in the vault's `FAST-HEX/NUT/WSH-8.8-HDG` [Dev] | As 0811 D17: Grant checks them out, Dev writes the PartNos, Grant checks in. | Admin's call 4 Nov (precedent) |
+| D10 | Description, Finish, Weight and kg [Admin] | Proposed: set on the 0804 work copies before load, Descriptions pre-filled in James's 29 Oct pattern (`LS-08A-04 SUB FRAME 1 TOP ASSY`), Finish by rule if James confirms it. | open, for Grant |

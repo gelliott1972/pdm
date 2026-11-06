@@ -14,6 +14,16 @@
 
 **Incident (4 Nov 20:06), cleared:** the first A Pack and Go went to the default folder (the top's own folder on `M:\`) and created two new folders of copies in the live Dropbox (`M:\311v3\SC08\LS-08X-04\311v3`, `...\PANELS`, 123 files). No original was changed (checked every `M:\` file's date). Grant deleted both folders; checked gone. The A pack made straight after had picked up those copies and was moved aside (`C:\PDM-work\scratch\0804-A-pack-bad-2019`); A was redone cleanly. A first C attempt packed the A top by mistake (moved aside to `C:\PDM-work\scratch\0804-C-folder-held-A-pack`); C redone. Lesson: in Pack and Go, set **Save to folder** first and check the path before Save. Overwrite prompts for the hex nut are harmless: the models name it with `.SLDPRT` and `.sldprt`.
 
+**Step 4 prep (5 Nov), in work copies `C:\PDM-work\LS-08A-04`, `-08B-04`, `-08C-04` (copies of the inbox packs; the packs moved to `C:\PDM-work\scratch\0804-inbox` so nothing loads from the inbox):**
+
+| Item | State |
+| --- | --- |
+| D8: file-level PartNo deleted | done (DmEdit batch, read back): A 16 files, B 5, C 5 (the shared `FRAME\_Shared` parts sit in each copy). Backup `C:\PDM-work\scratch\0804-pre-D6-D8` |
+| D6: Weight and Material read their own file | done (DmEdit batch, read back): A 5 files (11 values), B and C 2 files each. The vault's `08XXX-PLP` copies left alone (reused, not imported) |
+| D12: in-context links to `LS-08A-04_SF02.SLDASM` | done: Grant broke the links in `SF02_TIE_CORNER_RIGHTANGLE` and `TIE_SF02_CORNER_80x40x8_WELDED` (A), then re-tied the plane `RHS_CORNER_MIDPLANE` to Front Plane at 980 mm (measured before/after; mass unchanged). Document Manager: no references left. RIGHTANGLE copied from A into B and C (properties identical; old B/C copies in `C:\PDM-work\scratch\0804-pre-D12-copy`) |
+| D11: old grout kits out | in progress. Counts to add back after import (Admin): **A 14, B 15, C 14** K-beam grout kits (A and C inside `KBEAM_ASSY_SHAFTAv2` / `KBEAM_ASSY_SHAFTC v2` at `K-BEAM_400X300_BIM`; B's at top level), plus the top-level floor/SF02 kits: A 11, B 11, C 11 (6 FLOOR_150X200_BIM, 3 FLOOR_200X200_BIM, 1 LS-08X-04+07200X300_SHARED, 1 LS-08X-04_SF02_350x200_BIM each) |
+| D5: save out A's and C's SF01 virtual parts | to do (B's waits for D13) |
+
 **Next:** Admin agrees the step 1 list with Grant (D2-D10, grout, B's double SF02 upper, family clean-up for James); then step 4 fixes and a clean Pack and Go to `C:\PDM-work\LS-08A-04-r1`, `-08B-04-r1`, `-08C-04-r1`.
 
 ## Drawing revisions: read-only survey for the release design (31 Oct 2026)

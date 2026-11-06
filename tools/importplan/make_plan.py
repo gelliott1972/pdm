@@ -18,6 +18,10 @@ Usage: python -I make_plan.py <inventoryDir> <registerXlsx> <outXlsx> [<ledgerCs
           more than once. After Replace Components the Document Manager can report a stale configuration for the
           replaced instance (0811, SW 26 Oct), so where DM and SOLIDWORKS disagree on what an assembly configuration
           uses, SOLIDWORKS wins and the file gets a note. Assemblies no SwCheck covered are listed in one issue.
+  --carried: a probe of the same files before prep deleted their file-level PartNos (0804 D8, as 0811 D32). A file
+          with no PartNo now that had one at file level there keeps that number, written at its one top-level
+          configuration (Default, or As Machined for weldment parts), Provisional. More than one top-level configuration
+          is an issue, not a guess.
 Sheet "Vault changes": configurations of files already in the vault that a file this plan imports refers to and
 that have no PartNo in the ledger. Each is a change to an existing vault file (check-out, write, check-in), not part of the import.
 """
@@ -41,6 +45,11 @@ vaults = []
 while "--vault" in args:
     i = args.index("--vault")
     vaults.append(args[i + 1])
+    del args[i:i + 2]
+carried_dir = None
+if "--carried" in args:
+    i = args.index("--carried")
+    carried_dir = args[i + 1]
     del args[i:i + 2]
 inv, register_path, out_path = args[0], args[1], args[2]
 ledger_path = args[3] if len(args) > 3 else None
@@ -325,6 +334,24 @@ for p in props:
 dec = DECIDED.get(screen, {})
 dec_files = {key(k): v for k, v in dec.get("files", {}).items()}
 dec_pn = {(key(f), c): v for (f, c), v in dec.get("partnos", {}).items()}
+carried_issues = []
+if carried_dir:   # --carried: James's file-level numbers deleted in prep (D8) come back at configuration level
+    now_pn = {key(p["file"]) for p in props if p["name"].lower() == "partno" and (p["value"] or p["expression"]).strip()}
+    tops_now = collections.defaultdict(list)
+    for c in cfgs:
+        if not c["parent_config"]:
+            tops_now[key(c["file"])].append(c["config"])
+    for p in load_from(carried_dir, "properties.csv"):
+        fk_ = key(p["file"])
+        v = gnric((p["value"] or p["expression"]).strip())
+        if p["name"].lower() != "partno" or p["config"] != "(file)" or not v or v == "?" or fk_ in now_pn or fk_ not in tops_now:
+            continue
+        if any(f == fk_ for (f, _) in dec_pn):
+            continue   # a decision for this file wins
+        if len(tops_now[fk_]) == 1:
+            dec_pn[(fk_, tops_now[fk_][0])] = (v, True, "D8: the file's own number (deleted at file level in prep), at configuration level")
+        else:
+            carried_issues.append((p["file"], f"had file-level PartNo {v} before prep, and has {len(tops_now[fk_])} top-level configurations: which one gets it?"))
 fast_spec = dec.get("fasteners")
 dec_leave = {key(k): v for k, v in dec.get("leave_out", {}).items()}
 dec_mdl = {key(k): v for k, v in dec.get("modelling_groups", {}).items()}
@@ -548,7 +575,7 @@ def tidy(stem_):
     return re.sub(r"-(ASSY|ASSSY|ASM|ASSEMBLY)$", "", t)
 
 # ---------------------------------------------------------------- build rows
-file_rows, pn_rows, issues = [], [], []
+file_rows, pn_rows, issues = [], [], list(carried_issues)
 destination = {}
 named = {}
 

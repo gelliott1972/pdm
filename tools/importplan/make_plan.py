@@ -107,6 +107,59 @@ D30_OPEN = "D30: every TIE_80x40x8 instance should be repointed to the vault's G
 OPEN_0811 = {"TIE_80x40x8.SLDPRT": D30_OPEN, "GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN,
              "LCMM_40x80x8_SC08.SLDASM": D14_OPEN, "LS-08X-X_PLATE_TIE_BEAM_INTERFACE.SLDPRT": D14_OPEN}
 
+# 0804 (docs\imports\LS-08X-04-decisions.md). Admin's calls 4-6 Nov; D3, D21, D22, D23 proposed, pending Grant (planned
+# as proposed, Admin 6 Nov). Config "@top" = the file's one top-level configuration (resolved when the plan loads).
+D3_0804 = "D3: Dev's proposal in the register's pattern, Provisional, for James"
+D3_0804_SHARED = {   # used in more than one shaft: X (0811 D10), in FRAME\_Shared
+    "LS-08X-04 100x100x8 L=150 EA EXPANSION BRACKET.SLDPRT": "08X04-BKP-01",
+    "LS-08X-04 KBEAM WALL MOUNT EXPANSION JOINT 57 DEGREES.SLDPRT": "08X04-BKP-06",   # A and C
+    "LS-08X-04 KBEAM WALL MOUNT EXPANSION JOINT 90 DEGREES.SLDPRT": "08X04-BKP-07",
+    "LS-08X-04 KBEAM WALL PLATE EA EXPANSION JOINT.SLDPRT": "08X04-PLP-05",
+    "LS-08X-04_FLOOR_PLATE_EA_BOLT_TO_STAIRS.SLDPRT": "08X04-PLP-06",
+}
+D3_0804_B = {
+    "LS-0BX-04 100x100x8 L=250 EA EXPANSION BRACKET.SLDPRT": "08B04-BKP-02",   # 08B04-BKP-01 is the roof bracket (register)
+    "LS-08B-04 KBEAM WALL MOUNT EXPANSION JOINT 61 DEGREES.SLDPRT": "08B04-BKP-03",
+}
+# The K-beam bracket comes in four plate variants, so each file is a family (the register's single 08X04-BKA-01 can't
+# number four different items). Assembly configuration and the part configuration it uses, in the same order.
+D3_0804_BRACKET = {
+    ("LS-08X-04_KBEAM_BRACKET.SLDASM", "150x140_SLOTS_LONG_AXIS"): "08X04-BKA-01",
+    ("LS-08X-04_KBEAM_BRACKET.SLDASM", "150x140_SLOTS_SHORT_AXIS"): "08X04-BKA-02",
+    ("LS-08X-04_KBEAM_BRACKET.SLDASM", "180x140_SLOTS_LONG_AXIS"): "08X04-BKA-03",
+    ("LS-08X-04_KBEAM_BRACKET.SLDASM", "180x140_SLOTS_SHORT_AXIS"): "08X04-BKA-04",
+    ("LS-08X-04_KBEAM_BRACKET.SLDPRT", "68MM_SPACE_80X40RHS_150x140PLATE_SLOTS_LONG_AXIS<As Machined>"): "08X04-BKP-02",
+    ("LS-08X-04_KBEAM_BRACKET.SLDPRT", "68MM_SPACE_80X40RHS_150X140PLATE_SLOTS_SHOT_AXIS<As Machined>"): "08X04-BKP-03",
+    ("LS-08X-04_KBEAM_BRACKET.SLDPRT", "68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_LONG_AXIS<As Machined>"): "08X04-BKP-04",
+    ("LS-08X-04_KBEAM_BRACKET.SLDPRT", "68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_SHORT_AXIS<As Machined>"): "08X04-BKP-05",
+}
+D15_0804_OPEN = "D15: LCMM_40x80x8_SC08 should be split into the new 08X04-LMW family before -r1 (as 0806, 0811 D14); still here"
+D18_0804_OPEN = "D18: every TIE_80x40x8 instance should be repointed to the vault's GNRIC-BRP / GNRIC-BRA before -r1 (as 0811 D30); still here"
+D21_0804_OPEN = ("D21 (proposed): the M12x200 bolt should become a configuration of the vault's FAST-HEX-8.8-HDG (check-out, as D9) "
+            "and its instances repointed to it before -r1; still here")
+
+def DEC_0804(x):
+    screens = {"A": ["LS-08A-04.SLDASM", "LS-08A-04 Roof.SLDASM", "LS-08A-04 Rear Wall.SLDASM", "LS-08A-04 RH Side Wall.SLDASM", "LS-08A-04 LH Side Wall.SLDASM"],
+               "B": ["LS-08B-04.SLDASM", "LS-08B-04 Roof.SLDASM"], "C": ["LS-08C-04.SLDASM", "LS-08C-04 Roof.SLDASM"]}[x]
+    if x in "BC":
+        screens += ["LS-08BC-04 Rear Wall.SLDASM", "LS-08BC-04 RH Side Wall.SLDASM", "LS-08BC-04 LH Side Wall.SLDASM"]
+    pn = {(f"08{x}04-STA-01.SLDASM", "Default"): (f"08{x}04-STA-01", True, "D4 (new structure assembly, as 0811 D7)")}
+    # D23 / D3: the K-beam parts by others numbered beside their assemblies (the assemblies keep 08x04-KBA-02..07)
+    pn.update({(f"LS-08{x}-04_KBEAM_S{n}.SLDPRT", "@top"): (f"08{x}04-KBP-0{n}", True, "D23 / D3 (proposed): K-beam part beside its assembly; KB has no P type in the register's Categories yet, for James") for n in range(1, 7)})
+    pn.update({(f, "@top"): (v, True, D3_0804) for f, v in {**D3_0804_SHARED, **(D3_0804_B if x == "B" else {})}.items()})
+    pn.update({k: (v, True, D3_0804 + " (one number per bracket variant)") for k, v in D3_0804_BRACKET.items()})
+    return {
+        "combined": {f"LS-08{x}-04_WITH_STRUCTUREv4.SLDASM": "D4 (as 0811 D31)"},
+        "screen_files": {f: "D22 (proposed): screen file, keeps its LS- name, no PartNo" for f in screens},
+        "partnos": pn,
+        "modelling_groups": {"LS-08X-04 KBEAM PACKERS + BOLTS.SLDASM": "D3 (proposed): packers and bolts kit, a modelling group as the bolt kits (18 Oct)"},
+        "open": {"LCMM_40x80x8_SC08.SLDASM": D15_0804_OPEN, "TIE_80x40x8.SLDPRT": D18_0804_OPEN, "hex bolt gradeab_Custom ISO.sldprt": D21_0804_OPEN},
+        "no_file_partno_imports": "D8 (as 0811 D32)",
+        "all_provisional": "D8 (as 0811 D33)",
+        "no_welded_partno": {"*": "D8 (as 0811 D10: As Welded has no PartNo)"},
+        "fasteners": ("8.8", "HDG"),   # D8: as the vault's FAST-HEX/NUT/WSH-8.8-HDG
+    }
+
 # Names and numbers decided for one screen's import (docs\imports\<screen>-decisions.md). Not rules for other screens.
 #   files:   old file -> (new name, new folder or None to keep the proposed one, where decided)
 #   partnos: (old file, configuration or "@file") -> (PartNo, provisional?, where decided)
@@ -116,6 +169,7 @@ OPEN_0811 = {"TIE_80x40x8.SLDPRT": D30_OPEN, "GROUT+ANCHOR_BOLTS.SLDASM": D15_OP
 #   no_file_props: old file -> where decided: must have no file-level custom properties (prep deletes them)
 #   no_welded_partno: old file (or "*" for every steel file imported) -> where decided: its <As Welded> configurations carry no PartNo
 #   no_file_partno_imports: where decided: no file this plan imports may keep a file-level PartNo (prep deletes them)
+#   screen_files: old file -> where decided: an LS- screen file (screen assembly, walls, roofs): keeps its name, no PartNo
 #   combined: old file -> where decided: screen and structure in one top assembly, named <screen>+STRUCTURE, no PartNo
 #   weight_reads_other: old file -> where decided: its Weight formula reading another file is deliberate (a note)
 #   replaced_partnos: old file reused from the vault -> where decided: the copy's own PartNos were replaced by a
@@ -222,14 +276,7 @@ DECIDED = {
     },
     # docs\imports\LS-08X-04-decisions.md (Admin's calls 4 Nov; Grant can change). D1 (the file's PartNo wins, each
     # difference from the register flagged) is the plan's default. D2/D3 wait for SW's list of what the v4 tops use.
-    **{f"LS-08{x}-04": {
-        "combined": {f"LS-08{x}-04_WITH_STRUCTUREv4.SLDASM": "D4 (as 0811 D31)"},
-        "partnos": {(f"08{x}04-STA-01.SLDASM", "Default"): (f"08{x}04-STA-01", True, "D4 (new structure assembly, as 0811 D7)")},
-        "no_file_partno_imports": "D8 (as 0811 D32)",
-        "all_provisional": "D8 (as 0811 D33)",
-        "no_welded_partno": {"*": "D8 (as 0811 D10: As Welded has no PartNo)"},
-        "fasteners": ("8.8", "HDG"),   # D8: as the vault's FAST-HEX/NUT/WSH-8.8-HDG
-    } for x in "ABC"},
+    **{f"LS-08{x}-04": DEC_0804(x) for x in "ABC"},
 }
 
 def load(name):
@@ -334,6 +381,18 @@ for p in props:
 dec = DECIDED.get(screen, {})
 dec_files = {key(k): v for k, v in dec.get("files", {}).items()}
 dec_pn = {(key(f), c): v for (f, c), v in dec.get("partnos", {}).items()}
+dec_screen = {key(k): v for k, v in dec.get("screen_files", {}).items()}
+_top_cfgs = collections.defaultdict(list)
+for c in cfgs:
+    if not c["parent_config"]:
+        _top_cfgs[key(c["file"])].append(c["config"])
+for (f, c), v in list(dec_pn.items()):   # "@top": the file's one top-level configuration
+    if c == "@top":
+        del dec_pn[(f, c)]
+        if len(_top_cfgs.get(f, [])) == 1:
+            dec_pn[(f, _top_cfgs[f][0])] = v
+        elif f in _top_cfgs:
+            dec_pn[(f, "?")] = v   # names the file; the PartNo row says which configuration is unclear
 carried_issues = []
 if carried_dir:   # --carried: James's file-level numbers deleted in prep (D8) come back at configuration level
     now_pn = {key(p["file"]) for p in props if p["name"].lower() == "partno" and (p["value"] or p["expression"]).strip()}
@@ -529,6 +588,8 @@ def classify(f):
         return "drawing"
     if base[n]:
         return base[n]
+    if n in dec_screen:
+        return "screen file"
     if re.match(r"^mdl[-_]", n) or n in dec_mdl:
         return "modelling group"
     if re.match(r"^nonpart[-_]", n) or n.startswith("grout"):
@@ -795,6 +856,12 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
             flags.append(flag(fname, f"screen file holding several screens as configurations: becomes {new_name}"))
         elif key(s) != key(screen):
             flags.append(flag(fname, f"screen assembly (panels and SKUs only): becomes {screen}; its other screens' configurations must be removed first"))
+    elif cls == "screen file":
+        action, new_name, source = "import, keep name", s, dec_screen[fk]
+        new_folder = rf"APEX\SC{scene_no}\LS-{scene_no}X-{screen_no}"
+        if file_partno.get(fk) or any(ff == fk and v for (ff, _), v in cfg_partno.items()):
+            action = "decide"
+            flags.append(flag(fname, f"{dec_screen[fk]}: it carries a PartNo, which should be deleted in prep"))
     elif cls == "combined":
         action, new_name, source = "import, keep name", f"{screen}+STRUCTURE", "rule (screen + structure)"
         new_folder = rf"APEX\SC{scene_no}\LS-{scene_no}X-{screen_no}"
@@ -906,7 +973,7 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         in_file = cfg_partno.get((fk, cfg), "") or file_partno.get(fk, "")   # a file-level PartNo covers configurations without their own
         in_reg = reg_cfg.get((key(s), key(norm_cfg(cfg))), "")
         n_used = used[fk].get(cfg, 0)
-        decided = dec_pn.get((fk, cfg))
+        decided = dec_pn.get((fk, cfg)) or (dec_pn.get((fk, "?")) if not parent and n_used else None)   # "@top", several: the used one
         if not (in_file or in_reg or n_used or decided):
             continue
         pflags = []

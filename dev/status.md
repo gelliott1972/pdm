@@ -41,6 +41,29 @@ Admin asked: is the importer ready for a full-rename 0804 import from the regist
 - Still for prep or decisions (A): split families `LCMM_40x80x8_SC08` (→ 08X04-LMW, as 0806/0811), `LCMM_40x40x4_0804` (08A04/08C04/08X04-LMW), `MEMBER_SHS_40x40x4` (GNRIC-LMP + LMW, cf. 0806 decision 5), `TIE_80x40x8` (repoint to the vault's GNRIC-BRP/BRA, as 0811 D30). `TIE_40x40x4` → `GNRIC-BRP-01` with an As Welded PartNo (D8). `PLATE_FLOOR` has configuration FP-574x180, which isn't in the vault's GNRIC-PLP. `hex bolt gradeab_Custom ISO` would become FAST-HEX-8.8-HDG beside the vault's. `LS-08A-04.SLDASM` (the screen: Roof, Rear Wall, two Side Walls) is classed as steel and named 08A04, and the walls carry register SF numbers. D4's new `08A04-STA-01` isn't built yet. 11 parts need numbers (D3).
 - **James list, A: `scratch\import\0804-james-list-A.xlsx`** (first draft, 59 rows, 40 to check): register name, register number, number carried before prep, file now, new file name, PartNo the plan writes, and the D1/D2/D3/D5 notes.
 
+**D15–D23 (Admin, 6 Nov), in `make_plan.py` as proposed:**
+
+| Item | What the plan does |
+| --- | --- |
+| D15, D18, D21 | Blocks the plan if `-r1` still holds `LCMM_40x80x8_SC08`, `TIE_80x40x8` or the M12x200 custom bolt (SW splits, repoints, or adds the vault configuration) |
+| D22 | New "screen file" class: `LS-08x-04.SLDASM`, the roofs, and the walls (B and C share the `LS-08BC-04` walls) keep their names, with no PartNo, at `APEX\SC08\LS-08X-04`. A screen file that carries a PartNo is "decide" |
+| D3 / D23, my proposals, Provisional | K-beam parts `08x04-KBP-01..06`. Bracket families `08X04-BKA-01..04` and `08X04-BKP-02..05` (four plate variants). `08X04-BKP-01` (L=150 EA bracket), `-06` (57°), `-07` (90°). `08B04-BKP-02` (L=250, B), `-03` (61°, B). `08X04-PLP-05` (wall plate EA expansion joint), `-06` (floor plate EA bolt to stairs). KBEAM PACKERS + BOLTS is a modelling group |
+
+New in the tool: config `"@top"` in a decision means the file's single top-level configuration; with several, the one the screen uses. The six earlier plans are identical.
+
+**D20 answered:** no v4 top uses `PLATE_FLOOR` FP-574x180 (A, B, C each use FP-150X200, FP-200x200 and FP-350x200, all in the vault). Nothing to do.
+
+**James list updated** (`scratch\import\0804-james-list-A.xlsx`, new first sheet "Suggestions for James"):
+
+| Item | Suggestion |
+| --- | --- |
+| D16 | 40x40 LCMM's 08X04 numbers (-11..20) are the same as the 40x80 family's, so one set must be renumbered |
+| D17 | `GNRIC-LMW` |
+| D19 | `GNRIC-BRP-01` as its own file |
+| D2 | `RIGHTANGLE` to an 08X04 number |
+| Bracket | Its 180 variants are crossed between the assembly and the part |
+| Shared parts | Four shared parts carry 08A04 numbers but A, B and C all use them |
+
 Next: SW's list via Admin, then the `-r1` plan (step 5). The probe of each `-r1` must be named `LS-08A-04-r1` etc. (the plan takes the screen from the folder name).
 
 ## Earlier: J2 / J3 property update (James's notes 28 Oct, plus D17)

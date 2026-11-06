@@ -903,6 +903,10 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
             elif in_reg:
                 proposed, src = in_reg, "sample register: provisional, needs James's number"
                 pflags.append("number from the sample register only")
+            elif single and PN_RE.match(s):
+                # Already named by its number, with none in the file and no register row under that name
+                # (0804 D5: virtual components saved out as 08A04-SFP-01 etc., as "^" isn't allowed in a file name).
+                proposed, src = gnric(s.upper()), "file name (already its number)"
             else:
                 proposed, src = "", "none"
                 pflags.append("no number")

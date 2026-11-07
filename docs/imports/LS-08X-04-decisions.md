@@ -63,3 +63,4 @@ Grant 7 Nov: approved R1 to R10 ("all ok"):
 - A7 (Grant, 7 Nov): K-beam bracket assembly and floor-plate assembly: Finish `HDG & PAINTED`; their parts: `Refer Assembly for Surface Finish.` Follow-up A12 open (all parts inside assemblies? EA brackets?).
 - A8 (Grant, 7 Nov): James's WELDED / AS WELDED on `08X04-LMW` and `08X04-LMW-40X40` are replaced by the "refer to assembly" text, as A7.
 - A9 (Grant, 7 Nov): the 36 file-name descriptions accepted. A11: C's SF01 is `08C04-SFA-01` (A's format), not the register's `1X`.
+- A12 (Grant, 7 Nov): every part inside an assembly gets Finish `Refer Assembly for Surface Finish.` (A7 wording, used everywhere); assemblies carry the finish; the two EA expansion brackets `HDG & PAINTED`.

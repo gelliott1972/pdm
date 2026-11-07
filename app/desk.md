@@ -110,3 +110,14 @@ When Grant presses **Next** on such a step (or **Run** if it's the last step), t
 | check-in | it's no longer checked out to you (checked in, or released with no changes) |
 
 It moves to the next step only if every file is done. Otherwise it stays on the step, lists each file that isn't done and why (for example "checked out by James", with PDM's own message), and Next tries again. The result is saved in the ticket's `actions`. If PDM isn't running, or nobody is logged in, the page says "Open PDM and log in, then press Next again." Back/Next can't skip past a PDM step that hasn't succeeded.
+
+## Who has SOLIDWORKS: Pause and Hand back (Desk v2, 7 Nov)
+
+Files in `desk\sw\` (format from Dev's SwCmd: `lock.json` `{holder, purpose, since, kind: "command" | "round", pid}`, `pause.json` `{requestedAt, by}`).
+
+| Desk does | How |
+| --- | --- |
+| Shows who has it | The strip under the header: free, a session (what for, since when), "waiting for <session> to reach a safe point…" or "You have SOLIDWORKS". A one-command lock whose SwCmd process has gone is shown as free |
+| Pause automatic work | Writes `pause.json`. SwCmd then refuses the sessions' commands (exit 4), except save / close / close-all for a round's holder, so it can reach a safe point |
+| Start on a job | `SwCmd lock --as grant --purpose <ticket id>` first. Exit 5 (a session holds it) means "Press Pause automatic work, wait for You have SOLIDWORKS, then Start again". Then `close-all --as grant` and `open … --as grant` |
+| Hand back (or Done / Problem on a job) | Deletes `pause.json` and runs `SwCmd unlock --as grant` |

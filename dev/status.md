@@ -34,9 +34,19 @@ Tools (7 Nov, built; SOLIDWORKS runs still to test; SW holds SOLIDWORKS for its 
 - Ledger rows: `scratch\import\restructure-0804\make_ledger_rows.py` -> `ledger-rows-draft.csv` (29 rows), appended
   only in the real run.
 
-STA-01 properties, proposed (Admin checks): as 0811 (D22, D25): at Default `PartNo` 08x04-STA-01, `PartNoStatus`
-Provisional, `Description` `LS-08x-04 Structure`; no file-level properties. Neither `08A06-STA-01` nor
-`08A11-STA-01` has a Finish, so none is proposed (open: does A12 "assemblies carry the finish" apply to the STA-01?).
+Admin approved the plan (7 Nov): 9 walls and roofs is right; the form-sub `--round` exception is OK; STA-01
+properties as 0811 (D22, D25): at Default `PartNo` 08x04-STA-01, `PartNoStatus` Provisional, `Description`
+`LS-08x-04 Structure`; no file-level properties and no Finish (A12 is for fabricated assemblies; the STA-01 is a
+container). DmEdit batch actions from a probe of the new files: `restructure-0804\make_sta_props.py` (deletes anything
+else the template put there).
+
+Tool test (7 Nov, throwaway copy `scratch\import\roundtest`, moves done by hand, no restructure): gate before: 30 old
+paths, 2 retired; `SwFixRefs --round --apply` repointed 30 in 16 files (9 s); `SwResave --round` saved 16 of 16 (the 6
+drawings too, 397 s); gate after: 0 old paths, 2 retired (the tops, as expected without the restructure). SwCheck of the
+B top: the BC walls, B roof and `08Z04-SFP-01` load from their new folders; 9 problems = the same part links as SW's
+baseline. Known vault faults the gate shows, outside this round (unchanged before and after): `GNRIC-BRW-20.SLDDRW`
+model `GNRIC-BRW-20.SLDPRT` not in the vault (James has the drawing out); `GNRIC-LPP-05.SLDDRW` and
+`08XXX-PLP-33.SLDDRW` store Dropbox paths. The round's gate passes when only these three remain.
 
 Rehearsal copy: `scratch\import\rehearsal-restructure\vault` (robocopy of P:\, 485 files). App is setting up a test
 pdm.exe against a test vault, plus a second copy acting as an engineer's PC.

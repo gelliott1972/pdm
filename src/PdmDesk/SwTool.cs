@@ -28,16 +28,22 @@ public class SwTool
         return null;
     }
 
-    public Task<SwResult> CloseAll(TimeSpan timeout) => Run(["close-all"], timeout);
-    public Task<SwResult> Status(TimeSpan timeout) => Run(["status"], timeout);
+    // Every call is made as "grant" (Desk v2): SwCmd lets Grant's Desk work through a pause, and records who holds it.
+    public Task<SwResult> CloseAll(TimeSpan timeout) => Run(["close-all", "--as", "grant"], timeout);
+    public Task<SwResult> Status(TimeSpan timeout) => Run(["status", "--as", "grant"], timeout);
     public Task<SwResult> Open(string path, string? configuration, TimeSpan timeout) =>
-        Run(string.IsNullOrWhiteSpace(configuration) ? ["open", path] : ["open", path, "--config", configuration], timeout);
+        Run(string.IsNullOrWhiteSpace(configuration) ? ["open", path, "--as", "grant"] : ["open", path, "--config", configuration, "--as", "grant"], timeout);
+    // Grant's hold on SOLIDWORKS for a job (lock.json, kind "round"); exit 5 = a session holds it. Neither touches SOLIDWORKS.
+    public Task<SwResult> Lock(string purpose) => Run(["lock", "--as", "grant", "--purpose", purpose], TimeSpan.FromSeconds(30));
+    public Task<SwResult> Unlock() => Run(["unlock", "--as", "grant"], TimeSpan.FromSeconds(30));
+    public string? DeskDir { get; set; } // SwCmd's PDM_DESK_DIR: the same desk folder as this Desk
 
     async Task<SwResult> Run(string[] args, TimeSpan timeout)
     {
         if (!File.Exists(Exe)) return new SwResult(2, $"SwCmd isn't built on this PC ({Exe}). See the build line at the top of tools\\SwCmd\\SwCmd.cs.", false);
         var psi = new ProcessStartInfo(Exe) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var a in args) psi.ArgumentList.Add(a);
+        if (DeskDir != null) psi.Environment["PDM_DESK_DIR"] = DeskDir;
         var output = new StringBuilder();
         using var p = new Process { StartInfo = psi };
         p.OutputDataReceived += (_, e) => { if (e.Data != null) lock (output) output.AppendLine(e.Data); };

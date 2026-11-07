@@ -57,6 +57,11 @@ h2:first-child { margin-top: 4px; }
 .swstrip { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
 .swdot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
 .swdot.busy { background: var(--amber); }
+.swdot.mine { background: var(--accent); }
+.swbtns { margin-left: auto; }
+.swbtns .b { padding: 6px 11px; }
+.swstrip .msg { color: var(--red); font-size: 12px; width: 100%; }
+.swstrip .msg:empty { display: none; }
 .ref { display: inline-block; font: 600 12px/1 ui-monospace, Consolas, monospace; background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 4px 6px; margin-right: 6px; vertical-align: 1px; }
 .pill { font-size: 11px; font-weight: 600; border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
 .pill.blocking { background: var(--red-soft); color: var(--red); }
@@ -270,12 +275,25 @@ const refNote = t => t.ref && t.ref !== shortId(t) ? ` <span class="refnote">${e
 // SOLIDWORKS strip: who has it (desk\sw\lock.json, written by SwCmd, a session's round or the Desk), or Free.
 function swStrip() {
   const sw = state.sw || {}, l = sw.lock, box = $('swstrip');
+  const other = l && l.holder && l.holder !== 'grant';
   let h;
-  if (l && l.holder) h = `<span class="swdot busy"></span><b>SOLIDWORKS:</b> ${esc(l.holder === 'grant' ? 'you' : name(l.holder))}${l.purpose ? ' · ' + esc(l.purpose) : ''}${l.since ? ` <span class="meta">since ${ago(l.since)}</span>` : ''}`;
-  else h = '<span class="swdot"></span><b>SOLIDWORKS:</b> free';
-  if (sw.pause) h += ` <span class="meta">· pause requested ${ago(sw.pause.requestedAt)}</span>`;
-  if (box.innerHTML !== h) box.innerHTML = h;
+  if (sw.pause && other) h = `<span class="swdot busy"></span><b>SOLIDWORKS:</b> waiting for ${esc(name(l.holder))} to reach a safe point…${l.purpose ? ` <span class="meta">(${esc(l.purpose)})</span>` : ''}
+    <span class="swbtns"><button class="b" data-sw="handback" title="Cancel the pause">Cancel pause</button></span>`;
+  else if (sw.pause || (l && l.holder === 'grant')) h = `<span class="swdot mine"></span><b>You have SOLIDWORKS</b>${l?.purpose ? ` <span class="meta">(${esc(l.purpose)})</span>` : ''}${(l?.since || sw.pause?.requestedAt) ? ` <span class="meta">since ${ago(l?.since || sw.pause.requestedAt)}</span>` : ''}
+    <span class="swbtns"><button class="b primary" data-sw="handback" title="Let the sessions use SOLIDWORKS again">Hand back</button></span>`;
+  else if (other) h = `<span class="swdot busy"></span><b>SOLIDWORKS:</b> ${esc(name(l.holder))}${l.purpose ? ' · ' + esc(l.purpose) : ''}${l.since ? ` <span class="meta">since ${ago(l.since)}</span>` : ''}
+    <span class="swbtns"><button class="b" data-sw="pause" title="Ask the sessions to stop at a safe point and leave SOLIDWORKS to you">Pause automatic work</button></span>`;
+  else h = `<span class="swdot"></span><b>SOLIDWORKS:</b> free
+    <span class="swbtns"><button class="b" data-sw="pause" title="Keep the sessions out of SOLIDWORKS until you hand it back">Pause automatic work</button></span>`;
+  h += '<span class="msg" id="swmsg"></span>';
+  if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; }
 }
+$('swstrip').onclick = async e => {
+  const act = e.target?.dataset?.sw; if (!act) return;
+  e.target.disabled = true;
+  try { await post('/api/sw/' + act, {}); lastJson = ''; await load(); }
+  catch (err) { e.target.disabled = false; const m = $('swmsg'); if (m) m.textContent = err.message; }
+};
 
 function ticketCard(t) {
   const el = document.createElement('div');

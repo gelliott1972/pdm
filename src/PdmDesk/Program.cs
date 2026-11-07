@@ -47,7 +47,10 @@ app.MapGet("/api/state", () =>
     var notes = Tagged(store.Inbox, problems)
         .OrderByDescending(n => (string?)n["createdAt"] ?? "").Take(5).ToList();
     var activity = Tagged(store.Activity, problems);
-    var sw = new { @lock = store.ReadOptional(Path.Combine(store.Sw, "lock.json"), problems), pause = store.ReadOptional(Path.Combine(store.Sw, "pause.json"), problems) };
+    var swLock = store.ReadOptional(Path.Combine(store.Sw, "lock.json"), problems);
+    // A one-command lock whose SwCmd process has gone is stale (SwCmd takes it over): show SOLIDWORKS as free.
+    if (swLock != null && (string?)swLock["kind"] == "command" && (int?)swLock["pid"] is int pid && !Running(pid)) swLock = null;
+    var sw = new { @lock = swLock, pause = store.ReadOptional(Path.Combine(store.Sw, "pause.json"), problems) };
     return Results.Ok(new { root, tickets, status, activity, sw, notes, problems, now = Store.Now() });
 });
 
@@ -112,7 +115,8 @@ app.MapPost("/api/note", async (HttpRequest req) =>
 });
 
 // ---- sw-job tickets (phase 2): Start opens the files in SOLIDWORKS, Next/Back move through the steps, Done/Problem answer.
-var sw = new SwTool();
+var sw = new SwTool { DeskDir = root };
+var pauseFile = Path.Combine(store.Sw, "pause.json");
 
 app.MapPost("/api/sw/start", async (HttpRequest req) =>
 {
@@ -135,6 +139,10 @@ app.MapPost("/api/sw/start", async (HttpRequest req) =>
     var ok = true; var message = "";
     try
     {
+        // Grant takes SOLIDWORKS first (lock.json as "grant"); a session holding it means Pause, then Start again.
+        var held = await sw.Lock(id!);
+        if (held.Code == 5) return Fail($"SOLIDWORKS is in use: {Last(held.Output)}. Press Pause automatic work, wait for \"You have SOLIDWORKS\", then Start again.");
+        if (held.Code != 0) return Fail($"Couldn't take SOLIDWORKS: {Last(held.Output)}");
         // The first call may have to start SOLIDWORKS, so it gets longer (Dev: about 5 minutes).
         var first = true;
         TimeSpan Limit() { var l = first ? TimeSpan.FromMinutes(5) : TimeSpan.FromMinutes(3); first = false; return l; }
@@ -301,8 +309,42 @@ app.MapPost("/api/sw/finish", async (HttpRequest req) =>
         t["status"] = "answered";
         store.Write(file, t);
     }
+    await HandBack(); // Done or Problem ends Grant's turn with SOLIDWORKS
     return Results.Ok(new { ok = true });
 });
+
+// ---- Pause automatic work / Hand back (Desk v2): pause.json asks the sessions to stop at a safe point; SwCmd refuses
+// their commands (exit 4) while it exists, but not Grant's.
+app.MapPost("/api/sw/pause", () =>
+{
+    Directory.CreateDirectory(store.Sw);
+    if (!File.Exists(pauseFile)) store.Write(pauseFile, new JsonObject { ["requestedAt"] = Store.Now(), ["by"] = "grant" });
+    return Results.Ok(new { ok = true });
+});
+app.MapPost("/api/sw/handback", async () =>
+{
+    var r = await HandBack();
+    return r == null ? Results.Ok(new { ok = true }) : Fail(r);
+});
+
+async Task<string?> HandBack()
+{
+    try { File.Delete(pauseFile); } catch (IOException) { }
+    var r = await sw.Unlock();
+    return r.Code == 0 ? null : $"Couldn't release SOLIDWORKS: {Last(r.Output)}";
+}
+
+static bool Running(int pid)
+{
+    try { using var p = Process.GetProcessById(pid); return !p.HasExited; } catch { return false; }
+}
+
+static string Last(string output)
+{
+    var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(l => !l.StartsWith("Attached to", StringComparison.Ordinal)).ToArray();
+    return lines.Length == 0 ? "no details" : string.Join(" / ", lines.TakeLast(2));
+}
 
 if (openPage) app.Lifetime.ApplicationStarted.Register(Open);
 app.Run();

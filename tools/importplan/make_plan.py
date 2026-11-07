@@ -186,7 +186,7 @@ def DEC_0804(x):
         "no_file_partno_imports": "D8 (as 0811 D32)",
         "all_provisional": "D8 (as 0811 D33)",
         # R8 (Grant 7 Nov) undoes D8's "no PartNo on As Welded": James's As Welded PartNos stay (none were deleted in prep)
-        "welded_children_take_parent": "R8 (Admin 7 Nov): As Welded child takes its parent's number (the file's number was at file level)",
+        "welded_children_take_parent": "R8 (Admin 7 Nov): As Welded child with no number of its own takes its parent's number",
         "fasteners": ("8.8", "HDG"),   # D8: as the vault's FAST-HEX/NUT/WSH-8.8-HDG
     }
 
@@ -443,14 +443,21 @@ if carried_dir:   # --carried: James's file-level numbers deleted in prep (D8) c
             dec_pn[(fk_, tops_now[fk_][0])] = (v, True, "D8: the file's own number (deleted at file level in prep), at configuration level")
         else:
             carried_issues.append((p["file"], f"had file-level PartNo {v} before prep, and has {len(tops_now[fk_])} top-level configurations: which one gets it?"))
-# A file whose number came back from file level: its As Welded children take the top configuration's number too
-# (0804 R8, Admin 7 Nov, as the vault's GNRIC-BRP/BRA), unless a decision numbers the child itself.
-if dec.get("welded_children_take_parent") and carried_files:
+# An As Welded child with no number of its own takes its parent's number: the decided one, or the parent's own
+# configuration PartNo (0804 R8, Admin 7 Nov, as the vault's GNRIC-BRP/BRA). A file-level PartNo already covers it.
+if dec.get("welded_children_take_parent"):
+    own = {(key(p["file"]), p["config"]): (p["value"] or p["expression"]).strip() for p in props
+           if p["name"].lower() == "partno" and (p["value"] or p["expression"]).strip() not in ("", "?")}
+    has_file_pn = {f for (f, c) in own if c == "(file)"}
     for c in cfgs:
         fk_, cfg_, par = key(c["file"]), c["config"], c["parent_config"]
-        if fk_ in carried_files and par and "<as welded>" in cfg_.lower() and (fk_, cfg_) not in dec_pn and (fk_, par) in dec_pn:
+        if not par or "<as welded>" not in cfg_.lower() or (fk_, cfg_) in dec_pn or (fk_, cfg_) in own or fk_ in has_file_pn:
+            continue
+        if (fk_, par) in dec_pn:
             v = dec_pn[(fk_, par)]
             dec_pn[(fk_, cfg_)] = (v[0], v[1], dec["welded_children_take_parent"])
+        elif (fk_, par) in own:
+            dec_pn[(fk_, cfg_)] = (gnric(own[(fk_, par)]), True, dec["welded_children_take_parent"])
 fast_spec = dec.get("fasteners")
 dec_leave = {key(k): v for k, v in dec.get("leave_out", {}).items()}
 dec_mdl = {key(k): v for k, v in dec.get("modelling_groups", {}).items()}

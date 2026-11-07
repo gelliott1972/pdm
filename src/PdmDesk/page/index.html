@@ -571,10 +571,14 @@ const ownedOpen = k => (state.tickets || []).filter(t => isOpen(t) && String(t.o
 function sessionCard(k, s, a, owned) {
   // The pill is live activity (the hooks' desk\activity files); the status file is detail.
   // A running tool stays "Running" however long it takes; otherwise 3 minutes quiet means "probably idle".
+  // A background job fires no hooks, so a status file saying working/blocked in the last 10 minutes counts as working too.
   const age = a ? (Date.now() - Date.parse(a.at)) / 1000 : Infinity;
+  const stAge = s?.updatedAt ? (Date.now() - Date.parse(s.updatedAt)) / 1000 : Infinity;
+  const background = ['working', 'blocked'].includes(String(s?.state || '').toLowerCase()) && stAge < 600;
   let pill, cls, live = '';
   if (a?.activity === 'needs-you') [pill, cls] = ['Needs you', 'needs'];
   else if (a?.running) { [pill, cls] = ['Running', 'working']; live = `Running ${dur(age)}: ${a.detail || 'a tool'}`; }
+  else if (background) { [pill, cls] = ['Working (background)', 'working']; live = s.doing || ''; }
   else if (a?.activity === 'working' && age < 180) { [pill, cls] = ['Working', 'working']; live = a.detail || ''; }
   else if (a?.activity === 'working') [pill, cls] = ['Probably idle', 'idle'];
   else [pill, cls] = ['Idle', 'idle'];
@@ -590,7 +594,7 @@ function sessionCard(k, s, a, owned) {
   if (openRow) {
     const st = s?.state ? String(s.state) : '';
     h += `<div class="sdetail">${st ? `<div class="wait">Stage: ${esc(st[0].toUpperCase() + st.slice(1))}${s.updatedAt ? ' · ' + ago(s.updatedAt) : ''}</div>` : ''}
-      ${s?.doing ? `<div class="doing">${esc(s.doing)}</div>` : ''}${s?.waitingOn ? `<div class="wait">Waiting on: ${esc(s.waitingOn)}</div>` : ''}
+      ${s?.doing && live !== s.doing ? `<div class="doing">${esc(s.doing)}</div>` : ''}${s?.waitingOn ? `<div class="wait">Waiting on: ${esc(s.waitingOn)}</div>` : ''}
       ${a && !live ? `<div class="wait">Latest: ${esc(a.detail || a.activity)} · ${ago(a.at)}</div>` : ''}${!s && !a ? '<div class="wait">No status yet.</div>' : ''}</div>`;
   }
   return h;

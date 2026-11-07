@@ -178,6 +178,10 @@ def DEC_0804(x):
     if x in "BC":   # R7 = D27: keeps its name, no PartNo
         screens = screens + [f"LS-08{x}-04_WITH_SCREEN.SLDASM"]
     return {
+        # R3 + SW1 (Grant 7 Nov): one shared 40x40 LCMM family file; A's and C's own configurations stay in it with their
+        # 08A04-/08C04- numbers, so it is named by decision (the plan would otherwise ask to split it by place).
+        # Its PartNos (08X04-LMW-21..29 for the shared ones) wait for SW's configuration names after the split.
+        "files": {"08X04-LMW-40X40.SLDASM": ("08X04-LMW-40X40", None, "R3 / SW1 (Grant 7 Nov): shared 40x40 LCMM family, A's and C's configurations keep their numbers")},
         "combined": {f"LS-08{x}-04_WITH_STRUCTUREv4.SLDASM": "D4 (as 0811 D31)"},
         "screen_files": {f: ("R7 (Grant 7 Nov): keeps its name, no PartNo" if "WITH_SCREEN" in f else "D22 (agreed 7 Nov): screen file, keeps its LS- name, no PartNo") for f in screens},
         "partnos": pn,

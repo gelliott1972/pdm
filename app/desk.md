@@ -92,7 +92,7 @@ A step can be an object instead of text:
 
 ```json
 { "text": "Check out the three fastener files.",
-  "action": { "type": "check-out", "paths": ["P:\_Shared\_Fasteners\FAST-HEX-8.8-HDG.SLDPRT", "_Shared/_Fasteners/FAST-NUT-8-HDG.SLDPRT"] } }
+  "action": { "type": "check-out", "paths": ["P:\\_Shared\\_Fasteners\\FAST-HEX-8.8-HDG.SLDPRT", "_Shared/_Fasteners/FAST-NUT-8.8-HDG.SLDPRT"] } }
 ```
 
 | Field | Values |

@@ -51,3 +51,5 @@ Grant 7 Nov: approved R1 to R10 ("all ok"):
 
 - R8 detail (Admin, 7 Nov): As Welded configurations carry their As Machined parent's number, including the 26 files whose number came back from file level and the two renumbered ones (`GNRIC-LMW-14`, `08X04-BRP-02`). In make_plan adba786.
 - R8 extended (Admin, 7 Nov): every As Welded child with no number of its own takes its As Machined parent's number (incl. the D3 brackets and floor plate, and `08B04-BRW-01`/`-02`).
+- R5 confirmed (Dev, SwCmd cut-list 7 Nov): `TIE_40x40x4` is one RHS body, no end caps: `08X04-BRP-02`.
+- SwCmd (tools\SwCmd) passed its SOLIDWORKS test 7 Nov (df7a57d, c207e36) except `move`; the last 0804 SOLIDWORKS round (R3/D15, R9, R1, check-open) runs through it.

@@ -50,3 +50,4 @@ Grant 7 Nov: approved R1 to R10 ("all ok"):
 - R10 = D10 Finish: SFA `HDG & PAINTED`; loose bolt-on parts `HDG`; weldments, welded-in parts, K-beam by others and STAs blank.
 
 - R8 detail (Admin, 7 Nov): As Welded configurations carry their As Machined parent's number, including the 26 files whose number came back from file level and the two renumbered ones (`GNRIC-LMW-14`, `08X04-BRP-02`). In make_plan adba786.
+- R8 extended (Admin, 7 Nov): every As Welded child with no number of its own takes its As Machined parent's number (incl. the D3 brackets and floor plate, and `08B04-BRW-01`/`-02`).

@@ -9,6 +9,8 @@
 //   open <file> [--config <name>]                open (or activate) a file; report load errors, missing references,
 //                                                components loaded from outside the file's own tree, rebuild errors
 //   check-open <file> [--config <name>]          as open, then close it again without saving
+//   unlink-equations <file> [--save] [--checked-out]  equations no longer linked to a .txt: values kept, link and path cleared,
+//                                                checked, and with --save read back from disk
 //   rebuild <file>                               force a full rebuild of an open (or opened) file; report what's wrong
 //   save <file> [--checked-out]                  save an open document (refuses if any other open document that would
 //                                                be saved with it is somewhere we may not write)
@@ -56,6 +58,8 @@
 // the vault (P:\, C:\PDM\) unless --checked-out is given and the file is not read-only on disk (checked out); a new
 // file is never created in the vault. A command that changes an assembly treats it as a write even without --save.
 // Nothing is saved unless the command says so (save, or --save).
+// While a file opens, DialogWatch (DialogWatch.cs) cancels a SOLIDWORKS dialog about a missing linked equations file
+// (reported as a problem, except by unlink-equations) and reports any other dialog left waiting for 10 s.
 // Exit code: 0 done and clean, 1 done but problems reported, 2 refused or bad arguments, 3 SOLIDWORKS error,
 //            4 paused: Grant has asked for SOLIDWORKS (nothing done), 5 SOLIDWORKS held by someone else (nothing done).
 //
@@ -67,7 +71,7 @@
 //   the holder of a round may still save, close and close-all to reach a safe point. A lock held by another role = 5.
 //   status (any time) prints the lock and pause state first. A running command is never interrupted.
 // Build (from tools\SwCmd, after copying the interop DLLs from tools\sw-macros\bin into bin\):
-//   csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs
+//   csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs DialogWatch.cs
 
 using System;
 using System.Collections.Generic;
@@ -126,6 +130,9 @@ static class SwCmd
                 refusal = WriteRefusal(pos[0], checkedOut, false) ?? ReadRefusal(pos[2]);
                 if (refusal == null && !File.Exists(pos[2])) refusal = "no such file: " + pos[2];
                 break;
+            case "unlink-equations":
+                if (pos.Count != 1) return Usage();
+                refusal = WriteRefusal(pos[0], checkedOut, false); break;
             case "set-config": case "delete":
                 if (pos.Count != (cmd == "delete" ? 2 : 3)) return Usage();
                 refusal = WriteRefusal(pos[0], checkedOut, false); break;
@@ -198,6 +205,7 @@ static class SwCmd
                 case "save": return Save(sw, pos[0], checkedOut);
                 case "replace": return Replace(sw, pos[0], pos[1], pos[2], config, opts.ContainsKey("all"), save, checkedOut);
                 case "set-config": return SetConfig(sw, pos[0], pos[1], pos[2], save, checkedOut);
+                case "unlink-equations": return UnlinkEquations(sw, pos[0], save, checkedOut);
                 case "delete": return Delete(sw, pos[0], pos[1], save, checkedOut);
                 case "save-virtual": return SaveVirtual(sw, pos[0], pos[1], pos[2], save, checkedOut);
                 case "save-as": return SaveAs(sw, pos[0], pos[1], opts.ContainsKey("copy"));
@@ -359,7 +367,7 @@ static class SwCmd
         Console.Error.WriteLine("Usage: SwCmd status | close <file> | close-all [--exit] | open <file> [--config <name>] | check-open <file> [--config <name>]");
         Console.Error.WriteLine("       | rebuild <file> | save <file> [--checked-out]");
         Console.Error.WriteLine("       | replace <asm> <component> <newFile> [--config <name>] [--all] [--save] [--checked-out]");
-        Console.Error.WriteLine("       | set-config <asm> <component> <config> [--save] [--checked-out]");
+        Console.Error.WriteLine("       | unlink-equations <file> [--save] | set-config <asm> <component> <config> [--save] [--checked-out]");
         Console.Error.WriteLine("       | delete <asm> <component> [--save] [--checked-out]");
         Console.Error.WriteLine("       | save-virtual <asm> <component> <newFile> [--save] [--checked-out]");
         Console.Error.WriteLine("       | save-as <file> <newFile> [--copy] | delete-config <file> <config> [--save] [--checked-out]");
@@ -493,7 +501,24 @@ static class SwCmd
         int left = OpenDocs(sw).Count;
         Console.WriteLine("Closed " + (docs.Count - left) + " documents without saving (" + unsaved + " had unsaved changes, now discarded)."
             + (left > 0 ? " Still open: " + left + "." : ""));
-        if (exit) { sw.ExitApp(); Console.WriteLine("SOLIDWORKS asked to exit."); }
+        if (exit)
+        {
+            if (left > 0) { Console.Error.WriteLine("Not exiting: documents are still open."); return 1; }
+            // ExitApp alone often leaves SOLIDWORKS running with no window (7 Nov, three times); as SwCheck does, wait,
+            // then end the process. Only reached with every document closed, so nothing can be lost.
+            var procs = System.Diagnostics.Process.GetProcessesByName("SLDWORKS").ToList();
+            sw.ExitApp();
+            Console.WriteLine("SOLIDWORKS asked to exit.");
+            var deadline = DateTime.Now.AddSeconds(30);
+            while (DateTime.Now < deadline && procs.Any(pr => { try { return !pr.HasExited; } catch { return false; } })) System.Threading.Thread.Sleep(1000);
+            foreach (var pr in procs)
+            {
+                try { if (!pr.HasExited) { pr.Kill(); pr.WaitForExit(10000); Console.WriteLine("It hadn't exited after 30 s with nothing open: ended process " + pr.Id + "."); } }
+                catch (Exception ex) { problems.Add("could not end SOLIDWORKS process " + pr.Id + ": " + ex.Message); }
+            }
+            Console.WriteLine(System.Diagnostics.Process.GetProcessesByName("SLDWORKS").Length == 0 ? "SOLIDWORKS has exited." : "SOLIDWORKS is STILL running.");
+            return problems.Count > 0 ? 1 : 0;
+        }
         return left > 0 ? 1 : 0;
     }
 
@@ -509,7 +534,10 @@ static class SwCmd
         {
             if (!File.Exists(path)) { problems.Add("no such file: " + path); return null; }
             int options = (int)swOpenDocOptions_e.swOpenDocOptions_Silent | (openReadOnly ? (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly : 0);
+            DialogWatch.Start();
             doc = sw.OpenDoc6(path, Kind(path), options, config ?? "", ref err, ref warn);
+            foreach (var e in DialogWatch.Stop())
+                if (expectEquationDialog && e.StartsWith("CANCELLED")) Console.WriteLine("  (" + e + ")"); else problems.Add(e);
             if (doc == null) { problems.Add("could not open " + path + ": " + FlagNames(typeof(swFileLoadError_e), err)); return null; }
             Console.WriteLine("Opened " + path + (config != null ? " (" + config + ")" : ""));
             if (err != 0) problems.Add("load errors: " + FlagNames(typeof(swFileLoadError_e), err));
@@ -1269,10 +1297,74 @@ static class SwCmd
         return Finish();
     }
 
+    // Unlink a part's or assembly's equations from an external .txt (0804, 7 Nov): the equations and their values stay
+    // in the file, the link and the file path are cleared. Checked before and after (count, each equation, each value),
+    // and with --save read back from disk (re-opened read-only). The missing-file dialog SOLIDWORKS shows on opening is
+    // cancelled by DialogWatch, which keeps the values the file has.
+    static bool expectEquationDialog = false;
+
+    static List<string> EquationList(ModelDoc2 doc)
+    {
+        var em = doc.GetEquationMgr() as EquationMgr;
+        var r = new List<string>();
+        if (em == null) return r;
+        for (int i = 0; i < em.GetCount(); i++)
+            r.Add(em.Equation[i] + " = " + em.Value[i].ToString("G9", System.Globalization.CultureInfo.InvariantCulture));
+        return r;
+    }
+
+    static int UnlinkEquations(ISldWorks sw, string path, bool save, bool checkedOut)
+    {
+        expectEquationDialog = true;
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, path, null, out wasOpen);
+        if (doc == null) return Finish();
+        if (doc.GetType() == (int)swDocumentTypes_e.swDocDRAWING) { problems.Add("unlink-equations needs a part or assembly"); return Finish(); }
+        var em = doc.GetEquationMgr() as EquationMgr;
+        if (em == null) { problems.Add("no equation manager"); return Finish(); }
+        Console.WriteLine("Equations: " + em.GetCount() + "; linked to a file: " + (em.LinkToFile ? "yes" : "no") + "; file: " + (em.FilePath ?? ""));
+        if (!em.LinkToFile && string.IsNullOrEmpty(em.FilePath)) { Console.WriteLine("Nothing to do: not linked."); return Finish(); }
+        var before = EquationList(doc);
+        em.LinkToFile = false;
+        try { em.FilePath = ""; } catch (Exception ex) { problems.Add("could not clear the file path: " + ex.Message); }
+        doc.ForceRebuild3(false);
+        var after = EquationList(doc);
+        Console.WriteLine("Now: linked " + (em.LinkToFile ? "YES" : "no") + "; file: '" + (em.FilePath ?? "") + "'");
+        if (em.LinkToFile) problems.Add("SOLIDWORKS kept the link on");
+        if (!string.IsNullOrEmpty(em.FilePath)) problems.Add("the file path is still set: " + em.FilePath);
+        CompareEquations(before, after, "after unlinking");
+        if (!save) { Console.WriteLine("Not saved (the change is in SOLIDWORKS only; run save, or pass --save)."); return Finish(); }
+        if (problems.Count > 0) { Console.Error.WriteLine("Not saved: problems above."); return Finish(); }
+        ReportWhatsWrong(doc);
+        if (!SaveDoc(sw, doc, checkedOut)) return 2;
+        sw.CloseDoc(doc.GetTitle());
+        int err = 0, warn = 0;
+        DialogWatch.Start();
+        var back = sw.OpenDoc6(path, Kind(path), (int)swOpenDocOptions_e.swOpenDocOptions_Silent | (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly, "", ref err, ref warn);
+        foreach (var e in DialogWatch.Stop()) problems.Add("on re-opening: " + e);
+        if (back == null) { problems.Add("could not re-open it to read back"); return Finish(); }
+        var em2 = back.GetEquationMgr() as EquationMgr;
+        Console.WriteLine("Read back from disk: linked " + (em2.LinkToFile ? "YES" : "no") + "; file: '" + (em2.FilePath ?? "") + "'; equations " + em2.GetCount());
+        if (em2.LinkToFile || !string.IsNullOrEmpty(em2.FilePath)) problems.Add("on disk the equations are still linked");
+        CompareEquations(before, EquationList(back), "on disk");
+        sw.CloseDoc(back.GetTitle());
+        if (wasOpen) Console.WriteLine("(It was open before; it is now closed, saved.)");
+        return Finish();
+    }
+
+    static void CompareEquations(List<string> a, List<string> b, string when)
+    {
+        if (a.Count != b.Count) { problems.Add("equations " + when + ": " + a.Count + " before, " + b.Count + " now"); return; }
+        for (int i = 0; i < a.Count; i++)
+            if (a[i] != b[i]) problems.Add("equation " + (i + 1) + " " + when + ": " + a[i] + " -> " + b[i]);
+        if (a.Count == b.Count && Enumerable.Range(0, a.Count).All(i => a[i] == b[i])) Console.WriteLine("Equations " + when + ": all " + a.Count + " the same, with the same values.");
+    }
+
     // ---------- reporting ----------
 
     static int Finish()
     {
+        foreach (var e in DialogWatch.Stop()) problems.Add(e);
         if (problems.Count == 0) { Console.WriteLine("OK"); return 0; }
         Console.WriteLine("PROBLEMS (" + problems.Count + "):");
         foreach (var p in problems) Console.WriteLine("  " + p);

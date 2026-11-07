@@ -6,6 +6,9 @@
 // Refuses to run while SOLIDWORKS is already open, so it never touches someone's session and same-named
 // files already in memory can't stand in for the files being checked.
 // Written in C# 5 so it compiles with the .NET Framework compiler built into Windows.
+// Build (from tools\SwCheck): csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll
+//   /out:bin\SwCheck.exe SwCheck.cs ..\SwCmd\DialogWatch.cs   (DialogWatch cancels a missing-linked-equations-file dialog
+//   and reports any other dialog left waiting; each counts as a problem.)
 
 using System;
 using System.Diagnostics;
@@ -55,6 +58,7 @@ static class SwCheck
             int errs = 0, warns = 0;
             var type = path.EndsWith(".sldasm", StringComparison.OrdinalIgnoreCase) ? swDocumentTypes_e.swDocASSEMBLY
                 : path.EndsWith(".slddrw", StringComparison.OrdinalIgnoreCase) ? swDocumentTypes_e.swDocDRAWING : swDocumentTypes_e.swDocPART;
+            DialogWatch.Start();   // cancels a missing-linked-equations-file dialog, reports any other left waiting
             var doc = sw.OpenDoc6(path, (int)type, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref errs, ref warns);
             Console.WriteLine("Open " + Path.GetFileName(path) + ": errors=" + Flags(typeof(swFileLoadError_e), errs) + " warnings=" + Flags(typeof(swFileLoadWarning_e), warns));
             if (doc == null) return 1;
@@ -103,6 +107,7 @@ static class SwCheck
                     problems += Equations(d);
                 }
             Console.WriteLine();
+            foreach (var e in DialogWatch.Stop()) { problems++; Console.WriteLine("** " + e + " **"); }   // the whole run is watched
             Console.WriteLine(problems == 0 ? "RESULT: all loaded from inside the root, nothing missing" : "RESULT: " + problems + " problem(s)");
         }
         finally

@@ -34,7 +34,7 @@ The PDM is live. `P:\` (= `C:\PDM`) is the vault: 0806 A, B and C plus the first
 
 ## Your brief
 
-Current brief: `docs\briefs\import-0811.md`. Earlier briefs in `docs\briefs\` show the pattern; the decisions behind them are in `docs\imports\`. Grout and anchors for 0806 B and C (decision 7 in `docs\imports\LS-08BC-06-decisions.md`) are Grant's job in the PDM, later.
+Current brief: `docs\briefs\import-0804.md` (decisions in `docs\imports\LS-08X-04-decisions.md`). Earlier briefs in `docs\briefs\` show the pattern; the decisions behind them are in `docs\imports\`. Grout and anchors for 0806 B and C (decision 7 in `docs\imports\LS-08BC-06-decisions.md`) are Grant's job in the PDM, later.
 
 ## Rules
 

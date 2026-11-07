@@ -29,7 +29,7 @@ The PDM is live. `P:\` (= `C:\PDM`) is the vault: 0806 A, B and C plus the first
 
 ## Your brief
 
-Current brief: `docs\briefs\import-0811.md`. `docs\briefs\importer.md` explains how the importer came about. The decisions it relies on are in `docs\imports\` and `docs\pending-spec-changes.md`.
+Current brief: `docs\briefs\import-0804.md` (decisions in `docs\imports\LS-08X-04-decisions.md`). `docs\briefs\importer.md` explains how the importer came about. The decisions it relies on are in `docs\imports\` and `docs\pending-spec-changes.md`.
 
 ## Rules
 

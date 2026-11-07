@@ -4,8 +4,8 @@ Labels R1, R2, … Agreed with Grant 29 Oct 2026 unless marked open. Background:
 
 | # | Question | Decision | Status |
 | --- | --- | --- | --- |
-| R1 | Official revision codes | Letters A, B, C (skip I and O), as SPEC and the title block. WDI doesn't mind. | agreed |
-| R2 | Sub-versions | No full stops in file names. `A0` is the official release; later internal versions are `A1`, `A2`, … Before the first official release: `P1`, `P2`, then `A0`. The title block REV shows the full code (`A1`); the revision table lists official letters only. | agreed 31 Oct |
+| R1 | Official revision codes | **Numbers**: 1, 2, 3, ... for official releases; the client (Disney) sees only numbers. Replaces the 29 Oct letters A, B, C. | changed by Grant 7 Nov (Desk A2) |
+| R2 | Sub-versions | **Letters after the number**: before the first official release `0A`, `0B`, `0C`, ...; then release `1`; then `1A`, `1B`, ... before release `2`. A lettered version is an unofficial issue for people to check and comment on before the formal release. No full stops in file names (`08A06-HBA-01_0A.pdf`, `..._1.pdf`). The title block REV shows the full code; the revision table lists official numbers only (as before, now numbers). Replaces P1/P2 and A0/A1 (31 Oct). James set 56 drawings' title-block revision to `0A` on 7 Nov. | changed by Grant 7 Nov (Desk A2) |
 | R3 | Release types | Official (new letter): External Review, For Construction, As Built. Internal version (`A1`, `A2`): Internal Check, Internal Review. | agreed 31 Oct |
 | R4 | Revision table | Engineer fills it in; the tool checks the released PDF (title block REV = newest table row = file name). Filling it in automatically comes later, with automatic PDF export. | agreed |
 | R5 | Auto-cloud | Start on the PDF (reuse the `C:\code\jerry` compare). Then find out what clouds inside SOLIDWORKS would take; may be too big. | agreed |

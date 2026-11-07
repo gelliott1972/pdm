@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PDM Desk</title>
+<script>
+// Light / dark / system, remembered on this PC; set before the page draws so it doesn't flash.
+try { const t = localStorage.getItem('desk-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+</script>
 <style>
 :root {
   --bg: #f5f6f8; --panel: #ffffff; --ink: #1c2024; --muted: #646d78; --line: #e3e6ea;
@@ -22,7 +26,18 @@
     --shadow: none; color-scheme: dark;
   }
 }
+:root[data-theme="dark"] {
+  --bg: #111317; --panel: #1a1d22; --ink: #e7e9ec; --muted: #9aa2ac; --line: #2a2f36;
+  --accent: #5b8ff0; --accent-ink: #0d1117; --accent-soft: #1d2a42;
+  --red: #ef6b62; --red-soft: #3a1f1d; --amber: #e0a84a; --amber-soft: #352a17;
+  --green: #5cc27f; --green-soft: #17301f; --grey: #6f7782;
+  --shadow: none; color-scheme: dark;
+}
 * { box-sizing: border-box; }
+.theme { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 2px; align-self: center; }
+.theme button { font: 600 12px/1 "Segoe UI", system-ui, sans-serif; color: var(--muted); background: none; border: 0; border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.theme button:hover { color: var(--ink); }
+.theme button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
 header { display: flex; align-items: baseline; gap: 14px; padding: 18px 24px 8px; max-width: 1240px; margin: 0 auto; }
 header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
@@ -96,6 +111,9 @@ button.link { background: none; border: 0; color: var(--accent); font: inherit; 
   <h1>PDM Desk</h1>
   <span class="sum" id="sum"></span>
   <span class="ago" id="ago"></span>
+  <span class="theme" id="theme" role="group" aria-label="Colours">
+    <button data-t="light" title="Light">Light</button><button data-t="dark" title="Dark">Dark</button><button data-t="system" title="Follow Windows">System</button>
+  </span>
 </header>
 <div class="banner" id="banner"></div>
 <div class="wrap">
@@ -294,6 +312,15 @@ noteSend.onclick = async () => {
   try { await post('/api/note', { text: note.value }); note.value = ''; $('noteMsg').textContent = ''; lastJson = ''; load(); }
   catch (e) { $('noteMsg').textContent = e.message; noteSend.disabled = false; }
 };
+
+function theme(t) {
+  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  try { if (t === 'light' || t === 'dark') localStorage.setItem('desk-theme', t); else localStorage.removeItem('desk-theme'); } catch {}
+  const now = document.documentElement.dataset.theme || 'system';
+  document.querySelectorAll('#theme button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === now));
+}
+$('theme').onclick = e => { if (e.target.dataset.t) theme(e.target.dataset.t); };
+theme(document.documentElement.dataset.theme || 'system');
 
 load();
 setInterval(load, 3000);

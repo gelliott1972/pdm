@@ -1143,7 +1143,17 @@ static class SwCmd
             }
         }
         catch (Exception ex) { owner = " owner: ? (" + ex.GetType().Name + ")"; }
-        return t + n + owner;
+        // The geometry SOLIDWORKS keeps for the entity (a planar face: a point and its normal, in the top's coordinates),
+        // there even when the face itself is gone (SW, 7 Nov).
+        string geo = "";
+        try
+        {
+            var pa = e.EntityParams as double[];
+            if (pa != null && pa.Length > 0) geo = " params [" + string.Join(", ", pa.Select(v => Math.Round(v, 5).ToString(System.Globalization.CultureInfo.InvariantCulture))) + "]";
+        }
+        catch { }
+        try { var rc = e.ReferenceComponent as Component2; if (rc != null && rc.IsRoot()) owner += " (the mate's component is the top itself)"; } catch { }
+        return t + n + owner + geo;
     }
 
     static List<KeyValuePair<string, List<string>>> MatesFrom(Feature first)

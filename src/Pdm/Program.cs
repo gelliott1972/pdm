@@ -36,7 +36,7 @@ try
             Console.WriteLine("       pdm shell        log in and type commands");
             Console.WriteLine("       pdm load [--dry] admin: load P:\\ into the vault (uses the pdm-admin SSO login)");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
-            Console.WriteLine("       pdm release <folder> <code> --dry [--with-shared] [--shared-to scene|own] [--no-export]");
+            Console.WriteLine("       pdm release <folder> <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role]");
             Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only)");
             return 2;
     }
@@ -159,6 +159,8 @@ static async Task<int> ReleaseDry(Settings s, string[] args)
     using var db = new AmazonDynamoDBClient(credentials, RegionEndpoint.GetBySystemName(s.Region));
     var all = (await new Pdm.Index(db, s).AllAsync()).Where(r => !r.Removed).ToList(); // removed files are never released
     var release = new Release(s, all, Console.WriteLine);
+    var asAt = Array.IndexOf(args, "--as");
+    if (asAt >= 0 && asAt + 1 < args.Length) release.SwAs = args[asAt + 1];
     var i = Array.IndexOf(args, "--shared-to");
     if (i > 0 && i + 1 < args.Length) release.SharedTo = args[i + 1] == "own" ? "own" : "scene";
     if (Environment.GetEnvironmentVariable("PDM_SWCMD") is { Length: > 0 } sw) release.SwCmd = sw;

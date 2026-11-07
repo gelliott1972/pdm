@@ -26,7 +26,9 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     // Where shared (APEX/GNRIC, _Shared) drawings in a scene's set are filed: "scene" (the set's scene) or "own"
     // (their own scene, e.g. APEX/GNRIC/_Review). Grant decides on Desk A5; either works.
     public string SharedTo { get; set; } = "scene";
-    public string SwCmd { get; set; } = @"C:\code\pdm\tools\SwCmd\bin\SwCmd.exe";
+    // The role whose SwCmd lock this run works under (--as), so it can run while that role holds SOLIDWORKS.
+    public string? SwAs { get; set; }
+    public string SwCmd { get; set; } =@"C:\code\pdm\tools\SwCmd\bin\SwCmd.exe";
 
     // R1/R2: official releases are numbers (1, 2, ...); checking versions before them add a letter (0A, 0B, 1A, ...).
     [GeneratedRegex("^(0[A-Z]|[1-9][0-9]*[A-Z]?)$")] private static partial Regex CodePattern();
@@ -212,6 +214,7 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         if (!File.Exists(SwCmd)) return new Run(2, "", $"SwCmd isn't built on this PC ({SwCmd})");
         var psi = new ProcessStartInfo(SwCmd) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var a in args) psi.ArgumentList.Add(a);
+        if (SwAs != null) { psi.ArgumentList.Add("--as"); psi.ArgumentList.Add(SwAs); }
         var output = new StringBuilder(); var stdout = new StringBuilder();
         using var p = new Process { StartInfo = psi };
         p.OutputDataReceived += (_, e) => { if (e.Data != null) lock (output) { output.AppendLine(e.Data); stdout.AppendLine(e.Data); } };

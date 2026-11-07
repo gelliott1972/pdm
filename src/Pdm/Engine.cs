@@ -183,7 +183,17 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
 
     // Uploads my changed file as a new version, updates the index and releases the lock.
     // A file that isn't in the vault yet is added.
-    public async Task CheckInAsync(string path, string note)
+    public Task CheckInAsync(string path, string note) => CheckInCoreAsync(path, note, release: false);
+
+    // The release step's way in: a release PDF into a scene's release folder (Grant, Desk A4, 7 Nov).
+    public Task FileReleasePdfAsync(string path, string note)
+    {
+        var key = Paths.KeyOf(root, path);
+        if (!Paths.IsPdf(key) || !Paths.InReleaseFolder(key)) { say($"Not filed: {key} isn't a PDF in a release folder."); return Task.CompletedTask; }
+        return CheckInCoreAsync(path, note, release: true);
+    }
+
+    async Task CheckInCoreAsync(string path, string note, bool release)
     {
         var key = Paths.KeyOf(root, path);
         var local = Paths.LocalOf(root, key);
@@ -208,6 +218,13 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
                 say($"No changes in {existing.Path}; released.");
                 return;
             }
+        }
+        if (Paths.IsPdf(key) && !release)
+        {
+            // Grant, Desk A4 (7 Nov): no PDFs in the vault next to the models; release PDFs are made by the release step.
+            say($"Not checked in: {key} is a PDF. PDFs reach the vault only through the release step, which makes them into the scene's _Review folder; none go next to the models. Keep this one on your PC as a draft"
+                + (existing != null ? ", or use Undo to release it." : "."));
+            return;
         }
         if (Paths.IsShared(key) && !sharedEditor) { say($"{key} is in a shared folder; you can't check it in."); return; }
 

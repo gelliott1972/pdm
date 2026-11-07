@@ -37,6 +37,16 @@ public static class Paths
             .Where(k => IsSolidWorksFile(k) && !IsIgnored(k));
     }
 
+    public static bool IsPdf(string key) => key.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+
+    // A scene's release folders (R8): <Scene>/_Released, _Review, _Commented, _WIP.
+    static readonly string[] ReleaseFolders = ["_Released", "_Review", "_Commented", "_WIP"];
+    public static bool InReleaseFolder(string key)
+    {
+        var parts = key.Split('/');
+        return parts.Length >= 2 && ReleaseFolders.Contains(parts[^2], StringComparer.OrdinalIgnoreCase);
+    }
+
     // A part, assembly or drawing, not one of SOLIDWORKS's ~ temp or lock files.
     public static bool IsSolidWorksFile(string key) =>
         Path.GetExtension(key).ToLowerInvariant() is ".sldprt" or ".sldasm" or ".slddrw" && !Path.GetFileName(key).StartsWith('~');

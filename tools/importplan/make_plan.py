@@ -395,6 +395,12 @@ if ledger_path and os.path.exists(ledger_path):
                 ledger_cfg.setdefault((key(r["old_file"]), r["old_config"]), r.get("new_config") or r["old_config"])
             if r.get("partno"):
                 ledger_pn.setdefault((key(r["old_file"]), r["old_config"]), r["partno"])
+    # A pack file already named as a vault file is a copy of it, reused as itself (0804, 7 Nov: SW copied the checked-in
+    # FAST-HEX-8.8-HDG into the work copies for the new M12x200 size). The --vault check below still checks it is there.
+    for r in list(ledger.values()):
+        nf = os.path.basename(r["new_file"] or "")
+        if nf and key(nf) not in ledger:
+            ledger[key(nf)] = dict(r, old_file=nf, old_config="")
 
 # ---------------------------------------------------------------- facts from the inventory
 file_partno = {}                                  # file -> PartNo at file level
@@ -1090,6 +1096,10 @@ for r in file_rows:
     if r[5] and r[4] not in ("leave out", "decide"):
         by_new_name[r[5].lower()].append(r)
 for name, rows_ in by_new_name.items():
+    # Files that all reuse the same vault file are fine: they all end up as that one file (0804: the work copies'
+    # FAST-HEX-8.8-HDG copy and the old Toolbox hex screw both reuse P:\_Shared\_Fasteners\FAST-HEX-8.8-HDG).
+    if len(rows_) > 1 and all(x[4].startswith("reuse") for x in rows_) and len({x[6].lower() for x in rows_}) == 1:
+        continue
     if len(rows_) > 1:
         msg = "same new name as " + ", ".join(x[1] for x in rows_) + ": merge them into one family file, or give each configuration its own file"
         for r in rows_:

@@ -58,3 +58,4 @@ Grant 7 Nov: approved R1 to R10 ("all ok"):
 - R1 changed (Grant, Desk SW2 "Problem", 7 Nov): the right-hand LED plate in B's `SF02-UPPERv2` is not needed. SW deleted it and v2 with SwCmd and saved B; check-open clean.
 - R6 done (Grant, Desk SW3, 7 Nov): the bracket part's names are right (LONG = slots parallel to 180); SW uncrossed the bracket assembly's two 180 configurations in all three copies.
 - Prep complete 7 Nov; `-r1` packs by SwCmd: A 92, B 96, C 93 files in `C:\PDM-work\LS-08x-04-r1`; check-open clean (0 missing, 0 outside, What's Wrong empty).
+- SwCheck of `-r1` (7 Nov): B and C clean; A loads everything from inside but 7 files (`LS-08A-04_Skeleton`, `KBEAM_S1..S6`) link James's `LS-08X-04_equations.txt`. Fix as 0811: unlink, values kept (SwCmd unlink-equations), re-pack A, re-plan, then D10 properties and SwKg on the packs.

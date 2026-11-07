@@ -60,6 +60,19 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -I \"$CLAUDE_PROJECT_DIR/../.claude/hooks/desk_activity.py\" app",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }

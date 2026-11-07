@@ -23,7 +23,9 @@ def main():
         detail = ti.get("description") or ti.get("summary") or ""
         if not detail and isinstance(ti.get("file_path"), str):
             detail = os.path.basename(ti["file_path"])
-        rec.update(activity="working", detail=(tool + (": " + detail if detail else ""))[:160])
+        rec.update(activity="working", running=True, detail=(tool + (": " + detail if detail else ""))[:160])
+    elif name in ("PostToolUse", "PostToolUseFailure"):
+        rec.update(activity="working", running=False, detail="Thinking")
     elif name == "Stop":
         rec.update(activity="idle", detail="")
     elif name == "Notification":

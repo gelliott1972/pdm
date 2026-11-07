@@ -31,6 +31,11 @@
 //                                                paths as in the tree, e.g. "LS-08B-04_SF02-UPPERv2<1>/PLATE<1>"
 //   cut-list <part> [--config <name>]            cut-list items of a weldment part: bodies and properties (read-only)
 //   tree <asm>                                   the component tree with configurations and suppression (read-only)
+//   pack-and-go <top> <newFolder>                copy every file the top uses (suppressed included, no drawings) to a new
+//                                                folder, keeping the path below the drive: C:\PDM-work\LS-08A-04\311v3\X ->
+//                                                <newFolder>\PDM-work\LS-08A-04\311v3\X (as the 0811 -r1 packs). Refuses an
+//                                                existing folder, M:\/Dropbox, the vault, .pdm, the work copy itself, and
+//                                                writes nothing if the top uses a file from outside its work copy
 //
 // Every command that changes an assembly prints the tree's changes (- removed, + added, ~ changed). SOLIDWORKS can
 // change more than the component named: in the 7 Nov test, replacing one tie also replaced its mirrored/patterned
@@ -41,6 +46,8 @@
 // Tested 7 Nov on scratch copies (C's pre-prep pack) in SOLIDWORKS 2026 SP3.2: status (also starting SOLIDWORKS),
 // check-open (3208 components, 67 s), tree, save-virtual, save, replace (matched and explicit configuration),
 // set-config, delete, delete-config, cut-list, save-as --copy, rebuild, close-all. move: only the refused case.
+// pack-and-go (7 Nov, scratch C top): 97 of 97 files written, 3 virtual kept in their assemblies; the pack's references point
+// into the pack (SetDocumentSaveToNames refuses even SOLIDWORKS's own names, so its default layout is used).
 //
 // Safety (every command): never M:\ or anything in Dropbox; never anything under .pdm. A command that writes refuses
 // the vault (P:\, C:\PDM\) unless --checked-out is given and the file is not read-only on disk (checked out); a new
@@ -304,7 +311,9 @@ static class SwCmd
             if (doc == null) { problems.Add("could not open " + path + ": " + FlagNames(typeof(swFileLoadError_e), err)); return null; }
             Console.WriteLine("Opened " + path + (config != null ? " (" + config + ")" : ""));
             if (err != 0) problems.Add("load errors: " + FlagNames(typeof(swFileLoadError_e), err));
-            int quiet = (int)swFileLoadWarning_e.swFileLoadWarning_ReadOnly | (int)swFileLoadWarning_e.swFileLoadWarning_AlreadyOpen;
+            int quiet = (int)swFileLoadWarning_e.swFileLoadWarning_ReadOnly | (int)swFileLoadWarning_e.swFileLoadWarning_AlreadyOpen
+                | (int)swFileLoadWarning_e.swFileLoadWarning_NeedsRegen;
+            if ((warn & (int)swFileLoadWarning_e.swFileLoadWarning_NeedsRegen) != 0) Console.WriteLine("  (needs a rebuild: it was saved out of date)");
             if ((warn & ~quiet) != 0) problems.Add("load warnings: " + FlagNames(typeof(swFileLoadWarning_e), warn & ~quiet));
             if ((warn & (int)swFileLoadWarning_e.swFileLoadWarning_ReadOnly) != 0) Console.WriteLine("  (opened read-only)");
         }
@@ -780,8 +789,8 @@ static class SwCmd
     }
 
     // Pack and Go: every file the top uses (suppressed components included, drawings and simulation results not),
-    // copied to <newFolder> with the folder structure below the work copy root kept: C:\PDM-work\LS-08A-04\311v3\X
-    // goes to <newFolder>\311v3\X. Refuses a folder that exists, or one inside M:\ / Dropbox, the vault, .pdm or the
+    // copied to <newFolder> with the whole folder structure below the drive kept, as the 0811 -r1 packs:
+    // C:\PDM-work\LS-08A-04\311v3\X goes to <newFolder>\PDM-work\LS-08A-04\311v3\X. Refuses a folder that exists, or one inside M:\ / Dropbox, the vault, .pdm or the
     // work copy itself; refuses (writes nothing) if the top uses any file from outside its work copy.
     static string PackTargetRefusal(string top, string target)
     {
@@ -810,18 +819,27 @@ static class SwCmd
         pg.FlattenToSingleFolder = false;
         object namesObj, saveObj, statusObj;
         pg.GetDocumentNames(out namesObj);
+        // The documented order: set the folder first, then read SOLIDWORKS's own save-to names and override them.
+        Directory.CreateDirectory(target);
+        if (!pg.SetSaveToName(true, target)) { problems.Add("SetSaveToName refused " + target); return Finish(); }
         pg.GetDocumentSaveToNames(out saveObj, out statusObj);
         var names = ((namesObj as object[]) ?? new object[0]).Select(o => (string)o).ToArray();
+        var defaults = ((saveObj as object[]) ?? new object[0]).Select(o => (string)o).ToArray();
         var status = statusObj as int[] ?? new int[0];
         var targets = new string[names.Length];
+        var virtualAt = new bool[names.Length];
         var outside = new List<string>();
         int virt = 0;
         for (int i = 0; i < names.Length; i++)
         {
-            bool isVirtual = i < status.Length && status[i] == (int)swPackAndGoDocumentStatus_e.swPackAndGoDocumentStatus_Virtual;
-            if (isVirtual) { virt++; targets[i] = names[i]; continue; }
+            bool isVirtual = (i < status.Length && status[i] == (int)swPackAndGoDocumentStatus_e.swPackAndGoDocumentStatus_Virtual)
+                || Path.GetFileName(names[i]).IndexOf('^') >= 0;   // a nested virtual component is not always marked
+            if (isVirtual) { virt++; virtualAt[i] = true; targets[i] = i < defaults.Length ? defaults[i] : names[i]; continue; }
             if (!names[i].StartsWith(root, StringComparison.OrdinalIgnoreCase)) { outside.Add(names[i]); continue; }
-            targets[i] = Path.Combine(target, names[i].Substring(root.Length));
+            // SOLIDWORKS keeps the whole path below the drive (C:\PDM-work\LS-08A-04\311v3\X -> <target>\PDM-work\LS-08A-04\311v3\X,
+            // as the 0811 -r1 packs); its own names are used (SetDocumentSaveToNames refuses even them, 7 Nov test).
+            targets[i] = i < defaults.Length ? defaults[i] : null;
+            if (targets[i] == null || !targets[i].StartsWith(target.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)) { outside.Add(names[i] + " -> " + targets[i]); continue; }
         }
         Console.WriteLine("Pack and Go of " + top + ": " + names.Length + " documents (" + virt + " virtual, kept inside their assembly)");
         if (outside.Count > 0)
@@ -830,18 +848,17 @@ static class SwCmd
             problems.Add("nothing written: every file must come from the work copy");
             return Finish();
         }
-        if (!pg.SetDocumentSaveToNames(targets)) { problems.Add("SetDocumentSaveToNames refused the target names"); return Finish(); }
         var result = doc.Extension.SavePackAndGo(pg) as int[] ?? new int[0];
         int written = 0;
         for (int i = 0; i < names.Length; i++)
         {
-            if (i < status.Length && status[i] == (int)swPackAndGoDocumentStatus_e.swPackAndGoDocumentStatus_Virtual) continue;
+            if (virtualAt[i]) continue;   // virtual: saved inside its assembly
             if (File.Exists(targets[i])) written++;
             else problems.Add("not written: " + targets[i] + (i < result.Length ? " (status " + result[i] + ")" : ""));
         }
         var bad = result.Where(r => r != 0).Count();
         Console.WriteLine("Written: " + written + " of " + (names.Length - virt) + " files to " + target + (bad > 0 ? "; " + bad + " non-zero save statuses" : ""));
-        foreach (var dir in targets.Where(x => x != null && x.StartsWith(target, StringComparison.OrdinalIgnoreCase))
+        foreach (var dir in targets.Where((x, k) => x != null && !virtualAt[k])
                      .Select(x => Path.GetDirectoryName(x).Substring(target.TrimEnd('\\').Length)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).Take(40))
             Console.WriteLine("  " + (dir == "" ? "\\" : dir));
         if (!wasOpen) Console.WriteLine("The top stays open (close-all closes it without saving).");

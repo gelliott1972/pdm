@@ -126,6 +126,17 @@ static class SwCmd
                 if (pos.Count != (opts.ContainsKey("top") ? 2 : 3)) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
             case "cut-list": case "tree":
                 if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]); break;
+            case "export-pdf":
+                if (pos.Count != 2) return Usage();
+                refusal = ReadRefusal(pos[0]) ?? WriteRefusal(pos[1], false, true);
+                if (refusal == null && File.Exists(pos[1])) refusal = "already exists, not overwritten: " + pos[1];
+                if (refusal == null && Kind(pos[0]) != (int)swDocumentTypes_e.swDocDRAWING) refusal = "export-pdf needs a drawing: " + pos[0];
+                if (refusal == null && !pos[1].EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) refusal = "the output must be a .pdf: " + pos[1];
+                break;
+            case "drawing-info":
+                if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]);
+                if (refusal == null && Kind(pos[0]) != (int)swDocumentTypes_e.swDocDRAWING) refusal = "drawing-info needs a drawing: " + pos[0];
+                break;
             case "pack-and-go":
                 if (pos.Count != 2) return Usage();
                 refusal = ReadRefusal(pos[0]) ?? PackTargetRefusal(pos[0], pos[1]);
@@ -157,6 +168,8 @@ static class SwCmd
                 case "cut-list": return CutList(sw, pos[0], config);
                 case "tree": return Tree(sw, pos[0]);
                 case "pack-and-go": return PackAndGo(sw, pos[0], pos[1]);
+                case "export-pdf": openReadOnly = true; return ExportPdf(sw, pos[0], pos[1]);
+                case "drawing-info": openReadOnly = true; return DrawingInfo(sw, pos[0]);
             }
         }
         catch (COMException ex) { Console.Error.WriteLine("SOLIDWORKS error: " + ex.Message); return 3; }
@@ -184,6 +197,7 @@ static class SwCmd
         Console.Error.WriteLine("       | save-as <file> <newFile> [--copy] | delete-config <file> <config> [--save] [--checked-out]");
         Console.Error.WriteLine("       | move <top> <component path> <target subassembly path> | move <top> <component path> --top  [--save] [--checked-out]");
         Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | pack-and-go <top> <newFolder>");
+        Console.Error.WriteLine("       | export-pdf <drawing> <out.pdf> | drawing-info <drawing>");
         return 2;
     }
 
@@ -298,6 +312,8 @@ static class SwCmd
     }
 
     // Open (or activate) a file and report on it.
+    static bool openReadOnly = false;   // export-pdf, drawing-info: a file this command opens is opened read-only
+
     static ModelDoc2 OpenOrActivate(ISldWorks sw, string path, string config, out bool wasOpen)
     {
         var doc = FindOpen(sw, path);
@@ -306,7 +322,7 @@ static class SwCmd
         if (doc == null)
         {
             if (!File.Exists(path)) { problems.Add("no such file: " + path); return null; }
-            int options = (int)swOpenDocOptions_e.swOpenDocOptions_Silent;
+            int options = (int)swOpenDocOptions_e.swOpenDocOptions_Silent | (openReadOnly ? (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly : 0);
             doc = sw.OpenDoc6(path, Kind(path), options, config ?? "", ref err, ref warn);
             if (doc == null) { problems.Add("could not open " + path + ": " + FlagNames(typeof(swFileLoadError_e), err)); return null; }
             Console.WriteLine("Opened " + path + (config != null ? " (" + config + ")" : ""));
@@ -864,6 +880,114 @@ static class SwCmd
         if (!wasOpen) Console.WriteLine("The top stays open (close-all closes it without saving).");
         return Finish();
     }
+
+    // Export every sheet of a drawing to one PDF (release brief, 7 Nov). Opened read-only if this command opens it;
+    // a drawing already open is exported as it is in SOLIDWORKS (unsaved changes are flagged).
+    static int ExportPdf(ISldWorks sw, string drawing, string pdf)
+    {
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, drawing, null, out wasOpen);
+        if (doc == null) return Finish();
+        if (wasOpen && doc.GetSaveFlag()) problems.Add("the drawing was already open with unsaved changes: the PDF shows them, not the saved file");
+        var drw = (DrawingDoc)doc;
+        var sheets = ((drw.GetSheetNames() as object[]) ?? new object[0]).Cast<string>().ToList();
+        var data = (ExportPdfData)sw.GetExportFileData((int)swExportDataFileType_e.swExportPdfData);
+        data.ViewPdfAfterSaving = false;
+        data.SetSheets((int)swExportDataSheetsToExport_e.swExportData_ExportAllSheets, null);
+        Directory.CreateDirectory(Path.GetDirectoryName(pdf));
+        int err = 0, warn = 0;
+        int options = (int)swSaveAsOptions_e.swSaveAsOptions_Silent | (int)swSaveAsOptions_e.swSaveAsOptions_UpdateInactiveViews;
+        bool ok = doc.Extension.SaveAs3(pdf, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, options, data, null, ref err, ref warn);
+        long size = File.Exists(pdf) ? new FileInfo(pdf).Length : 0;
+        int pages = size > 0 ? CountPdfPages(pdf) : 0;
+        Console.WriteLine((ok && size > 0 ? "Exported " : "EXPORT FAILED ") + drawing + " -> " + pdf + ": " + sheets.Count + " sheets, "
+            + pages + " PDF pages, " + size + " bytes" + (err != 0 ? "; errors: " + FlagNames(typeof(swFileSaveError_e), err) : "")
+            + (warn != 0 ? "; warnings: " + FlagNames(typeof(swFileSaveWarning_e), warn) : ""));
+        if (!ok || size == 0) problems.Add("no PDF written");
+        else if (pages != sheets.Count) problems.Add("the PDF has " + pages + " pages for " + sheets.Count + " sheets");
+        if (!wasOpen) { sw.CloseDoc(doc.GetTitle()); Console.WriteLine("Closed the drawing again without saving."); }
+        return Finish();
+    }
+
+    // Page objects in a PDF ("/Type /Page", not "/Pages"); good enough to compare with the sheet count.
+    static int CountPdfPages(string pdf)
+    {
+        string text = System.Text.Encoding.GetEncoding(28591).GetString(File.ReadAllBytes(pdf));
+        return System.Text.RegularExpressions.Regex.Matches(text, @"/Type\s*/Page(?![s\w])").Count;
+    }
+
+    // What a drawing shows for its revision, per sheet: the title-block notes linked to a revision property (as
+    // displayed), the Revision-Sheet<n> property they read, the revision table, and the models the views show.
+    // Read-only: sheets are activated and the sheet format is opened for edit in memory only, never saved.
+    // Output, tab-separated: DRAWING, PROP, SHEET, NOTE, ROW, MODEL lines, then OK / PROBLEMS.
+    static int DrawingInfo(ISldWorks sw, string drawing)
+    {
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, drawing, null, out wasOpen);
+        if (doc == null) return Finish();
+        if (wasOpen && doc.GetSaveFlag()) problems.Add("the drawing was already open with unsaved changes: this shows them, not the saved file");
+        var drw = (DrawingDoc)doc;
+        var cpm = doc.Extension.CustomPropertyManager[""];
+        Func<string, string> prop = name =>
+        {
+            string raw, val; bool wasResolved, linked;
+            int r = cpm.Get6(name, false, out raw, out val, out wasResolved, out linked);
+            return r == (int)swCustomInfoGetResult_e.swCustomInfoGetResult_NotPresent ? null : val;
+        };
+        var sheets = ((drw.GetSheetNames() as object[]) ?? new object[0]).Cast<string>().ToList();
+        string active = ((Sheet)drw.GetCurrentSheet()).GetName();
+        Console.WriteLine("DRAWING\t" + drawing + "\tsheets=" + sheets.Count);
+        foreach (var name in ((cpm.GetNames() as object[]) ?? new object[0]).Cast<string>().Where(n => n.IndexOf("rev", StringComparison.OrdinalIgnoreCase) >= 0))
+            Console.WriteLine("PROP\t" + name + "\t" + (prop(name) ?? ""));
+        for (int i = 0; i < sheets.Count; i++)
+        {
+            int n = i + 1;
+            drw.ActivateSheet(sheets[i]);
+            var sheet = (Sheet)drw.GetCurrentSheet();
+            var rt = sheet.RevisionTable;
+            string pv = prop("Revision-Sheet" + n);
+            var shown = new List<string>();
+            drw.EditTemplate();
+            CollectRevNotes((View)drw.GetFirstView(), n, "format", shown);
+            drw.EditSheet();
+            CollectRevNotes((View)drw.GetFirstView(), n, "sheet", shown);
+            Console.WriteLine("SHEET\t" + n + "\t" + sheets[i] + "\tREV=" + string.Join(" / ", shown.Distinct()) + "\tRevision-Sheet" + n + "=" + (pv ?? "(none)")
+                + "\ttable=" + (rt == null ? "none" : rt.CurrentRevision));
+            if (shown.Count == 0) problems.Add("sheet " + n + " (" + sheets[i] + "): no title-block note shows a revision");
+            else if (pv != null && shown.Any(s => !string.Equals(s.Trim(), pv.Trim(), StringComparison.OrdinalIgnoreCase)))
+                problems.Add("sheet " + n + ": the title block shows " + string.Join(" / ", shown.Distinct()) + " but Revision-Sheet" + n + " is " + pv);
+            if (rt != null)
+            {
+                var t = (TableAnnotation)rt;
+                for (int r = 0; r < t.RowCount; r++)
+                    Console.WriteLine("ROW\t" + n + "\t" + r + "\t" + string.Join(" | ", Enumerable.Range(0, t.ColumnCount).Select(c => Clean(t.Text[r, c]))));
+            }
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var v = ((View)drw.GetFirstView()).GetNextView() as View;
+            while (v != null)
+            {
+                string m = v.GetReferencedModelName() ?? "", cfg = v.ReferencedConfiguration ?? "";
+                if (m != "" && seen.Add(m + "|" + cfg)) Console.WriteLine("MODEL\t" + n + "\t" + m + "\t" + cfg);
+                v = v.GetNextView() as View;
+            }
+        }
+        drw.ActivateSheet(active);
+        if (!wasOpen) { sw.CloseDoc(doc.GetTitle()); Console.WriteLine("Closed the drawing again without saving."); }
+        return Finish();
+    }
+
+    static void CollectRevNotes(View v, int n, string where, List<string> shown)
+    {
+        foreach (var note in (v.GetNotes() as object[] ?? new object[0]).Cast<Note>())
+        {
+            string link = note.PropertyLinkedText ?? "", text = note.GetText() ?? "";
+            if (link.IndexOf("Revision", StringComparison.OrdinalIgnoreCase) < 0) continue;
+            Console.WriteLine("NOTE\t" + n + "\t" + where + "\tlink=" + Clean(link) + "\tshows=" + Clean(text));
+            shown.Add(Clean(text));
+        }
+    }
+
+    static string Clean(string s) { return (s ?? "").Replace("\r", " ").Replace("\n", " ").Replace("\t", " "); }
 
     // ---------- reporting ----------
 

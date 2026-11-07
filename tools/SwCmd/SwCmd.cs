@@ -32,6 +32,16 @@
 //   cut-list <part> [--config <name>]            cut-list items of a weldment part: bodies and properties (read-only)
 //   tree <asm>                                   the component tree with configurations and suppression (read-only)
 //
+// Every command that changes an assembly prints the tree's changes (- removed, + added, ~ changed). SOLIDWORKS can
+// change more than the component named: in the 7 Nov test, replacing one tie also replaced its mirrored/patterned
+// partner; replace, set-config and delete then report PROBLEMS (exit 1) so the extra change is never silent.
+// Lightweight components are resolved first where SOLIDWORKS needs it (save-virtual, move).
+// move: SOLIDWORKS refuses to move a component out of a subassembly that is used more than once (tested 7 Nov).
+//
+// Tested 7 Nov on scratch copies (C's pre-prep pack) in SOLIDWORKS 2026 SP3.2: status (also starting SOLIDWORKS),
+// check-open (3208 components, 67 s), tree, save-virtual, save, replace (matched and explicit configuration),
+// set-config, delete, delete-config, cut-list, save-as --copy, rebuild, close-all. move: only the refused case.
+//
 // Safety (every command): never M:\ or anything in Dropbox; never anything under .pdm. A command that writes refuses
 // the vault (P:\, C:\PDM\) unless --checked-out is given and the file is not read-only on disk (checked out); a new
 // file is never created in the vault. A command that changes an assembly treats it as a write even without --save.
@@ -446,6 +456,44 @@ static class SwCmd
         return ok;
     }
 
+    // Every component (all levels) as "name -> file <configuration>", to show exactly what a command changed:
+    // SOLIDWORKS can change more than the one named (a mirrored or patterned copy follows its seed).
+    static Dictionary<string, string> Snapshot(AssemblyDoc asm)
+    {
+        var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in (asm.GetComponents(false) as object[] ?? new object[0]).Cast<Component2>())
+            d[c.Name2] = (c.GetPathName() ?? "") + " <" + c.ReferencedConfiguration + ">"
+                + (c.GetSuppression2() == (int)swComponentSuppressionState_e.swComponentSuppressed ? " [suppressed]" : "");
+        return d;
+    }
+
+    // Prints what changed between two snapshots; returns how many top-level components were removed or changed.
+    static int Diff(Dictionary<string, string> before, Dictionary<string, string> after)
+    {
+        int top = 0;
+        var lines = new List<string>();
+        foreach (var kv in before)
+        {
+            string now;
+            if (!after.TryGetValue(kv.Key, out now)) { lines.Add("  - " + kv.Key + ": " + kv.Value); if (kv.Key.IndexOf('/') < 0) top++; }
+            else if (now != kv.Value) { lines.Add("  ~ " + kv.Key + ": " + kv.Value + " -> " + now); if (kv.Key.IndexOf('/') < 0) top++; }
+        }
+        foreach (var kv in after)
+            if (!before.ContainsKey(kv.Key)) lines.Add("  + " + kv.Key + ": " + kv.Value);
+        Console.WriteLine("Changes in the tree (" + lines.Count + " lines; - removed, + added, ~ changed):");
+        foreach (var l in lines.Where(l => l.Substring(4).Split(':')[0].IndexOf('/') < 0)) Console.WriteLine(l);
+        int nested = lines.Count(l => l.Substring(4).Split(':')[0].IndexOf('/') >= 0);
+        if (nested > 0) Console.WriteLine("  (and " + nested + " lines for components inside the changed ones)");
+        return top;
+    }
+
+    static void ExpectOne(int changedTop, string what, bool all)
+    {
+        if (!all && changedTop > 1)
+            problems.Add(what + " changed " + changedTop + " top-level components, not one: SOLIDWORKS also changed the ones listed above "
+                + "(mirrored or patterned copies follow their seed). Check them, or undo by closing without saving.");
+    }
+
     static int AfterChange(ISldWorks sw, ModelDoc2 doc, bool save, bool checkedOut)
     {
         doc.ForceRebuild3(false);
@@ -463,6 +511,7 @@ static class SwCmd
         var c = FindComponent(asm, comp);
         if (c == null) return Finish();
         string oldFile = c.GetPathName(), oldCfg = c.ReferencedConfiguration;
+        var before = Snapshot(asm);
         if (!Select(doc, c)) return Finish();
         int choice = config != null ? (int)swReplaceComponentsConfiguration_e.swReplaceComponentsConfiguration_ManuallySelect
                                     : (int)swReplaceComponentsConfiguration_e.swReplaceComponentsConfiguration_MatchName;
@@ -470,10 +519,11 @@ static class SwCmd
         Console.WriteLine((ok ? "Replaced " : "REPLACE FAILED ") + comp + (all ? " (all instances)" : "") + ": " + oldFile + " <" + oldCfg + "> -> "
             + newFile + (config != null ? " <" + config + ">" : " (configuration matched by name)"));
         if (!ok) { problems.Add("ReplaceComponents2 returned false"); return Finish(); }
-        var now = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>()
-            .Where(x => string.Equals(x.GetPathName(), newFile, StringComparison.OrdinalIgnoreCase)).ToList();
-        foreach (var x in now) Console.WriteLine("  now: " + x.Name2 + " <" + x.ReferencedConfiguration + ">");
-        if (config != null && now.Any(x => !string.Equals(x.ReferencedConfiguration, config, StringComparison.OrdinalIgnoreCase)))
+        var after = Snapshot(asm);
+        ExpectOne(Diff(before, after), "replace", all);
+        var added = after.Where(kv => !before.ContainsKey(kv.Key) && kv.Key.IndexOf('/') < 0).ToList();
+        if (added.Count == 0) problems.Add("no component now uses " + newFile);
+        if (config != null && added.Any(kv => kv.Value.IndexOf("<" + config + ">", StringComparison.OrdinalIgnoreCase) < 0))
             problems.Add("a replaced component is not in configuration " + config);
         return AfterChange(sw, doc, save, checkedOut);
     }
@@ -485,10 +535,13 @@ static class SwCmd
         var c = FindComponent(asm, comp);
         if (c == null) return Finish();
         string old = c.ReferencedConfiguration;
+        var before = Snapshot(asm);
         c.ReferencedConfiguration = config;
         Console.WriteLine("Configuration of " + c.Name2 + ": " + old + " -> " + c.ReferencedConfiguration);
         if (!string.Equals(c.ReferencedConfiguration, config, StringComparison.OrdinalIgnoreCase))
             problems.Add("SOLIDWORKS did not take configuration " + config + " (does the file have it?)");
+        ((ModelDoc2)asm).ForceRebuild3(false);
+        ExpectOne(Diff(before, Snapshot(asm)), "set-config", false);
         return AfterChange(sw, (ModelDoc2)asm, save, checkedOut);
     }
 
@@ -500,11 +553,13 @@ static class SwCmd
         var c = FindComponent(asm, comp);
         if (c == null) return Finish();
         string name = c.Name2, file = c.GetPathName();
+        var before = Snapshot(asm);
         if (!Select(doc, c)) return Finish();
         bool ok = doc.Extension.DeleteSelection2(0);
         bool gone = FindComponent(asm, name, true) == null;
         Console.WriteLine((ok && gone ? "Deleted " : "DELETE FAILED ") + name + " (" + file + ")");
         if (!ok || !gone) { problems.Add("component " + name + " is still there"); return Finish(); }
+        ExpectOne(Diff(before, Snapshot(asm)), "delete", false);
         return AfterChange(sw, doc, save, checkedOut);
     }
 
@@ -516,13 +571,22 @@ static class SwCmd
         if (c == null) return Finish();
         if (!c.IsVirtual) { problems.Add(c.Name2 + " is not a virtual component"); return Finish(); }
         if (Kind(newFile) != Kind(c.GetPathName() ?? "")) { problems.Add("the new file must keep the type of " + c.GetPathName()); return Finish(); }
+        var before = Snapshot(asm);
+        int state = c.GetSuppression2();
+        if (state != (int)swComponentSuppressionState_e.swComponentFullyResolved && state != (int)swComponentSuppressionState_e.swComponentResolved)
+        {
+            int r = c.SetSuppression2((int)swComponentSuppressionState_e.swComponentFullyResolved);
+            Console.WriteLine("  resolved it first (was " + FlagName(typeof(swComponentSuppressionState_e), state) + ", result " + r + ")");
+        }
         bool ok = c.SaveVirtualComponent(newFile);
         bool exists = File.Exists(newFile);
+        if (!ok || !exists) Console.WriteLine("  SaveVirtualComponent returned " + ok + "; file there: " + exists + "; component file now: " + c.GetPathName());
         Console.WriteLine((ok && exists ? "Saved virtual " : "SAVE-VIRTUAL FAILED ") + c.Name2 + " -> " + newFile);
         if (!ok || !exists) { problems.Add("SaveVirtualComponent did not write " + newFile); return Finish(); }
         var again = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>()
             .Where(x => string.Equals(x.GetPathName(), newFile, StringComparison.OrdinalIgnoreCase)).Select(x => x.Name2).ToList();
         Console.WriteLine("  components now using it: " + (again.Count > 0 ? string.Join(", ", again) : "none found (check the tree)"));
+        Diff(before, Snapshot(asm));
         return AfterChange(sw, (ModelDoc2)asm, save, checkedOut);
     }
 
@@ -607,12 +671,24 @@ static class SwCmd
         Component2 target = targetPath == null ? null : FindAny(asm, targetPath);
         if (c == null || (targetPath != null && target == null)) return Finish();
         string file = c.GetPathName();
-        bool ok = asm.ReorganizeComponents(new object[] { c }, (object)target ?? asm);
+        var before = Snapshot(asm);
+        foreach (var x in new[] { c, target })
+            if (x != null && x.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentFullyResolved)
+                x.SetSuppression2((int)swComponentSuppressionState_e.swComponentFullyResolved);
+        // The top level is passed as the root component of the active configuration (the AssemblyDoc itself is refused).
+        object to = target != null ? (object)target : ((Configuration)doc.GetActiveConfiguration()).GetRootComponent3(true);
+        bool ok = asm.ReorganizeComponents(new object[] { c }, to);
+        if (!ok && target == null)
+        {
+            ok = asm.ReorganizeComponents(new object[] { c }, null);
+            if (ok) Console.WriteLine("  (moved with a null target)");
+        }
         Console.WriteLine((ok ? "Moved " : "MOVE FAILED ") + compPath + " (" + file + ") -> " + (targetPath ?? "the top level of " + topPath));
         if (!ok) { problems.Add("ReorganizeComponents returned false"); return Finish(); }
         var now = (asm.GetComponents(false) as object[] ?? new object[0]).Cast<Component2>()
             .Where(x => string.Equals(x.GetPathName(), file, StringComparison.OrdinalIgnoreCase)).Select(x => x.Name2).ToList();
         Console.WriteLine("  components now using that file: " + string.Join(", ", now));
+        Diff(before, Snapshot(asm));
         Console.WriteLine("  the subassembly it left and the top both change: save both (save <top> saves the open documents it carries)");
         return AfterChange(sw, doc, save, checkedOut);
     }
@@ -624,7 +700,13 @@ static class SwCmd
         bool wasOpen;
         var doc = OpenOrActivate(sw, path, config, out wasOpen);
         if (doc == null) return Finish();
-        if (config != null && !doc.ShowConfiguration2(config)) { problems.Add("could not show configuration " + config); return Finish(); }
+        string activeNow = ((Configuration)doc.GetActiveConfiguration()).Name;
+        if (config != null && !string.Equals(activeNow, config, StringComparison.OrdinalIgnoreCase) && !doc.ShowConfiguration2(config))
+        {
+            problems.Add("could not show configuration " + config + " (has: " + string.Join(", ", ConfigNames(doc)) + ")");
+            if (!wasOpen) sw.CloseDoc(doc.GetTitle());
+            return Finish();
+        }
         Console.WriteLine("Configuration: " + ((Configuration)doc.GetActiveConfiguration()).Name);
         int items = 0;
         var f = doc.FirstFeature() as Feature;

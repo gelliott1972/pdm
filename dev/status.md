@@ -48,6 +48,15 @@ baseline. Known vault faults the gate shows, outside this round (unchanged befor
 model `GNRIC-BRW-20.SLDPRT` not in the vault (James has the drawing out); `GNRIC-LPP-05.SLDDRW` and
 `08XXX-PLP-33.SLDDRW` store Dropbox paths. The round's gate passes when only these three remain.
 
+SW's restructure on its scratch copy (7 Nov), per shaft: A `form-sub --except "LS-08A-04<1>"`; B and C `dissolve
+"LS-08x-04_WITH_SCREEN<1>"` then `form-sub --except "LS-08x-04<1>"`. SwCmd fixes on the way: SOLIDWORKS makes a virtual
+`Assem1` (ignores the file name), so form-sub saves it to the new file; form-sub selects the top's pattern features (else
+refused); mate folders left out; mate lists with entities, owner, geometry and state. A and C: every component identical,
+mass identical (A 4263.99022, C 4870.2244), SwCheck nothing new, SwSuppDump identical. B: one mate lost at each step
+(`Coincident70` in the dissolve, `Coincident42` in the form-sub), both face mates whose other face SOLIDWORKS can't give
+back (stale: one isn't satisfied, 0.27 m off); positions held. Admin's call: B goes ahead with `--accept-gone` for those
+two (SwCmd bdfdad1); Grant's look (Desk SW7) confirms later, and only B is redone if it matters.
+
 Rehearsal copy: `scratch\import\rehearsal-restructure\vault` (robocopy of P:\, 485 files). App is setting up a test
 pdm.exe against a test vault, plus a second copy acting as an engineer's PC.
 

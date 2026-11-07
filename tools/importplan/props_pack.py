@@ -181,8 +181,10 @@ def sheet(out, specs):
                 if cur_w and cur_w != wf:
                     notes.append("Weight changes (was %s)" % cur_w)
                 if cur_fin and fin != "?" and cur_fin.upper() != fin.upper():
-                    notes.append("R10 %s James's Finish %r" % ("clears" if fin == "" else "replaces", cur_fin))
-                if src.startswith(("file name", "configuration name")) or fin == "?":
+                    notes.append("%s %s James's Finish %r" % (frule.split(":")[0].split(" (")[0], "clears" if fin == "" else "replaces", cur_fin))
+                if src.startswith(("file name", "configuration name")):
+                    src = src.replace(": check", "") + " (A9: accepted by Grant 7 Nov)"
+                if fin == "?":
                     notes.append("for Grant")
                 rows.append([shaft, pn, f0, cfg, pl.get("new_name", ""), folder, cat and (cat + typ) or "",
                              cur_d, d, src, cur_fin, fin, frule, cur_w, wf, "; ".join(notes), ""])

@@ -150,8 +150,8 @@ R4_0804 = {   # D17: MEMBER_SHS_40x40x4 -> family GNRIC-LMW, STOCK-LMW-nn -> GNR
 }
 # R8 keeps the As Welded PartNos James put in the files. Two of them sit in files renumbered here (R4, R5); kept as
 # they are they would become GNRIC-LMP-10 (already the vault's GNRIC-LM) and GNRIC-BRP-01, so the plan gives each its
-# As Machined parent's new number, as the vault's GNRIC-BRP/BRA As Welded configurations carry. Dev's proposal, for Admin.
-R8_0804_RENUMBERED = "R8 with R4/R5: As Welded child takes its parent's new number (Dev's proposal, for Admin)"
+# As Machined parent's new number, as the vault's GNRIC-BRP/BRA As Welded configurations carry (Admin 7 Nov).
+R8_0804_RENUMBERED = "R8 with R4/R5 (Admin 7 Nov): As Welded child takes its parent's new number"
 D15_0804_OPEN = "D15: LCMM_40x80x8_SC08 should be split into the new 08X04-LMW family before -r1 (as 0806, 0811 D14); still here"
 D18_0804_OPEN = "D18: every TIE_80x40x8 instance should be repointed to the vault's GNRIC-BRP / GNRIC-BRA before -r1 (as 0811 D30); still here"
 D21_0804_OPEN = ("D21 (agreed 7 Nov): the M12x200 bolt becomes a configuration of the vault's FAST-HEX-8.8-HDG (check-out, as D9) "
@@ -186,6 +186,7 @@ def DEC_0804(x):
         "no_file_partno_imports": "D8 (as 0811 D32)",
         "all_provisional": "D8 (as 0811 D33)",
         # R8 (Grant 7 Nov) undoes D8's "no PartNo on As Welded": James's As Welded PartNos stay (none were deleted in prep)
+        "welded_children_take_parent": "R8 (Admin 7 Nov): As Welded child takes its parent's number (the file's number was at file level)",
         "fasteners": ("8.8", "HDG"),   # D8: as the vault's FAST-HEX/NUT/WSH-8.8-HDG
     }
 
@@ -423,6 +424,7 @@ for (f, c), v in list(dec_pn.items()):   # "@top": the file's one top-level conf
         elif f in _top_cfgs:
             dec_pn[(f, "?")] = v   # names the file; the PartNo row says which configuration is unclear
 carried_issues = []
+carried_files = set()
 if carried_dir:   # --carried: James's file-level numbers deleted in prep (D8) come back at configuration level
     now_pn = {key(p["file"]) for p in props if p["name"].lower() == "partno" and (p["value"] or p["expression"]).strip()}
     tops_now = collections.defaultdict(list)
@@ -434,12 +436,21 @@ if carried_dir:   # --carried: James's file-level numbers deleted in prep (D8) c
         v = gnric((p["value"] or p["expression"]).strip())
         if p["name"].lower() != "partno" or p["config"] != "(file)" or not v or v == "?" or fk_ in now_pn or fk_ not in tops_now:
             continue
+        carried_files.add(fk_)
         if any(f == fk_ for (f, _) in dec_pn):
             continue   # a decision for this file wins
         if len(tops_now[fk_]) == 1:
             dec_pn[(fk_, tops_now[fk_][0])] = (v, True, "D8: the file's own number (deleted at file level in prep), at configuration level")
         else:
             carried_issues.append((p["file"], f"had file-level PartNo {v} before prep, and has {len(tops_now[fk_])} top-level configurations: which one gets it?"))
+# A file whose number came back from file level: its As Welded children take the top configuration's number too
+# (0804 R8, Admin 7 Nov, as the vault's GNRIC-BRP/BRA), unless a decision numbers the child itself.
+if dec.get("welded_children_take_parent") and carried_files:
+    for c in cfgs:
+        fk_, cfg_, par = key(c["file"]), c["config"], c["parent_config"]
+        if fk_ in carried_files and par and "<as welded>" in cfg_.lower() and (fk_, cfg_) not in dec_pn and (fk_, par) in dec_pn:
+            v = dec_pn[(fk_, par)]
+            dec_pn[(fk_, cfg_)] = (v[0], v[1], dec["welded_children_take_parent"])
 fast_spec = dec.get("fasteners")
 dec_leave = {key(k): v for k, v in dec.get("leave_out", {}).items()}
 dec_mdl = {key(k): v for k, v in dec.get("modelling_groups", {}).items()}

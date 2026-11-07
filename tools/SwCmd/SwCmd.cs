@@ -1,0 +1,714 @@
+// SwCmd: one SOLIDWORKS task per command, run against the SOLIDWORKS that is already open (it starts one only if
+// none is running, and leaves it running). No server, no port: each call attaches over COM, does its job, prints a
+// report and exits. Brief: sw\solidworks-mcp-review.md "Suggested instead" (Admin, 7 Nov).
+//
+// Usage:  SwCmd.exe <command> [arguments] [options]
+//   status                                       SOLIDWORKS version and every open document (dirty, read-only)
+//   close-all [--exit]                           close every document WITHOUT saving (then exit SOLIDWORKS with --exit)
+//   open <file> [--config <name>]                open (or activate) a file; report load errors, missing references,
+//                                                components loaded from outside the file's own tree, rebuild errors
+//   check-open <file> [--config <name>]          as open, then close it again without saving
+//   rebuild <file>                               force a full rebuild of an open (or opened) file; report what's wrong
+//   save <file> [--checked-out]                  save an open document (refuses if any other open document that would
+//                                                be saved with it is somewhere we may not write)
+//   replace <asm> <component> <newFile> [--config <name>] [--all] [--save] [--checked-out]
+//                                                replace one top-level component of <asm> (name as in the tree,
+//                                                "TIE_80x40x8<23>", or the API's "TIE_80x40x8-23") with <newFile>,
+//                                                in <name> or the configuration matching the old one; mates re-attached;
+//                                                --all replaces every instance of the same file in <asm>
+//   set-config <asm> <component> <config> [--save] [--checked-out]
+//                                                change the configuration a top-level component uses
+//   delete <asm> <component> [--save] [--checked-out]
+//                                                delete one top-level component of <asm>
+//   save-virtual <asm> <component> <newFile> [--save] [--checked-out]
+//                                                save a virtual (^) component of <asm> to its own file
+//   save-as <file> <newFile> [--copy]            save under a new name (never in the vault, never over a file);
+//                                                --copy keeps the old one as the open document
+//   delete-config <file> <config> [--save] [--checked-out]
+//                                                delete a configuration (another one is activated first if needed)
+//   move <top> <component path> <target subassembly path> | move <top> <component path> --top   [--save] [--checked-out]
+//                                                move a component into another subassembly of <top>, or up to <top>;
+//                                                paths as in the tree, e.g. "LS-08B-04_SF02-UPPERv2<1>/PLATE<1>"
+//   cut-list <part> [--config <name>]            cut-list items of a weldment part: bodies and properties (read-only)
+//   tree <asm>                                   the component tree with configurations and suppression (read-only)
+//
+// Safety (every command): never M:\ or anything in Dropbox; never anything under .pdm. A command that writes refuses
+// the vault (P:\, C:\PDM\) unless --checked-out is given and the file is not read-only on disk (checked out); a new
+// file is never created in the vault. A command that changes an assembly treats it as a write even without --save.
+// Nothing is saved unless the command says so (save, or --save).
+// Exit code: 0 done and clean, 1 done but problems reported, 2 refused or bad arguments, 3 SOLIDWORKS error.
+// Build (from tools\SwCmd, after copying the interop DLLs from tools\sw-macros\bin into bin\):
+//   csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
+
+static class SwCmd
+{
+    static List<string> problems = new List<string>();
+
+    static int Main(string[] args)
+    {
+        if (args.Length < 1) return Usage();
+        var opts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var pos = new List<string>();
+        for (int i = 1; i < args.Length; i++)
+        {
+            if (args[i] == "--config") { if (i + 1 >= args.Length) return Usage(); opts["config"] = args[++i]; }
+            else if (args[i].StartsWith("--")) opts[args[i].Substring(2)] = "yes";
+            else pos.Add(args[i]);
+        }
+        string cmd = args[0].ToLowerInvariant();
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top" };
+        foreach (var k in opts.Keys) if (!known.Contains(k)) { Console.Error.WriteLine("Unknown option: --" + k); return 2; }
+        bool checkedOut = opts.ContainsKey("checked-out"), save = opts.ContainsKey("save");
+        string config = opts.ContainsKey("config") ? opts["config"] : null;
+
+        // Check every path before SOLIDWORKS is touched.
+        try
+        {
+            for (int i = 0; i < pos.Count; i++)
+                if (LooksLikePath(cmd, i)) pos[i] = Path.GetFullPath(pos[i]);
+        }
+        catch (Exception ex) { Console.Error.WriteLine("Bad path: " + ex.Message); return 2; }
+        string refusal = null;
+        switch (cmd)
+        {
+            case "status": case "close-all": if (pos.Count != 0) return Usage(); break;
+            case "open": case "check-open": case "rebuild":
+                if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]); break;
+            case "save":
+                if (pos.Count != 1) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
+            case "replace":
+                if (pos.Count != 3) return Usage();
+                refusal = WriteRefusal(pos[0], checkedOut, false) ?? ReadRefusal(pos[2]);
+                if (refusal == null && !File.Exists(pos[2])) refusal = "no such file: " + pos[2];
+                break;
+            case "set-config": case "delete":
+                if (pos.Count != (cmd == "delete" ? 2 : 3)) return Usage();
+                refusal = WriteRefusal(pos[0], checkedOut, false); break;
+            case "save-virtual":
+                if (pos.Count != 3) return Usage();
+                refusal = WriteRefusal(pos[0], checkedOut, false) ?? WriteRefusal(pos[2], false, true);
+                if (refusal == null && File.Exists(pos[2])) refusal = "already exists, not overwritten: " + pos[2];
+                break;
+            case "save-as":
+                if (pos.Count != 2) return Usage();
+                refusal = ReadRefusal(pos[0]) ?? WriteRefusal(pos[1], false, true);
+                if (refusal == null && File.Exists(pos[1])) refusal = "already exists, not overwritten: " + pos[1];
+                if (refusal == null && Kind(pos[0]) != Kind(pos[1])) refusal = "save-as keeps the file type: " + pos[1];
+                break;
+            case "delete-config":
+                if (pos.Count != 2) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
+            case "move":
+                if (pos.Count != (opts.ContainsKey("top") ? 2 : 3)) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
+            case "cut-list": case "tree":
+                if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]); break;
+            default: return Usage();
+        }
+        if (refusal != null) { Console.Error.WriteLine("REFUSED: " + refusal); return 2; }
+
+        ISldWorks sw;
+        try { sw = Attach(); }
+        catch (Exception ex) { Console.Error.WriteLine("Could not reach SOLIDWORKS: " + ex.Message); return 3; }
+        try
+        {
+            switch (cmd)
+            {
+                case "status": return Status(sw);
+                case "close-all": return CloseAll(sw, opts.ContainsKey("exit"));
+                case "open": return Open(sw, pos[0], config, false);
+                case "check-open": return Open(sw, pos[0], config, true);
+                case "rebuild": return Rebuild(sw, pos[0]);
+                case "save": return Save(sw, pos[0], checkedOut);
+                case "replace": return Replace(sw, pos[0], pos[1], pos[2], config, opts.ContainsKey("all"), save, checkedOut);
+                case "set-config": return SetConfig(sw, pos[0], pos[1], pos[2], save, checkedOut);
+                case "delete": return Delete(sw, pos[0], pos[1], save, checkedOut);
+                case "save-virtual": return SaveVirtual(sw, pos[0], pos[1], pos[2], save, checkedOut);
+                case "save-as": return SaveAs(sw, pos[0], pos[1], opts.ContainsKey("copy"));
+                case "delete-config": return DeleteConfig(sw, pos[0], pos[1], save, checkedOut);
+                case "move": return Move(sw, pos[0], pos[1], opts.ContainsKey("top") ? null : pos[2], save, checkedOut);
+                case "cut-list": return CutList(sw, pos[0], config);
+                case "tree": return Tree(sw, pos[0]);
+            }
+        }
+        catch (COMException ex) { Console.Error.WriteLine("SOLIDWORKS error: " + ex.Message); return 3; }
+        return Usage();
+    }
+
+    static bool LooksLikePath(string cmd, int i)
+    {
+        switch (cmd)
+        {
+            case "replace": case "save-virtual": return i == 0 || i == 2;
+            case "set-config": case "delete": case "delete-config": case "move": return i == 0;
+            default: return true;
+        }
+    }
+
+    static int Usage()
+    {
+        Console.Error.WriteLine("Usage: SwCmd status | close-all [--exit] | open <file> [--config <name>] | check-open <file> [--config <name>]");
+        Console.Error.WriteLine("       | rebuild <file> | save <file> [--checked-out]");
+        Console.Error.WriteLine("       | replace <asm> <component> <newFile> [--config <name>] [--all] [--save] [--checked-out]");
+        Console.Error.WriteLine("       | set-config <asm> <component> <config> [--save] [--checked-out]");
+        Console.Error.WriteLine("       | delete <asm> <component> [--save] [--checked-out]");
+        Console.Error.WriteLine("       | save-virtual <asm> <component> <newFile> [--save] [--checked-out]");
+        Console.Error.WriteLine("       | save-as <file> <newFile> [--copy] | delete-config <file> <config> [--save] [--checked-out]");
+        Console.Error.WriteLine("       | move <top> <component path> <target subassembly path> | move <top> <component path> --top  [--save] [--checked-out]");
+        Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm>");
+        return 2;
+    }
+
+    // ---------- safety ----------
+
+    static bool InVault(string p)
+    {
+        return p.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || p.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase)
+            || p.Equals(@"C:\PDM", StringComparison.OrdinalIgnoreCase);
+    }
+
+    static string ReadRefusal(string p)
+    {
+        if (p.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || p.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0)
+            return "the live Dropbox files (M:\\) are never opened by this tool: " + p;
+        if (p.IndexOf(@"\.pdm\", StringComparison.OrdinalIgnoreCase) >= 0 || p.EndsWith(@"\.pdm", StringComparison.OrdinalIgnoreCase))
+            return ".pdm is never touched: " + p;
+        return null;
+    }
+
+    static string WriteRefusal(string p, bool checkedOut, bool newFile)
+    {
+        string r = ReadRefusal(p);
+        if (r != null) return r;
+        if (!InVault(p)) return null;
+        if (newFile) return "no new file is created in the vault (the importer adds new files): " + p;
+        if (!checkedOut) return "a vault file is written only with --checked-out: " + p;
+        if (!File.Exists(p)) return "no such vault file: " + p;
+        if ((File.GetAttributes(p) & FileAttributes.ReadOnly) != 0) return "the vault file is read-only, so it is not checked out: " + p;
+        return null;
+    }
+
+    // ---------- SOLIDWORKS ----------
+
+    static ISldWorks Attach()
+    {
+        // The running-object table is not always visible from here (a shell at another integrity level gets
+        // MK_E_UNAVAILABLE), but creating the COM object connects to a SOLIDWORKS that is already running, so the
+        // process list decides what to say, and a second process appearing is reported.
+        object o = null;
+        try { o = Marshal.GetActiveObject("SldWorks.Application"); } catch (COMException) { }
+        if (o != null) { Console.WriteLine("Attached to the running SOLIDWORKS."); return (ISldWorks)o; }
+        var before = System.Diagnostics.Process.GetProcessesByName("SLDWORKS").Select(p => p.Id).ToList();
+        var sw = (ISldWorks)Activator.CreateInstance(NewestSolidWorks());
+        var after = System.Diagnostics.Process.GetProcessesByName("SLDWORKS").Select(p => p.Id).ToList();
+        var started = after.Except(before).ToList();
+        if (before.Count == 0) { Console.WriteLine("No SOLIDWORKS was running: started one (it stays open)."); sw.Visible = true; }
+        else if (started.Count == 0) Console.WriteLine("Attached to the running SOLIDWORKS (process " + string.Join(", ", before) + ").");
+        else Console.WriteLine("WARNING: SOLIDWORKS was running (process " + string.Join(", ", before) + ") but a second one started ("
+            + string.Join(", ", started) + "); this command works in the new one.");
+        return sw;
+    }
+
+    static Type NewestSolidWorks()
+    {
+        int best = -1;
+        using (var root = Microsoft.Win32.Registry.ClassesRoot)
+            foreach (var name in root.GetSubKeyNames())
+            {
+                int v;
+                if (name.StartsWith("SldWorks.Application.", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(name.Substring("SldWorks.Application.".Length), out v) && v > best) best = v;
+            }
+        return Type.GetTypeFromProgID(best >= 0 ? "SldWorks.Application." + best : "SldWorks.Application");
+    }
+
+    static int Kind(string f)
+    {
+        switch (Path.GetExtension(f).ToLowerInvariant())
+        {
+            case ".sldprt": return (int)swDocumentTypes_e.swDocPART;
+            case ".sldasm": return (int)swDocumentTypes_e.swDocASSEMBLY;
+            case ".slddrw": return (int)swDocumentTypes_e.swDocDRAWING;
+            default: return 0;
+        }
+    }
+
+    static List<ModelDoc2> OpenDocs(ISldWorks sw)
+    {
+        var list = new List<ModelDoc2>();
+        var d = sw.GetFirstDocument() as ModelDoc2;
+        while (d != null) { list.Add(d); d = d.GetNext() as ModelDoc2; }
+        return list;
+    }
+
+    static ModelDoc2 FindOpen(ISldWorks sw, string path)
+    {
+        return OpenDocs(sw).FirstOrDefault(d => string.Equals(d.GetPathName(), path, StringComparison.OrdinalIgnoreCase));
+    }
+
+    static int Status(ISldWorks sw)
+    {
+        Console.WriteLine("SOLIDWORKS " + sw.RevisionNumber());
+        var docs = OpenDocs(sw);
+        Console.WriteLine("Open documents: " + docs.Count);
+        foreach (var d in docs)
+            Console.WriteLine("  " + (d.GetSaveFlag() ? "[unsaved] " : "") + (d.IsOpenedReadOnly() ? "[read-only] " : "")
+                + (d.Visible ? "" : "[hidden] ") + (d.GetPathName() == "" ? d.GetTitle() : d.GetPathName()));
+        return 0;
+    }
+
+    static int CloseAll(ISldWorks sw, bool exit)
+    {
+        var docs = OpenDocs(sw);
+        int unsaved = docs.Count(d => d.GetSaveFlag());
+        sw.CloseAllDocuments(true);
+        int left = OpenDocs(sw).Count;
+        Console.WriteLine("Closed " + (docs.Count - left) + " documents without saving (" + unsaved + " had unsaved changes, now discarded)."
+            + (left > 0 ? " Still open: " + left + "." : ""));
+        if (exit) { sw.ExitApp(); Console.WriteLine("SOLIDWORKS asked to exit."); }
+        return left > 0 ? 1 : 0;
+    }
+
+    // Open (or activate) a file and report on it.
+    static ModelDoc2 OpenOrActivate(ISldWorks sw, string path, string config, out bool wasOpen)
+    {
+        var doc = FindOpen(sw, path);
+        wasOpen = doc != null;
+        int err = 0, warn = 0;
+        if (doc == null)
+        {
+            if (!File.Exists(path)) { problems.Add("no such file: " + path); return null; }
+            int options = (int)swOpenDocOptions_e.swOpenDocOptions_Silent;
+            doc = sw.OpenDoc6(path, Kind(path), options, config ?? "", ref err, ref warn);
+            if (doc == null) { problems.Add("could not open " + path + ": " + FlagNames(typeof(swFileLoadError_e), err)); return null; }
+            Console.WriteLine("Opened " + path + (config != null ? " (" + config + ")" : ""));
+            if (err != 0) problems.Add("load errors: " + FlagNames(typeof(swFileLoadError_e), err));
+            int quiet = (int)swFileLoadWarning_e.swFileLoadWarning_ReadOnly | (int)swFileLoadWarning_e.swFileLoadWarning_AlreadyOpen;
+            if ((warn & ~quiet) != 0) problems.Add("load warnings: " + FlagNames(typeof(swFileLoadWarning_e), warn & ~quiet));
+            if ((warn & (int)swFileLoadWarning_e.swFileLoadWarning_ReadOnly) != 0) Console.WriteLine("  (opened read-only)");
+        }
+        else Console.WriteLine("Already open: " + path);
+        int aerr = 0;
+        sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref aerr);
+        return doc;
+    }
+
+    static int Open(ISldWorks sw, string path, string config, bool closeAfter)
+    {
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, path, config, out wasOpen);
+        if (doc != null)
+        {
+            ReportComponents(doc, path);
+            ReportWhatsWrong(doc);
+            if (closeAfter && !wasOpen) { sw.CloseDoc(doc.GetTitle()); Console.WriteLine("Closed it again without saving."); }
+            else if (closeAfter) Console.WriteLine("It was already open before, so it is left open.");
+        }
+        return Finish();
+    }
+
+    // Components that are missing, suppressed because SOLIDWORKS couldn't find them, or loaded from outside the
+    // top's own folder tree (the work copy root is taken as the folder two levels above SC08 etc. is not known, so
+    // the rule is: a component outside the top file's drive-and-first-two-folders is listed).
+    static void ReportComponents(ModelDoc2 doc, string path)
+    {
+        if (doc.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY) return;
+        var asm = (AssemblyDoc)doc;
+        var comps = (asm.GetComponents(false) as object[] ?? new object[0]).Cast<Component2>().ToList();
+        string root = TreeRoot(path);
+        int missing = 0, outside = 0, suppressed = 0, lightweight = 0;
+        var seenOutside = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in comps)
+        {
+            string p = c.GetPathName() ?? "";
+            int s = c.GetSuppression2();
+            if (s == (int)swComponentSuppressionState_e.swComponentSuppressed) { suppressed++; continue; }
+            if (s == (int)swComponentSuppressionState_e.swComponentLightweight || s == (int)swComponentSuppressionState_e.swComponentFullyLightweight) lightweight++;
+            if (c.IsVirtual) continue;
+            if (p == "" || !File.Exists(p)) { missing++; problems.Add("missing file for component " + c.Name2 + ": " + p); continue; }
+            if (root != null && !p.StartsWith(root, StringComparison.OrdinalIgnoreCase) && seenOutside.Add(p))
+            { outside++; Console.WriteLine("  loaded from outside " + root + ": " + p); }
+        }
+        Console.WriteLine("Components: " + comps.Count + " (" + suppressed + " suppressed, " + lightweight + " lightweight), "
+            + missing + " missing, " + outside + " files from outside " + (root ?? "?"));
+    }
+
+    // C:\PDM-work\LS-08B-04\... -> C:\PDM-work\LS-08B-04\ ; P:\APEX\... -> P:\ ; otherwise the file's own folder.
+    static string TreeRoot(string path)
+    {
+        var parts = path.Split('\\');
+        if (InVault(path)) return path.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) ? @"P:\" : @"C:\PDM\";
+        if (parts.Length > 3) return string.Join("\\", parts.Take(3)) + "\\";
+        return Path.GetDirectoryName(path) + "\\";
+    }
+
+    static void ReportWhatsWrong(ModelDoc2 doc)
+    {
+        int n = doc.Extension.GetWhatsWrongCount();
+        if (n == 0) { Console.WriteLine("What's wrong: nothing."); return; }
+        object feats, codes, warns;
+        doc.Extension.GetWhatsWrong(out feats, out codes, out warns);
+        var f = feats as object[] ?? new object[0];
+        var c = codes as int[] ?? new int[0];
+        var w = warns as bool[] ?? new bool[0];
+        for (int i = 0; i < f.Length; i++)
+        {
+            var feat = f[i] as Feature;
+            string line = (i < w.Length && w[i] ? "warning" : "error") + ": " + (feat != null ? feat.Name + " (" + feat.GetTypeName2() + ")" : "?")
+                + (i < c.Length ? " " + FlagName(typeof(swFeatureError_e), c[i]) : "");
+            if (i < w.Length && w[i]) Console.WriteLine("  " + line); else problems.Add(line);
+        }
+    }
+
+    static int Rebuild(ISldWorks sw, string path)
+    {
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, path, null, out wasOpen);
+        if (doc != null)
+        {
+            bool ok = doc.ForceRebuild3(false);
+            Console.WriteLine("Rebuilt (all configurations' active one, every level): " + (ok ? "ok" : "SOLIDWORKS reported a failure"));
+            if (!ok) problems.Add("ForceRebuild3 returned false");
+            ReportWhatsWrong(doc);
+            Console.WriteLine("Not saved.");
+        }
+        return Finish();
+    }
+
+    // Save one open document. Assemblies can carry other modified documents with them, so every other modified
+    // open document must also be somewhere we may write, or nothing is saved.
+    static int Save(ISldWorks sw, string path, bool checkedOut)
+    {
+        var doc = FindOpen(sw, path);
+        if (doc == null) { Console.Error.WriteLine("Not open in SOLIDWORKS: " + path); return 2; }
+        return SaveDoc(sw, doc, checkedOut) ? Finish() : 2;
+    }
+
+    static bool SaveDoc(ISldWorks sw, ModelDoc2 doc, bool checkedOut)
+    {
+        foreach (var d in OpenDocs(sw))
+        {
+            if (!d.GetSaveFlag() || d.GetPathName() == "") continue;
+            string why = WriteRefusal(d.GetPathName(), checkedOut, false);
+            if (why != null) { Console.Error.WriteLine("REFUSED, nothing saved: another modified open document can't be written: " + why); return false; }
+        }
+        int err = 0, warn = 0;
+        bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref err, ref warn);
+        Console.WriteLine((ok ? "Saved " : "SAVE FAILED ") + doc.GetPathName()
+            + (err != 0 ? " errors: " + FlagNames(typeof(swFileSaveError_e), err) : "")
+            + (warn != 0 ? " warnings: " + FlagNames(typeof(swFileSaveWarning_e), warn) : ""));
+        if (!ok || err != 0) problems.Add("save failed on " + doc.GetPathName());
+        return true;
+    }
+
+    // Top-level components only: "TIE_80x40x8<23>" (tree) or "TIE_80x40x8-23" (API).
+    static Component2 FindComponent(AssemblyDoc asm, string name, bool quiet = false)
+    {
+        string want = name.Trim();
+        if (want.EndsWith(">") && want.LastIndexOf('<') > 0)
+        {
+            int i = want.LastIndexOf('<');
+            want = want.Substring(0, i) + "-" + want.Substring(i + 1, want.Length - i - 2);
+        }
+        var comps = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>().ToList();
+        var hit = comps.FirstOrDefault(c => string.Equals(c.Name2, want, StringComparison.OrdinalIgnoreCase));
+        if (hit == null && !quiet)
+        {
+            problems.Add("no top-level component named " + name + " (looked for " + want + "); a component inside a subassembly must be "
+                + "changed in that subassembly");
+            var near = comps.Where(c => c.Name2.StartsWith(want.Split('-')[0], StringComparison.OrdinalIgnoreCase)).Select(c => c.Name2).Take(12).ToList();
+            if (near.Count > 0) Console.WriteLine("  top-level components with that file name: " + string.Join(", ", near));
+        }
+        return hit;
+    }
+
+    static AssemblyDoc OpenAssembly(ISldWorks sw, string path)
+    {
+        if (Kind(path) != (int)swDocumentTypes_e.swDocASSEMBLY) { problems.Add("not an assembly: " + path); return null; }
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, path, null, out wasOpen);
+        return doc as AssemblyDoc;
+    }
+
+    static bool Select(ModelDoc2 doc, Component2 c)
+    {
+        doc.ClearSelection2(true);
+        var sel = (SelectionMgr)doc.SelectionManager;
+        var data = sel.CreateSelectData();
+        bool ok = c.Select4(false, data, false);
+        if (!ok) problems.Add("could not select " + c.Name2);
+        return ok;
+    }
+
+    static int AfterChange(ISldWorks sw, ModelDoc2 doc, bool save, bool checkedOut)
+    {
+        doc.ForceRebuild3(false);
+        ReportWhatsWrong(doc);
+        if (save) { if (!SaveDoc(sw, doc, checkedOut)) return 2; }
+        else Console.WriteLine("Not saved (the change is in SOLIDWORKS only; run save, or pass --save).");
+        return Finish();
+    }
+
+    static int Replace(ISldWorks sw, string asmPath, string comp, string newFile, string config, bool all, bool save, bool checkedOut)
+    {
+        var asm = OpenAssembly(sw, asmPath);
+        if (asm == null) return Finish();
+        var doc = (ModelDoc2)asm;
+        var c = FindComponent(asm, comp);
+        if (c == null) return Finish();
+        string oldFile = c.GetPathName(), oldCfg = c.ReferencedConfiguration;
+        if (!Select(doc, c)) return Finish();
+        int choice = config != null ? (int)swReplaceComponentsConfiguration_e.swReplaceComponentsConfiguration_ManuallySelect
+                                    : (int)swReplaceComponentsConfiguration_e.swReplaceComponentsConfiguration_MatchName;
+        bool ok = asm.ReplaceComponents2(newFile, config ?? "", all, choice, true);
+        Console.WriteLine((ok ? "Replaced " : "REPLACE FAILED ") + comp + (all ? " (all instances)" : "") + ": " + oldFile + " <" + oldCfg + "> -> "
+            + newFile + (config != null ? " <" + config + ">" : " (configuration matched by name)"));
+        if (!ok) { problems.Add("ReplaceComponents2 returned false"); return Finish(); }
+        var now = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>()
+            .Where(x => string.Equals(x.GetPathName(), newFile, StringComparison.OrdinalIgnoreCase)).ToList();
+        foreach (var x in now) Console.WriteLine("  now: " + x.Name2 + " <" + x.ReferencedConfiguration + ">");
+        if (config != null && now.Any(x => !string.Equals(x.ReferencedConfiguration, config, StringComparison.OrdinalIgnoreCase)))
+            problems.Add("a replaced component is not in configuration " + config);
+        return AfterChange(sw, doc, save, checkedOut);
+    }
+
+    static int SetConfig(ISldWorks sw, string asmPath, string comp, string config, bool save, bool checkedOut)
+    {
+        var asm = OpenAssembly(sw, asmPath);
+        if (asm == null) return Finish();
+        var c = FindComponent(asm, comp);
+        if (c == null) return Finish();
+        string old = c.ReferencedConfiguration;
+        c.ReferencedConfiguration = config;
+        Console.WriteLine("Configuration of " + c.Name2 + ": " + old + " -> " + c.ReferencedConfiguration);
+        if (!string.Equals(c.ReferencedConfiguration, config, StringComparison.OrdinalIgnoreCase))
+            problems.Add("SOLIDWORKS did not take configuration " + config + " (does the file have it?)");
+        return AfterChange(sw, (ModelDoc2)asm, save, checkedOut);
+    }
+
+    static int Delete(ISldWorks sw, string asmPath, string comp, bool save, bool checkedOut)
+    {
+        var asm = OpenAssembly(sw, asmPath);
+        if (asm == null) return Finish();
+        var doc = (ModelDoc2)asm;
+        var c = FindComponent(asm, comp);
+        if (c == null) return Finish();
+        string name = c.Name2, file = c.GetPathName();
+        if (!Select(doc, c)) return Finish();
+        bool ok = doc.Extension.DeleteSelection2(0);
+        bool gone = FindComponent(asm, name, true) == null;
+        Console.WriteLine((ok && gone ? "Deleted " : "DELETE FAILED ") + name + " (" + file + ")");
+        if (!ok || !gone) { problems.Add("component " + name + " is still there"); return Finish(); }
+        return AfterChange(sw, doc, save, checkedOut);
+    }
+
+    static int SaveVirtual(ISldWorks sw, string asmPath, string comp, string newFile, bool save, bool checkedOut)
+    {
+        var asm = OpenAssembly(sw, asmPath);
+        if (asm == null) return Finish();
+        var c = FindComponent(asm, comp);
+        if (c == null) return Finish();
+        if (!c.IsVirtual) { problems.Add(c.Name2 + " is not a virtual component"); return Finish(); }
+        if (Kind(newFile) != Kind(c.GetPathName() ?? "")) { problems.Add("the new file must keep the type of " + c.GetPathName()); return Finish(); }
+        bool ok = c.SaveVirtualComponent(newFile);
+        bool exists = File.Exists(newFile);
+        Console.WriteLine((ok && exists ? "Saved virtual " : "SAVE-VIRTUAL FAILED ") + c.Name2 + " -> " + newFile);
+        if (!ok || !exists) { problems.Add("SaveVirtualComponent did not write " + newFile); return Finish(); }
+        var again = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>()
+            .Where(x => string.Equals(x.GetPathName(), newFile, StringComparison.OrdinalIgnoreCase)).Select(x => x.Name2).ToList();
+        Console.WriteLine("  components now using it: " + (again.Count > 0 ? string.Join(", ", again) : "none found (check the tree)"));
+        return AfterChange(sw, (ModelDoc2)asm, save, checkedOut);
+    }
+
+    // Save an open (or opened) file under a new name. Without --copy SOLIDWORKS then works on the new file (open
+    // assemblies that use it follow the new name once they are saved); with --copy the open document stays the old one.
+    static int SaveAs(ISldWorks sw, string path, string newFile, bool copy)
+    {
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, path, null, out wasOpen);
+        if (doc == null) return Finish();
+        int err = 0, warn = 0;
+        int options = (int)swSaveAsOptions_e.swSaveAsOptions_Silent | (copy ? (int)swSaveAsOptions_e.swSaveAsOptions_Copy : 0);
+        bool ok = doc.Extension.SaveAs3(newFile, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, options, null, null, ref err, ref warn);
+        bool exists = File.Exists(newFile);
+        Console.WriteLine((ok && exists ? "Saved as " : "SAVE-AS FAILED ") + newFile + (copy ? " (copy; " + path + " stays open)" : " (now open in place of " + path + ")")
+            + (err != 0 ? " errors: " + FlagNames(typeof(swFileSaveError_e), err) : "")
+            + (warn != 0 ? " warnings: " + FlagNames(typeof(swFileSaveWarning_e), warn) : ""));
+        if (!ok || !exists || err != 0) problems.Add("save-as did not write " + newFile);
+        return Finish();
+    }
+
+    static List<string> ConfigNames(ModelDoc2 doc)
+    {
+        return ((doc.GetConfigurationNames() as object[]) ?? new object[0]).Select(o => (string)o).ToList();
+    }
+
+    static int DeleteConfig(ISldWorks sw, string path, string config, bool save, bool checkedOut)
+    {
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, path, null, out wasOpen);
+        if (doc == null) return Finish();
+        var names = ConfigNames(doc);
+        var hit = names.FirstOrDefault(n => string.Equals(n, config, StringComparison.OrdinalIgnoreCase));
+        if (hit == null) { problems.Add("no configuration " + config + " in " + path + " (has: " + string.Join(", ", names) + ")"); return Finish(); }
+        var active = ((Configuration)doc.GetActiveConfiguration()).Name;
+        if (string.Equals(active, hit, StringComparison.OrdinalIgnoreCase))
+        {
+            var other = names.FirstOrDefault(n => !string.Equals(n, hit, StringComparison.OrdinalIgnoreCase)
+                && !n.StartsWith(hit + "<", StringComparison.OrdinalIgnoreCase) && n.IndexOf("<As Welded>", StringComparison.OrdinalIgnoreCase) < 0);
+            if (other == null || !doc.ShowConfiguration2(other)) { problems.Add(hit + " is the active configuration and no other could be activated"); return Finish(); }
+            Console.WriteLine("Activated " + other + " first (" + hit + " was active).");
+        }
+        bool ok = doc.DeleteConfiguration2(hit);
+        var after = ConfigNames(doc);
+        bool gone = !after.Any(n => string.Equals(n, hit, StringComparison.OrdinalIgnoreCase));
+        Console.WriteLine((ok && gone ? "Deleted configuration " : "DELETE-CONFIG FAILED ") + hit + "; " + after.Count + " left");
+        var lostChildren = names.Except(after, StringComparer.OrdinalIgnoreCase).Where(n => !string.Equals(n, hit, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (lostChildren.Count > 0) Console.WriteLine("  also gone with it (derived): " + string.Join(", ", lostChildren));
+        if (!ok || !gone) { problems.Add("configuration " + hit + " is still there"); return Finish(); }
+        return AfterChange(sw, doc, save, checkedOut);
+    }
+
+    // Any component of the open top by its full tree path: "SubAsm<1>/Part<2>" or "SubAsm-1/Part-2".
+    static Component2 FindAny(AssemblyDoc asm, string path)
+    {
+        string want = string.Join("/", path.Split('/').Select(ApiName));
+        var comps = (asm.GetComponents(false) as object[] ?? new object[0]).Cast<Component2>();
+        var hit = comps.FirstOrDefault(c => string.Equals(c.Name2, want, StringComparison.OrdinalIgnoreCase));
+        if (hit == null) problems.Add("no component " + path + " (looked for " + want + ")");
+        return hit;
+    }
+
+    static string ApiName(string s)
+    {
+        s = s.Trim();
+        if (s.EndsWith(">") && s.LastIndexOf('<') > 0)
+        {
+            int i = s.LastIndexOf('<');
+            s = s.Substring(0, i) + "-" + s.Substring(i + 1, s.Length - i - 2);
+        }
+        return s;
+    }
+
+    // Move a component (with its mates where SOLIDWORKS can keep them) into another subassembly of the same top,
+    // or up to the top itself (--top). R1: B's LED plate out of SF02-UPPERv2 into the top.
+    static int Move(ISldWorks sw, string topPath, string compPath, string targetPath, bool save, bool checkedOut)
+    {
+        var asm = OpenAssembly(sw, topPath);
+        if (asm == null) return Finish();
+        var doc = (ModelDoc2)asm;
+        var c = FindAny(asm, compPath);
+        Component2 target = targetPath == null ? null : FindAny(asm, targetPath);
+        if (c == null || (targetPath != null && target == null)) return Finish();
+        string file = c.GetPathName();
+        bool ok = asm.ReorganizeComponents(new object[] { c }, (object)target ?? asm);
+        Console.WriteLine((ok ? "Moved " : "MOVE FAILED ") + compPath + " (" + file + ") -> " + (targetPath ?? "the top level of " + topPath));
+        if (!ok) { problems.Add("ReorganizeComponents returned false"); return Finish(); }
+        var now = (asm.GetComponents(false) as object[] ?? new object[0]).Cast<Component2>()
+            .Where(x => string.Equals(x.GetPathName(), file, StringComparison.OrdinalIgnoreCase)).Select(x => x.Name2).ToList();
+        Console.WriteLine("  components now using that file: " + string.Join(", ", now));
+        Console.WriteLine("  the subassembly it left and the top both change: save both (save <top> saves the open documents it carries)");
+        return AfterChange(sw, doc, save, checkedOut);
+    }
+
+    // Cut list of a part in one configuration: each cut-list item, its body count and properties.
+    static int CutList(ISldWorks sw, string path, string config)
+    {
+        if (Kind(path) != (int)swDocumentTypes_e.swDocPART) { Console.Error.WriteLine("cut-list needs a part: " + path); return 2; }
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, path, config, out wasOpen);
+        if (doc == null) return Finish();
+        if (config != null && !doc.ShowConfiguration2(config)) { problems.Add("could not show configuration " + config); return Finish(); }
+        Console.WriteLine("Configuration: " + ((Configuration)doc.GetActiveConfiguration()).Name);
+        int items = 0;
+        var f = doc.FirstFeature() as Feature;
+        while (f != null)
+        {
+            if (f.GetTypeName2() == "SolidBodyFolder")
+            {
+                var bf = f.GetSpecificFeature2() as BodyFolder;
+                if (bf != null) bf.UpdateCutList();
+                var sub = f.GetFirstSubFeature() as Feature;
+                while (sub != null)
+                {
+                    if (sub.GetTypeName2() == "CutListFolder")
+                    {
+                        items++;
+                        var folder = sub.GetSpecificFeature2() as BodyFolder;
+                        int n = folder != null ? folder.GetBodyCount() : 0;
+                        Console.WriteLine("  " + sub.Name + ": " + n + " bod" + (n == 1 ? "y" : "ies"));
+                        var bodies = folder != null ? (folder.GetBodies() as object[] ?? new object[0]) : new object[0];
+                        foreach (var b in bodies.Cast<Body2>()) Console.WriteLine("      body " + b.Name);
+                        var pm = sub.CustomPropertyManager;
+                        foreach (var name in ((pm.GetNames() as object[]) ?? new object[0]).Cast<string>())
+                        {
+                            string val, res; bool wasRes, link;
+                            pm.Get6(name, false, out val, out res, out wasRes, out link);
+                            Console.WriteLine("      " + name + " = " + res + (val != res ? "   (" + val + ")" : ""));
+                        }
+                    }
+                    sub = sub.GetNextSubFeature() as Feature;
+                }
+            }
+            f = f.GetNextFeature() as Feature;
+        }
+        if (items == 0) Console.WriteLine("No cut list (not a weldment, or one body without a cut-list folder).");
+        if (!wasOpen) { sw.CloseDoc(doc.GetTitle()); Console.WriteLine("Closed it again without saving."); }
+        return Finish();
+    }
+
+    static int Tree(ISldWorks sw, string path)
+    {
+        var asm = OpenAssembly(sw, path);
+        if (asm == null) return Finish();
+        var top = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>().ToList();
+        Console.WriteLine(path + " <" + ((Configuration)((ModelDoc2)asm).GetActiveConfiguration()).Name + ">");
+        foreach (var c in top) TreeLine(c, 1);
+        return Finish();
+    }
+
+    static void TreeLine(Component2 c, int depth)
+    {
+        int s = c.GetSuppression2();
+        string name = c.Name2.Substring(c.Name2.LastIndexOf('/') + 1);
+        int dash = name.LastIndexOf('-');
+        string shown = dash > 0 ? name.Substring(0, dash) + "<" + name.Substring(dash + 1) + ">" : name;
+        Console.WriteLine(new string(' ', depth * 2) + shown + " <" + c.ReferencedConfiguration + ">"
+            + (s == (int)swComponentSuppressionState_e.swComponentSuppressed ? " [suppressed]" : "")
+            + (c.IsVirtual ? " [virtual]" : "") + "   " + c.GetPathName());
+        foreach (var k in (c.GetChildren() as object[] ?? new object[0]).Cast<Component2>()) TreeLine(k, depth + 1);
+    }
+
+    // ---------- reporting ----------
+
+    static int Finish()
+    {
+        if (problems.Count == 0) { Console.WriteLine("OK"); return 0; }
+        Console.WriteLine("PROBLEMS (" + problems.Count + "):");
+        foreach (var p in problems) Console.WriteLine("  " + p);
+        return 1;
+    }
+
+    static string FlagName(Type e, int v)
+    {
+        return Enum.IsDefined(e, v) ? Enum.GetName(e, v) : v.ToString();
+    }
+
+    static string FlagNames(Type e, int v)
+    {
+        if (v == 0) return "none";
+        var names = new List<string>();
+        foreach (var n in Enum.GetNames(e))
+        {
+            int f = (int)Enum.Parse(e, n);
+            if (f != 0 && (v & f) == f) names.Add(n.Substring(n.LastIndexOf('_') + 1));
+        }
+        return names.Count > 0 ? string.Join(", ", names) + " (" + v + ")" : v.ToString();
+    }
+}

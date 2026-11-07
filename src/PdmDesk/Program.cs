@@ -260,7 +260,15 @@ app.MapPost("/api/sw/action", async (HttpRequest req) =>
             var outcome = after == null ? "couldn't check the result: " + why4 : PdmApp.Outcome(type, after.GetValueOrDefault(k));
             var said = log.Where(l => l.Contains(name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (outcome != null) ok = false;
-            results.Add(new JsonObject { ["path"] = k, ["ok"] = outcome == null, ["why"] = outcome ?? "", ["log"] = string.Join(" / ", said) });
+            // A check-in that uploaded nothing: PDM released it unchanged, or it wasn't checked out. Say so plainly,
+            // so it doesn't look as if changes were dropped (SW6, 7 Nov).
+            var nothingNew = type == "check-in" && outcome == null
+                && !said.Any(l => l.StartsWith("Checked in ", StringComparison.Ordinal) || l.StartsWith("Added ", StringComparison.Ordinal));
+            results.Add(new JsonObject
+            {
+                ["path"] = k, ["ok"] = outcome == null, ["why"] = outcome ?? "", ["log"] = string.Join(" / ", said),
+                ["nothingNew"] = nothingNew
+            });
         }
         var result = new JsonObject
         {

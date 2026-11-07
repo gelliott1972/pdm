@@ -113,7 +113,8 @@ details.out pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 26
 .pdmact { margin-top: 10px; padding: 8px 10px; border-radius: 6px; border: 1px dashed var(--line); background: var(--panel); font-size: 13px; }
 .pdmact .run { margin-top: 6px; }
 .pdmfail { margin: 6px 0 0 18px; padding: 0; font-size: 13px; color: var(--red); }
-.pdmfail code { font: 12px ui-monospace, Consolas, monospace; color: var(--ink); }
+.pdmsame { margin: 6px 0 0 18px; padding: 0; font-size: 13px; color: var(--amber); }
+.pdmsame code, .pdmfail code { font: 12px ui-monospace, Consolas, monospace; color: var(--ink); }
 .sent .row { display: flex; gap: 10px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--line); }
 .sent .row:first-child { border-top: 0; padding-top: 0; }
 .sent .row:last-child { padding-bottom: 0; }
@@ -419,7 +420,10 @@ function actionBox(act, done, lastStep) {
   const fileList = files.map(p => esc(String(p).split(/[\\/]/).pop())).join(', ');
   let h = `<div class="pdmact"><div><b>${lastStep ? 'Run' : 'When you press Next'}:</b> ${esc(ACTION_VERB[act.type] || act.type)} ${files.length} file${files.length === 1 ? '' : 's'} in PDM: ${fileList}${act.note ? ` <span class="meta">(note: ${esc(act.note)})</span>` : ''}</div>`;
   if (done) {
-    h += `<div class="run ${done.ok ? 'good' : 'bad'}">${done.ok ? 'Done in PDM' : 'Not done'}${done.by ? ' as ' + esc(done.by) : ''} <span class="meta">${when(done.at)}</span></div>`;
+    const same = (done.files || []).filter(f => f.ok && f.nothingNew);
+    const allSame = done.ok && same.length && same.length === (done.files || []).length;
+    h += `<div class="run ${done.ok ? (allSame ? 'warn' : 'good') : 'bad'}">${done.ok ? (allSame ? 'Already in the vault (nothing new to upload)' : 'Done in PDM') : 'Not done'}${done.by ? ' as ' + esc(done.by) : ''} <span class="meta">${when(done.at)}</span></div>`;
+    if (done.ok && same.length && !allSame) h += '<ul class="pdmsame">' + same.map(f => `<li><code>${esc(String(f.path).split('/').pop())}</code>: already in the vault (nothing new to upload)</li>`).join('') + '</ul>';
     const bad = (done.files || []).filter(f => !f.ok);
     if (bad.length) h += '<ul class="pdmfail">' + bad.map(f => `<li><code>${esc(String(f.path).split('/').pop())}</code>: ${esc(f.why)}${f.log ? ` <span class="meta">(${esc(f.log)})</span>` : ''}</li>`).join('') + '</ul>';
     if ((done.log || []).length) h += `<details class="out"><summary>PDM's report</summary><pre>${esc(done.log.join('\n'))}</pre></details>`;

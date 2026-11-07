@@ -133,7 +133,7 @@ def sheet(out, specs):
                     elif c2 == "SF" and t2 == "A" and m:
                         d, src = "%s SUB FRAME %s %s ASSY" % (screen, m.group(1), "TOP" if m.group(2) == "T" else "BOTTOM"), "pattern (SFA)"
                     elif c2 == "SF" and t2 == "A" and re.match(r"^\d[X]$", n2 or ""):
-                        d, src = "%s SUB FRAME %s ASSY" % (screen, n2[0]), "pattern (SFA)"
+                        d, src = "%s SUB FRAME %s WELDED ASSY" % (screen, n2[0]), "pattern (SFA, as A's SF01, James)"
                     elif c2 == "SF" and t2 == "A" and re.match(r"^\d[A-Z0-9]$", n2 or ""):   # A's SF04: 41 -> "WELDED ASSY 01"
                         d, src = "%s SUB FRAME %s WELDED ASSY 0%s" % (screen, n2[0], n2[1]), "pattern (as A's SF04, James)"
                     elif cat == "BR" and re.match(r"^TIE-(\d+)", cfg):

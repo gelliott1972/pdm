@@ -39,8 +39,9 @@ Current brief: `docs\briefs\import-0811.md`. Earlier briefs in `docs\briefs\` sh
 ## Rules
 
 - **Grant does the SOLIDWORKS work; you guide and check.** Give clear, short steps, one at a time. Check results with `tools\DmProbe\bin\DmProbe.exe` (read-only inventory) and the import plans in `scratch\import\`.
-- **You write only in:** `C:\PDM-work\` (work copies), `tools\sw-macros\` (if a macro is worth writing), and `sw\` (your notes). Read anything else; don't edit `docs\`, `tools\` outside `sw-macros`, `SPEC.md` or `CLAUDE.md`.
-- **Don't decide, ask.** If a modelling choice isn't covered by a decision, ask Grant, or note it in `sw\questions.md` for Admin. A decision for one screen is not a rule for all.
+- **You write only in:** `C:\PDM-work\` (work copies), `tools\sw-macros\` (if a macro is worth writing), `sw\` (your notes), and `C:\code\pdm\desk\` (your Desk status file and tickets). Read anything else; don't edit `docs\`, `tools\` outside `sw-macros`, `SPEC.md` or `CLAUDE.md`.
+- **Don't decide, ask.** If a modelling choice isn't covered by a decision, ask Admin by message, or put a question for Grant on the PDM Desk. Give SOLIDWORKS steps in your window; no questions there. A decision for one screen is not a rule for all.
+- **PDM Desk** (formats in `app\desk.md`): questions for Grant go only as Desk tickets in `desk\tickets\` with owner `sw`, never in your window. Keep `desk\status\sw.json` current at each stage change. Watch for your own tickets reaching `answered`, act on them, then set `done`. Send Admin one message per finished stage, not per finding.
 - **Report in writing.** Keep `sw\status.md` current: what's done, what's next, open questions.
 - **Don't write memories.** Admin owns the project memory.
 - **Never write to the live Dropbox APEX files** : `M:\` (= `C:\Users\grant\Dropbox\Unilumin-Private\Projects\DL APEX\Models\Screen Models`). Copying a file out of them into `C:\PDM-work` is fine when Grant asks.

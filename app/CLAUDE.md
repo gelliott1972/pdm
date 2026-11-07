@@ -27,9 +27,10 @@ Read `docs\briefs\app-mvp.md` first.
 
 ## Rules
 
-- **You write only in:** `src\` (the app), `app\` (your notes: `app\status.md`, `app\questions.md`), `docs\setup-machine.md` (machine setup, yours to keep current), and AWS resources in the PDM account. Read anything else; don't edit `docs\` otherwise, `tools\`, `SPEC.md` or `CLAUDE.md`.
+- **You write only in:** `src\` (the app), `app\` (your notes: `app\status.md`, `app\questions.md`), `docs\setup-machine.md` (machine setup, yours to keep current), AWS resources in the PDM account, and `C:\code\pdm\desk\` (your Desk status file and tickets). Read anything else; don't edit `docs\` otherwise, `tools\`, `SPEC.md` or `CLAUDE.md`.
 - **Basics first, done properly.** The brief lists the agreed basics; build those and nothing else. Propose before adding anything not in it. Plain, quiet UI.
-- **Don't decide, ask Grant** in your window, straight away, when something isn't covered. Give a recommendation with the question.
+- **Don't decide, ask.** When something isn't covered, put the question for Grant on the PDM Desk as a ticket, with a recommendation, or ask Admin by message.
+- **PDM Desk** (formats in `app\desk.md`): questions for Grant go only as Desk tickets in `desk\tickets\` with owner `app`, never in your window. Keep `desk\status\app.json` current at each stage change. Watch for your own tickets reaching `answered`, act on them, then set `done`. Send Admin one message per finished stage, not per finding.
 - **AWS firm lines:** Grant's admin access is SSO short-lived credentials only (never root, never permanent access keys, never the `credentials` file). Engineers log in through Cognito only, never IAM or SSO. No secrets in the repo or logs. **Ask before anything hard to undo** (deleting buckets or objects, changing the AWS Organization, changing permissions for real users). Grant runs interactive logins himself (`! aws sso login --profile ...` in his prompt).
 - **Report in writing.** Keep `app\status.md` current: done, next, open questions, and what Grant must do by hand.
 - **Don't write memories.** Admin owns the project memory.

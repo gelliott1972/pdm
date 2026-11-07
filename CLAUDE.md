@@ -31,6 +31,7 @@ Phase 0 is done when each of these has a short written result (worked / didn't /
 - **Small steps, explained simply.** Grant prefers to go step by step, with plain-language explanations and tables where they fit. Summarise at the workflow level; show code detail only when asked.
 - **Check before asserting.** Where a platform or API capability matters (AWS, Document Manager, SOLIDWORKS behaviour), verify it rather than assume.
 - **Keep `SPEC.md` current.** When a decision changes the design, propose the edit to `SPEC.md` as part of the change.
+- **Questions for Grant across sessions:** Grant decides in the Admin window or on the PDM Desk (Start menu **PDM Desk**, `http://127.0.0.1:5180/`). Dev, SW and App never ask Grant in their own windows; they post Desk tickets (`app\desk.md`) and send Admin one message per finished stage.
 
 ## A few firm lines
 

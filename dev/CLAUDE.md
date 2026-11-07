@@ -33,8 +33,9 @@ Current brief: `docs\briefs\import-0811.md`. `docs\briefs\importer.md` explains 
 
 ## Rules
 
-- **You write only in:** `tools\`, `scratch\import\`, `scratch\inventory\`, new files the importer adds to `P:\`, and `dev\` (your notes). Read anything else; don't edit `docs\`, `SPEC.md` or `CLAUDE.md`.
-- **Don't decide, ask.** If something isn't covered by a decision, stop and ask Grant, or note it in `dev\questions.md` for Admin. Don't make a rule for every screen from one screen.
+- **You write only in:** `tools\`, `scratch\import\`, `scratch\inventory\`, new files the importer adds to `P:\`, `dev\` (your notes), and `C:\code\pdm\desk\` (your Desk status file and tickets). Read anything else; don't edit `docs\`, `SPEC.md` or `CLAUDE.md`.
+- **Don't decide, ask.** If something isn't covered by a decision, ask Admin by message, or put a question for Grant on the PDM Desk. Don't make a rule for every screen from one screen.
+- **PDM Desk** (formats in `app\desk.md`): questions for Grant go only as Desk tickets in `desk\tickets\` with owner `dev`, never in your window. Keep `desk\status\dev.json` current at each stage change. Watch for your own tickets reaching `answered`, act on them, then set `done`. Send Admin one message per finished stage, not per finding.
 - **Report in writing.** Keep `dev\status.md` current: what's done, what's next, open questions. Admin reviews from it.
 - **Don't write memories.** Admin owns the project memory.
 - **Never touch the live Dropbox APEX files** : `M:\` (= `C:\Users\grant\Dropbox\Unilumin-Private\Projects\DL APEX\Models\Screen Models`). Read-only, and only if Grant asks.

@@ -55,6 +55,17 @@ COLS = ["Shaft", "PartNo", "File", "Configuration", "New name", "Pack folder", "
         "Current Finish (file level)", "Proposed Finish (file level)", "Finish rule",
         "Current Weight", "Proposed Weight", "Notes", "Comment"]
 
+# Grant's answers on the Desk, by PartNo (Finish per file; every PartNo on a file must agree).
+REFER = "Refer Assembly for Surface Finish."
+FINISH_DECIDED = {
+    # A7 (Grant 7 Nov): "Assemblies HDG + Painted, part(s) say 'Refer Assembly for Surface Finish.'"
+    **{"08X04-BKA-0%d" % n: ("HDG & PAINTED", "A7 (Grant 7 Nov): K-beam bracket assembly") for n in range(1, 5)},
+    "08X04-MSA-01": ("HDG & PAINTED", "A7 (Grant 7 Nov): floor-plate assembly"),
+    **{"08X04-BKP-0%d" % n: (REFER, "A7 (Grant 7 Nov): part of the K-beam bracket assembly") for n in range(2, 6)},
+    "08X04-PLP-03": (REFER, "A7 (Grant 7 Nov): plate of the floor-plate assembly"),
+    "08X04-PLP-06": (REFER, "A7 (Grant 7 Nov): plate of the floor-plate assembly"),
+}
+
 def sheet(out, specs):
     rows, earlier = [], {}      # earlier: PartNo with the shaft letter blanked -> (shaft, description)
     for shaft, probe, base in specs:
@@ -108,6 +119,12 @@ def sheet(out, specs):
                               "no": ("HDG", "R10: loose bolt-on part (" + why + ")"),
                               "?": ("?", "not settled: part " + why)}[w]
             else: fin, frule = "?", "not settled by R10: %s%s assembly" % (cat, typ)
+            dec = {FINISH_DECIDED[x["partno"]] for x in frs if x["partno"] in FINISH_DECIDED}
+            if len(dec) > 1: sys.exit("Decided Finishes disagree on %s: %s" % (f0, dec))
+            if dec:
+                if len(dec) and any(x["partno"] not in FINISH_DECIDED for x in frs):
+                    sys.exit("Only some PartNos of %s have a decided Finish" % f0)
+                fin, frule = dec.pop()
             for r in sorted(frs, key=lambda r: r["config"]):
                 cfg, pn = r["config"], r["partno"]
                 notes = []

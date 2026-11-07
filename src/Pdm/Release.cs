@@ -28,6 +28,8 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     public string SharedTo { get; set; } = "scene";
     // The role whose SwCmd lock this run works under (--as), so it can run while that role holds SOLIDWORKS.
     public string? SwAs { get; set; }
+    // Desk A13 (open): false = R2 as written (table lists official numbers only); true = option (b), every issue listed.
+    public bool TableListsEveryIssue { get; set; } = false;
     public string SwCmd { get; set; } =@"C:\code\pdm\tools\SwCmd\bin\SwCmd.exe";
 
     // R1/R2: official releases are numbers (1, 2, ...); checking versions before them add a letter (0A, 0B, 1A, ...).
@@ -153,6 +155,8 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
 
     // R4: the title-block REV on every sheet = the code; numbered release: newest revision-table row = the number;
     // lettered version: the table lists official numbers only, so its newest row is the base number (none before 1).
+    // With TableListsEveryIssue (Desk A13 option (b), off until Grant answers): the table lists lettered issues too,
+    // so its newest row = the code, the same as the title block and the file name.
     void CheckRevision(Item item, JsonObject json, string code)
     {
         var sheets = json["sheets"] as JsonArray ?? [];
@@ -165,7 +169,12 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         }
         var rows = (json["revTable"] as JsonArray ?? []).Select(r => ((string?)r?["rev"] ?? "").Trim()).Where(r => r != "").ToList();
         var want = BaseNumber(code);
-        if (want == 0)
+        if (TableListsEveryIssue)
+        {
+            if (rows.Count == 0) item.Problems.Add($"revision table is empty or missing; its newest row should be {code}");
+            else if (rows[^1] != code) item.Problems.Add($"revision table's newest row is {rows[^1]}, not {code}");
+        }
+        else if (want == 0)
         {
             if (rows.Count > 0) item.Problems.Add($"revision table has row(s) {string.Join(", ", rows)}, but {code} comes before the first official release, so it should be empty");
         }

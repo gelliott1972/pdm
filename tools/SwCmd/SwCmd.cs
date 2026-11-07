@@ -1127,7 +1127,23 @@ static class SwCmd
         string n = "";
         try { var feat = e.Reference as Feature; if (feat != null) n = " \"" + feat.Name + "\""; } catch { }
         if (n == "") try { var ent = e.Reference as Entity; string mn = ent == null ? null : ent.ModelName; if (!string.IsNullOrEmpty(mn)) n = " \"" + mn + "\""; } catch { }
-        return t + n;
+        // Who owns the entity, as SOLIDWORKS reports it (SW, 7 Nov: two lost face mates name the top as their component).
+        string owner = "";
+        try
+        {
+            var ent = e.Reference as Entity;
+            if (ent == null) owner = " owner: no entity";
+            else
+            {
+                var oc = ent.GetComponent() as Component2;
+                owner = " owner: " + (oc != null ? oc.Name2 : "none");
+                var face = e.Reference as Face2;
+                var body = face == null ? null : face.GetBody() as Body2;
+                if (body != null) owner += ", body \"" + body.Name + "\"";
+            }
+        }
+        catch (Exception ex) { owner = " owner: ? (" + ex.GetType().Name + ")"; }
+        return t + n + owner;
     }
 
     static List<KeyValuePair<string, List<string>>> MatesFrom(Feature first)
@@ -1152,8 +1168,11 @@ static class SwCmd
                         ents.Add(EntityText(e));
                     }
                 string key = m.Name + " (" + m.GetTypeName2() + ")";
+                string state = "";
+                try { bool warn; int code = m.GetErrorCode2(out warn); if (code != 0) state += "; " + (warn ? "warning " : "ERROR ") + FlagName(typeof(swFeatureError_e), code); } catch { }
+                try { if (m.IsSuppressed()) state += "; SUPPRESSED"; } catch { }
                 mateEntities[key + "|" + string.Join(";", comps)] = string.Join("; ", ents)
-                    + (mate != null ? "; alignment " + FlagName(typeof(swMateAlign_e), mate.Alignment) : "");
+                    + (mate != null ? "; alignment " + FlagName(typeof(swMateAlign_e), mate.Alignment) : "") + (state == "" ? "; no error, not suppressed" : state);
                 list.Add(new KeyValuePair<string, List<string>>(key, comps));
             }
         }
@@ -1191,6 +1210,9 @@ static class SwCmd
         if (asm == null) return Finish();
         var doc = (ModelDoc2)asm;
         OneConfiguration(doc, asmPath);
+        // Lightweight components give no component for their faces in mates: resolve them first (SW, 7 Nov).
+        int lw = asm.ResolveAllLightWeightComponents(false);
+        Console.WriteLine("Resolved lightweight components (result " + lw + ").");
         var keep = new List<Component2>();
         foreach (var e in excepts) { var c = FindComponent(asm, e); if (c == null) return Finish(); keep.Add(c); }
         var keepNames = new HashSet<string>(keep.Select(c => c.Name2), StringComparer.OrdinalIgnoreCase);
@@ -1303,6 +1325,9 @@ static class SwCmd
         if (asm == null) return Finish();
         var doc = (ModelDoc2)asm;
         OneConfiguration(doc, asmPath);
+        // Lightweight components give no component for their faces in mates: resolve them first (SW, 7 Nov).
+        int lw = asm.ResolveAllLightWeightComponents(false);
+        Console.WriteLine("Resolved lightweight components (result " + lw + ").");
         var c = FindComponent(asm, comp);
         if (c == null) return Finish();
         string name = c.Name2, file = c.GetPathName();

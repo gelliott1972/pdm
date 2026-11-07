@@ -54,7 +54,7 @@ Grant 7 Nov: approved R1 to R10 ("all ok"):
 - R5 confirmed (Dev, SwCmd cut-list 7 Nov): `TIE_40x40x4` is one RHS body, no end caps: `08X04-BRP-02`.
 - SwCmd (tools\SwCmd) passed its SOLIDWORKS test 7 Nov (df7a57d, c207e36) except `move`; the last 0804 SOLIDWORKS round (R3/D15, R9, R1, check-open) runs through it.
 - R3 changed (Grant, Desk ticket SW1, 7 Nov): A's and C's SF04 each have one LCMM that switches configuration, so they cannot follow a split into separate files. A's and C's own 40x40 LCMMs stay in `08X04-LMW-40X40`, keeping their numbers (`08A04-LMW-02/-03`, `08C04-LMW-05/-09`); no separate `08A04-LMW`/`08C04-LMW` files. A named exception to one place tag per family.
-- R9 done 7 Nov (SW, SwCmd and DmEdit; backup `C:\PDM-work\scratch 804-pre-round`), and extended (Admin): every other component suppressed in all configurations the tops use is deleted too (SAE cantilever and a TIE-210 in each SF02-LOWER, 40x40 LCMMs in A/C SF02-UPPER, an LCMM in A SF05-LOWER, 4 EXP_BRACKET_BOLT_ASSY in B WITH_SCREEN, 150 brackets in the K-beam S1/S5), except screen SKUs in the roofs (screen files are Grant's). R1 and R6 are Desk tickets SW2 and SW3 (SwCmd move refused).
+- R9 done 7 Nov (SW, SwCmd and DmEdit; backup `C:\PDM-work\scratch\0804-pre-round`), and extended (Admin): every other component suppressed in all configurations the tops use is deleted too (SAE cantilever and a TIE-210 in each SF02-LOWER, 40x40 LCMMs in A/C SF02-UPPER, an LCMM in A SF05-LOWER, 4 EXP_BRACKET_BOLT_ASSY in B WITH_SCREEN, 150 brackets in the K-beam S1/S5), except screen SKUs in the roofs (screen files are Grant's). R1 and R6 are Desk tickets SW2 and SW3 (SwCmd move refused).
 - R1 changed (Grant, Desk SW2 "Problem", 7 Nov): the right-hand LED plate in B's `SF02-UPPERv2` is not needed. SW deleted it and v2 with SwCmd and saved B; check-open clean.
 - R6 done (Grant, Desk SW3, 7 Nov): the bracket part's names are right (LONG = slots parallel to 180); SW uncrossed the bracket assembly's two 180 configurations in all three copies.
 - Prep complete 7 Nov; `-r1` packs by SwCmd: A 92, B 96, C 93 files in `C:\PDM-work\LS-08x-04-r1`; check-open clean (0 missing, 0 outside, What's Wrong empty).
@@ -66,3 +66,13 @@ Grant 7 Nov: approved R1 to R10 ("all ok"):
 - A12 (Grant, 7 Nov): every part inside an assembly gets Finish `Refer Assembly for Surface Finish.` (A7 wording, used everywhere); assemblies carry the finish; the two EA expansion brackets `HDG & PAINTED`.
 - A14 (Grant, Desk, 7 Nov): go for the real 0804 import (after a clean rehearsal on a copy of P:\ and App's load dry run passing).
 - **Imported 7 Nov** (08:57-09:25Z, Dev): 165 new files into `P:\` (A 77, B 54, C 34), the 320 existing unchanged, all checks matched the rehearsal. Loaded to the cloud by App (483 files, 415 PartNos), download-checked.
+
+## Restructure after import (Grant, Admin, 7 Nov)
+
+D4's `08x04-STA-01` never reached the plan (Admin missed it), so 0804 was imported without it. Grant's decisions, brief `docs\briefs\restructure-0804.md`:
+
+- S1: each top = `08x04-STA-01` (all that shaft's steel) + its complete screen, as 0806/0811.
+- S2: `LS-08B-04_WITH_SCREEN` and `LS-08C-04_WITH_SCREEN` retired (reverses R7/D27).
+- S3: complete screens stay at the top; the 7 walls and roofs move to `LS-08X-04\Screen_Subassemblies\`.
+- S4: no `ShaftBC` folders; B+C shared files go in the set's `_Shared` (0804's `08Z04-SFP-01`, and 0811's 11 `08Z11` files).
+- S5: the PDM handles the moves on every PC. Done before James's first Download latest on Monday. The 0A PDF release waits.

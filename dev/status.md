@@ -6,6 +6,8 @@ Updated 4 Nov 2026, on Grant's laptop.
 
 Admin asked: is the importer ready for a full-rename 0804 import from the register? Properties sheet not drafted (item 5 not agreed). No writes to P:\ or M:\.
 
+**7 Nov, after Grant saved A's SF01 (read-only re-probe `LS-08A-04-r10`, plus fresh probes of B, C, `P:\APEX`, `P:\_Shared`).** SF01 now uses `08A04-HBP-01` ×4, `-HBP-02` ×2, `-HBW-01` ×1 (Default<As Machined>, not suppressed, not virtual); no reference to the old SFP numbers is left. The A plan now has all three as "import". **`08B04-BRP-01` is free:** not in any register sheet, the ledger, the vault, the three work copies, the pre-prep probes, the M:\ probe or make_plan (the only 08B04 numbers anywhere are BKP-01..03). **D26 does not match the saved file:** Document Manager reads `LS-08B-04_WITH_SCREEN` (direct children) as `TIE_80x40x8` TIE-460-BOLTED ×3 (= vault GNRIC-BRA-10), TIE-710-BOLTED ×2, TIE-960-BOLTED ×3, and no TIE-460-WELDED; the same on M:\ and in the pre-prep probe. Asked Admin/SW to confirm which instances are meant.
+
 **How I checked.** Read the register's 0804 rows; then a trial plan (`make_plan.py`, read-only, output in my scratchpad only) on SW's whole-folder probe of M:\ (`scratch\inventory\LS-08X-04-M-0411`), cut down to what the three v4 tops reach. The whole-folder probe holds old Pack and Go copies with the same names, so its counts are rough; the real plan comes from the `-r1` Pack and Go.
 
 **Ready: the same tool and route as 0806.** Register numbers, place-tag folders (08Z04 → `ShaftBC`, 08X04 → `_Shared`), virtual-component flags, ledger reuse, the vault check and the Vault changes sheet all work for 0804. The trial ran without errors.

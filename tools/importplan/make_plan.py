@@ -1130,6 +1130,11 @@ for r in file_rows:
             continue
         m = re.match(r"^FAST-([A-Z]+)-(.+)$", stem(led_new), re.I) if r[3] == "fastener" else None
         proposed = f"FAST-{m.group(1)}-{fastener_size(cfg)}-{m.group(2)}" if m and "hilti" not in fk else ""
+        in_vault = (vault_pn.get(key(led_new)) or {}).get(cfg) if vaults else None
+        if in_vault:   # numbered in the vault since the ledger row (e.g. by check-out, 6 Nov): nothing to write
+            if proposed and in_vault.upper() != proposed.upper():
+                issues.append((f"{led_new} / {cfg}", f"the vault has PartNo {in_vault}, the naming rule gives {proposed}"))
+            continue
         vault_rows.append([led_new, r[6], r[1], cfg, ", ".join(sorted(asms)), used[fk].get(cfg, 0), proposed,
                            "rule (FAST-type-size-grade-finish)" if proposed else "", "add PartNo (check-out, write, check-in)", ""])
         issues.append((f"{led_new} / {cfg}", "vault file needs a PartNo for this configuration: change by check-out (Vault changes sheet)"))

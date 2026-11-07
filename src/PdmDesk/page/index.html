@@ -282,9 +282,8 @@ function swJob(t) {
       ${steps.length > 1 ? `<div class="acts"><button class="b" data-act="back" ${n === 0 || busy ? 'disabled' : ''}>Back</button><button class="b" data-act="next" ${n >= steps.length - 1 || busy ? 'disabled' : ''}>Next</button></div>` : ''}</div>`;
   }
   const last = !steps.length || n >= steps.length - 1 || reopened;
-  if (d.problem) h += `<textarea placeholder="What's wrong? This goes back to ${esc(name(t.owner) || 'the owner')}.">${esc(d.note)}</textarea>
-    <div class="acts"><button class="b primary" data-act="sendproblem">Send problem</button><button class="b" data-act="noproblem">Cancel</button><span class="msg"></span></div>`;
-  else h += `<div class="acts"><button class="b ${last ? 'primary' : ''}" data-act="done" ${busy ? 'disabled' : ''}>Done</button><button class="b" data-act="problem" ${busy ? 'disabled' : ''}>Problem</button>${reopened ? '<button class="b" data-act="cancel">Cancel</button>' : ''}<span class="msg"></span></div>`;
+  h += `<textarea placeholder="Note for ${esc(name(t.owner) || 'the owner')} (optional with Done; with Problem, say what's wrong)">${esc(d.note)}</textarea>
+    <div class="acts"><button class="b ${last ? 'primary' : ''}" data-act="done" ${busy ? 'disabled' : ''}>Done</button><button class="b" data-act="problem" ${busy ? 'disabled' : ''}>Problem</button>${reopened ? '<button class="b" data-act="cancel">Cancel</button>' : ''}<span class="msg"></span></div>`;
   return h;
 }
 
@@ -320,10 +319,8 @@ function wireJob(el, t) {
   };
   on('back', () => step((+t.step || 0) - 1));
   on('next', () => step((+t.step || 0) + 1));
-  on('problem', () => { d.problem = true; redraw(t); cards.get(t._file)?.el.querySelector('textarea')?.focus(); });
-  on('noproblem', () => { d.problem = false; redraw(t); });
   on('done', () => finish('done'));
-  on('sendproblem', () => { if (!d.note.trim()) { msg.textContent = 'Say what the problem is.'; return; } finish('problem'); });
+  on('problem', () => { if (!d.note.trim()) { msg.textContent = 'Type what the problem is in the note, then press Problem.'; el.querySelector('textarea')?.focus(); return; } finish('problem'); });
   on('cancel', () => { editing.delete(t._file); delete drafts[t._file]; lastJson = ''; load(); });
   const ta = el.querySelector('textarea');
   if (ta) ta.oninput = () => { d.note = ta.value; };

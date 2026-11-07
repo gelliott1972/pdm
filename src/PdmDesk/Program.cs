@@ -27,7 +27,12 @@ app.Use(async (ctx, next) =>
     if (ctx.Request.Host.Host is not ("127.0.0.1" or "localhost")) { ctx.Response.StatusCode = 403; return; }
     if (HttpMethods.IsPost(ctx.Request.Method) && ctx.Request.Headers["X-Desk"] != "1") { ctx.Response.StatusCode = 403; return; }
     ctx.Response.Headers.CacheControl = "no-store";
-    await next();
+    try { await next(); }
+    catch (Exception ex) when (!ctx.Response.HasStarted)
+    {
+        ctx.Response.StatusCode = 500;
+        await ctx.Response.WriteAsJsonAsync(new { error = $"The Desk hit an error: {ex.GetType().Name}: {ex.Message}" });
+    }
 });
 
 var page = ReadPage();
@@ -179,12 +184,94 @@ app.MapPost("/api/sw/step", async (HttpRequest req) =>
         var t = store.Read(file, out var why);
         if (t == null || (string?)t["type"] != "sw-job") return Fail("Unknown SOLIDWORKS job.");
         if ((string?)t["status"] is not (null or "open" or "started")) return Fail($"This job is {(string?)t["status"]}.");
-        var count = (t["steps"] as JsonArray)?.Count ?? 0;
-        var step = (int?)body?["step"] ?? 0;
-        t["step"] = Math.Clamp(step, 0, Math.Max(0, count - 1));
+        var steps = t["steps"] as JsonArray ?? [];
+        var count = steps.Count;
+        var step = Math.Clamp((int?)body?["step"] ?? 0, 0, Math.Max(0, count - 1));
+        var now = Math.Clamp((int?)t["step"] ?? 0, 0, Math.Max(0, count - 1));
+        // Moving on past a step with a PDM action needs that action done first (Next on such a step runs it).
+        for (var i = now; i < step; i++)
+            if (steps[i] is JsonObject so && so["action"] is JsonObject && (bool?)(t["actions"] as JsonObject)?[i.ToString()]?["ok"] != true)
+                return Fail($"Step {i + 1}'s PDM action hasn't succeeded yet.");
+        t["step"] = step;
         store.Write(file, t);
     }
     return Results.Ok(new { ok = true });
+});
+
+// A step's PDM action (download-latest, check-out, check-in) through the running PDM app, as its logged-in engineer.
+// Moves to the next step only if every file ended up as asked; the result is kept in the ticket's "actions".
+var pdm = new PdmApp();
+var pdmBusy = new SemaphoreSlim(1, 1);
+app.MapPost("/api/sw/action", async (HttpRequest req) =>
+{
+    var body = await Body(req);
+    var id = (string?)body?["id"];
+    if (!Store.IdOk(id)) return Fail("Unknown ticket.");
+    var file = store.TicketFile(id!);
+    JsonObject? t;
+    lock (store.Lock) t = store.Read(file, out _);
+    if (t == null || (string?)t["type"] != "sw-job") return Fail("Unknown SOLIDWORKS job.");
+    if ((string?)t["status"] is not (null or "open" or "started")) return Fail($"This job is {(string?)t["status"]}.");
+    var steps = t["steps"] as JsonArray ?? [];
+    var n = (int?)t["step"] ?? 0;
+    if ((int?)body?["step"] != n) return Fail("The job moved on; reload the page.");
+    if (n < 0 || n >= steps.Count || steps[n] is not JsonObject so || so["action"] is not JsonObject action) return Fail("This step has no PDM action.");
+    var type = (string?)action["type"] ?? "";
+    if (!PdmApp.Types.Contains(type)) return Fail($"Unknown PDM action \"{type}\".");
+    var note = ((string?)action["note"] ?? "").Trim();
+    if (type == "check-in" && note == "") return Fail("This check-in step has no note; the owner session needs to add one.");
+    if (type == "check-in" && (bool?)body?["confirmed"] != true) return Fail("Confirm the check-in first.");
+    var raw = (action["paths"] as JsonArray ?? []).Select(p => (string?)p).ToList();
+    if (raw.Count == 0) return Fail("The step lists no files.");
+    var keys = new List<string>();
+    foreach (var p in raw)
+    {
+        var k = PdmApp.KeyOf(p);
+        if (k == null) return Fail($"Not done: {p} isn't a vault file path under P:\\.");
+        keys.Add(k);
+    }
+
+    if (!pdmBusy.Wait(0)) return Fail("A PDM step is already running.");
+    try
+    {
+        var (who, why) = await pdm.Me();
+        if (who == null) return Fail($"{why} {PdmApp.NotReady}");
+        var (before, why2) = await pdm.Files();
+        if (before == null) return Fail($"{why2} {PdmApp.NotReady}");
+        var unknown = keys.Where(k => !before.ContainsKey(k)).ToList();
+        if (unknown.Count > 0) return Fail($"Not done: not in the vault: {string.Join(", ", unknown)}.");
+
+        var (log, why3) = await pdm.Act(type, keys, note);
+        if (log == null) return Fail($"{why3} {PdmApp.NotReady}");
+        var (after, why4) = await pdm.Files();
+        var results = new JsonArray();
+        var ok = after != null;
+        foreach (var k in keys)
+        {
+            var name = Path.GetFileName(k);
+            var outcome = after == null ? "couldn't check the result: " + why4 : PdmApp.Outcome(type, after.GetValueOrDefault(k));
+            var said = log.Where(l => l.Contains(name, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (outcome != null) ok = false;
+            results.Add(new JsonObject { ["path"] = k, ["ok"] = outcome == null, ["why"] = outcome ?? "", ["log"] = string.Join(" / ", said) });
+        }
+        var result = new JsonObject
+        {
+            ["at"] = Store.Now(), ["type"] = type, ["ok"] = ok, ["by"] = who, ["files"] = results,
+            ["log"] = new JsonArray(log.Select(l => (JsonNode?)l).ToArray())
+        };
+        lock (store.Lock)
+        {
+            t = store.Read(file, out var whyRead);
+            if (t == null) return Fail($"Done in PDM, but couldn't update the ticket ({whyRead}).");
+            var actions = t["actions"] as JsonObject ?? new JsonObject();
+            actions[n.ToString()] = result;
+            t["actions"] = actions;
+            if (ok && n < steps.Count - 1) t["step"] = n + 1;
+            store.Write(file, t);
+        }
+        return Results.Ok(new { ok, result = result.DeepClone() });
+    }
+    finally { pdmBusy.Release(); }
 });
 
 app.MapPost("/api/sw/finish", async (HttpRequest req) =>

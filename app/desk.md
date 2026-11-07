@@ -74,7 +74,9 @@ Same common fields (`id, type: "sw-job", ref, title, body, priority, owner, crea
 | --- | --- | --- |
 | `files` | `[{ "path": "P:\\APEX\\GNRIC\\GNRIC-LM.SLDPRT", "configuration": "250+3000+250_SHS_40X40" }]` | Opened in order on **Start**. Full paths to .SLDPRT, .SLDASM or .SLDDRW files that exist; nothing under `.pdm`. `configuration` is optional; the last file opened is left active |
 | `closeAll` | `true` (default) | Start first closes all documents **without saving**, after a confirm on the page. `false`: only opens |
-| `steps` | `["Open the cut list…", "Set Finish to HDG…"]` | Shown one at a time with Back / Next (`**bold**` and `` `code` `` work) |
+| `steps` | `["Open the cut list…", "Set Finish to HDG…"]` | Shown one at a time with Back / Next (`**bold**` and `` `code` `` work). A step can also be a PDM step (below) |
+| `files` | `[]` | May be empty for a job that only has PDM steps; then there's no Start button |
+| `actions` | `{ "1": { "at", "type", "ok", "by", "files": [{ "path", "ok", "why", "log" }], "log": [...] } }` | Set by the page: the last result of each PDM step, by step index |
 | `step` | `0` | The step showing; the page updates it on Next/Back, so a reload keeps the place |
 | `startedAt` | UTC ISO | Set by the page on Start |
 | `run` | `{ "at", "ok", "problems", "message", "output" }` | Set by the page after Start: `ok` false means it stopped (refused, SOLIDWORKS error or timeout); `problems` counts calls that finished with problems (exit 1); `output` is SwCmd's full report (last 12000 characters) |
@@ -83,3 +85,28 @@ Same common fields (`id, type: "sw-job", ref, title, body, priority, owner, crea
 Status flow: `open` → (Start) `started` → (Done / Problem) `answered` → (owner checked) `done`. Start can be pressed again while `started`.
 
 **What Start runs** (agreed with Dev 7 Nov; SwCmd at `C:\code\pdm\tools\SwCmd\bin\SwCmd.exe`, or the `PDM_SWCMD` variable): `SwCmd.exe close-all` (never `--exit`; skipped when `closeAll` is false), then `SwCmd.exe open "<file>" [--config "<name>"]` for each file in order. Exit 0 is clean, and 1 means done with problems (carries on); 2 or 3 stops the job. The first call gets 5 minutes (it may have to start SOLIDWORKS) and later ones get 3; on a timeout the Desk stops SwCmd and leaves SOLIDWORKS alone. One job runs at a time. Arguments are passed directly, never through a shell, and tickets never carry commands. Nothing in these calls saves.
+
+## PDM steps in a `sw-job` (Desk v2, 7 Nov)
+
+A step can be an object instead of text:
+
+```json
+{ "text": "Check out the three fastener files.",
+  "action": { "type": "check-out", "paths": ["P:\_Shared\_Fasteners\FAST-HEX-8.8-HDG.SLDPRT", "_Shared/_Fasteners/FAST-NUT-8-HDG.SLDPRT"] } }
+```
+
+| Field | Values |
+| --- | --- |
+| `action.type` | `download-latest`, `check-out`, `check-in` |
+| `action.paths` | Vault files, as `P:\...` or vault keys (`APEX/...`). Each must be in the vault's file list. Nothing outside `P:\`, no `.` or `..`, never `.pdm` |
+| `action.note` | Required for `check-in`: the check-in note |
+
+When Grant presses **Next** on such a step (or **Run** if it's the last step), the Desk asks the PDM app that's running on this PC (`http://localhost:5170/`) to do it, as the engineer logged in there. The Desk has no AWS access of its own. Check-in asks for a confirm on the page first. Afterwards the Desk re-reads PDM's file list and checks every file:
+
+| Action | Counts as done when |
+| --- | --- |
+| download-latest | the PC has the vault's latest (files checked out to you are left alone, as Download latest does) |
+| check-out | it's checked out to you on this PC |
+| check-in | it's no longer checked out to you (checked in, or released with no changes) |
+
+It moves to the next step only if every file is done. Otherwise it stays on the step, lists each file that isn't done and why (for example "checked out by James", with PDM's own message), and Next tries again. The result is saved in the ticket's `actions`. If PDM isn't running, or nobody is logged in, the page says "Open PDM and log in, then press Next again." Back/Next can't skip past a PDM step that hasn't succeeded.

@@ -103,6 +103,10 @@ details.out pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 26
 .stepbox { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
 .steptext { margin-top: 4px; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .stepbox .acts { margin-top: 10px; }
+.pdmact { margin-top: 10px; padding: 8px 10px; border-radius: 6px; border: 1px dashed var(--line); background: var(--panel); font-size: 13px; }
+.pdmact .run { margin-top: 6px; }
+.pdmfail { margin: 6px 0 0 18px; padding: 0; font-size: 13px; color: var(--red); }
+.pdmfail code { font: 12px ui-monospace, Consolas, monospace; color: var(--ink); }
 .sent .row { display: flex; gap: 10px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--line); }
 .sent .row:first-child { border-top: 0; padding-top: 0; }
 .sent .row:last-child { padding-bottom: 0; }
@@ -316,14 +320,46 @@ function swJob(t) {
     if (busy) h += '<div class="acts"><span class="working">Working in SOLIDWORKS… this can take a few minutes.</span></div>';
     else if (d.confirm) h += `<div class="confirm">${t.closeAll === false ? 'Open the files now?' : 'Close all documents in SOLIDWORKS without saving? Unsaved changes are lost.'}
       <div class="acts"><button class="b primary" data-act="go">${t.closeAll === false ? 'Yes, open' : 'Yes, close all and open'}</button><button class="b" data-act="nogo">Cancel</button></div></div>`;
-    else h += `<div class="acts"><button class="b ${started ? '' : 'primary'}" data-act="start">${started ? 'Start again' : 'Start'}</button><span class="hint left">${what}</span></div>`;
-    if (steps.length) h += `<div class="stepbox"><div class="meta">Step ${n + 1} of ${steps.length}</div><div class="steptext">${fmt(steps[n])}</div>
-      ${steps.length > 1 ? `<div class="acts"><button class="b" data-act="back" ${n === 0 || busy ? 'disabled' : ''}>Back</button><button class="b" data-act="next" ${n >= steps.length - 1 || busy ? 'disabled' : ''}>Next</button></div>` : ''}</div>`;
+    else if (files.length) h += `<div class="acts"><button class="b ${started ? '' : 'primary'}" data-act="start">${started ? 'Start again' : 'Start'}</button><span class="hint left">${what}</span></div>`;
+    if (steps.length) {
+      const st = steps[n], act = typeof st === 'object' && st ? st.action : null;
+      const done = act ? (t.actions || {})[n] : null, pdmBusy = pdmRunning.has(t._file);
+      const lastStep = n >= steps.length - 1;
+      h += `<div class="stepbox"><div class="meta">Step ${n + 1} of ${steps.length}</div><div class="steptext">${fmt(stepText(st))}</div>`;
+      if (act) h += actionBox(act, done, lastStep);
+      if (act && d.confirmCheckin) h += `<div class="confirm">Check in ${(act.paths || []).length} file(s) to the vault as you, with the note "${esc(act.note || '')}"?
+        <div class="acts"><button class="b primary" data-act="checkin-go">Yes, check in</button><button class="b" data-act="checkin-no">Cancel</button></div></div>`;
+      else if (pdmBusy) h += '<div class="acts"><span class="working">Working in PDM…</span></div>';
+      else {
+        const runLabel = act && !done?.ok ? (lastStep ? 'Run: ' : 'Next: ') + ACTION_VERB[act.type] : 'Next';
+        const showNext = steps.length > 1 || (act && !done?.ok);
+        h += showNext ? `<div class="acts">${steps.length > 1 ? `<button class="b" data-act="back" ${n === 0 || busy ? 'disabled' : ''}>Back</button>` : ''}
+          <button class="b${act && !done?.ok ? ' primary' : ''}" data-act="next" ${(lastStep && !(act && !done?.ok)) || busy ? 'disabled' : ''}>${esc(runLabel)}</button></div>` : '';
+      }
+      h += '</div>';
+    }
   }
   const last = !steps.length || n >= steps.length - 1 || reopened;
   h += `<textarea placeholder="Note for ${esc(name(t.owner) || 'the owner')} (optional with Done; with Problem, say what's wrong)">${esc(d.note)}</textarea>
     <div class="acts"><button class="b ${last ? 'primary' : ''}" data-act="done" ${busy ? 'disabled' : ''}>Done</button><button class="b" data-act="problem" ${busy ? 'disabled' : ''}>Problem</button>${reopened ? '<button class="b" data-act="cancel">Cancel</button>' : ''}<span class="msg"></span></div>`;
   return h;
+}
+
+// A step is text, or { text, action: { type, paths, note } } that the PDM app runs on Next.
+const stepText = s => typeof s === 'object' && s ? s.text || '' : String(s ?? '');
+const ACTION_VERB = { 'download-latest': 'download latest', 'check-out': 'check out', 'check-in': 'check in' };
+const pdmRunning = new Set();
+function actionBox(act, done, lastStep) {
+  const files = act.paths || [];
+  const fileList = files.map(p => esc(String(p).split(/[\\/]/).pop())).join(', ');
+  let h = `<div class="pdmact"><div><b>${lastStep ? 'Run' : 'When you press Next'}:</b> ${esc(ACTION_VERB[act.type] || act.type)} ${files.length} file${files.length === 1 ? '' : 's'} in PDM: ${fileList}${act.note ? ` <span class="meta">(note: ${esc(act.note)})</span>` : ''}</div>`;
+  if (done) {
+    h += `<div class="run ${done.ok ? 'good' : 'bad'}">${done.ok ? 'Done in PDM' : 'Not done'}${done.by ? ' as ' + esc(done.by) : ''} <span class="meta">${when(done.at)}</span></div>`;
+    const bad = (done.files || []).filter(f => !f.ok);
+    if (bad.length) h += '<ul class="pdmfail">' + bad.map(f => `<li><code>${esc(String(f.path).split('/').pop())}</code>: ${esc(f.why)}${f.log ? ` <span class="meta">(${esc(f.log)})</span>` : ''}</li>`).join('') + '</ul>';
+    if ((done.log || []).length) h += `<details class="out"><summary>PDM's report</summary><pre>${esc(done.log.join('\n'))}</pre></details>`;
+  }
+  return h + '</div>';
 }
 
 function redraw(t) {
@@ -357,7 +393,25 @@ function wireJob(el, t) {
     try { await post('/api/sw/step', { id: t._file, step: to }); lastJson = ''; load(); } catch (e) { msg.textContent = e.message; }
   };
   on('back', () => step((+t.step || 0) - 1));
-  on('next', () => step((+t.step || 0) + 1));
+  const runAction = async confirmed => {
+    d.confirmCheckin = false; pdmRunning.add(t._file); redraw(t);
+    let err = null;
+    try { await post('/api/sw/action', { id: t._file, step: +t.step || 0, confirmed }); } catch (e) { err = e; }
+    pdmRunning.delete(t._file);
+    const c = cards.get(t._file); if (c) { c.el.remove(); cards.delete(t._file); }
+    lastJson = ''; await load();
+    if (err) { const m = cards.get(t._file)?.el.querySelector('.msg'); if (m) m.textContent = err.message; }
+  };
+  on('next', () => {
+    const n = +t.step || 0, st = (t.steps || [])[n], act = typeof st === 'object' && st ? st.action : null;
+    if (act && !(t.actions || {})[n]?.ok) {
+      if (act.type === 'check-in') { d.confirmCheckin = true; redraw(t); return; }
+      return runAction(false);
+    }
+    step(n + 1);
+  });
+  on('checkin-go', () => runAction(true));
+  on('checkin-no', () => { d.confirmCheckin = false; redraw(t); });
   on('done', () => finish('done'));
   on('problem', () => { if (!d.note.trim()) { msg.textContent = 'Type what the problem is in the note, then press Problem.'; el.querySelector('textarea')?.focus(); return; } finish('problem'); });
   on('cancel', () => { editing.delete(t._file); delete drafts[t._file]; lastJson = ''; load(); });

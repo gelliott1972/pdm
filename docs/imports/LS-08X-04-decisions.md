@@ -36,3 +36,15 @@ Brief: `docs\briefs\import-0804.md`. Labels D1, D2, … for this import only. Gr
 | D31 | The vault's `TIE-184-1XEC` changed from `GNRIC-BRP-16` to `GNRIC-BRW-16` (both As Machined and As Welded) in the 6 Nov 09:03 check-in; the ledger still says `GNRIC-BRP-16`, so the plan stops on it [Dev] | For Grant. The standard says ties are A when bolted and P when welded in, whatever their caps; 0806 chose `GNRIC-BRP-16`. If W for end-capped ties is now intended, the new `08B04-BRP-01` and `-02` (also capped) should be `BRW` too. App asked who made the 3–6 Nov check-ins. | open, for Grant |
 
 Grant 7 Nov (later): D31 decided BRW: end-capped ties are BRW. `GNRIC-BRW-16` stays (ledger to update); `08B04-BRP-01`/`-02` become `08B04-BRW-01`/`-02`. The four 710 ties in B's `SF02-UPPER` becoming `TIE-184-1XEC` was intended. C's broken in-context links stay (fix later). The J2/J3 overnight list is parked; not part of 0804. Anything James needs goes in a handover note after the import.
+
+Grant 7 Nov: approved R1 to R10 ("all ok"):
+- R1 = D2a: move the LED plate from B's `SF02-UPPERv2` into B's top; delete v2.
+- R2 = D2b/D24: `08X04-HBW-02` (corner tie), `-HBW-04` (cantilever), `-HBW-05` (rear-wall subframe), `-HBW-07` (SF05 tie and brace), `-BRP-01` (SF02 lower brace); `BEAM_SF02_TOP` keeps `08A04-HBW-02`.
+- R3 = D16: `08A04-LMW` (-02, -03), `08C04-LMW` (-05, -09); shared 40x40 configurations in `08X04-LMW-40X40`, `08X04-LMW-21..29`; unused ones dropped.
+- R4 = D17: `GNRIC-LMW.SLDPRT`, `GNRIC-LMW-01..14`.
+- R5 = D19: `08X04-BRP-02` (Dev: no sign of end caps; BRW if SW finds caps).
+- R6 = D25: SW checks the K-beam bracket 180 sizes in SOLIDWORKS and fixes the wrong side.
+- R7 = D27: `LS-08B-04_WITH_SCREEN`, `LS-08C-04_WITH_SCREEN` keep their names, no PartNo.
+- R8 = D8 revised: keep the As Welded PartNos James put in the 0804 files.
+- R9 = D13: delete the dead configurations and always-suppressed components on SW's list in the work copies.
+- R10 = D10 Finish: SFA `HDG & PAINTED`; loose bolt-on parts `HDG`; weldments, welded-in parts, K-beam by others and STAs blank.

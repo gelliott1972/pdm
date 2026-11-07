@@ -1070,10 +1070,54 @@ static class SwCmd
 
     // Mates (MateGroup) of one document, each with the components it uses (as seen from the top, "Sub-1/Part-1";
     // "" for the assembly's own planes and origin).
-    static List<KeyValuePair<string, List<string>>> Mates(ModelDoc2 doc)
+    static List<KeyValuePair<string, List<string>>> Mates(ModelDoc2 doc) { return MatesFrom(doc.FirstFeature() as Feature); }
+
+    // A subassembly's mates as seen in the top (Component2.FirstFeature: features in the assembly's context), so the
+    // components they tie are named as in the top ("Sub-1/Part-1").
+    static List<KeyValuePair<string, List<string>>> MatesOf(Component2 c) { return MatesFrom(c.FirstFeature() as Feature); }
+
+    // Each mate as "type | the components it ties, by file, configuration and position" (names change on a dissolve),
+    // with a readable label. "(planes)" = the assembly's own planes or origin; a name kept as [name] had no signature.
+    static List<KeyValuePair<string, string>> MateKeys(List<KeyValuePair<string, List<string>>> mates, Dictionary<string, string> sig)
+    {
+        var list = new List<KeyValuePair<string, string>>();
+        foreach (var m in mates)
+        {
+            int p = m.Key.LastIndexOf(" (");
+            string type = p > 0 ? m.Key.Substring(p) : m.Key;
+            var parts = m.Value.Select(n => n == "" ? "(planes)" : sig.ContainsKey(n) ? sig[n] : "[" + n + "]").OrderBy(x => x, StringComparer.OrdinalIgnoreCase);
+            list.Add(new KeyValuePair<string, string>(type + " | " + string.Join(" + ", parts),
+                m.Key + " [" + string.Join("; ", m.Value.Select(n => n == "" ? "(planes)" : n)) + "]"));
+        }
+        return list;
+    }
+
+    static Dictionary<string, string> SigMap(AssemblyDoc asm)
+    {
+        var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in (asm.GetComponents(false) as object[] ?? new object[0]).Cast<Component2>()) d[c.Name2] = Signature(c);
+        return d;
+    }
+
+    // Prints the mates in one list and not the other (multiset by key); returns how many are gone.
+    static int MateDiff(List<KeyValuePair<string, string>> before, List<KeyValuePair<string, string>> after)
+    {
+        var left = before.ToList();
+        var right = after.ToList();
+        foreach (var a in after.ToList())
+        {
+            int i = left.FindIndex(b => string.Equals(b.Key, a.Key, StringComparison.OrdinalIgnoreCase));
+            if (i >= 0) { left.RemoveAt(i); right.Remove(a); }
+        }
+        foreach (var b in left) Console.WriteLine("  mate gone:  " + b.Value);
+        foreach (var a in right) Console.WriteLine("  mate new or changed:  " + a.Value);
+        return left.Count;
+    }
+
+    static List<KeyValuePair<string, List<string>>> MatesFrom(Feature first)
     {
         var list = new List<KeyValuePair<string, List<string>>>();
-        for (var f = doc.FirstFeature() as Feature; f != null; f = f.GetNextFeature() as Feature)
+        for (var f = first; f != null; f = f.GetNextFeature() as Feature)
         {
             if (f.GetTypeName2() != "MateGroup") continue;
             for (var m = f.GetFirstSubFeature() as Feature; m != null; m = m.GetNextSubFeature() as Feature)
@@ -1150,6 +1194,17 @@ static class SwCmd
         }
         Console.WriteLine("Selected " + selected + " of " + move.Count + " (SOLIDWORKS counts " + sel.GetSelectedObjectCount2(-1) + ").");
         if (selected != move.Count) { doc.ClearSelection2(true); return Finish(); }
+        // Component pattern and mirror features of the top go too (SOLIDWORKS refuses to form a subassembly from pattern
+        // instances alone; SW's B trial, 7 Nov). If one patterns a kept component, the checks below report it.
+        int feats = 0;
+        for (var f = doc.FirstFeature() as Feature; f != null; f = f.GetNextFeature() as Feature)
+        {
+            string t = f.GetTypeName2();
+            if (t.IndexOf("Pattern", StringComparison.OrdinalIgnoreCase) < 0 && t.IndexOf("Mirror", StringComparison.OrdinalIgnoreCase) < 0) continue;
+            if (f.Select2(true, -1)) { feats++; Console.WriteLine("  also selected the feature " + f.Name + " (" + t + ")"); }
+            else problems.Add("could not select the feature " + f.Name + " (" + t + ")");
+        }
+        if (feats > 0) Console.WriteLine("Selected " + feats + " pattern/mirror feature(s) as well (SOLIDWORKS counts " + sel.GetSelectedObjectCount2(-1) + ").");
         var topNamesBefore = new HashSet<string>(tops.Select(c => c.Name2), StringComparer.OrdinalIgnoreCase);
         bool ok = asm.MakeAssemblyFromSelectedComponents(newFile);
         doc.ClearSelection2(true);
@@ -1174,7 +1229,8 @@ static class SwCmd
             + (made.Count == 1 ? " as " + made[0].Name2 : " (components using it: " + made.Count + ")"));
         if (!ok || made.Count != 1)
         {
-            problems.Add("MakeAssemblyFromSelectedComponents returned " + ok + ", " + made.Count + " components use " + newFile + "; close without saving");
+            problems.Add("MakeAssemblyFromSelectedComponents returned " + ok + ", " + made.Count + " components use " + newFile + "; close without saving"
+                + (ok ? "" : " (the API gives no reason; Form New Subassembly by hand on the same selection shows SOLIDWORKS' message)"));
             return Finish();
         }
         string sub = made[0].Name2;
@@ -1230,6 +1286,10 @@ static class SwCmd
         int subMates = subDoc == null ? -1 : Mates(subDoc).Count;
         var before = Signatures(asm, x => string.Equals(x.Name2, name, StringComparison.OrdinalIgnoreCase));
         int matesBefore = Mates(doc).Count;
+        var sigBefore = SigMap(asm);
+        var subInTop = MatesOf(c);
+        if (subMates >= 0 && subInTop.Count != subMates) Console.WriteLine("  (" + name + "'s mates: " + subMates + " in its file, " + subInTop.Count + " seen from the top)");
+        var keysBefore = MateKeys(Mates(doc).Concat(subInTop).ToList(), sigBefore);
         int tops = (asm.GetComponents(true) as object[] ?? new object[0]).Length;
         if (!Select(doc, c)) return Finish();
         bool ok = asm.DissolveSubAssembly();
@@ -1246,6 +1306,9 @@ static class SwCmd
         Console.WriteLine("Top-level components: " + tops + " before, " + (asm.GetComponents(true) as object[] ?? new object[0]).Length + " after; mates in the top: "
             + matesBefore + " before + " + (subMates < 0 ? "?" : subMates.ToString()) + " in " + name + " = " + matesAfter + " after");
         if (subMates >= 0 && matesAfter != matesBefore + subMates) problems.Add("mates: " + matesBefore + " + " + subMates + " before, " + matesAfter + " after");
+        Console.WriteLine("Mates matched by type and the components they tie (file, configuration, position):");
+        int goneMates = MateDiff(keysBefore, MateKeys(Mates(doc), SigMap(asm)));
+        Console.WriteLine("  " + goneMates + " gone" + (goneMates == 0 ? "; every mate is still there" : " (listed above with their names before the dissolve)"));
         foreach (var p in Patterns(doc)) Console.WriteLine("  pattern/mirror feature in the top: " + p);
         Console.WriteLine("  " + Path.GetFileName(file) + " itself is not changed or deleted; the top no longer uses it.");
         return AfterSubChange(sw, doc, null, save, checkedOut);

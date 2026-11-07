@@ -175,6 +175,10 @@ def DEC_0804(x):
     if x == "B":   # D31 (Grant 7 Nov): end-capped ties are BRW
         pn[("08B04-BRP-01.SLDPRT", "@top")] = ("08B04-BRW-01", True, "D26 / D31 (Grant 7 Nov): end-capped tie, BRW")
         pn[("08B04-BRP-02.SLDPRT", "@top")] = ("08B04-BRW-02", True, "D26 / D31 (Grant 7 Nov): end-capped tie, BRW")
+    # R3 (Grant 7 Nov): the nine shared 40x40 configurations renumbered 08X04-LMW-21..29 (they carried -11..20, the
+    # numbers of the 40x80 family 08X04-LMW), in configuration order; A's and C's keep their own (SW1). SW's split, 7 Nov.
+    pn.update({("08X04-LMW-40X40.SLDASM", f"LS-08-04-LCMM40X40-{o}"): (f"08X04-LMW-{n}", True, "R3 (Grant 7 Nov): shared 40x40 LCMM renumbered after the 40x80 family")
+               for o, n in zip(["01", "02", "04", "05", "06", "07", "08", "09", "10"], range(21, 30))})
     if x in "BC":   # R7 = D27: keeps its name, no PartNo
         screens = screens + [f"LS-08{x}-04_WITH_SCREEN.SLDASM"]
     return {

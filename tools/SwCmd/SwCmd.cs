@@ -40,6 +40,8 @@
 //                                                and position, and lists mates and pattern features left in <asm>
 //   dissolve <asm> <component> [--save] [--checked-out]
 //                                                dissolve a top-level subassembly into <asm>, with the same checks
+//   form-sub / dissolve --accept-gone <mate name> (repeatable): that mate may be lost (B, Admin 7 Nov: two stale mates);
+//                                                any other mate lost, new or changed is still a PROBLEM (no save)
 //   cut-list <part> [--config <name>]            cut-list items of a weldment part: bodies and properties (read-only)
 //   tree <asm>                                   the component tree with configurations and suppression (read-only)
 //   mass <file> [--config <name>]                mass (kg), volume (m3), surface (m2) of every configuration, read-only
@@ -105,6 +107,8 @@ static class SwCmd
         {
             if (args[i] == "--except")
             { if (i + 1 >= args.Length) return Usage(); excepts.Add(args[++i]); }
+            else if (args[i] == "--accept-gone")
+            { if (i + 1 >= args.Length) return Usage(); acceptGone.Add(args[++i].Trim()); }
             else if (args[i] == "--config" || args[i] == "--as" || args[i] == "--purpose" || args[i] == "--round")
             { if (i + 1 >= args.Length) return Usage(); opts[args[i].Substring(2)] = args[++i]; }
             else if (args[i].StartsWith("--")) opts[args[i].Substring(2)] = "yes";
@@ -114,6 +118,7 @@ static class SwCmd
         var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top", "json", "as", "purpose", "force", "round" };
         if (opts.ContainsKey("round") && cmd != "form-sub") { Console.Error.WriteLine("--round is only for form-sub"); return 2; }
         if (excepts.Count > 0 && cmd != "form-sub") { Console.Error.WriteLine("--except is only for form-sub"); return 2; }
+        if (acceptGone.Count > 0 && cmd != "form-sub" && cmd != "dissolve") { Console.Error.WriteLine("--accept-gone is only for form-sub and dissolve"); return 2; }
         foreach (var k in opts.Keys) if (!known.Contains(k)) { Console.Error.WriteLine("Unknown option: --" + k); return 2; }
         bool checkedOut = opts.ContainsKey("checked-out"), save = opts.ContainsKey("save");
         if (opts.ContainsKey("json"))
@@ -418,8 +423,8 @@ static class SwCmd
         Console.Error.WriteLine("       | save-virtual <asm> <component> <newFile> [--save] [--checked-out]");
         Console.Error.WriteLine("       | save-as <file> <newFile> [--copy] | delete-config <file> <config> [--save] [--checked-out]");
         Console.Error.WriteLine("       | move <top> <component path> <target subassembly path> | move <top> <component path> --top  [--save] [--checked-out]");
-        Console.Error.WriteLine("       | form-sub <asm> <newFile> --except <component> [--except ...] [--round <round.csv>] [--save] [--checked-out]");
-        Console.Error.WriteLine("       | dissolve <asm> <component> [--save] [--checked-out]");
+        Console.Error.WriteLine("       | form-sub <asm> <newFile> --except <component> [--except ...] [--round <round.csv>] [--accept-gone <mate> ...] [--save] [--checked-out]");
+        Console.Error.WriteLine("       | dissolve <asm> <component> [--accept-gone <mate> ...] [--save] [--checked-out]");
         Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | mass <file> [--config <name>] | pack-and-go <top> <newFolder>");
         Console.Error.WriteLine("       | export-pdf <drawing> <out.pdf> | drawing-info <drawing> [--json]");
         Console.Error.WriteLine("       | lock --as <role> [--purpose <text>] | unlock --as <role> [--force]");
@@ -1113,7 +1118,30 @@ static class SwCmd
         }
         foreach (var b in left) Console.WriteLine("  mate gone:  " + b.Value);
         foreach (var a in right) Console.WriteLine("  mate new or changed:  " + a.Value);
+        lastGone = left.Select(b => b.Value).ToList();
+        lastNew = right.Select(a => a.Value).ToList();
         return left.Count;
+    }
+
+    static List<string> lastGone = new List<string>(), lastNew = new List<string>();
+    static List<string> acceptGone = new List<string>();   // --accept-gone <mate name>, repeatable (Admin's call for B, 7 Nov)
+
+    // After MateDiff: every gone mate must be named with --accept-gone, nothing may be new or changed, every accepted
+    // name must be one that went, and the counts must differ by exactly the accepted ones. Anything else is a PROBLEM.
+    static void CheckMates(int countBefore, int countAfter)
+    {
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var g in lastGone)
+        {
+            int p = g.IndexOf(" (");
+            string nm = p > 0 ? g.Substring(0, p) : g;
+            if (acceptGone.Contains(nm, StringComparer.OrdinalIgnoreCase)) { used.Add(nm); Console.WriteLine("  accepted: " + g); }
+            else problems.Add("mate gone: " + g);
+        }
+        foreach (var n in lastNew) problems.Add("mate new or changed: " + n);
+        foreach (var a in acceptGone.Where(a => !used.Contains(a))) problems.Add("--accept-gone " + a + ": no mate of that name went");
+        if (countBefore - countAfter != used.Count)
+            problems.Add("mates: " + countBefore + " before, " + countAfter + " after, " + used.Count + " accepted as gone");
     }
 
     // What each mate entity is (face, edge, plane by name ...), for the "mate gone" lines.
@@ -1312,11 +1340,10 @@ static class SwCmd
         var subPatterns = subDoc == null ? new List<string>() : Patterns(subDoc);
         Console.WriteLine("After: " + matesAfter.Count + " mates in the top, " + (subMates == null ? "?" : subMates.Count.ToString()) + " in " + sub
             + "; pattern/mirror features: " + patternsAfter.Count + " in the top, " + subPatterns.Count + " in " + sub);
-        if (subMates != null && matesAfter.Count + subMates.Count != matesBefore.Count)
-            problems.Add("mates: " + matesBefore.Count + " before, " + matesAfter.Count + " + " + subMates.Count + " after");
         Console.WriteLine("Mates matched by type and the components they tie (file, configuration, position), top + " + sub + " seen from the top:");
         int goneMates = MateDiff(mateKeysBefore, MateKeys(matesAfter.Concat(MatesOf(made[0])).ToList(), SigMap(asm)));
         Console.WriteLine("  " + goneMates + " gone" + (goneMates == 0 ? "; every mate is still there" : " (listed above with their names before)"));
+        CheckMates(matesBefore.Count, matesAfter.Count + (subMates == null ? MatesOf(made[0]).Count : subMates.Count));
         foreach (var m in matesAfter)
         {
             bool steel = m.Value.Any(n => InsideOf(n, sub) || string.Equals(n, sub, StringComparison.OrdinalIgnoreCase));
@@ -1367,10 +1394,10 @@ static class SwCmd
         int matesAfter = Mates(doc).Count;
         Console.WriteLine("Top-level components: " + tops + " before, " + (asm.GetComponents(true) as object[] ?? new object[0]).Length + " after; mates in the top: "
             + matesBefore + " before + " + (subMates < 0 ? "?" : subMates.ToString()) + " in " + name + " = " + matesAfter + " after");
-        if (subMates >= 0 && matesAfter != matesBefore + subMates) problems.Add("mates: " + matesBefore + " + " + subMates + " before, " + matesAfter + " after");
         Console.WriteLine("Mates matched by type and the components they tie (file, configuration, position):");
         int goneMates = MateDiff(keysBefore, MateKeys(Mates(doc), SigMap(asm)));
         Console.WriteLine("  " + goneMates + " gone" + (goneMates == 0 ? "; every mate is still there" : " (listed above with their names before the dissolve)"));
+        CheckMates(matesBefore + (subMates >= 0 ? subMates : subInTop.Count), matesAfter);
         foreach (var p in Patterns(doc)) Console.WriteLine("  pattern/mirror feature in the top: " + p);
         Console.WriteLine("  " + Path.GetFileName(file) + " itself is not changed or deleted; the top no longer uses it.");
         return AfterSubChange(sw, doc, null, save, checkedOut);

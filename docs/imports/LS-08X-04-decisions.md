@@ -61,3 +61,4 @@ Grant 7 Nov: approved R1 to R10 ("all ok"):
 - SwCheck of `-r1` (7 Nov): B and C clean; A loads everything from inside but 7 files (`LS-08A-04_Skeleton`, `KBEAM_S1..S6`) link James's `LS-08X-04_equations.txt`. Fix as 0811: unlink, values kept (SwCmd unlink-equations), re-pack A, re-plan, then D10 properties and SwKg on the packs.
 - A10 (Grant, Desk, 7 Nov): B's and C's SF04 numbered per configuration as A's (`08A04-SFA-41..49`): matched by configuration name; `-11..-14` become `4A..4D` (style of 0811 `1A`/`1B`). Grant: "A's is in line for 08X06 and 08X11 which is the format we should keep."
 - A7 (Grant, 7 Nov): K-beam bracket assembly and floor-plate assembly: Finish `HDG & PAINTED`; their parts: `Refer Assembly for Surface Finish.` Follow-up A12 open (all parts inside assemblies? EA brackets?).
+- A8 (Grant, 7 Nov): James's WELDED / AS WELDED on `08X04-LMW` and `08X04-LMW-40X40` are replaced by the "refer to assembly" text, as A7.

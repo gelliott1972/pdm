@@ -22,3 +22,5 @@ Test files: `P:\APEX\SC08\LS-08X-06\ShaftA\08A06-HBA-01.pdf` and `08A06-HBW-01.p
 Grant 7 Nov (Desk A4): no PDFs go into the vault with the models. Release PDFs are made by the vault's release step and live only in the scene's release folders (R8). James's own PDFs next to his drawings stay on his PC as drafts; any that reached the vault are removed by check-out once the vault's 0A set exists.
 
 Grant 7 Nov (Desk A5): a shared part's drawing (e.g. `APEX\GNRIC`) issued with a scene's set is filed in that set's scene folder (e.g. `APEX\SC08\_Review`), so each scene's issue is complete in one place.
+
+Grant 7 Nov (Desk A13, discussed in Admin): **revision table.** One row per formal release, plus a top row for the current issue, which is replaced on each lettered issue until the next formal release locks it in. First formal release is `1`. Example: 0A: [0A]; 0B: [0B] (0A row replaced); release 1: [1]; 1A: [1A, 1]; 1B: [1B, 1]; release 2: [2, 1]. Release check (R4): top row = title block = file name, and every row below the top is a formal release number. James's drawings with one 0A row are correct.

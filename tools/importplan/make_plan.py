@@ -157,6 +157,19 @@ D18_0804_OPEN = "D18: every TIE_80x40x8 instance should be repointed to the vaul
 D21_0804_OPEN = ("D21 (agreed 7 Nov): the M12x200 bolt becomes a configuration of the vault's FAST-HEX-8.8-HDG (check-out, as D9) "
             "and its instances repointed to it before -r1; still here")
 
+# A10 (proposed 7 Nov, for Grant on the Desk): B's and C's SF04 configurations get one number each, as A's
+# (08A04-SFA-41..49), not the register's single 08x04-SFA-4X. A configuration with the same name as one of A's takes
+# A's number with its own place (LCMM40X40-05 -> -45; C's LCMM40X40-03 = A's LS-08A-04_LCMM40X40-03 -> -41);
+# the ones A doesn't have (-11..-14) take 4A..4D, the same in B and C. Off until Grant answers.
+A10_0804_DECIDED = False
+A10_0804_NOTE = "A10 (Grant 7 Nov): SF04 one number per configuration, as A's"
+A10_0804 = {
+    "B": {"LCMM40X40-05": "45", "LCMM40X40-06": "46", "LCMM40X40-07": "47",
+          "LCMM40X40-11": "4A", "LCMM40x40-12": "4B", "LCMM40X40-13": "4C", "LCMM40X40-14": "4D"},
+    "C": {"LCMM40X40-03": "41", "LCMM40X40-05": "45", "LCMM40X40-06": "46", "LCMM40X40-07": "47",
+          "LCMM40X40-11": "4A", "LCMM40x40-13": "4C", "LCMM40X40-14": "4D"},
+}
+
 def DEC_0804(x):
     screens = {"A": ["LS-08A-04.SLDASM", "LS-08A-04 Roof.SLDASM", "LS-08A-04 Rear Wall.SLDASM", "LS-08A-04 RH Side Wall.SLDASM", "LS-08A-04 LH Side Wall.SLDASM"],
                "B": ["LS-08B-04.SLDASM", "LS-08B-04 Roof.SLDASM"], "C": ["LS-08C-04.SLDASM", "LS-08C-04 Roof.SLDASM"]}[x]
@@ -179,6 +192,8 @@ def DEC_0804(x):
     # numbers of the 40x80 family 08X04-LMW), in configuration order; A's and C's keep their own (SW1). SW's split, 7 Nov.
     pn.update({("08X04-LMW-40X40.SLDASM", f"LS-08-04-LCMM40X40-{o}"): (f"08X04-LMW-{n}", True, "R3 (Grant 7 Nov): shared 40x40 LCMM renumbered after the 40x80 family")
                for o, n in zip(["01", "02", "04", "05", "06", "07", "08", "09", "10"], range(21, 30))})
+    if x in "BC" and A10_0804_DECIDED:   # A10 (Desk, proposed 7 Nov): SF04 one number per configuration, as A's
+        pn.update({(f"LS-08{x}-04_SF04.SLDASM", c): (f"08{x}04-SFA-{n}", True, A10_0804_NOTE) for c, n in A10_0804[x].items()})
     if x in "BC":   # R7 = D27: keeps its name, no PartNo
         screens = screens + [f"LS-08{x}-04_WITH_SCREEN.SLDASM"]
     return {

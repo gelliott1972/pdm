@@ -160,8 +160,9 @@ D21_0804_OPEN = ("D21 (agreed 7 Nov): the M12x200 bolt becomes a configuration o
 # A10 (proposed 7 Nov, for Grant on the Desk): B's and C's SF04 configurations get one number each, as A's
 # (08A04-SFA-41..49), not the register's single 08x04-SFA-4X. A configuration with the same name as one of A's takes
 # A's number with its own place (LCMM40X40-05 -> -45; C's LCMM40X40-03 = A's LS-08A-04_LCMM40X40-03 -> -41);
-# the ones A doesn't have (-11..-14) take 4A..4D, the same in B and C. Off until Grant answers.
-A10_0804_DECIDED = False
+# the ones A doesn't have (-11..-14) take 4A..4D, the same in B and C. Grant 7 Nov (Desk A10): "A's is in line for 08X06
+# and 08X11 which is the format we should keep."
+A10_0804_DECIDED = True
 A10_0804_NOTE = "A10 (Grant 7 Nov): SF04 one number per configuration, as A's"
 A10_0804 = {
     "B": {"LCMM40X40-05": "45", "LCMM40X40-06": "46", "LCMM40X40-07": "47",

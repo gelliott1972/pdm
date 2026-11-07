@@ -125,19 +125,24 @@ def sheet(out, specs):
                     d = ed.replace("LS-08%s-04" % es, screen).replace("SHAFT " + es, "SHAFT " + shaft)
                     src = "same PartNo, other configuration" if es == shaft else "earlier shaft (as %s)" % (re.sub(r"\?", es, ekey[0]) + "-" + c2 + t2 + "-" + n2)
                 else:
-                    m = re.match(r"^(\d)([TB])$", num or "")
+                    m = re.match(r"^(\d)([TB])$", n2 or "")
                     s_ = re.search(r"KBEAM_S(\d)", f0, re.I)
-                    if cat == "SF" and typ == "A" and m:
+                    sf_family = len({x["partno"] for x in frs if parse_pn(x["partno"])[1:3] == ("SF", "A")}) > 1
+                    if c2 == "SF" and t2 == "A" and sf_family and re.match(r"^\d[A-Z0-9]$", n2 or ""):   # A's SF04: 41 -> "WELDED ASSY 01"
+                        d, src = "%s SUB FRAME %s WELDED ASSY 0%s" % (screen, n2[0], n2[1]), "pattern (as A's SF04, James)"
+                    elif c2 == "SF" and t2 == "A" and m:
                         d, src = "%s SUB FRAME %s %s ASSY" % (screen, m.group(1), "TOP" if m.group(2) == "T" else "BOTTOM"), "pattern (SFA)"
-                    elif cat == "SF" and typ == "A" and re.match(r"^\d[X]$", num or ""):
-                        d, src = "%s SUB FRAME %s ASSY" % (screen, num[0]), "pattern (SFA)"
+                    elif c2 == "SF" and t2 == "A" and re.match(r"^\d[X]$", n2 or ""):
+                        d, src = "%s SUB FRAME %s ASSY" % (screen, n2[0]), "pattern (SFA)"
+                    elif c2 == "SF" and t2 == "A" and re.match(r"^\d[A-Z0-9]$", n2 or ""):   # A's SF04: 41 -> "WELDED ASSY 01"
+                        d, src = "%s SUB FRAME %s WELDED ASSY 0%s" % (screen, n2[0], n2[1]), "pattern (as A's SF04, James)"
                     elif cat == "BR" and re.match(r"^TIE-(\d+)", cfg):
                         d, src = "TIE x%smm" % re.match(r"^TIE-(\d+)", cfg).group(1), "configuration name: check (profile not known)"
-                    elif cat == "SF" and typ == "A" and re.match(r"^\d\d?$", num or ""):
-                        d, src = "%s SUB FRAME %d ASSY" % (screen, int(num)), "pattern (SFA)"
-                    elif cat == "KB" and typ == "A":
+                    elif c2 == "SF" and t2 == "A" and re.match(r"^\d\d?$", n2 or ""):
+                        d, src = "%s SUB FRAME %d ASSY" % (screen, int(n2)), "pattern (SFA)"
+                    elif c2 == "KB" and t2 == "A":
                         d, src = ("%s K-BEAM S%s ASSY" % (screen, s_.group(1)) if s_ else "%s K-BEAM ASSY" % screen), "pattern (K-beam, by others)"
-                    elif cat == "KB" and typ == "P" and s_:
+                    elif c2 == "KB" and t2 == "P" and s_:
                         d, src = "%s K-BEAM S%s" % (screen, s_.group(1)), "pattern (K-beam, by others)"
                     else:
                         n_ = os.path.splitext(f0)[0]

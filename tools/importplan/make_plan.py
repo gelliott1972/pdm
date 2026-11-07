@@ -205,6 +205,7 @@ def DEC_0804(x):
         # 08A04-/08C04- numbers, so it is named by decision (the plan would otherwise ask to split it by place).
         # Its PartNos (08X04-LMW-21..29 for the shared ones) wait for SW's configuration names after the split.
         "files": {"08X04-LMW-40X40.SLDASM": ("08X04-LMW-40X40", None, "R3 / SW1 (Grant 7 Nov): shared 40x40 LCMM family, A's and C's configurations keep their numbers")},
+        "name_differs_decided": {"08X04-LMW-40X40.SLDASM": ("08X04-LMW-40X40", "R3 / SW1 (Grant 7 Nov): named exception, 08X04-LMW-21..29 and A's and C's 08A04-/08C04-LMW numbers in 08X04-LMW-40X40")},
         "combined": {f"LS-08{x}-04_WITH_STRUCTUREv4.SLDASM": "D4 (as 0811 D31)"},
         "screen_files": {f: ("R7 (Grant 7 Nov): keeps its name, no PartNo" if "WITH_SCREEN" in f else "D22 (agreed 7 Nov): screen file, keeps its LS- name, no PartNo") for f in screens},
         "partnos": pn,
@@ -1107,6 +1108,10 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
             level = "config"
         provisional = (decided and decided[1]) or src.startswith("sample register")             or (cls == "steel" and bool(dec.get("all_provisional"))) or (cfg_status.get((fk, cfg)) if level == "config" else file_status.get(fk, "")) == "Provisional"
         status = "Provisional" if provisional and proposed else ""
+        # A file whose name and numbers differ by decision (0804 R3 / SW1): the importer takes a 'decision' source as a note.
+        nd = dec.get("name_differs_decided", {}).get(fname)
+        if nd and proposed and not proposed.upper().startswith(nd[0].upper() + "-"):
+            src = "decision " + nd[1] + "; " + src
         pn_rows.append([fname, cfg, parent, n_used, in_file, in_reg, proposed, src, level, status, "; ".join(pflags), "", ""])
 
 # Two files can't end up with the same name: SOLIDWORKS matches references by file name.

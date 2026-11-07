@@ -125,7 +125,9 @@ static class Importer
                      .GroupBy(p => p.PartNo, StringComparer.OrdinalIgnoreCase))
         {
             var places = g.Select(p => p.File.ToLowerInvariant() + "|" + (p.Level == "file" ? "@file" : p.Config)).Distinct().ToList();
-            if (places.Count > 1)
+            if (places.Count > 1 && WeldedChildrenOfOne(g.ToList(), byOld))
+                warnings.Add("PartNo " + g.Key + " on a configuration and its As Welded child, as decided (0804 R8): " + string.Join(", ", g.Select(p => p.File + " / " + p.Config)) + ".");
+            else if (places.Count > 1)
                 errors.Add("PartNo " + g.Key + " is on more than one file or configuration: " + string.Join(", ", g.Select(p => p.File + " / " + p.Config)) + ".");
         }
 
@@ -450,6 +452,35 @@ static class Importer
         var cfg = Config(doc, config);
         if (cfg == null || !Has(cfg.GetCustomPropertyNames(), name)) return null;
         return cfg.GetCustomProperty2(name, out t);
+    }
+
+    // 0804 R8 (Admin, 7 Nov): an As Welded configuration carries its As Machined parent's number. True when the rows are
+    // configurations of one file, and every row but one is an "As Welded" configuration whose parent (read from the source
+    // file with the Document Manager) is another row of the group. Anything else stays a duplicate.
+    static bool WeldedChildrenOfOne(List<PartNoRow> rows, Dictionary<string, Item> byOld)
+    {
+        if (rows.Select(p => p.File).Distinct(StringComparer.OrdinalIgnoreCase).Count() != 1 || rows.Any(p => p.Level == "file")) return false;
+        var cfgs = new HashSet<string>(rows.Select(p => p.Config), StringComparer.OrdinalIgnoreCase);
+        string path = byOld[rows[0].File].Source;
+        if (!File.Exists(path)) return false;
+        SwDmDocumentOpenError err;
+        var doc = app.GetDocument(path, TypeOf(path), true, out err) as ISwDMDocument31;
+        if (doc == null) return false;
+        try
+        {
+            int roots = 0;
+            foreach (var c in cfgs)
+            {
+                var cfg = Config(doc, c);
+                if (cfg == null) return false;
+                string parent = "";
+                try { parent = cfg.GetParentConfigurationName() ?? ""; } catch { }
+                bool child = c.IndexOf("As Welded", StringComparison.OrdinalIgnoreCase) >= 0 && cfgs.Contains(parent) && !parent.Equals(c, StringComparison.OrdinalIgnoreCase);
+                if (!child) roots++;
+            }
+            return roots == 1;
+        }
+        finally { try { doc.CloseDoc(); } catch { } }
     }
 
     // Drawings have no configurations: the Document Manager fails (E_FAIL) rather than returning none.

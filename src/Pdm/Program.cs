@@ -29,11 +29,15 @@ try
             return 0;
         case "map" when args.Length == 2:
             return Drive.Map(settings.LocalRoot, args[1], Console.WriteLine);
+        case "release" when args.Length >= 3:
+            return await ReleaseDry(settings, args);
         default:
             Console.WriteLine("Usage: pdm              open the PDM page");
             Console.WriteLine("       pdm shell        log in and type commands");
             Console.WriteLine("       pdm load [--dry] admin: load P:\\ into the vault (uses the pdm-admin SSO login)");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
+            Console.WriteLine("       pdm release <folder> <code> --dry [--with-shared] [--shared-to scene|own] [--no-export]");
+            Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only)");
             return 2;
     }
 }
@@ -140,6 +144,34 @@ static async Task<int> Load(Settings s, bool dryRun)
     var engine = new Engine(s, index, vault, "", "Admin", true, Console.WriteLine);
     await new Loader(s, index, vault, engine, "Grant Elliott", Console.WriteLine).RunAsync(dryRun);
     return 0;
+}
+
+// Dry run of the release step: reads the index with the pdm-admin SSO login, copies the set to a scratch folder,
+// exports and checks there, and writes a pass/fail list. Nothing is written to the vault.
+static async Task<int> ReleaseDry(Settings s, string[] args)
+{
+    if (!args.Contains("--dry")) { Console.WriteLine("Only --dry for now: the real release runs from the page."); return 2; }
+    var code = args[2].Trim();
+    if (!Release.CodeOk(code)) { Console.WriteLine($"\"{code}\" isn't a revision code (0A, 0B, 1, 1A, 2 ...)."); return 2; }
+    var folderKey = Paths.KeyOf(s.LocalRoot, Path.GetFullPath(args[1]));
+    if (!new CredentialProfileStoreChain().TryGetAWSCredentials("pdm-admin", out AWSCredentials credentials))
+    { Console.WriteLine("No pdm-admin profile on this PC."); return 1; }
+    using var db = new AmazonDynamoDBClient(credentials, RegionEndpoint.GetBySystemName(s.Region));
+    var all = await new Pdm.Index(db, s).AllAsync();
+    var release = new Release(s, all, Console.WriteLine);
+    var i = Array.IndexOf(args, "--shared-to");
+    if (i > 0 && i + 1 < args.Length) release.SharedTo = args[i + 1] == "own" ? "own" : "scene";
+    if (Environment.GetEnvironmentVariable("PDM_SWCMD") is { Length: > 0 } sw) release.SwCmd = sw;
+
+    var items = release.Plan(folderKey, code, args.Contains("--with-shared"));
+    if (items.Count == 0) { Console.WriteLine($"No drawings in the vault under {folderKey}."); return 1; }
+    var work = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PDM-release",
+        $"{DateTime.Now:yyyyMMdd-HHmmss}_{code}_{folderKey.TrimEnd('/').Replace('/', '_')}");
+    Console.WriteLine($"{items.Count} drawings; {items.Count(x => x.Pass)} pass the checks before export. Work folder: {work}");
+    if (!args.Contains("--no-export")) await release.ExportAndCheckAsync(items, code, work, Path.Combine(work, "copy"));
+    Console.WriteLine();
+    Console.WriteLine(release.Report(items, folderKey, code, dry: true, work));
+    return items.All(x => x.Pass) ? 0 : 1;
 }
 
 static List<string> Split(string line)

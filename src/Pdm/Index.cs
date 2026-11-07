@@ -21,6 +21,12 @@ public sealed class FileRecord
     public string? LockedByName { get; set; }
     public string? LockedAt { get; set; }
     public string? LockMachine { get; set; }
+    // Removed from the vault (soft): who, when and why. The record and every S3 version stay; Restore clears these.
+    public string? RemovedAt { get; set; }
+    public string? RemovedBy { get; set; }           // email
+    public string? RemovedByName { get; set; }
+    public string? RemovedReason { get; set; }
+    public bool Removed => RemovedAt != null;
 }
 
 public sealed class LockTakenException(FileRecord holder) : Exception($"{holder.Path} is checked out by {holder.LockedByName} since {holder.LockedAt}")
@@ -96,6 +102,48 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
         catch (ConditionalCheckFailedException)
         {
             throw new InvalidOperationException("You don't hold this file.");
+        }
+    }
+
+    // Marks a file removed and releases my lock, only while I still hold it and it isn't removed already.
+    public async Task RemoveAsync(string fileId, string email, string name, string machine, string reason)
+    {
+        try
+        {
+            await db.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName = s.FilesTable,
+                Key = new() { ["fileId"] = S(fileId) },
+                UpdateExpression = "SET removedAt = :at, removedBy = :me, removedByName = :name, removedReason = :why REMOVE lockedBy, lockedByName, lockedAt, lockMachine",
+                ConditionExpression = "lockedBy = :me AND lockMachine = :machine AND attribute_not_exists(removedAt)",
+                ExpressionAttributeValues = new()
+                {
+                    [":me"] = S(email), [":name"] = S(name), [":machine"] = S(machine), [":at"] = S(Now()), [":why"] = S(reason)
+                }
+            });
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            throw new InvalidOperationException("You no longer hold this file, or it's already removed.");
+        }
+    }
+
+    // Brings a removed file back (it isn't checked out to anyone afterwards).
+    public async Task RestoreAsync(string fileId)
+    {
+        try
+        {
+            await db.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName = s.FilesTable,
+                Key = new() { ["fileId"] = S(fileId) },
+                UpdateExpression = "REMOVE removedAt, removedBy, removedByName, removedReason",
+                ConditionExpression = "attribute_exists(removedAt)"
+            });
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            throw new InvalidOperationException("It isn't removed.");
         }
     }
 
@@ -189,6 +237,13 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
                 }).ToList()
             }
         };
+        if (f.RemovedAt != null)
+        {
+            item["removedAt"] = S(f.RemovedAt);
+            item["removedBy"] = S(f.RemovedBy ?? "");
+            item["removedByName"] = S(f.RemovedByName ?? "");
+            item["removedReason"] = S(f.RemovedReason ?? "");
+        }
         if (f.LockedBy != null)
         {
             item["lockedBy"] = S(f.LockedBy);
@@ -213,7 +268,8 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
             PartNos = i.TryGetValue("partNos", out var pn) && pn.L != null
                 ? pn.L.Select(m => new PartNoEntry(m.M["config"].S, m.M["partNo"].S, m.M["status"].S)).ToList()
                 : new(),
-            LockedBy = Opt("lockedBy"), LockedByName = Opt("lockedByName"), LockedAt = Opt("lockedAt"), LockMachine = Opt("lockMachine")
+            LockedBy = Opt("lockedBy"), LockedByName = Opt("lockedByName"), LockedAt = Opt("lockedAt"), LockMachine = Opt("lockMachine"),
+            RemovedAt = Opt("removedAt"), RemovedBy = Opt("removedBy"), RemovedByName = Opt("removedByName"), RemovedReason = Opt("removedReason")
         };
     }
 }

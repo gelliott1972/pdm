@@ -157,7 +157,7 @@ static async Task<int> ReleaseDry(Settings s, string[] args)
     if (!new CredentialProfileStoreChain().TryGetAWSCredentials("pdm-admin", out AWSCredentials credentials))
     { Console.WriteLine("No pdm-admin profile on this PC."); return 1; }
     using var db = new AmazonDynamoDBClient(credentials, RegionEndpoint.GetBySystemName(s.Region));
-    var all = await new Pdm.Index(db, s).AllAsync();
+    var all = (await new Pdm.Index(db, s).AllAsync()).Where(r => !r.Removed).ToList(); // removed files are never released
     var release = new Release(s, all, Console.WriteLine);
     var i = Array.IndexOf(args, "--shared-to");
     if (i > 0 && i + 1 < args.Length) release.SharedTo = args[i + 1] == "own" ? "own" : "scene";

@@ -118,6 +118,12 @@ public sealed class Page(Settings s)
             case "/api/undo":
                 foreach (var p in Strs("paths")) await engine.UndoAsync(Local(p));
                 break;
+            case "/api/remove":
+                await engine.RemoveAsync(Local(Str("path")), Str("reason"));
+                break;
+            case "/api/restore":
+                await engine.RestoreAsync(Local(Str("path")));
+                break;
             default:
                 await Send(ctx, 404, new { error = "not found" });
                 return;
@@ -158,7 +164,7 @@ public sealed class Page(Settings s)
     {
         var all = await new Index(db!, s).AllAsync();
         var state = LocalState.Load(s.LocalRoot);
-        var usedBy = all.SelectMany(f => f.Refs.Distinct().Select(id => (id, by: f.FileId))).GroupBy(x => x.id).ToDictionary(g => g.Key, g => g.Select(x => x.by).ToList());
+        var usedBy = all.Where(f => !f.Removed).SelectMany(f => f.Refs.Distinct().Select(id => (id, by: f.FileId))).GroupBy(x => x.id).ToDictionary(g => g.Key, g => g.Select(x => x.by).ToList());
         var inVault = all.Select(f => f.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var added = Paths.LocalSolidWorksKeys(s.LocalRoot).Where(k => !inVault.Contains(k)).Select(k => (object)new
         {
@@ -177,7 +183,8 @@ public sealed class Page(Settings s)
                 updatedBy = f.UpdatedBy, updatedAt = f.UpdatedAt, note = f.Note,
                 lockedByName = f.LockedByName, lockedAt = f.LockedAt, lockMachine = f.LockMachine, mine,
                 changed = mine && state.IsChanged(f.Path, local), missing = !File.Exists(local),
-                newer = !mine && (had == null || had.VersionId != f.VersionId || !File.Exists(local))
+                newer = !f.Removed && !mine && (had == null || had.VersionId != f.VersionId || !File.Exists(local)),
+                removed = f.Removed, removedByName = f.RemovedByName, removedAt = f.RemovedAt, removedReason = f.RemovedReason
             };
         }).Concat(added).ToList();
     }

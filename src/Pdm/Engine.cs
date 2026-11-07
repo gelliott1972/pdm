@@ -37,10 +37,11 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         var prefix = PrefixOf(folder);
         var wanted = only?.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var state = LocalState.Load(root);
-        int fetched = 0, current = 0;
+        int fetched = 0, current = 0, cleared = 0;
         foreach (var f in (await AllAsync()).Where(f => f.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && (wanted == null || wanted.Contains(f.Path))).OrderBy(f => f.Path))
         {
             var local = Paths.LocalOf(root, f.Path);
+            if (f.Removed) { if (ClearRemoved(f, local, state)) cleared++; continue; }
             bool mine = Mine(f);
             state.Files.TryGetValue(f.Path, out var had);
             bool upToDate = had != null && had.VersionId == f.VersionId && File.Exists(local);
@@ -71,7 +72,89 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             }
         }
         state.Save(root);
-        say($"Get done: {fetched} downloaded, {current} already up to date.");
+        say($"Get done: {fetched} downloaded, {current} already up to date{(cleared > 0 ? $", {cleared} removed from this PC" : "")}.");
+    }
+
+    // A file removed from the vault leaves this PC too, unless this PC's copy has changes the vault never had.
+    bool ClearRemoved(FileRecord f, string local, LocalState state)
+    {
+        if (!File.Exists(local)) { state.Files.Remove(f.Path); return false; }
+        var why = $"removed from the vault by {f.RemovedByName}, {Local(f.RemovedAt)}: {f.RemovedReason}";
+        bool vaultCopy = state.Files.ContainsKey(f.Path) ? !state.IsChanged(f.Path, local) : Vault.Md5(local) == f.ETag;
+        if (!vaultCopy) { say($"Kept {f.Path}: it was {why}, but the copy on this PC has changes. Move it aside if you need it."); return false; }
+        try
+        {
+            Paths.SetReadOnly(local, false);
+            File.Delete(local);
+            state.Files.Remove(f.Path);
+            say($"Removed {f.Path} from this PC ({why}).");
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Paths.SetReadOnly(local, true);
+            say($"Couldn't remove {f.Path} from this PC (open in SOLIDWORKS?): {ex.Message}");
+            return false;
+        }
+    }
+
+    // Removes a file from the vault (soft: the record and every S3 version stay, and Restore brings it back).
+    // Refused if anything in the vault uses it, if someone else has it, or if this PC's copy has changes.
+    public async Task RemoveAsync(string path, string reason)
+    {
+        reason = reason.Trim();
+        var key = Paths.KeyOf(root, path);
+        if (reason == "") { say($"Not removed: {key}: give a reason."); return; }
+        var all = await AllAsync();
+        var f = all.FirstOrDefault(r => r.Path.Equals(key, StringComparison.OrdinalIgnoreCase));
+        if (f == null || Paths.IsIgnored(key)) { say($"Not in the vault: {key}"); return; }
+        if (f.Removed) { say($"{key} is already removed ({f.RemovedByName}, {Local(f.RemovedAt)})."); return; }
+        if (Paths.InReleaseFolder(key)) { say($"Not removed: {key} is a release file; releases stay as issued."); return; }
+        if (Paths.IsShared(key) && !sharedEditor) { say($"Not removed: {key} is in a shared folder."); return; }
+        var users = all.Where(r => !r.Removed && r.Refs.Contains(f.FileId)).Select(r => r.Path).OrderBy(p => p).ToList();
+        if (users.Count > 0) { say($"Not removed: {key} is used by {string.Join(", ", users)}. Change those first."); return; }
+
+        var local = Paths.LocalOf(root, key);
+        var state = LocalState.Load(root);
+        var fresh = await Time.Of("index reads", () => index.GetAsync(f.FileId)) ?? f;
+        if (File.Exists(local) && state.IsChanged(key, local))
+        {
+            say($"Not removed: the copy of {key} on this PC has changes. {(Mine(fresh) ? "Undo them first" : "Move it aside first")}, so nothing is lost by mistake.");
+            return;
+        }
+        if (!Mine(fresh))
+        {
+            if (fresh.LockedBy != null) { say($"Not removed: {fresh.LockedByName} has {key} checked out on {fresh.LockMachine}."); return; }
+            try { await index.LockAsync(fresh.FileId, email, name, machine); } // free: take it as part of removing it
+            catch (LockTakenException ex) { say($"Not removed: {ex.Holder.LockedByName} has {key} checked out."); return; }
+        }
+        await index.RemoveAsync(fresh.FileId, email, name, machine, reason);
+        if (fresh.PartNos.Count > 0) // its PartNos are free for other files while it's removed; Restore claims them back
+            await index.UpdatePartNosAsync(new FileRecord { FileId = fresh.FileId, Path = fresh.Path }, fresh.PartNos);
+        (fresh.RemovedAt, fresh.RemovedBy, fresh.RemovedByName, fresh.RemovedReason) = (Index.Now(), email, name, reason);
+        fresh.LockedBy = fresh.LockedByName = fresh.LockedAt = fresh.LockMachine = null;
+        Remember(fresh);
+        say($"Removed {key} from the vault ({reason}). Restore brings it back.");
+        ClearRemoved(fresh, local, state);
+        state.Save(root);
+    }
+
+    // Brings a removed file back into the vault; Download latest then puts it back on each PC.
+    public async Task RestoreAsync(string path)
+    {
+        var key = Paths.KeyOf(root, path);
+        var all = await AllAsync();
+        var f = all.FirstOrDefault(r => r.Path.Equals(key, StringComparison.OrdinalIgnoreCase));
+        if (f == null) { say($"Not in the vault: {key}"); return; }
+        if (!f.Removed) { say($"{key} isn't removed."); return; }
+        if (Paths.IsShared(key) && !sharedEditor) { say($"Not restored: {key} is in a shared folder."); return; }
+        var clashes = await index.PartNoClashesAsync(f);
+        if (clashes.Count > 0) { say($"Not restored: its PartNos are now used elsewhere: {string.Join("; ", clashes)}"); return; }
+        await index.RestoreAsync(f.FileId);
+        if (f.PartNos.Count > 0) await index.UpdatePartNosAsync(f, []);
+        f.RemovedAt = f.RemovedBy = f.RemovedByName = f.RemovedReason = null;
+        Remember(f);
+        say($"Restored {key}. Download latest puts it back on this PC.");
     }
 
     // What I hold, what others hold, and what has changed in the vault since my last get.
@@ -79,7 +162,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
     {
         var prefix = PrefixOf(folder);
         var state = LocalState.Load(root);
-        var files = (await index.AllAsync()).Where(f => f.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).OrderBy(f => f.Path).ToList();
+        var files = (await index.AllAsync()).Where(f => !f.Removed && f.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).OrderBy(f => f.Path).ToList();
 
         var mine = files.Where(Mine).ToList();
         say($"Checked out by me ({mine.Count}):");
@@ -106,6 +189,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             var key = Paths.KeyOf(root, p);
             var f = all.FirstOrDefault(r => r.Path.Equals(key, StringComparison.OrdinalIgnoreCase));
             if (f == null) { say($"Not in the vault: {key}"); continue; }
+            if (f.Removed) { say($"Can't check out {f.Path}: it was removed from the vault by {f.RemovedByName}. Restore it first."); continue; }
             if (Paths.IsShared(f.Path) && !sharedEditor) { say($"{f.Path} is in a shared folder; you can't check it out."); continue; }
             wanted.Add(f);
         }
@@ -202,6 +286,11 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
 
         var all = await AllAsync();
         var existing = all.FirstOrDefault(r => r.Path.Equals(key, StringComparison.OrdinalIgnoreCase));
+        if (existing?.Removed == true)
+        {
+            say($"Not checked in: {key} was removed from the vault by {existing.RemovedByName} ({existing.RemovedReason}). Restore it first if it should come back.");
+            return;
+        }
         var state = LocalState.Load(root);
 
         if (existing != null)
@@ -288,7 +377,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
     {
         record.Refs.Clear(); record.MissingRefs.Clear(); record.PartNos.Clear();
         if (!DocReader.IsSolidWorks(local)) return;
-        var byPath = all.ToDictionary(r => r.Path, r => r.FileId, StringComparer.OrdinalIgnoreCase);
+        var byPath = all.Where(r => !r.Removed).ToDictionary(r => r.Path, r => r.FileId, StringComparer.OrdinalIgnoreCase); // a reference to a removed file counts as missing
         var info = Reader.Read(local);
         foreach (var r in info.References)
         {

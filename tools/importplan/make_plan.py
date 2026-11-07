@@ -107,9 +107,9 @@ D30_OPEN = "D30: every TIE_80x40x8 instance should be repointed to the vault's G
 OPEN_0811 = {"TIE_80x40x8.SLDPRT": D30_OPEN, "GROUT+ANCHOR_BOLTS.SLDASM": D15_OPEN, "GROUT.SLDPRT": D15_OPEN, "LS-08X-11_BRACE.SLDPRT": D10_OPEN,
              "LCMM_40x80x8_SC08.SLDASM": D14_OPEN, "LS-08X-X_PLATE_TIE_BEAM_INTERFACE.SLDPRT": D14_OPEN}
 
-# 0804 (docs\imports\LS-08X-04-decisions.md). Admin's calls 4-6 Nov; D3, D21, D22, D23 proposed, pending Grant (planned
-# as proposed, Admin 6 Nov). Config "@top" = the file's one top-level configuration (resolved when the plan loads).
-D3_0804 = "D3: Dev's proposal in the register's pattern, Provisional, for James"
+# 0804 (docs\imports\LS-08X-04-decisions.md). Admin's calls 4-6 Nov; D3, D21, D22 (and D23 with D3) agreed by Grant 7 Nov (planned
+# as proposed since Admin 6 Nov). Config "@top" = the file's one top-level configuration (resolved when the plan loads).
+D3_0804 = "D3 (agreed 7 Nov): Dev's number in the register's pattern, Provisional"
 D3_0804_SHARED = {   # used in more than one shaft: X (0811 D10), in FRAME\_Shared
     "LS-08X-04 100x100x8 L=150 EA EXPANSION BRACKET.SLDPRT": "08X04-BKP-01",
     "LS-08X-04 KBEAM WALL MOUNT EXPANSION JOINT 57 DEGREES.SLDPRT": "08X04-BKP-06",   # A and C
@@ -135,7 +135,7 @@ D3_0804_BRACKET = {
 }
 D15_0804_OPEN = "D15: LCMM_40x80x8_SC08 should be split into the new 08X04-LMW family before -r1 (as 0806, 0811 D14); still here"
 D18_0804_OPEN = "D18: every TIE_80x40x8 instance should be repointed to the vault's GNRIC-BRP / GNRIC-BRA before -r1 (as 0811 D30); still here"
-D21_0804_OPEN = ("D21 (proposed): the M12x200 bolt should become a configuration of the vault's FAST-HEX-8.8-HDG (check-out, as D9) "
+D21_0804_OPEN = ("D21 (agreed 7 Nov): the M12x200 bolt becomes a configuration of the vault's FAST-HEX-8.8-HDG (check-out, as D9) "
             "and its instances repointed to it before -r1; still here")
 
 def DEC_0804(x):
@@ -145,14 +145,14 @@ def DEC_0804(x):
         screens += ["LS-08BC-04 Rear Wall.SLDASM", "LS-08BC-04 RH Side Wall.SLDASM", "LS-08BC-04 LH Side Wall.SLDASM"]
     pn = {(f"08{x}04-STA-01.SLDASM", "Default"): (f"08{x}04-STA-01", True, "D4 (new structure assembly, as 0811 D7)")}
     # D23 / D3: the K-beam parts by others numbered beside their assemblies (the assemblies keep 08x04-KBA-02..07)
-    pn.update({(f"LS-08{x}-04_KBEAM_S{n}.SLDPRT", "@top"): (f"08{x}04-KBP-0{n}", True, "D23 / D3 (proposed): K-beam part beside its assembly; KB has no P type in the register's Categories yet, for James") for n in range(1, 7)})
+    pn.update({(f"LS-08{x}-04_KBEAM_S{n}.SLDPRT", "@top"): (f"08{x}04-KBP-0{n}", True, "D23 / D3 (agreed 7 Nov): K-beam part beside its assembly; KB has no P type in the register's Categories yet, for James") for n in range(1, 7)})
     pn.update({(f, "@top"): (v, True, D3_0804) for f, v in {**D3_0804_SHARED, **(D3_0804_B if x == "B" else {})}.items()})
     pn.update({k: (v, True, D3_0804 + " (one number per bracket variant)") for k, v in D3_0804_BRACKET.items()})
     return {
         "combined": {f"LS-08{x}-04_WITH_STRUCTUREv4.SLDASM": "D4 (as 0811 D31)"},
-        "screen_files": {f: "D22 (proposed): screen file, keeps its LS- name, no PartNo" for f in screens},
+        "screen_files": {f: "D22 (agreed 7 Nov): screen file, keeps its LS- name, no PartNo" for f in screens},
         "partnos": pn,
-        "modelling_groups": {"LS-08X-04 KBEAM PACKERS + BOLTS.SLDASM": "D3 (proposed): packers and bolts kit, a modelling group as the bolt kits (18 Oct)"},
+        "modelling_groups": {"LS-08X-04 KBEAM PACKERS + BOLTS.SLDASM": "D3 (agreed 7 Nov): packers and bolts kit, a modelling group as the bolt kits (18 Oct)"},
         "open": {"LCMM_40x80x8_SC08.SLDASM": D15_0804_OPEN, "TIE_80x40x8.SLDPRT": D18_0804_OPEN, "hex bolt gradeab_Custom ISO.sldprt": D21_0804_OPEN},
         "no_file_partno_imports": "D8 (as 0811 D32)",
         "all_provisional": "D8 (as 0811 D33)",

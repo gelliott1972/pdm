@@ -123,7 +123,12 @@ for f in files:
             rows.append(dict(file=fn, cfg=c["config"], pn=D17[(fn, c["config"])], d17=True))
         elif "<as welded>" in c["config"].lower():
             welded.append(c)
-missing17 = set(D17) - set((r["file"], r["cfg"]) for r in rows if r["d17"])
+# A D17 PartNo already in the vault (e.g. written by check-out after the sheet) is a normal row; a different one stops.
+d17_done = {(r["file"], r["cfg"]): r["pn"] for r in rows if not r["d17"] and (r["file"], r["cfg"]) in D17}
+wrong17 = {k: v for k, v in d17_done.items() if v != D17[k]}
+if wrong17:
+    sys.exit("D17 configurations with a different PartNo in the vault: %s" % sorted(wrong17.items()))
+missing17 = set(D17) - set((r["file"], r["cfg"]) for r in rows if r["d17"]) - set(d17_done)
 if missing17:
     sys.exit("D17 configurations not in the probe: %s" % sorted(missing17))
 

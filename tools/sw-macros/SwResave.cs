@@ -6,6 +6,9 @@
 // Usage:
 //   SwResave.exe <file> [<file> ...]
 //       Work copies. Refuses the vault (P:\, C:\PDM\) and Dropbox.
+//   SwResave.exe --round <round.csv> <vaultRoot> [--dry]
+//       Files moved inside the vault (0804 restructure): resaves only the round's "changed" and "moved+changed" files
+//       (parts, then assemblies children first, then drawings). Same refusals as --import.
 //   SwResave.exe --import <plan files.csv> <vaultRoot> [--dry]
 //       After Importer --apply and SwFixRefs --apply. Resaves only the assemblies the plan marks "import"
 //       (vaultRoot\new_folder\new_name), children before parents (dependency order from Document Manager references,
@@ -31,15 +34,15 @@ static class SwResave
         if (args.Length < 1) return Usage();
         // Internal: one file in this process (the parent starts one of these per file).
         // Exit 2 there means bad arguments or refused (no retry); 3 means SOLIDWORKS failed mid-run (retried once).
-        if (args[0] == "--one" || args[0] == "--import-one")
+        if (args[0] == "--one" || args[0] == "--import-one" || args[0] == "--round-one")
         {
             string f;
             try
             {
                 if (args[0] == "--one" && args.Length == 2) f = Path.GetFullPath(args[1]);
-                else if (args[0] == "--import-one" && args.Length == 4)
+                else if ((args[0] == "--import-one" || args[0] == "--round-one") && args.Length == 4)
                 {
-                    var allowed = AllowList(args[1], args[2]);
+                    var allowed = args[0] == "--round-one" ? RoundList(args[1], args[2]) : AllowList(args[1], args[2]);
                     if (allowed == null) return 2;
                     f = Path.GetFullPath(args[3]);
                     if (!allowed.Contains(f, StringComparer.OrdinalIgnoreCase) || Forbidden(f)) { Console.Error.WriteLine("REFUSED (not in the import allow-list): " + f); return 2; }
@@ -52,7 +55,24 @@ static class SwResave
 
         List<string> files;
         string[] childPrefix;
-        if (args[0] == "--import")
+        if (args[0] == "--round")
+        {
+            if (args.Length < 3) return Usage();
+            var allowed = RoundList(args[1], args[2]);
+            if (allowed == null) return 2;
+            var missing = allowed.Where(f => !File.Exists(f)).ToList();
+            if (missing.Count > 0) { foreach (var m in missing) Console.Error.WriteLine("Missing in the vault: " + m); return 2; }
+            // Assemblies children first; then parts; drawings last (their models are saved by then).
+            var asms = DependencyOrder(allowed.Where(f => f.EndsWith(".sldasm", StringComparison.OrdinalIgnoreCase)).ToList());
+            if (asms == null) return 2;
+            files = allowed.Where(f => f.EndsWith(".sldprt", StringComparison.OrdinalIgnoreCase)).Concat(asms)
+                .Concat(allowed.Where(f => f.EndsWith(".slddrw", StringComparison.OrdinalIgnoreCase))).ToList();
+            Console.WriteLine("Round resave: " + files.Count + " files (parts, assemblies children first, drawings last):");
+            for (int i = 0; i < files.Count; i++) Console.WriteLine(string.Format("  {0,2}. {1}", i + 1, files[i]));
+            if (args.Contains("--dry")) return 0;
+            childPrefix = new[] { "--round-one", Quote(Path.GetFullPath(args[1])), Quote(Path.GetFullPath(args[2])) };
+        }
+        else if (args[0] == "--import")
         {
             if (args.Length < 3) return Usage();
             var allowed = AllowList(args[1], args[2]);
@@ -97,6 +117,7 @@ static class SwResave
     static int Usage()
     {
         Console.Error.WriteLine("Usage: SwResave <file> [<file> ...]   or   SwResave --import <plan files.csv> <vaultRoot> [--dry]");
+        Console.Error.WriteLine("       or   SwResave --round <round.csv> <vaultRoot> [--dry]");
         return 2;
     }
 
@@ -110,11 +131,21 @@ static class SwResave
         try
         {
             bool asm = path.EndsWith(".sldasm", StringComparison.OrdinalIgnoreCase);
+            bool drw = path.EndsWith(".slddrw", StringComparison.OrdinalIgnoreCase);
             int errs = 0, warns = 0;
-            var doc = sw.OpenDoc6(path, (int)(asm ? swDocumentTypes_e.swDocASSEMBLY : swDocumentTypes_e.swDocPART),
+            var doc = sw.OpenDoc6(path, (int)(asm ? swDocumentTypes_e.swDocASSEMBLY : drw ? swDocumentTypes_e.swDocDRAWING : swDocumentTypes_e.swDocPART),
                 (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref errs, ref warns);
             Console.Write(Path.GetFileName(path) + ": open errors=" + errs + " warnings=" + warns);
             if (doc == null || errs != 0) { Console.WriteLine("  ** NOT SAVED **"); return 1; }
+            if (drw)
+            {
+                // A drawing: rebuild every sheet (ForceRebuild3 rebuilds the drawing and its views), then save.
+                doc.ForceRebuild3(false);
+                int derr = 0, dwarn = 0;
+                bool dok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref derr, ref dwarn);
+                Console.WriteLine("  rebuilt drawing, save " + (dok ? "ok" : "FAILED") + " (errors=" + derr + " warnings=" + dwarn + ")");
+                return dok ? 0 : 1;
+            }
             string first = ((IConfiguration)doc.GetActiveConfiguration()).Name;
             var names = (string[])doc.GetConfigurationNames();
             foreach (string cn in names)
@@ -165,6 +196,29 @@ static class SwResave
             if (!c[iname].EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase)) continue;
             string p = Path.GetFullPath(Path.Combine(root, c[ifold], c[iname]));
             if (!p.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) || Forbidden(p)) { Console.Error.WriteLine("REFUSED plan row outside the vault root or under .pdm: " + p); return null; }
+            if (!list.Contains(p, StringComparer.OrdinalIgnoreCase)) list.Add(p);
+        }
+        return list;
+    }
+
+    // The round's changed files (round.csv rows "changed" and "moved+changed", at new_path), as full vault paths.
+    static List<string> RoundList(string csvPath, string vaultRoot)
+    {
+        if (!File.Exists(csvPath)) { Console.Error.WriteLine("No such round list: " + csvPath); return null; }
+        string root = Path.GetFullPath(vaultRoot);
+        if (!Directory.Exists(root) || Forbidden(root + "\\")) { Console.Error.WriteLine("Bad vault root: " + root); return null; }
+        var lines = File.ReadAllLines(csvPath);
+        var head = SplitCsv(lines[0].TrimStart('﻿'));
+        int ia = head.IndexOf("action"), inew = head.IndexOf("new_path");
+        if (ia < 0 || inew < 0) { Console.Error.WriteLine("round.csv needs columns action, new_path: " + csvPath); return null; }
+        var list = new List<string>();
+        foreach (var line in lines.Skip(1))
+        {
+            if (line.Trim() == "") continue;
+            var c = SplitCsv(line);
+            if (c.Count <= Math.Max(ia, inew) || (c[ia] != "changed" && c[ia] != "moved+changed")) continue;
+            string p = Path.GetFullPath(Path.Combine(root, c[inew]));
+            if (!p.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) || Forbidden(p)) { Console.Error.WriteLine("REFUSED round row outside the vault root or under .pdm: " + p); return null; }
             if (!list.Contains(p, StringComparer.OrdinalIgnoreCase)) list.Add(p);
         }
         return list;

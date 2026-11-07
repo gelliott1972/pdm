@@ -1,8 +1,47 @@
 # Dev status
 
-Updated 4 Nov 2026, on Grant's laptop.
+Updated 7 Nov 2026, on Grant's laptop.
 
-## Now: 0804 import, step 3 (brief `docs\briefs\import-0804.md`)
+## Now: 0804 restructure and vault moves (brief `docs\briefs\restructure-0804.md`, S1-S5)
+
+Round list: `scratch\import\restructure-0804\round.csv` (action, old_path, new_path, who, why; paths below the vault root).
+App's `pdm checkout / move / load / remove / unlock` read it as it is.
+
+| Action | Files |
+| --- | --- |
+| new | 3: `08x04-STA-01.SLDASM` (SW form-sub) |
+| changed | 10: 3 tops (SW), 3 screens, `08B04-SFA-2T`, `08C04-SFA-2T`, `08B11-STA-01`, `08C11-STA-01` (Dev repoint + resave) |
+| moved | 15: 9 walls and roofs to `LS-08X-04\Screen_Subassemblies` (the brief says 7; its list names 9), `08Z04-SFP-01`, 5 `08Z11` assemblies to `_Shared` |
+| moved+changed | 6: the `08Z11` drawings (moved, model reference repointed) |
+| retired | 2: `LS-08B-04_WITH_SCREEN`, `LS-08C-04_WITH_SCREEN` (App remove, after the load) |
+
+Referencers found from the DM probe of P:\ after 0804; no other file uses a moved or retired file. No name clashes at the targets.
+
+Run order (agreed with App): App checkout (--dry, then real) -> App move -> Dev `SwFixRefs P:\ --round round.csv --apply`
+-> SW dissolve (B, C) + form-sub (`--checked-out --round round.csv`) -> Dev `SwResave-import --round round.csv P:\`
+-> Dev gate `SwFixRefs P:\ --round round.csv` (every vault file: no old or retired path, nothing missing, nothing outside)
+-> STA-01 properties, SwCheck / SwSuppDump / DmProbe -> App load, then remove -> sync on a second copy.
+
+Tools (7 Nov, built; SOLIDWORKS runs still to test; SW holds SOLIDWORKS for its baseline):
+- SwCmd `form-sub <asm> <new> --except <comp> [--round <round.csv>]` (MakeAssemblyFromSelectedComponents) and
+  `dissolve <asm> <comp>`: components matched before/after by file, configuration, suppression and position; mates and
+  pattern features left in the top reported; --save only when clean. `--round`: the only way a new file is made in the
+  vault, and only a "new" row of that list (argument checks tested).
+- SwFixRefs `--round`: repoint old -> new vault paths in the changed files; gate over every vault file. P:\ and
+  C:\PDM\ count as the vault root in a rehearsal copy (untouched files there still store P:\ paths).
+- SwResave `--round`: resaves changed and moved+changed files (parts, assemblies children first, drawings last); now
+  handles drawings. `--dry` on P:\ lists the 10 + 6 (the 6 drawings fail "missing" until they're moved, as expected).
+- Ledger rows: `scratch\import\restructure-0804\make_ledger_rows.py` -> `ledger-rows-draft.csv` (29 rows), appended
+  only in the real run.
+
+STA-01 properties, proposed (Admin checks): as 0811 (D22, D25): at Default `PartNo` 08x04-STA-01, `PartNoStatus`
+Provisional, `Description` `LS-08x-04 Structure`; no file-level properties. Neither `08A06-STA-01` nor
+`08A11-STA-01` has a Finish, so none is proposed (open: does A12 "assemblies carry the finish" apply to the STA-01?).
+
+Rehearsal copy: `scratch\import\rehearsal-restructure\vault` (robocopy of P:\, 485 files). App is setting up a test
+pdm.exe against a test vault, plus a second copy acting as an engineer's PC.
+
+## Earlier: 0804 import, step 3 (brief `docs\briefs\import-0804.md`)
 
 Admin asked: is the importer ready for a full-rename 0804 import from the register? Properties sheet not drafted (item 5 not agreed). No writes to P:\ or M:\.
 

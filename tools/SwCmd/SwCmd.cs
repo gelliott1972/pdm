@@ -32,6 +32,14 @@
 //   move <top> <component path> <target subassembly path> | move <top> <component path> --top   [--save] [--checked-out]
 //                                                move a component into another subassembly of <top>, or up to <top>;
 //                                                paths as in the tree, e.g. "LS-08B-04_SF02-UPPERv2<1>/PLATE<1>"
+//   form-sub <asm> <newFile> --except <component> [--except ...] [--save] [--checked-out]
+//                                                Form New Subassembly: every top-level component of <asm> except the ones
+//                                                named goes into the new assembly <newFile> (never in the vault, never over
+//                                                a file; in the vault only with --round <round.csv> naming it as a "new"
+//                                                row, 0804 restructure); checks every component kept its file, configuration, suppression
+//                                                and position, and lists mates and pattern features left in <asm>
+//   dissolve <asm> <component> [--save] [--checked-out]
+//                                                dissolve a top-level subassembly into <asm>, with the same checks
 //   cut-list <part> [--config <name>]            cut-list items of a weldment part: bodies and properties (read-only)
 //   tree <asm>                                   the component tree with configurations and suppression (read-only)
 //   mass <file> [--config <name>]                mass (kg), volume (m3), surface (m2) of every configuration, read-only
@@ -92,15 +100,20 @@ static class SwCmd
         if (args.Length < 1) return Usage();
         var opts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var pos = new List<string>();
+        var excepts = new List<string>();
         for (int i = 1; i < args.Length; i++)
         {
-            if (args[i] == "--config" || args[i] == "--as" || args[i] == "--purpose")
+            if (args[i] == "--except")
+            { if (i + 1 >= args.Length) return Usage(); excepts.Add(args[++i]); }
+            else if (args[i] == "--config" || args[i] == "--as" || args[i] == "--purpose" || args[i] == "--round")
             { if (i + 1 >= args.Length) return Usage(); opts[args[i].Substring(2)] = args[++i]; }
             else if (args[i].StartsWith("--")) opts[args[i].Substring(2)] = "yes";
             else pos.Add(args[i]);
         }
         string cmd = args[0].ToLowerInvariant();
-        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top", "json", "as", "purpose", "force" };
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top", "json", "as", "purpose", "force", "round" };
+        if (opts.ContainsKey("round") && cmd != "form-sub") { Console.Error.WriteLine("--round is only for form-sub"); return 2; }
+        if (excepts.Count > 0 && cmd != "form-sub") { Console.Error.WriteLine("--except is only for form-sub"); return 2; }
         foreach (var k in opts.Keys) if (!known.Contains(k)) { Console.Error.WriteLine("Unknown option: --" + k); return 2; }
         bool checkedOut = opts.ContainsKey("checked-out"), save = opts.ContainsKey("save");
         if (opts.ContainsKey("json"))
@@ -166,6 +179,16 @@ static class SwCmd
                 if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]);
                 if (refusal == null && Kind(pos[0]) != (int)swDocumentTypes_e.swDocDRAWING) refusal = "drawing-info needs a drawing: " + pos[0];
                 break;
+            case "form-sub":
+                if (pos.Count != 2 || excepts.Count == 0) return Usage();
+                refusal = WriteRefusal(pos[0], checkedOut, false)
+                    ?? (InVault(pos[1]) && opts.ContainsKey("round") ? RoundNewRefusal(opts["round"], pos[1]) : WriteRefusal(pos[1], false, true));
+                if (refusal == null && File.Exists(pos[1])) refusal = "already exists, not overwritten: " + pos[1];
+                if (refusal == null && (Kind(pos[0]) != (int)swDocumentTypes_e.swDocASSEMBLY || Kind(pos[1]) != (int)swDocumentTypes_e.swDocASSEMBLY))
+                    refusal = "form-sub needs an assembly and a new .SLDASM";
+                break;
+            case "dissolve":
+                if (pos.Count != 2) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
             case "pack-and-go":
                 if (pos.Count != 2) return Usage();
                 refusal = ReadRefusal(pos[0]) ?? PackTargetRefusal(pos[0], pos[1]);
@@ -185,6 +208,7 @@ static class SwCmd
             int g = Gate(cmd, role, opts.ContainsKey("purpose") ? opts["purpose"] : "SwCmd " + string.Join(" ", args));
             if (g != 0) return g;
         }
+        formSubExcepts = excepts;
         try { return Run(cmd, pos, opts, config, save, checkedOut); }
         finally { ReleaseCommandLock(); }
     }
@@ -235,6 +259,8 @@ static class SwCmd
                 case "tree": return Tree(sw, pos[0]);
                 case "mass": openReadOnly = true; return Mass(sw, pos[0], config);
                 case "pack-and-go": return PackAndGo(sw, pos[0], pos[1]);
+                case "form-sub": return FormSub(sw, pos[0], pos[1], formSubExcepts, save, checkedOut);
+                case "dissolve": return Dissolve(sw, pos[0], pos[1], save, checkedOut);
                 case "export-pdf": openReadOnly = true; return ExportPdf(sw, pos[0], pos[1]);
                 case "drawing-info": openReadOnly = true; return DrawingInfo(sw, pos[0]);
             }
@@ -377,7 +403,7 @@ static class SwCmd
         switch (cmd)
         {
             case "replace": case "save-virtual": return i == 0 || i == 2;
-            case "set-config": case "delete": case "delete-config": case "move": return i == 0;
+            case "set-config": case "delete": case "delete-config": case "move": case "dissolve": return i == 0;
             default: return true;
         }
     }
@@ -392,6 +418,8 @@ static class SwCmd
         Console.Error.WriteLine("       | save-virtual <asm> <component> <newFile> [--save] [--checked-out]");
         Console.Error.WriteLine("       | save-as <file> <newFile> [--copy] | delete-config <file> <config> [--save] [--checked-out]");
         Console.Error.WriteLine("       | move <top> <component path> <target subassembly path> | move <top> <component path> --top  [--save] [--checked-out]");
+        Console.Error.WriteLine("       | form-sub <asm> <newFile> --except <component> [--except ...] [--round <round.csv>] [--save] [--checked-out]");
+        Console.Error.WriteLine("       | dissolve <asm> <component> [--save] [--checked-out]");
         Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | mass <file> [--config <name>] | pack-and-go <top> <newFolder>");
         Console.Error.WriteLine("       | export-pdf <drawing> <out.pdf> | drawing-info <drawing> [--json]");
         Console.Error.WriteLine("       | lock --as <role> [--purpose <text>] | unlock --as <role> [--force]");
@@ -414,6 +442,29 @@ static class SwCmd
         if (p.IndexOf(@"\.pdm\", StringComparison.OrdinalIgnoreCase) >= 0 || p.EndsWith(@"\.pdm", StringComparison.OrdinalIgnoreCase))
             return ".pdm is never touched: " + p;
         return null;
+    }
+
+    // form-sub --round <round.csv>: the one exception to "no new file in the vault": the new file must be a "new" row
+    // of that round list (0804 restructure: the STA-01s are formed in the checked-out tops on P:\ in the agreed run).
+    static string RoundNewRefusal(string roundCsv, string newFile)
+    {
+        string r = ReadRefusal(newFile);
+        if (r != null) return r;
+        roundCsv = Path.GetFullPath(roundCsv);
+        if (!File.Exists(roundCsv)) return "no such round list: " + roundCsv;
+        string rel = newFile.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) ? newFile.Substring(3)
+            : newFile.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase) ? newFile.Substring(7) : null;
+        if (rel == null) return "not a vault path: " + newFile;
+        var lines = File.ReadAllLines(roundCsv);
+        var head = lines[0].TrimStart('\uFEFF').Split(',').ToList();
+        int ia = head.IndexOf("action"), inew = head.IndexOf("new_path");
+        if (ia < 0 || inew < 0) return "the round list needs columns action, new_path: " + roundCsv;
+        foreach (var l in lines.Skip(1))
+        {
+            var c = l.Split(',');
+            if (c.Length > Math.Max(ia, inew) && c[ia] == "new" && string.Equals(c[inew], rel, StringComparison.OrdinalIgnoreCase)) return null;
+        }
+        return "not a \"new\" row of " + roundCsv + ": " + newFile;
     }
 
     static string WriteRefusal(string p, bool checkedOut, bool newFile)
@@ -967,6 +1018,240 @@ static class SwCmd
         Diff(before, Snapshot(asm));
         Console.WriteLine("  the subassembly it left and the top both change: save both (save <top> saves the open documents it carries)");
         return AfterChange(sw, doc, save, checkedOut);
+    }
+
+    // ---------- form-sub and dissolve (0804 restructure, SW 7 Nov) ----------
+    static List<string> formSubExcepts = new List<string>();
+
+    // Every component (all levels) as a "file <config> [suppressed] @ position" signature, so components can be matched
+    // when SOLIDWORKS renames or renumbers them. Position: the component's transform in the top, rounded to 1e-5 (m).
+    static List<string> Signatures(AssemblyDoc asm, Func<Component2, bool> skip)
+    {
+        var list = new List<string>();
+        foreach (var c in (asm.GetComponents(false) as object[] ?? new object[0]).Cast<Component2>())
+            if (!skip(c)) list.Add(Signature(c));
+        list.Sort(StringComparer.OrdinalIgnoreCase);
+        return list;
+    }
+
+    static string Signature(Component2 c)
+    {
+        string pos = "?";
+        try
+        {
+            var t = c.Transform2;
+            var a = t == null ? null : t.ArrayData as double[];
+            if (a != null && a.Length >= 12)
+                pos = string.Join(",", a.Take(12).Select(v => Math.Round(v, 5).ToString("0.00000", System.Globalization.CultureInfo.InvariantCulture).Replace("-0.00000", "0.00000")));
+        }
+        catch { }
+        return (c.GetPathName() ?? "").ToUpperInvariant() + " <" + c.ReferencedConfiguration + ">"
+            + (c.GetSuppression2() == (int)swComponentSuppressionState_e.swComponentSuppressed ? " [suppressed]" : "") + " @ " + pos;
+    }
+
+    // Lists what is in one list and not the other (multiset), as problems; returns the number of differences.
+    static int CompareSignatures(List<string> before, List<string> after, string what)
+    {
+        var left = before.GroupBy(x => x, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+        var right = after.GroupBy(x => x, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+        int n = 0;
+        foreach (var k in left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase))
+        {
+            int l, r; left.TryGetValue(k, out l); right.TryGetValue(k, out r);
+            if (l == r) continue;
+            n += Math.Abs(l - r);
+            if (n <= 40) problems.Add(what + ": " + (l > r ? (l - r) + " before, not after: " : (r - l) + " after, not before: ") + k);
+        }
+        if (n > 40) problems.Add(what + ": " + n + " differences in all (first 40 listed)");
+        Console.WriteLine(what + ": " + before.Count + " components before, " + after.Count + " after, "
+            + (n == 0 ? "every one with the same file, configuration, suppression and position" : n + " DIFFERENT"));
+        return n;
+    }
+
+    // Mates (MateGroup) of one document, each with the components it uses (as seen from the top, "Sub-1/Part-1";
+    // "" for the assembly's own planes and origin).
+    static List<KeyValuePair<string, List<string>>> Mates(ModelDoc2 doc)
+    {
+        var list = new List<KeyValuePair<string, List<string>>>();
+        for (var f = doc.FirstFeature() as Feature; f != null; f = f.GetNextFeature() as Feature)
+        {
+            if (f.GetTypeName2() != "MateGroup") continue;
+            for (var m = f.GetFirstSubFeature() as Feature; m != null; m = m.GetNextSubFeature() as Feature)
+            {
+                var comps = new List<string>();
+                var mate = m.GetSpecificFeature2() as Mate2;
+                if (mate != null)
+                    for (int i = 0; i < mate.GetMateEntityCount(); i++)
+                    {
+                        var e = mate.MateEntity(i);
+                        var rc = e == null ? null : e.ReferenceComponent as Component2;
+                        comps.Add(rc == null ? "" : rc.Name2);
+                    }
+                list.Add(new KeyValuePair<string, List<string>>(m.Name + " (" + m.GetTypeName2() + ")", comps));
+            }
+        }
+        return list;
+    }
+
+    // Component pattern and mirror features of one document.
+    static List<string> Patterns(ModelDoc2 doc)
+    {
+        var list = new List<string>();
+        for (var f = doc.FirstFeature() as Feature; f != null; f = f.GetNextFeature() as Feature)
+        {
+            string t = f.GetTypeName2();
+            if (t.IndexOf("Pattern", StringComparison.OrdinalIgnoreCase) >= 0 || t.IndexOf("Mirror", StringComparison.OrdinalIgnoreCase) >= 0)
+                list.Add(f.Name + " (" + t + ")");
+        }
+        return list;
+    }
+
+    static void OneConfiguration(ModelDoc2 doc, string path)
+    {
+        var names = ConfigNames(doc);
+        if (names.Count > 1)
+            problems.Add(path + " has " + names.Count + " configurations (" + string.Join(", ", names) + "): only the active one, "
+                + ((Configuration)doc.GetActiveConfiguration()).Name + ", was checked; check the others before saving");
+    }
+
+    static bool InsideOf(string name, string prefix) { return name.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase); }
+
+    static bool IsKeptName(string name, HashSet<string> keepNames) { return keepNames.Contains(name) || keepNames.Any(k => InsideOf(name, k)); }
+
+    static int FormSub(ISldWorks sw, string asmPath, string newFile, List<string> excepts, bool save, bool checkedOut)
+    {
+        var asm = OpenAssembly(sw, asmPath);
+        if (asm == null) return Finish();
+        var doc = (ModelDoc2)asm;
+        OneConfiguration(doc, asmPath);
+        var keep = new List<Component2>();
+        foreach (var e in excepts) { var c = FindComponent(asm, e); if (c == null) return Finish(); keep.Add(c); }
+        var keepNames = new HashSet<string>(keep.Select(c => c.Name2), StringComparer.OrdinalIgnoreCase);
+        var tops = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>().ToList();
+        var move = tops.Where(c => !keepNames.Contains(c.Name2)).ToList();
+        if (move.Count == 0) { problems.Add("nothing to move: every top-level component is excepted"); return Finish(); }
+        Func<Component2, bool> isKept = c => IsKeptName(c.Name2, keepNames);
+        var keptBefore = Signatures(asm, c => !isKept(c));
+        var movedBefore = Signatures(asm, isKept);
+        var snapBefore = Snapshot(asm);
+        var matesBefore = Mates(doc);
+        var patternsBefore = Patterns(doc);
+        Console.WriteLine("Top-level components: " + tops.Count + "; kept in the top: " + string.Join(", ", keepNames) + "; into " + Path.GetFileName(newFile) + ": " + move.Count);
+        Console.WriteLine("Before: " + matesBefore.Count + " mates and " + patternsBefore.Count + " pattern/mirror features in the top"
+            + (patternsBefore.Count > 0 ? " (" + string.Join(", ", patternsBefore) + ")" : ""));
+
+        doc.ClearSelection2(true);
+        var sel = (SelectionMgr)doc.SelectionManager;
+        int selected = 0;
+        foreach (var c in move)
+        {
+            var data = sel.CreateSelectData();
+            if (c.Select4(true, data, false)) selected++; else problems.Add("could not select " + c.Name2);
+        }
+        Console.WriteLine("Selected " + selected + " of " + move.Count + " (SOLIDWORKS counts " + sel.GetSelectedObjectCount2(-1) + ").");
+        if (selected != move.Count) { doc.ClearSelection2(true); return Finish(); }
+        bool ok = asm.MakeAssemblyFromSelectedComponents(newFile);
+        doc.ClearSelection2(true);
+        var made = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>()
+            .Where(c => string.Equals(c.GetPathName(), newFile, StringComparison.OrdinalIgnoreCase)).ToList();
+        Console.WriteLine((ok && made.Count == 1 ? "Formed " : "FORM-SUB FAILED ") + newFile
+            + (made.Count == 1 ? " as " + made[0].Name2 : " (components using it: " + made.Count + ")"));
+        if (!ok || made.Count != 1)
+        {
+            problems.Add("MakeAssemblyFromSelectedComponents returned " + ok + ", " + made.Count + " components use " + newFile + "; close without saving");
+            return Finish();
+        }
+        string sub = made[0].Name2;
+
+        // Every component that was meant to move is now inside the new one, unchanged; the kept ones are unchanged.
+        var topsAfter = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>().Select(c => c.Name2).ToList();
+        foreach (var t in topsAfter.Where(t => !keepNames.Contains(t) && !string.Equals(t, sub, StringComparison.OrdinalIgnoreCase)))
+            problems.Add("still at the top level of " + Path.GetFileName(asmPath) + ", not in " + sub + ": " + t);
+        foreach (var k in keepNames.Where(k => !topsAfter.Contains(k, StringComparer.OrdinalIgnoreCase)))
+            problems.Add("the kept component " + k + " is no longer at the top level");
+        CompareSignatures(keptBefore, Signatures(asm, c => !isKept(c)), "Kept in the top");
+        CompareSignatures(movedBefore, Signatures(asm, c => !InsideOf(c.Name2, sub)), "Into " + sub);
+        var snapAfter = Snapshot(asm);
+        int renamed = snapBefore.Keys.Count(k => !IsKeptName(k, keepNames) && !snapAfter.ContainsKey(sub + "/" + k));
+        Console.WriteLine("Names: " + (renamed == 0 ? "every moved component keeps its name under " + sub
+            : renamed + " moved components have a new name or number under " + sub + " (matched by file and position above)"));
+
+        // Mates and patterns: what stayed in the top, and what the new assembly holds.
+        var matesAfter = Mates(doc);
+        var subDoc = made[0].GetModelDoc2() as ModelDoc2;
+        var subMates = subDoc == null ? null : Mates(subDoc);
+        var patternsAfter = Patterns(doc);
+        var subPatterns = subDoc == null ? new List<string>() : Patterns(subDoc);
+        Console.WriteLine("After: " + matesAfter.Count + " mates in the top, " + (subMates == null ? "?" : subMates.Count.ToString()) + " in " + sub
+            + "; pattern/mirror features: " + patternsAfter.Count + " in the top, " + subPatterns.Count + " in " + sub);
+        if (subMates != null && matesAfter.Count + subMates.Count != matesBefore.Count)
+            problems.Add("mates: " + matesBefore.Count + " before, " + matesAfter.Count + " + " + subMates.Count + " after");
+        foreach (var m in matesAfter)
+        {
+            bool steel = m.Value.Any(n => InsideOf(n, sub) || string.Equals(n, sub, StringComparison.OrdinalIgnoreCase));
+            bool other = m.Value.Any(n => n == "" || IsKeptName(n, keepNames));
+            if (steel && !other) problems.Add("mate left in the top between components that are all in " + sub + ": " + m.Key + " [" + string.Join("; ", m.Value) + "]");
+            else if (steel) Console.WriteLine("  mate kept in the top (it ties " + sub + " to the top or a kept component): " + m.Key + " [" + string.Join("; ", m.Value) + "]");
+        }
+        foreach (var p in patternsAfter) problems.Add("pattern/mirror feature left in the top: " + p);
+        if (subDoc == null) problems.Add("could not reach " + sub + "'s document to check its mates and patterns");
+        return AfterSubChange(sw, doc, subDoc, save, checkedOut);
+    }
+
+    static int Dissolve(ISldWorks sw, string asmPath, string comp, bool save, bool checkedOut)
+    {
+        var asm = OpenAssembly(sw, asmPath);
+        if (asm == null) return Finish();
+        var doc = (ModelDoc2)asm;
+        OneConfiguration(doc, asmPath);
+        var c = FindComponent(asm, comp);
+        if (c == null) return Finish();
+        string name = c.Name2, file = c.GetPathName();
+        if (Kind(file ?? "") != (int)swDocumentTypes_e.swDocASSEMBLY) { problems.Add(name + " is not a subassembly"); return Finish(); }
+        if (c.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentFullyResolved)
+            c.SetSuppression2((int)swComponentSuppressionState_e.swComponentFullyResolved);
+        var subDoc = c.GetModelDoc2() as ModelDoc2;
+        int subMates = subDoc == null ? -1 : Mates(subDoc).Count;
+        var before = Signatures(asm, x => string.Equals(x.Name2, name, StringComparison.OrdinalIgnoreCase));
+        int matesBefore = Mates(doc).Count;
+        int tops = (asm.GetComponents(true) as object[] ?? new object[0]).Length;
+        if (!Select(doc, c)) return Finish();
+        bool ok = asm.DissolveSubAssembly();
+        doc.ClearSelection2(true);
+        bool gone = FindComponent(asm, name, true) == null;
+        Console.WriteLine((ok && gone ? "Dissolved " : "DISSOLVE FAILED ") + name + " (" + file + ") into " + Path.GetFileName(asmPath));
+        if (!ok || !gone)
+        {
+            problems.Add("DissolveSubAssembly returned " + ok + "; " + name + (gone ? " is gone" : " is still there") + "; close without saving");
+            return Finish();
+        }
+        CompareSignatures(before, Signatures(asm, x => false), "Components (all levels, " + name + " itself left out)");
+        int matesAfter = Mates(doc).Count;
+        Console.WriteLine("Top-level components: " + tops + " before, " + (asm.GetComponents(true) as object[] ?? new object[0]).Length + " after; mates in the top: "
+            + matesBefore + " before + " + (subMates < 0 ? "?" : subMates.ToString()) + " in " + name + " = " + matesAfter + " after");
+        if (subMates >= 0 && matesAfter != matesBefore + subMates) problems.Add("mates: " + matesBefore + " + " + subMates + " before, " + matesAfter + " after");
+        foreach (var p in Patterns(doc)) Console.WriteLine("  pattern/mirror feature in the top: " + p);
+        Console.WriteLine("  " + Path.GetFileName(file) + " itself is not changed or deleted; the top no longer uses it.");
+        return AfterSubChange(sw, doc, null, save, checkedOut);
+    }
+
+    // Rebuild, what's wrong, then with --save (and no problems) the new subassembly, if any, and the top.
+    static int AfterSubChange(ISldWorks sw, ModelDoc2 doc, ModelDoc2 subDoc, bool save, bool checkedOut)
+    {
+        doc.ForceRebuild3(false);
+        ReportWhatsWrong(doc);
+        if (!save) { Console.WriteLine("Not saved (the change is in SOLIDWORKS only; run save, or pass --save)."); return Finish(); }
+        if (problems.Count > 0) { Console.WriteLine("Not saved: problems above (close without saving, or save after checking)."); return Finish(); }
+        if (subDoc != null)
+        {
+            int err = 0, warn = 0;
+            bool ok = subDoc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref err, ref warn);
+            bool there = File.Exists(subDoc.GetPathName());
+            Console.WriteLine((ok && there ? "Saved " : "SAVE FAILED ") + subDoc.GetPathName() + (err != 0 ? " errors: " + FlagNames(typeof(swFileSaveError_e), err) : ""));
+            if (!ok || !there) { problems.Add("the new subassembly was not saved"); return Finish(); }
+        }
+        if (!SaveDoc(sw, doc, checkedOut)) return 2;
+        return Finish();
     }
 
     // Cut list of a part in one configuration: each cut-list item, its body count and properties.

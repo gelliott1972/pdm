@@ -81,9 +81,14 @@ static class SwCmd
             else pos.Add(args[i]);
         }
         string cmd = args[0].ToLowerInvariant();
-        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top" };
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top", "json" };
         foreach (var k in opts.Keys) if (!known.Contains(k)) { Console.Error.WriteLine("Unknown option: --" + k); return 2; }
         bool checkedOut = opts.ContainsKey("checked-out"), save = opts.ContainsKey("save");
+        if (opts.ContainsKey("json"))
+        {
+            if (cmd != "drawing-info") { Console.Error.WriteLine("--json is only for drawing-info"); return 2; }
+            jsonOut = Console.Out; Console.SetOut(Console.Error);   // stdout carries only the JSON
+        }
         string config = opts.ContainsKey("config") ? opts["config"] : null;
 
         // Check every path before SOLIDWORKS is touched.
@@ -197,7 +202,7 @@ static class SwCmd
         Console.Error.WriteLine("       | save-as <file> <newFile> [--copy] | delete-config <file> <config> [--save] [--checked-out]");
         Console.Error.WriteLine("       | move <top> <component path> <target subassembly path> | move <top> <component path> --top  [--save] [--checked-out]");
         Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | pack-and-go <top> <newFolder>");
-        Console.Error.WriteLine("       | export-pdf <drawing> <out.pdf> | drawing-info <drawing>");
+        Console.Error.WriteLine("       | export-pdf <drawing> <out.pdf> | drawing-info <drawing> [--json]");
         return 2;
     }
 
@@ -919,12 +924,18 @@ static class SwCmd
     // What a drawing shows for its revision, per sheet: the title-block notes linked to a revision property (as
     // displayed), the Revision-Sheet<n> property they read, the revision table, and the models the views show.
     // Read-only: sheets are activated and the sheet format is opened for edit in memory only, never saved.
-    // Output, tab-separated: DRAWING, PROP, SHEET, NOTE, ROW, MODEL lines, then OK / PROBLEMS.
+    // Text output, tab-separated: DRAWING, PROP, SHEET, NOTE, ROW, MODEL lines, then OK / PROBLEMS.
+    // --json: stdout is one JSON object (App's release step, 7 Nov); every other line goes to stderr:
+    //   { "drawing", "sheets": [ { "number", "name", "rev", "revSource", "revisionSheetProperty", "format", "revTableCurrent" } ],
+    //     "revTable": [ { "rev", "description", "date", "by", "checked", "cells": [...] } ]  (first sheet with a table, oldest first),
+    //     "views": [ { "sheet", "model", "configuration" } ], "problems": [ ... ] }
+    static TextWriter jsonOut;   // set when --json: the real stdout
+
     static int DrawingInfo(ISldWorks sw, string drawing)
     {
         bool wasOpen;
         var doc = OpenOrActivate(sw, drawing, null, out wasOpen);
-        if (doc == null) return Finish();
+        if (doc == null) return FinishJson(drawing, null, null, null);
         if (wasOpen && doc.GetSaveFlag()) problems.Add("the drawing was already open with unsaved changes: this shows them, not the saved file");
         var drw = (DrawingDoc)doc;
         var cpm = doc.Extension.CustomPropertyManager[""];
@@ -939,6 +950,7 @@ static class SwCmd
         Console.WriteLine("DRAWING\t" + drawing + "\tsheets=" + sheets.Count);
         foreach (var name in ((cpm.GetNames() as object[]) ?? new object[0]).Cast<string>().Where(n => n.IndexOf("rev", StringComparison.OrdinalIgnoreCase) >= 0))
             Console.WriteLine("PROP\t" + name + "\t" + (prop(name) ?? ""));
+        var jSheets = new List<string>(); var jViews = new List<string>(); List<string> jTable = null;
         for (int i = 0; i < sheets.Count; i++)
         {
             int n = i + 1;
@@ -946,44 +958,101 @@ static class SwCmd
             var sheet = (Sheet)drw.GetCurrentSheet();
             var rt = sheet.RevisionTable;
             string pv = prop("Revision-Sheet" + n);
-            var shown = new List<string>();
+            var notes = new List<string[]>();
             drw.EditTemplate();
-            CollectRevNotes((View)drw.GetFirstView(), n, "format", shown);
+            CollectRevNotes((View)drw.GetFirstView(), n, "format", notes);
             drw.EditSheet();
-            CollectRevNotes((View)drw.GetFirstView(), n, "sheet", shown);
-            Console.WriteLine("SHEET\t" + n + "\t" + sheets[i] + "\tREV=" + string.Join(" / ", shown.Distinct()) + "\tRevision-Sheet" + n + "=" + (pv ?? "(none)")
+            CollectRevNotes((View)drw.GetFirstView(), n, "sheet", notes);
+            var shown = notes.Select(x => x[1]).Distinct().ToList();
+            Console.WriteLine("SHEET\t" + n + "\t" + sheets[i] + "\tREV=" + string.Join(" / ", shown) + "\tRevision-Sheet" + n + "=" + (pv ?? "(none)")
                 + "\ttable=" + (rt == null ? "none" : rt.CurrentRevision));
             if (shown.Count == 0) problems.Add("sheet " + n + " (" + sheets[i] + "): no title-block note shows a revision");
-            else if (pv != null && shown.Any(s => !string.Equals(s.Trim(), pv.Trim(), StringComparison.OrdinalIgnoreCase)))
-                problems.Add("sheet " + n + ": the title block shows " + string.Join(" / ", shown.Distinct()) + " but Revision-Sheet" + n + " is " + pv);
+            else if (shown.Count > 1) problems.Add("sheet " + n + ": revision notes disagree: " + string.Join(" / ", shown));
+            else if (pv != null && !string.Equals(shown[0].Trim(), pv.Trim(), StringComparison.OrdinalIgnoreCase))
+                problems.Add("sheet " + n + ": the title block shows " + shown[0] + " but Revision-Sheet" + n + " is " + pv);
+            jSheets.Add("{\"number\":" + n + ",\"name\":" + J(sheets[i]) + ",\"rev\":" + J(shown.Count == 1 ? shown[0] : (shown.Count == 0 ? null : string.Join(" / ", shown)))
+                + ",\"revSource\":" + J(notes.Count > 0 ? notes[0][0] : null) + ",\"revisionSheetProperty\":" + J(pv)
+                + ",\"format\":" + J(sheet.GetTemplateName()) + ",\"revTableCurrent\":" + J(rt == null ? null : rt.CurrentRevision) + "}");
             if (rt != null)
             {
                 var t = (TableAnnotation)rt;
+                var rows = new List<string[]>();
                 for (int r = 0; r < t.RowCount; r++)
-                    Console.WriteLine("ROW\t" + n + "\t" + r + "\t" + string.Join(" | ", Enumerable.Range(0, t.ColumnCount).Select(c => Clean(t.Text[r, c]))));
+                {
+                    var cells = Enumerable.Range(0, t.ColumnCount).Select(c => Clean(t.Text[r, c])).ToArray();
+                    rows.Add(cells);
+                    Console.WriteLine("ROW\t" + n + "\t" + r + "\t" + string.Join(" | ", cells));
+                }
+                if (jTable == null && rows.Count > 0) jTable = RevRowsJson(rows, rt.CurrentRevision);
             }
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var v = ((View)drw.GetFirstView()).GetNextView() as View;
             while (v != null)
             {
                 string m = v.GetReferencedModelName() ?? "", cfg = v.ReferencedConfiguration ?? "";
-                if (m != "" && seen.Add(m + "|" + cfg)) Console.WriteLine("MODEL\t" + n + "\t" + m + "\t" + cfg);
+                if (m != "" && seen.Add(m + "|" + cfg))
+                {
+                    Console.WriteLine("MODEL\t" + n + "\t" + m + "\t" + cfg);
+                    jViews.Add("{\"sheet\":" + n + ",\"model\":" + J(m) + ",\"configuration\":" + J(cfg) + "}");
+                }
                 v = v.GetNextView() as View;
             }
         }
         drw.ActivateSheet(active);
         if (!wasOpen) { sw.CloseDoc(doc.GetTitle()); Console.WriteLine("Closed the drawing again without saving."); }
-        return Finish();
+        return FinishJson(drawing, jSheets, jTable ?? new List<string>(), jViews);
     }
 
-    static void CollectRevNotes(View v, int n, string where, List<string> shown)
+    // The revision table's rows as JSON, oldest first. A row whose cells look like headers names the columns; the
+    // rows are read in the order that ends with the current revision.
+    static List<string> RevRowsJson(List<string[]> rows, string current)
+    {
+        int head = rows.FindIndex(r => r.Any(c => c.Trim().ToUpperInvariant().StartsWith("REV")) && r.Any(c => c.Trim().ToUpperInvariant().StartsWith("DESC")));
+        string[] h = head >= 0 ? rows[head].Select(c => c.Trim().ToUpperInvariant()).ToArray() : new string[0];
+        Func<string, int> col = w => Array.FindIndex(h, x => x.StartsWith(w));
+        int cRev = head >= 0 ? col("REV") : 0, cDesc = col("DESC"), cDate = col("DATE"), cBy = Math.Max(col("BY"), col("DRAWN")), cChk = Math.Max(col("CHK"), col("CHECK"));
+        var data = rows.Where((r, i) => i != head && r.Any(c => c.Trim() != "")).ToList();
+        if (data.Count > 1 && current != null && cRev >= 0 && cRev < data[0].Length && data[0][cRev].Trim() == current.Trim()) data.Reverse();
+        Func<string[], int, string> cell = (r, k) => k >= 0 && k < r.Length ? r[k] : null;
+        return data.Select(r => "{\"rev\":" + J(cell(r, cRev)) + ",\"description\":" + J(cell(r, cDesc)) + ",\"date\":" + J(cell(r, cDate))
+            + ",\"by\":" + J(cell(r, cBy)) + ",\"checked\":" + J(cell(r, cChk)) + ",\"cells\":[" + string.Join(",", r.Select(J)) + "]}").ToList();
+    }
+
+    static int FinishJson(string drawing, List<string> sheets, List<string> table, List<string> views)
+    {
+        int code = Finish();
+        if (jsonOut != null)
+        {
+            jsonOut.WriteLine("{\"drawing\":" + J(drawing) + ",\"sheets\":[" + string.Join(",", sheets ?? new List<string>()) + "],\"revTable\":["
+                + string.Join(",", table ?? new List<string>()) + "],\"views\":[" + string.Join(",", views ?? new List<string>()) + "],\"problems\":["
+                + string.Join(",", problems.Select(J)) + "]}");
+            jsonOut.Flush();
+        }
+        return code;
+    }
+
+    static string J(string s)
+    {
+        if (s == null) return "null";
+        var b = new System.Text.StringBuilder("\"");
+        foreach (char ch in s)
+        {
+            if (ch == '"') b.Append("\\\"");
+            else if (ch == '\\') b.Append("\\\\");
+            else if (ch < ' ') b.Append("\\u" + ((int)ch).ToString("x4"));
+            else b.Append(ch);
+        }
+        return b.Append('"').ToString();
+    }
+
+    static void CollectRevNotes(View v, int n, string where, List<string[]> notes)
     {
         foreach (var note in (v.GetNotes() as object[] ?? new object[0]).Cast<Note>())
         {
             string link = note.PropertyLinkedText ?? "", text = note.GetText() ?? "";
             if (link.IndexOf("Revision", StringComparison.OrdinalIgnoreCase) < 0) continue;
             Console.WriteLine("NOTE\t" + n + "\t" + where + "\tlink=" + Clean(link) + "\tshows=" + Clean(text));
-            shown.Add(Clean(text));
+            notes.Add(new[] { Clean(link), Clean(text) });
         }
     }
 

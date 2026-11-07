@@ -66,20 +66,20 @@ Example:
 
 `{ "id": "20261107-110227-5706", "text": "…", "createdAt": "…" }`: Grant's note to Admin. Admin may add `"readAt"` once it's read; the page then shows "read by Admin" under the note.
 
-## Phase 2 design: `sw-job` tickets (not built yet)
+## `sw-job` tickets (phase 2, built 7 Nov)
 
 Same common fields (`id, type: "sw-job", ref, title, body, priority, owner, createdAt, status`), plus:
 
 | Field | Example | Notes |
 | --- | --- | --- |
-| `files` | `[{ "path": "P:\\APEX\\GNRIC\\GNRIC-LM.SLDPRT", "configuration": "250+3000+250_SHS_40X40" }]` | Opened in order on **Start**. `configuration` is optional; the last file opened is left active |
-| `closeAll` | `true` (default) | Start first closes all documents **without saving**, after a confirm on the page |
-| `steps` | `["Open the cut list…", "Set Finish to HDG…"]` | Shown one at a time |
-| `step` | `0` | Index of the step showing; the page updates it on Next/Back so a reload keeps the place |
+| `files` | `[{ "path": "P:\\APEX\\GNRIC\\GNRIC-LM.SLDPRT", "configuration": "250+3000+250_SHS_40X40" }]` | Opened in order on **Start**. Full paths to .SLDPRT, .SLDASM or .SLDDRW files that exist; nothing under `.pdm`. `configuration` is optional; the last file opened is left active |
+| `closeAll` | `true` (default) | Start first closes all documents **without saving**, after a confirm on the page. `false`: only opens |
+| `steps` | `["Open the cut list…", "Set Finish to HDG…"]` | Shown one at a time with Back / Next (`**bold**` and `` `code` `` work) |
+| `step` | `0` | The step showing; the page updates it on Next/Back, so a reload keeps the place |
 | `startedAt` | UTC ISO | Set by the page on Start |
-| `run` | `{ "at": "…", "ok": true, "message": "Opened 1 file" }` | The page records the tool's last result (Start), so the owner sees if opening failed |
-| `answer` | `{ "choice": "done", "note": "" }` or `{ "choice": "problem", "note": "…" }` | **Done** and **Problem** set `status: "answered"` with this; the owner checks the work, then sets `done` |
+| `run` | `{ "at", "ok", "problems", "message", "output" }` | Set by the page after Start: `ok` false means it stopped (refused, SOLIDWORKS error or timeout); `problems` counts calls that finished with problems (exit 1); `output` is SwCmd's full report (last 12000 characters) |
+| `answer` | `{ "choice": "done", "note": "" }` or `{ "choice": "problem", "note": "…" }` | **Done** and **Problem** set `status: "answered"`; the owner checks the work, then sets `done`. Change answer works as for decisions (`history`) |
 
-Status flow: `open` → (Start) `started` → (Done / Problem) `answered` → (owner checked) `done`.
+Status flow: `open` → (Start) `started` → (Done / Problem) `answered` → (owner checked) `done`. Start can be pressed again while `started`.
 
-The page calls only a fixed set of Dev's tool commands (close all without saving, open file, set configuration), with the ticket's paths. Tickets never carry commands. The tool's own rules apply: no writes to `M:\`, none to `P:\` unless the file is checked out, never `P:\.pdm`. The command line of Dev's tool is to be agreed with Dev when it exists.
+**What Start runs** (agreed with Dev 7 Nov; SwCmd at `C:\code\pdm\tools\SwCmd\bin\SwCmd.exe`, or the `PDM_SWCMD` variable): `SwCmd.exe close-all` (never `--exit`; skipped when `closeAll` is false), then `SwCmd.exe open "<file>" [--config "<name>"]` for each file in order. Exit 0 is clean, and 1 means done with problems (carries on); 2 or 3 stops the job. The first call gets 5 minutes (it may have to start SOLIDWORKS) and later ones get 3; on a timeout the Desk stops SwCmd and leaves SOLIDWORKS alone. One job runs at a time. Arguments are passed directly, never through a shell, and tickets never carry commands. Nothing in these calls saves.

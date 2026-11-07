@@ -79,8 +79,24 @@ button.b.primary { background: var(--accent); color: var(--accent-ink); border-c
 button.b.primary:hover { filter: brightness(1.06); }
 button.b:disabled { opacity: .45; cursor: default; filter: none; border-color: var(--line); }
 button.link { background: none; border: 0; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; padding: 0; }
-.steps { margin: 10px 0 0 18px; padding: 0; }
-.soon { color: var(--muted); font-size: 12px; margin-top: 10px; }
+.files { margin-top: 10px; display: grid; gap: 4px; font-size: 13px; }
+.files code { font: 12.5px ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.cfg { font-size: 12px; color: var(--accent); background: var(--accent-soft); border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
+.run { margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-weight: 600; font-size: 13px; }
+.run.good { background: var(--green-soft); color: var(--green); }
+.run.warn { background: var(--amber-soft); color: var(--amber); }
+.run.bad { background: var(--red-soft); color: var(--red); }
+.run .meta { font-weight: 400; display: inline; }
+details.out { margin-top: 6px; font-size: 12px; color: var(--muted); }
+details.out summary { cursor: pointer; }
+details.out pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 6px 0 0; font: 12px/1.4 ui-monospace, Consolas, monospace; color: var(--ink); }
+.confirm { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--amber-soft); color: var(--ink); }
+.confirm .acts { margin-top: 8px; }
+.working { color: var(--amber); font-weight: 600; }
+.hint.left { margin-left: 0; }
+.stepbox { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.steptext { margin-top: 4px; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.stepbox .acts { margin-top: 10px; }
 .sent .row { display: flex; gap: 10px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--line); }
 .sent .row:first-child { border-top: 0; padding-top: 0; }
 .sent .row:last-child { padding-bottom: 0; }
@@ -179,7 +195,7 @@ async function load() {
   $('ago').textContent = lastSeen ? 'Updated ' + new Date(lastSeen).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
 }
 
-const isOpen = t => (t.status || 'open') === 'open' || editing.has(t._file);
+const isOpen = t => ['open', 'started'].includes(t.status || 'open') || editing.has(t._file);
 const rank = t => (t.priority === 'blocking' ? 0 : 1);
 
 function render() {
@@ -237,14 +253,80 @@ function ticketCard(t) {
   } else if (type === 'info') {
     html += '<div class="acts"><button class="b" data-act="dismiss">Dismiss</button><span class="msg"></span></div>';
   } else if (type === 'sw-job') {
-    const steps = t.steps || [];
-    html += (t.files || []).length ? `<div class="meta" style="margin-top:8px">${(t.files).map(f => esc(f.path) + (f.configuration ? ' · ' + esc(f.configuration) : '')).join('<br>')}</div>` : '';
-    html += steps.length ? '<ol class="steps">' + steps.map(s => `<li>${fmt(s)}</li>`).join('') + '</ol>' : '';
-    html += '<div class="soon">SOLIDWORKS jobs (Start, Next, Done) come in phase 2. For now, the owner session gives these steps in its own window.</div>';
+    html += swJob(t);
   }
   el.innerHTML = html;
-  wire(el, t);
+  if (type === 'sw-job') wireJob(el, t); else wire(el, t);
   return el;
+}
+
+// ---- SOLIDWORKS jobs: Start (close all without saving, open the files), steps one at a time, Done / Problem.
+const running = new Set();
+function swJob(t) {
+  const d = drafts[t._file] ??= { confirm: false, problem: false, note: '' };
+  const files = t.files || [], steps = t.steps || [], n = Math.min(Math.max(+t.step || 0, 0), Math.max(steps.length - 1, 0));
+  const reopened = editing.has(t._file), started = t.status === 'started', busy = running.has(t._file);
+  let h = files.length ? '<div class="files">' + files.map(f => `<div><code>${esc(f.path)}</code>${f.configuration ? ` <span class="cfg">${esc(f.configuration)}</span>` : ''}</div>`).join('') + '</div>' : '';
+  if (t.run) {
+    const cls = !t.run.ok ? 'bad' : t.run.problems ? 'warn' : 'good';
+    h += `<div class="run ${cls}">${esc(t.run.message || '')} <span class="meta">${when(t.run.at)}</span></div>`;
+    if (t.run.output) h += `<details class="out"><summary>Details</summary><pre>${esc(t.run.output)}</pre></details>`;
+  }
+  if (!reopened) {
+    const what = t.closeAll === false ? 'Opens the files in SOLIDWORKS; nothing is closed.' : 'Closes everything in SOLIDWORKS <b>without saving</b>, then opens the files.';
+    if (busy) h += '<div class="acts"><span class="working">Working in SOLIDWORKS… this can take a few minutes.</span></div>';
+    else if (d.confirm) h += `<div class="confirm">${t.closeAll === false ? 'Open the files now?' : 'Close all documents in SOLIDWORKS without saving? Unsaved changes are lost.'}
+      <div class="acts"><button class="b primary" data-act="go">${t.closeAll === false ? 'Yes, open' : 'Yes, close all and open'}</button><button class="b" data-act="nogo">Cancel</button></div></div>`;
+    else h += `<div class="acts"><button class="b ${started ? '' : 'primary'}" data-act="start">${started ? 'Start again' : 'Start'}</button><span class="hint left">${what}</span></div>`;
+    if (steps.length) h += `<div class="stepbox"><div class="meta">Step ${n + 1} of ${steps.length}</div><div class="steptext">${fmt(steps[n])}</div>
+      ${steps.length > 1 ? `<div class="acts"><button class="b" data-act="back" ${n === 0 || busy ? 'disabled' : ''}>Back</button><button class="b" data-act="next" ${n >= steps.length - 1 || busy ? 'disabled' : ''}>Next</button></div>` : ''}</div>`;
+  }
+  const last = !steps.length || n >= steps.length - 1 || reopened;
+  if (d.problem) h += `<textarea placeholder="What's wrong? This goes back to ${esc(name(t.owner) || 'the owner')}.">${esc(d.note)}</textarea>
+    <div class="acts"><button class="b primary" data-act="sendproblem">Send problem</button><button class="b" data-act="noproblem">Cancel</button><span class="msg"></span></div>`;
+  else h += `<div class="acts"><button class="b ${last ? 'primary' : ''}" data-act="done" ${busy ? 'disabled' : ''}>Done</button><button class="b" data-act="problem" ${busy ? 'disabled' : ''}>Problem</button>${reopened ? '<button class="b" data-act="cancel">Cancel</button>' : ''}<span class="msg"></span></div>`;
+  return h;
+}
+
+function redraw(t) {
+  const c = cards.get(t._file); if (!c) return;
+  const el = ticketCard(t); c.el.replaceWith(el); c.el = el;
+}
+
+function wireJob(el, t) {
+  const d = drafts[t._file], msg = el.querySelector('.msg');
+  const on = (act, f) => { const b = el.querySelector(`[data-act="${act}"]`); if (b) b.onclick = f; };
+  const fail = e => { const m = cards.get(t._file)?.el.querySelector('.msg'); if (m) m.textContent = e.message; };
+  const finish = async (choice) => {
+    el.querySelectorAll('button').forEach(b => b.disabled = true);
+    try {
+      await post('/api/sw/finish', { id: t._file, choice, note: d.note });
+      delete drafts[t._file]; editing.delete(t._file);
+      el.classList.add('gone'); setTimeout(() => { lastJson = ''; load(); }, 250);
+    } catch (e) { msg.textContent = e.message; el.querySelectorAll('button').forEach(b => b.disabled = false); }
+  };
+  on('start', () => { d.confirm = true; redraw(t); });
+  on('nogo', () => { d.confirm = false; redraw(t); });
+  on('go', async () => {
+    d.confirm = false; running.add(t._file); redraw(t);
+    try { await post('/api/sw/start', { id: t._file, confirmed: true }); }
+    catch (e) { running.delete(t._file); redraw(t); fail(e); return; }
+    running.delete(t._file);
+    const c = cards.get(t._file); if (c) { c.el.remove(); cards.delete(t._file); } // rebuilt from the updated ticket
+    lastJson = ''; load();
+  });
+  const step = async to => {
+    try { await post('/api/sw/step', { id: t._file, step: to }); lastJson = ''; load(); } catch (e) { msg.textContent = e.message; }
+  };
+  on('back', () => step((+t.step || 0) - 1));
+  on('next', () => step((+t.step || 0) + 1));
+  on('problem', () => { d.problem = true; redraw(t); cards.get(t._file)?.el.querySelector('textarea')?.focus(); });
+  on('noproblem', () => { d.problem = false; redraw(t); });
+  on('done', () => finish('done'));
+  on('sendproblem', () => { if (!d.note.trim()) { msg.textContent = 'Say what the problem is.'; return; } finish('problem'); });
+  on('cancel', () => { editing.delete(t._file); delete drafts[t._file]; lastJson = ''; load(); });
+  const ta = el.querySelector('textarea');
+  if (ta) ta.oninput = () => { d.note = ta.value; };
 }
 
 function wire(el, t) {
@@ -281,12 +363,13 @@ function wire(el, t) {
 function sentRow(t) {
   let ans = '';
   if (t.type === 'info') ans = 'Dismissed';
+  else if (t.type === 'sw-job' && t.answer) ans = (t.answer.choice === 'problem' ? 'Problem: ' + esc(t.answer.note) : 'Done' + (t.answer.note ? ' · ' + esc(t.answer.note) : ''));
   else if (t.answer) {
     const o = (t.options || []).find(o => o.key === t.answer.choice);
     ans = [o ? (o.label || o.key) : t.answer.choice, t.answer.note].filter(Boolean).map(esc).join(' · ');
   }
   const done = t.status === 'done' ? ` · done by ${esc(name(t.owner) || 'owner')}` : '';
-  const change = t.type === 'decision' ? ` · <button class="link" data-change="${esc(t._file)}">Change answer</button>` : '';
+  const change = t.type === 'decision' || t.type === 'sw-job' ? ` · <button class="link" data-change="${esc(t._file)}">Change answer</button>` : '';
   return `<div class="row"><div class="what"><div>${t.ref ? `<span class="ref">${esc(t.ref)}</span>` : ''}${esc(t.title || t._file)}</div>
     <div class="ans">${ans}</div><div class="meta">${when(t.answeredAt)}${done}${change}</div></div></div>`;
 }

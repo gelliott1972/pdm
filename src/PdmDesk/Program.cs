@@ -5,7 +5,7 @@ using System.Net;
 using System.Text.Json.Nodes;
 using Desk;
 
-const int Port = 5180;
+var Port = int.TryParse(Environment.GetEnvironmentVariable("PDM_DESK_PORT"), out var pp) ? pp : 5180; // the variable is for tests
 var url = $"http://127.0.0.1:{Port}/";
 var root = Environment.GetEnvironmentVariable("PDM_DESK") is { Length: > 0 } r ? r : @"C:\code\pdm\desk";
 var openPage = !args.Contains("--no-browser");
@@ -102,6 +102,117 @@ app.MapPost("/api/note", async (HttpRequest req) =>
     var id = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}";
     store.Write(Path.Combine(store.Inbox, id + ".json"), new JsonObject { ["id"] = id, ["text"] = text, ["createdAt"] = Store.Now() });
     return Results.Ok(new { ok = true, id });
+});
+
+// ---- sw-job tickets (phase 2): Start opens the files in SOLIDWORKS, Next/Back move through the steps, Done/Problem answer.
+var sw = new SwTool();
+
+app.MapPost("/api/sw/start", async (HttpRequest req) =>
+{
+    var body = await Body(req);
+    var id = (string?)body?["id"];
+    if (!Store.IdOk(id)) return Fail("Unknown ticket.");
+    if ((bool?)body?["confirmed"] != true) return Fail("Confirm first: Start closes everything in SOLIDWORKS without saving.");
+    var file = store.TicketFile(id!);
+    JsonObject? t;
+    lock (store.Lock) t = store.Read(file, out _);
+    if (t == null || (string?)t["type"] != "sw-job") return Fail("Unknown SOLIDWORKS job.");
+    if ((string?)t["status"] is not (null or "open" or "started")) return Fail($"This job is {(string?)t["status"]}.");
+    var files = (t["files"] as JsonArray ?? []).Select(f => ((string?)f?["path"], (string?)f?["configuration"])).ToList();
+    if (files.Count == 0) return Fail("The job lists no files.");
+    var bad = files.Select(f => SwTool.Refusal(f.Item1)).FirstOrDefault(r => r != null);
+    if (bad != null) return Fail($"Not started: {bad}.");
+    if (!sw.TryBegin()) return Fail("SOLIDWORKS is busy with another job. Wait for it to finish.");
+
+    var log = new System.Text.StringBuilder();
+    var ok = true; var message = "";
+    try
+    {
+        // The first call may have to start SOLIDWORKS, so it gets longer (Dev: about 5 minutes).
+        var first = true;
+        TimeSpan Limit() { var l = first ? TimeSpan.FromMinutes(5) : TimeSpan.FromMinutes(3); first = false; return l; }
+        var problems = 0;
+        if ((bool?)t["closeAll"] != false)
+        {
+            var r = await sw.CloseAll(Limit());
+            log.AppendLine("> close-all").Append(r.Output);
+            if (r.Code >= 2) { ok = false; message = r.TimedOut ? "Closing documents timed out." : "Closing documents failed; nothing was opened."; }
+            else if (r.Code == 1) problems++;
+        }
+        var opened = 0;
+        foreach (var (path, cfg) in files)
+        {
+            if (!ok) break;
+            var r = await sw.Open(path!, cfg, Limit());
+            log.AppendLine($"> open {path}{(string.IsNullOrWhiteSpace(cfg) ? "" : $" --config {cfg}")}").Append(r.Output);
+            if (r.Code >= 2) { ok = false; message = r.TimedOut ? $"Opening {Path.GetFileName(path)} timed out." : $"Couldn't open {Path.GetFileName(path)}."; }
+            else { opened++; if (r.Code == 1) problems++; }
+        }
+        if (ok) message = $"Opened {opened} file{(opened == 1 ? "" : "s")}" + (problems > 0 ? $"; SOLIDWORKS reported problems (see details)." : ".");
+        lock (store.Lock)
+        {
+            t = store.Read(file, out var why);
+            if (t == null) return Fail($"Opened, but couldn't update the ticket ({why}).");
+            var text = log.ToString();
+            if (text.Length > 12000) text = "…" + text[^12000..];
+            t["run"] = new JsonObject { ["at"] = Store.Now(), ["ok"] = ok, ["problems"] = problems, ["message"] = message, ["output"] = text };
+            t["startedAt"] = Store.Now();
+            t["status"] = "started";
+            t["step"] ??= 0;
+            store.Write(file, t);
+        }
+    }
+    finally { sw.End(); }
+    return Results.Ok(new { ok, message });
+});
+
+app.MapPost("/api/sw/step", async (HttpRequest req) =>
+{
+    var body = await Body(req);
+    var id = (string?)body?["id"];
+    if (!Store.IdOk(id)) return Fail("Unknown ticket.");
+    lock (store.Lock)
+    {
+        var file = store.TicketFile(id!);
+        var t = store.Read(file, out var why);
+        if (t == null || (string?)t["type"] != "sw-job") return Fail("Unknown SOLIDWORKS job.");
+        if ((string?)t["status"] is not (null or "open" or "started")) return Fail($"This job is {(string?)t["status"]}.");
+        var count = (t["steps"] as JsonArray)?.Count ?? 0;
+        var step = (int?)body?["step"] ?? 0;
+        t["step"] = Math.Clamp(step, 0, Math.Max(0, count - 1));
+        store.Write(file, t);
+    }
+    return Results.Ok(new { ok = true });
+});
+
+app.MapPost("/api/sw/finish", async (HttpRequest req) =>
+{
+    var body = await Body(req);
+    var id = (string?)body?["id"];
+    var choice = (string?)body?["choice"] ?? "";
+    var note = ((string?)body?["note"] ?? "").Trim();
+    if (!Store.IdOk(id)) return Fail("Unknown ticket.");
+    if (choice is not ("done" or "problem")) return Fail("Done or Problem only.");
+    if (choice == "problem" && note == "") return Fail("Say what the problem is.");
+    if (note.Length > 4000) return Fail("The note is too long (4000 characters at most).");
+    lock (store.Lock)
+    {
+        var file = store.TicketFile(id!);
+        var t = store.Read(file, out var why);
+        if (t == null || (string?)t["type"] != "sw-job") return Fail("Unknown SOLIDWORKS job.");
+        if ((string?)t["status"] is not (null or "open" or "started" or "answered" or "done")) return Fail($"This job is {(string?)t["status"]}.");
+        if (t["answer"] is JsonObject old)
+        {
+            var history = t["history"] as JsonArray ?? [];
+            history.Add(new JsonObject { ["choice"] = (string?)old["choice"], ["note"] = (string?)old["note"], ["answeredAt"] = (string?)t["answeredAt"] });
+            t["history"] = history;
+        }
+        t["answer"] = new JsonObject { ["choice"] = choice, ["note"] = note };
+        t["answeredAt"] = Store.Now();
+        t["status"] = "answered";
+        store.Write(file, t);
+    }
+    return Results.Ok(new { ok = true });
 });
 
 if (openPage) app.Lifetime.ApplicationStarted.Register(Open);

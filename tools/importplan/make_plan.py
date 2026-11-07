@@ -892,6 +892,7 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
         for u in users:
             vals = [v for (ff, _), v in cfg_partno.items() if ff == u and v not in ("", "?")]
             vals += [v for (rs, _), v in reg_cfg.items() if rs == key(stem(u))]
+            vals += [v[0] for (ff, _), v in dec_pn.items() if ff == u]   # decided numbers too (0804 D3: B's and C's K-beam parts)
             r_ = reg_row(u)
             if r_ and r_[1]:
                 vals.append(r_[1])

@@ -4,6 +4,7 @@
 //
 // Usage:  SwCmd.exe <command> [arguments] [options]
 //   status                                       SOLIDWORKS version and every open document (dirty, read-only)
+//   close <file>                                 close one open document WITHOUT saving (refused if it is not open)
 //   close-all [--exit]                           close every document WITHOUT saving (then exit SOLIDWORKS with --exit)
 //   open <file> [--config <name>]                open (or activate) a file; report load errors, missing references,
 //                                                components loaded from outside the file's own tree, rebuild errors
@@ -48,6 +49,7 @@
 // set-config, delete, delete-config, cut-list, save-as --copy, rebuild, close-all. move: only the refused case.
 // pack-and-go (7 Nov, scratch C top): 97 of 97 files written, 3 virtual kept in their assemblies; the pack's references point
 // into the pack (SetDocumentSaveToNames refuses even SOLIDWORKS's own names, so its default layout is used).
+// export-pdf, drawing-info (text and --json), close (7 Nov, scratch copies of GNRIC-BRW-16 and 08A11-SFA-1T): pass.
 //
 // Safety (every command): never M:\ or anything in Dropbox; never anything under .pdm. A command that writes refuses
 // the vault (P:\, C:\PDM\) unless --checked-out is given and the file is not read-only on disk (checked out); a new
@@ -102,6 +104,8 @@ static class SwCmd
         switch (cmd)
         {
             case "status": case "close-all": if (pos.Count != 0) return Usage(); break;
+            case "close":
+                if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]); break;
             case "open": case "check-open": case "rebuild":
                 if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]); break;
             case "save":
@@ -158,6 +162,7 @@ static class SwCmd
             switch (cmd)
             {
                 case "status": return Status(sw);
+                case "close": return CloseOne(sw, pos[0]);
                 case "close-all": return CloseAll(sw, opts.ContainsKey("exit"));
                 case "open": return Open(sw, pos[0], config, false);
                 case "check-open": return Open(sw, pos[0], config, true);
@@ -193,7 +198,7 @@ static class SwCmd
 
     static int Usage()
     {
-        Console.Error.WriteLine("Usage: SwCmd status | close-all [--exit] | open <file> [--config <name>] | check-open <file> [--config <name>]");
+        Console.Error.WriteLine("Usage: SwCmd status | close <file> | close-all [--exit] | open <file> [--config <name>] | check-open <file> [--config <name>]");
         Console.Error.WriteLine("       | rebuild <file> | save <file> [--checked-out]");
         Console.Error.WriteLine("       | replace <asm> <component> <newFile> [--config <name>] [--all] [--save] [--checked-out]");
         Console.Error.WriteLine("       | set-config <asm> <component> <config> [--save] [--checked-out]");
@@ -302,6 +307,19 @@ static class SwCmd
             Console.WriteLine("  " + (d.GetSaveFlag() ? "[unsaved] " : "") + (d.IsOpenedReadOnly() ? "[read-only] " : "")
                 + (d.Visible ? "" : "[hidden] ") + (d.GetPathName() == "" ? d.GetTitle() : d.GetPathName()));
         return 0;
+    }
+
+    // Close one open document without saving (App, 7 Nov); refuses (exit 2) if it is not open. Other documents stay open.
+    static int CloseOne(ISldWorks sw, string path)
+    {
+        var doc = FindOpen(sw, path);
+        if (doc == null) { Console.Error.WriteLine("REFUSED: not open in SOLIDWORKS: " + path); return 2; }
+        bool dirty = doc.GetSaveFlag();
+        sw.CloseDoc(doc.GetTitle());
+        bool gone = FindOpen(sw, path) == null;
+        Console.WriteLine((gone ? "Closed " : "CLOSE FAILED ") + path + " without saving" + (dirty ? " (its unsaved changes are discarded)" : ""));
+        if (!gone) problems.Add("still open: " + path + " (another open document may be using it)");
+        return Finish();
     }
 
     static int CloseAll(ISldWorks sw, bool exit)

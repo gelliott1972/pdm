@@ -72,18 +72,43 @@ app.MapPost("/api/answer", async (HttpRequest req) =>
         if (t == null) return Fail($"Couldn't read the ticket ({why}).");
         if ((string?)t["type"] != "decision") return Fail("Only decision tickets take an answer.");
         var status = (string?)t["status"] ?? "open";
-        if (status is not ("open" or "answered" or "done")) return Fail($"This ticket is {status}.");
-        if (choice != "" && !(t["options"] as JsonArray ?? []).Any(o => (string?)o?["key"] == choice))
+        if (status is not ("open" or "answered" or "done" or "discuss")) return Fail($"This ticket is {status}.");
+        if (choice != "" &&!(t["options"] as JsonArray ?? []).Any(o => (string?)o?["key"] == choice))
             return Fail("That option isn't on the ticket any more. Reload and try again.");
         if (t["answer"] is JsonObject old) // a changed answer keeps the earlier one
         {
-            var history = t["history"] as JsonArray ?? [];
+            if (t["history"] is not JsonArray history) { history = []; t["history"] = history; }
             history.Add(new JsonObject { ["choice"] = (string?)old["choice"], ["note"] = (string?)old["note"], ["answeredAt"] = (string?)t["answeredAt"] });
-            t["history"] = history;
         }
         t["answer"] = new JsonObject { ["choice"] = choice, ["note"] = note };
         t["answeredAt"] = Store.Now();
         t["status"] = "answered";
+        store.Write(file, t);
+    }
+    return Results.Ok(new { ok = true });
+});
+
+// "Other, let's discuss": Grant's comment goes on the ticket's thread and the status becomes "discuss". The owner
+// session replies by appending to the thread; picking an option later (/api/answer) closes it. The thread is kept.
+app.MapPost("/api/discuss", async (HttpRequest req) =>
+{
+    var body = await Body(req);
+    var id = (string?)body?["id"];
+    var text = ((string?)body?["text"] ?? "").Trim();
+    if (!Store.IdOk(id)) return Fail("Unknown ticket.");
+    if (text == "") return Fail("Type your comment first.");
+    if (text.Length > 4000) return Fail("The comment is too long (4000 characters at most).");
+    lock (store.Lock)
+    {
+        var file = store.TicketFile(id!);
+        var t = store.Read(file, out var why);
+        if (t == null) return Fail($"Couldn't read the ticket ({why}).");
+        if ((string?)t["type"] != "decision") return Fail("Only decision tickets can be discussed.");
+        var status = (string?)t["status"] ?? "open";
+        if (status is not ("open" or "answered" or "done" or "discuss")) return Fail($"This ticket is {status}.");
+        if (t["thread"] is not JsonArray thread) { thread = []; t["thread"] = thread; }
+        thread.Add(new JsonObject { ["from"] = "grant", ["text"] = text, ["at"] = Store.Now() });
+        t["status"] = "discuss";
         store.Write(file, t);
     }
     return Results.Ok(new { ok = true });
@@ -310,9 +335,8 @@ app.MapPost("/api/sw/finish", async (HttpRequest req) =>
         if ((string?)t["status"] is not (null or "open" or "started" or "answered" or "done")) return Fail($"This job is {(string?)t["status"]}.");
         if (t["answer"] is JsonObject old)
         {
-            var history = t["history"] as JsonArray ?? [];
+            if (t["history"] is not JsonArray history) { history = []; t["history"] = history; }
             history.Add(new JsonObject { ["choice"] = (string?)old["choice"], ["note"] = (string?)old["note"], ["answeredAt"] = (string?)t["answeredAt"] });
-            t["history"] = history;
         }
         t["answer"] = new JsonObject { ["choice"] = choice, ["note"] = note };
         t["answeredAt"] = Store.Now();

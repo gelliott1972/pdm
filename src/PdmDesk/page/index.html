@@ -80,6 +80,13 @@ h2:first-child { margin-top: 4px; }
 .opt.on .dot { border-color: var(--accent); background: radial-gradient(var(--accent) 0 4px, transparent 5px); }
 .opt .lab { font-weight: 600; }
 .opt .note { display: block; color: var(--muted); font-size: 13px; }
+.opt.discuss { border-style: dashed; }
+.thread { margin-top: 14px; display: grid; gap: 8px; }
+.post { white-space: pre-wrap; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--panel); margin-right: 32px; }
+.post.me { background: var(--accent-soft); margin: 0 0 0 32px; }
+.pmeta { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.tstate { font-size: 13px; color: var(--muted); }
+.tstate.new { color: var(--ink); font-weight: 600; }
 .rec { font-size: 11px; font-weight: 600; color: var(--green); background: var(--green-soft); border-radius: 99px; padding: 1px 8px; margin-left: 6px; }
 textarea { width: 100%; min-height: 62px; resize: vertical; margin-top: 12px; padding: 9px 11px; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
 textarea:focus, .opt:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -252,15 +259,20 @@ async function load() {
   $('ago').textContent = lastSeen ? 'Updated ' + new Date(lastSeen).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
 }
 
-const isOpen = t => ['open', 'started'].includes(t.status || 'open') || editing.has(t._file);
-const rank = t => (t.priority === 'blocking' ? 0 : 1);
+const isOpen = t => ['open', 'started', 'discuss'].includes(t.status || 'open') || editing.has(t._file);
+// A discussion waiting on the owner's reply isn't waiting on Grant: it goes last and isn't counted as open.
+const lastPost = t => (t.thread || []).at(-1);
+const awaitingOwner = t => t.status === 'discuss' && lastPost(t)?.from === 'grant' && !editing.has(t._file);
+const rank = t => (awaitingOwner(t) ? 2 : t.priority === 'blocking' ? 0 : 1);
 
 function render() {
   const tickets = state.tickets || [];
   const open = tickets.filter(isOpen).sort((a, b) => rank(a) - rank(b) || String(a.createdAt).localeCompare(String(b.createdAt)));
-  const blocking = open.filter(t => t.priority === 'blocking').length;
-  $('sum').textContent = open.length ? `${open.length} open${blocking ? ` · ${blocking} blocking` : ''}` : 'Nothing waiting for you';
-  document.title = open.length ? `(${open.length}) PDM Desk` : 'PDM Desk';
+  const mine = open.filter(t => !awaitingOwner(t)), talking = open.length - mine.length;
+  const blocking = mine.filter(t => t.priority === 'blocking').length;
+  $('sum').textContent = (mine.length ? `${mine.length} open${blocking ? ` · ${blocking} blocking` : ''}` : 'Nothing waiting for you')
+    + (talking ? ` · ${talking} in discussion` : '');
+  document.title = mine.length ? `(${mine.length}) PDM Desk` : 'PDM Desk';
 
   // Keyed cards: a card is rebuilt only when its file changed, so typing isn't disturbed.
   const box = $('tickets'), keep = new Set();
@@ -350,9 +362,13 @@ function ticketCard(t) {
   if (type === 'decision') {
     const d = drafts[t._file] ??= editing.has(t._file) && t.answer ? { choice: t.answer.choice || '', note: t.answer.note || '' } : { choice: '', note: '' };
     const opts = t.options || [];
-    html += opts.length ? '<div class="opts">' + opts.map(o => `<button type="button" class="opt${d.choice === o.key ? ' on' : ''}" data-key="${esc(o.key)}" role="radio" aria-checked="${d.choice === o.key}">
-        <span class="dot"></span><span><span class="lab">${esc(o.label || o.key)}</span>${o.key === t.recommended ? '<span class="rec">Recommended</span>' : ''}${o.note ? `<span class="note">${fmt(o.note)}</span>` : ''}</span></button>`).join('') + '</div>' : '';
-    html += `<textarea placeholder="${opts.length ? 'Note (optional)' : 'Your answer'}">${esc(d.note)}</textarea>
+    html += threadHtml(t);
+    // "Other, let's discuss" is always offered last: its comment starts (or continues) a thread with the owner.
+    const all = [...opts, { key: DISCUSS, label: (t.thread || []).length ? 'Reply' : "Other, let's discuss",
+      note: `Your comment goes to ${name(t.owner) || 'the owner'}, who replies here. Pick an option above when you're ready to decide.` }];
+    html += '<div class="opts">' + all.map(o => `<button type="button" class="opt${o.key === DISCUSS ? ' discuss' : ''}${d.choice === o.key ? ' on' : ''}" data-key="${esc(o.key)}" role="radio" aria-checked="${d.choice === o.key}">
+        <span class="dot"></span><span><span class="lab">${esc(o.label || o.key)}</span>${o.key === t.recommended ? '<span class="rec">Recommended</span>' : ''}${o.note ? `<span class="note">${fmt(o.note)}</span>` : ''}</span></button>`).join('') + '</div>';
+    html += `<textarea placeholder="${d.choice === DISCUSS ? 'Your comment' : opts.length ? 'Note (optional)' : 'Your answer'}">${esc(d.note)}</textarea>
       <div class="acts">${t.recommended && opts.some(o => o.key === t.recommended) ? '<button class="b" data-act="rec">Accept recommendation</button>' : ''}
       <button class="b primary" data-act="send">Send</button>${editing.has(t._file) ? '<button class="b" data-act="cancel">Cancel</button>' : ''}<span class="msg"></span><span class="hint">Ctrl+Enter sends</span></div>`;
   } else if (type === 'info') {
@@ -367,7 +383,9 @@ function ticketCard(t) {
   while (meta && meta.nextSibling) more.appendChild(meta.nextSibling);
   el.appendChild(more);
   const line = document.createElement('div');
-  line.className = 'line'; line.textContent = firstLine(t.body);
+  line.className = 'line';
+  const lp = lastPost(t);
+  line.textContent = lp && t.status === 'discuss' ? `${lp.from === 'grant' ? 'You' : name(lp.from)}: ${firstLine(lp.text)}` : firstLine(t.body);
   meta?.after(line);
   el.querySelector(':scope > .top').addEventListener('click', e => {
     if (e.target.closest('button, a, input, textarea')) return;
@@ -499,11 +517,15 @@ function wireJob(el, t) {
 function wire(el, t) {
   const msg = el.querySelector('.msg'), ta = el.querySelector('textarea'), send = el.querySelector('[data-act="send"]');
   const d = drafts[t._file];
-  const sync = () => { if (send) send.disabled = !(d.choice || d.note.trim()); };
+  const sync = () => {
+    if (send) { send.disabled = d.choice === DISCUSS ? !d.note.trim() : !(d.choice || d.note.trim()); send.textContent = d.choice === DISCUSS ? 'Send comment' : 'Send'; }
+    if (ta) ta.placeholder = d.choice === DISCUSS ? 'Your comment' : (t.options || []).length ? 'Note (optional)' : 'Your answer';
+  };
   el.querySelectorAll('.opt').forEach(b => b.onclick = () => {
     d.choice = d.choice === b.dataset.key ? '' : b.dataset.key;
     el.querySelectorAll('.opt').forEach(x => { const on = x.dataset.key === d.choice; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
     sync();
+    if (d.choice === DISCUSS) ta?.focus();
   });
   if (ta) {
     ta.oninput = () => { d.note = ta.value; sync(); };
@@ -518,13 +540,25 @@ function wire(el, t) {
       el.classList.add('gone'); setTimeout(() => { lastJson = ''; load(); }, 250);
     } catch (e) { msg.textContent = e.message; el.querySelectorAll('button').forEach(b => b.disabled = false); sync(); }
   };
-  if (send) send.onclick = () => act('/api/answer', { id: t._file, choice: d.choice, note: d.note });
+  if (send) send.onclick = () => d.choice === DISCUSS ? act('/api/discuss', { id: t._file, text: d.note })
+    : act('/api/answer', { id: t._file, choice: d.choice, note: d.note });
   const rec = el.querySelector('[data-act="rec"]');
   if (rec) rec.onclick = () => act('/api/answer', { id: t._file, choice: t.recommended, note: d.note });
   const dis = el.querySelector('[data-act="dismiss"]');
   if (dis) dis.onclick = () => act('/api/dismiss', { id: t._file });
   const cancel = el.querySelector('[data-act="cancel"]');
   if (cancel) cancel.onclick = () => { editing.delete(t._file); delete drafts[t._file]; lastJson = ''; load(); };
+}
+
+// The ticket's discussion: Grant's comments and the owner's replies, oldest first.
+const DISCUSS = '__discuss';
+function threadHtml(t) {
+  const th = t.thread || [];
+  if (!th.length) return '';
+  const last = th.at(-1), who = name(t.owner) || 'the owner';
+  const state = t.status !== 'discuss' ? '' : last.from === 'grant' ? `<div class="tstate">Waiting for ${esc(who)} to reply</div>`
+    : `<div class="tstate new">${esc(name(last.from))} replied. Reply again, or pick an option to decide.</div>`;
+  return '<div class="thread">' + th.map(p => `<div class="post${p.from === 'grant' ? ' me' : ''}"><div class="pmeta">${esc(p.from === 'grant' ? 'You' : name(p.from))} · ${ago(p.at)}</div><div>${fmt(p.text || '')}</div></div>`).join('') + state + '</div>';
 }
 
 function sentRow(t) {

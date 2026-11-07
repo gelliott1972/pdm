@@ -35,10 +35,18 @@ Brief: `docs\briefs\desk.md`. Code: `src\PdmDesk\`. Owner: App.
 | `priority` | `blocking`, `later` | Blocking tickets are listed first, then oldest first |
 | `owner` | `admin`, `dev`, `sw`, `app` | The session that acts on the answer |
 | `createdAt` | UTC ISO | |
-| `status` | `open` → `answered` → `done`; `info`: `open` → `dismissed` | The page sets `answered` or `dismissed`. The owner sets `done` after acting |
+| `status` | `open` → `answered` → `done`; `open` → `discuss` → `answered`; `info`: `open` → `dismissed` | The page sets `answered`, `discuss` or `dismissed`. The owner sets `done` after acting |
 | `answer` | `{ "choice": "A", "note": "…" }` | Set by the page. `choice` is `""` when Grant only typed a note |
 | `answeredAt` | UTC ISO | Set by the page |
 | `history` | `[{ choice, note, answeredAt }]` | Set by the page when Grant uses **Change answer**: the earlier answers, oldest first |
+| `thread` | `[{ "from": "grant", "text": "…", "at": "…" }]` | `decision` only: the discussion, oldest first. The page adds Grant's comments; the owner adds its replies (`from` = its role) |
+
+**Other, let's discuss** (built 7 Nov): every decision ticket offers it as a last choice with a comment box. Grant's comment is added to `thread` as `{ "from": "grant", … }` and the status becomes `discuss`. The ticket stays in the open list, marked "Waiting for <owner> to reply", sorted last and not counted as waiting for Grant.
+
+- **The owner watches** for `status: "discuss"` with the last `thread` entry from `grant` (the same way as `answered`; compare the entry's `at` to know what's new).
+- **To reply**, it appends `{ "from": "<its role>", "text": "…", "at": "<UTC ISO>" }` to `thread` and leaves `status` as `discuss`. Write the whole file atomically (temp file, then rename), as for `done`. The owner may also update `body`, `options` or `recommended` if the discussion changes them, and should say so in the reply.
+- **The page** shows the thread on the card with "<Owner> replied. Reply again, or pick an option to decide." Grant can reply again (another `grant` entry), or pick an option and Send, which sets `answered` as usual and keeps the thread.
+- Plain words in replies, no bare codes, short. One question per ticket; if the discussion splits, open a new ticket.
 
 **Change answer:** Grant can change an answer from the Sent list, even after the owner set `done`. The ticket goes back to `status: "answered"` with the new `answer`, and the old one moves to `history`. So owners should watch for `answered` and compare `answeredAt`, not assume each ticket is answered only once.
 

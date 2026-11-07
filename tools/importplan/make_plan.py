@@ -133,6 +133,25 @@ D3_0804_BRACKET = {
     ("LS-08X-04_KBEAM_BRACKET.SLDPRT", "68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_LONG_AXIS<As Machined>"): "08X04-BKP-04",
     ("LS-08X-04_KBEAM_BRACKET.SLDPRT", "68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_SHORT_AXIS<As Machined>"): "08X04-BKP-05",
 }
+# Grant 7 Nov, R1-R10 (end of the decisions file) and D31.
+R2_0804 = {   # D2b / D24: parts every shaft uses, renumbered to place 08X04 at the same item number
+    "LS-08A-04_SF02_TIE_CORNER_RIGHTANGLE.SLDPRT": "08X04-HBW-02",
+    "LS_08X-04_SAE_MECH_CANTILEVER.SLDPRT": "08X04-HBW-04",
+    "LS-08X-04_REAR_WALL_BRACED_SUBFRAME.SLDPRT": "08X04-HBW-05",
+    "LS-08X-04_SF05_TIE_AND_BRACE.SLDPRT": "08X04-HBW-07",
+    "LS-08X-04_SF02_LOWER_BRACE.SLDPRT": "08X04-BRP-01",
+}
+R4_0804 = {   # D17: MEMBER_SHS_40x40x4 -> family GNRIC-LMW, STOCK-LMW-nn -> GNRIC-LMW-nn (same item numbers)
+    "EC-0+2M+46-OPEN<As Machined>": "01", "EC-0+3M+46-OPEN<As Machined>": "02", "EC-0+4M+46-OPEN<As Machined>": "03",
+    "EC-0+5M+0-EC<As Machined>": "04", "EC-0+5M+46-EC<As Machined>": "05", "EC-0+6M+46-OPEN<As Machined>": "06",
+    "EC-0+7M+46-OPEN<As Machined>": "07", "EC-0+7M+60-OPEN<As Machined>": "08", "EC-50+4M+46-OPEN<As Machined>": "09",
+    "EC-50+5M+46-OPEN<As Machined>": "10", "EC-50+7M+46-OPEN<As Machined>": "11", "OPEN-46+0M+50-EC (STUB)<As Machined>": "12",
+    "OPEN-46+2M+0-EC<As Machined>": "13", "OPEN-500+12M+500-OPEN<As Machined>": "14",
+}
+# R8 keeps the As Welded PartNos James put in the files. Two of them sit in files renumbered here (R4, R5); kept as
+# they are they would become GNRIC-LMP-10 (already the vault's GNRIC-LM) and GNRIC-BRP-01, so the plan gives each its
+# As Machined parent's new number, as the vault's GNRIC-BRP/BRA As Welded configurations carry. Dev's proposal, for Admin.
+R8_0804_RENUMBERED = "R8 with R4/R5: As Welded child takes its parent's new number (Dev's proposal, for Admin)"
 D15_0804_OPEN = "D15: LCMM_40x80x8_SC08 should be split into the new 08X04-LMW family before -r1 (as 0806, 0811 D14); still here"
 D18_0804_OPEN = "D18: every TIE_80x40x8 instance should be repointed to the vault's GNRIC-BRP / GNRIC-BRA before -r1 (as 0811 D30); still here"
 D21_0804_OPEN = ("D21 (agreed 7 Nov): the M12x200 bolt becomes a configuration of the vault's FAST-HEX-8.8-HDG (check-out, as D9) "
@@ -148,15 +167,25 @@ def DEC_0804(x):
     pn.update({(f"LS-08{x}-04_KBEAM_S{n}.SLDPRT", "@top"): (f"08{x}04-KBP-0{n}", True, "D23 / D3 (agreed 7 Nov): K-beam part beside its assembly; KB has no P type in the register's Categories yet, for James") for n in range(1, 7)})
     pn.update({(f, "@top"): (v, True, D3_0804) for f, v in {**D3_0804_SHARED, **(D3_0804_B if x == "B" else {})}.items()})
     pn.update({k: (v, True, D3_0804 + " (one number per bracket variant)") for k, v in D3_0804_BRACKET.items()})
+    pn.update({(f, "@top"): (v, True, "R2 (Grant 7 Nov): used by every shaft, place 08X04") for f, v in R2_0804.items()})
+    pn.update({("MEMBER_SHS_40x40x4.SLDPRT", c): (f"GNRIC-LMW-{n}", True, "R4 (Grant 7 Nov): GNRIC-LMW family, same item number") for c, n in R4_0804.items()})
+    pn[("MEMBER_SHS_40x40x4.SLDPRT", "EC-500+12M+500-EC<As Welded>")] = ("GNRIC-LMW-14", True, R8_0804_RENUMBERED + "; was STOCK-LMP-10")
+    pn[("TIE_40x40x4.SLDPRT", "460-WELDED<As Machined>")] = ("08X04-BRP-02", True, "R5 (Grant 7 Nov): own file 08X04-BRP-02 (BRW if SW finds end caps)")
+    pn[("TIE_40x40x4.SLDPRT", "Default<As Welded>")] = ("08X04-BRP-02", True, R8_0804_RENUMBERED + "; was STOCK-BRP-01")
+    if x == "B":   # D31 (Grant 7 Nov): end-capped ties are BRW
+        pn[("08B04-BRP-01.SLDPRT", "@top")] = ("08B04-BRW-01", True, "D26 / D31 (Grant 7 Nov): end-capped tie, BRW")
+        pn[("08B04-BRP-02.SLDPRT", "@top")] = ("08B04-BRW-02", True, "D26 / D31 (Grant 7 Nov): end-capped tie, BRW")
+    if x in "BC":   # R7 = D27: keeps its name, no PartNo
+        screens = screens + [f"LS-08{x}-04_WITH_SCREEN.SLDASM"]
     return {
         "combined": {f"LS-08{x}-04_WITH_STRUCTUREv4.SLDASM": "D4 (as 0811 D31)"},
-        "screen_files": {f: "D22 (agreed 7 Nov): screen file, keeps its LS- name, no PartNo" for f in screens},
+        "screen_files": {f: ("R7 (Grant 7 Nov): keeps its name, no PartNo" if "WITH_SCREEN" in f else "D22 (agreed 7 Nov): screen file, keeps its LS- name, no PartNo") for f in screens},
         "partnos": pn,
         "modelling_groups": {"LS-08X-04 KBEAM PACKERS + BOLTS.SLDASM": "D3 (agreed 7 Nov): packers and bolts kit, a modelling group as the bolt kits (18 Oct)"},
         "open": {"LCMM_40x80x8_SC08.SLDASM": D15_0804_OPEN, "TIE_80x40x8.SLDPRT": D18_0804_OPEN, "hex bolt gradeab_Custom ISO.sldprt": D21_0804_OPEN},
         "no_file_partno_imports": "D8 (as 0811 D32)",
         "all_provisional": "D8 (as 0811 D33)",
-        "no_welded_partno": {"*": "D8 (as 0811 D10: As Welded has no PartNo)"},
+        # R8 (Grant 7 Nov) undoes D8's "no PartNo on As Welded": James's As Welded PartNos stay (none were deleted in prep)
         "fasteners": ("8.8", "HDG"),   # D8: as the vault's FAST-HEX/NUT/WSH-8.8-HDG
     }
 

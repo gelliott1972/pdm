@@ -55,7 +55,16 @@
 // the vault (P:\, C:\PDM\) unless --checked-out is given and the file is not read-only on disk (checked out); a new
 // file is never created in the vault. A command that changes an assembly treats it as a write even without --save.
 // Nothing is saved unless the command says so (save, or --save).
-// Exit code: 0 done and clean, 1 done but problems reported, 2 refused or bad arguments, 3 SOLIDWORKS error.
+// Exit code: 0 done and clean, 1 done but problems reported, 2 refused or bad arguments, 3 SOLIDWORKS error,
+//            4 paused: Grant has asked for SOLIDWORKS (nothing done), 5 SOLIDWORKS held by someone else (nothing done).
+//
+// Who has SOLIDWORKS (docs\briefs\desk-v2.md section 2), files in C:\code\pdm\desk\sw\ (PDM_DESK_DIR overrides the desk folder):
+//   every command takes --as <role> (default "unknown"; "grant" for Grant's Desk job). Each command takes lock.json
+//   {holder, purpose, since, kind:"command", pid} and clears it after, unless the caller already holds a round.
+//   lock --as <role> [--purpose <text>]    hold SOLIDWORKS for a multi-step round (kind "round"); unlock --as <role>
+//   [--force] clears it. While pause.json exists every command except status is refused with 4, unless --as grant;
+//   the holder of a round may still save, close and close-all to reach a safe point. A lock held by another role = 5.
+//   status (any time) prints the lock and pause state first. A running command is never interrupted.
 // Build (from tools\SwCmd, after copying the interop DLLs from tools\sw-macros\bin into bin\):
 //   csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs
 
@@ -78,12 +87,13 @@ static class SwCmd
         var pos = new List<string>();
         for (int i = 1; i < args.Length; i++)
         {
-            if (args[i] == "--config") { if (i + 1 >= args.Length) return Usage(); opts["config"] = args[++i]; }
+            if (args[i] == "--config" || args[i] == "--as" || args[i] == "--purpose")
+            { if (i + 1 >= args.Length) return Usage(); opts[args[i].Substring(2)] = args[++i]; }
             else if (args[i].StartsWith("--")) opts[args[i].Substring(2)] = "yes";
             else pos.Add(args[i]);
         }
         string cmd = args[0].ToLowerInvariant();
-        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top", "json" };
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top", "json", "as", "purpose", "force" };
         foreach (var k in opts.Keys) if (!known.Contains(k)) { Console.Error.WriteLine("Unknown option: --" + k); return 2; }
         bool checkedOut = opts.ContainsKey("checked-out"), save = opts.ContainsKey("save");
         if (opts.ContainsKey("json"))
@@ -103,7 +113,7 @@ static class SwCmd
         string refusal = null;
         switch (cmd)
         {
-            case "status": case "close-all": if (pos.Count != 0) return Usage(); break;
+            case "status": case "close-all": case "lock": case "unlock": if (pos.Count != 0) return Usage(); break;
             case "close":
                 if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]); break;
             case "open": case "check-open": case "rebuild":
@@ -154,6 +164,23 @@ static class SwCmd
         }
         if (refusal != null) { Console.Error.WriteLine("REFUSED: " + refusal); return 2; }
 
+        // Who has SOLIDWORKS (desk-v2 section 2): lock / unlock need no SOLIDWORKS; status always runs; every other
+        // command is refused while Grant has asked for SOLIDWORKS (4) or someone else holds it (5).
+        string role = (opts.ContainsKey("as") ? opts["as"] : "unknown").Trim().ToLowerInvariant();
+        if (role == "" || role.Any(ch => !(char.IsLetterOrDigit(ch) || ch == '-' || ch == '_'))) { Console.Error.WriteLine("Bad --as role: " + role); return 2; }
+        if (cmd == "lock") return LockRound(role, opts.ContainsKey("purpose") ? opts["purpose"] : "");
+        if (cmd == "unlock") return Unlock(role, opts.ContainsKey("force"));
+        if (cmd != "status")
+        {
+            int g = Gate(cmd, role, opts.ContainsKey("purpose") ? opts["purpose"] : "SwCmd " + string.Join(" ", args));
+            if (g != 0) return g;
+        }
+        try { return Run(cmd, pos, opts, config, save, checkedOut); }
+        finally { ReleaseCommandLock(); }
+    }
+
+    static int Run(string cmd, List<string> pos, Dictionary<string, string> opts, string config, bool save, bool checkedOut)
+    {
         ISldWorks sw;
         try { sw = Attach(); }
         catch (Exception ex) { Console.Error.WriteLine("Could not reach SOLIDWORKS: " + ex.Message); return 3; }
@@ -186,6 +213,135 @@ static class SwCmd
         return Usage();
     }
 
+    // ---------- who has SOLIDWORKS: desk\sw\lock.json and pause.json (docs\briefs\desk-v2.md section 2) ----------
+    // lock.json {holder, purpose, since, kind, pid}: kind "command" is taken and cleared around one SwCmd call (pid =
+    // that SwCmd; a lock whose process is gone is stale and taken over); kind "round" is taken with `lock` and kept
+    // across commands until `unlock`. pause.json (written by the Desk) = Grant wants SOLIDWORKS.
+
+    static string DeskSw
+    {
+        get
+        {
+            string d = System.Environment.GetEnvironmentVariable("PDM_DESK_DIR");
+            return Path.Combine(string.IsNullOrEmpty(d) ? @"C:\code\pdm\desk" : d, "sw");
+        }
+    }
+    static string LockFile { get { return Path.Combine(DeskSw, "lock.json"); } }
+    static string PauseFile { get { return Path.Combine(DeskSw, "pause.json"); } }
+    static bool ownsCommandLock = false;
+
+    class LockInfo { public string Holder, Purpose, Since, Kind; public int Pid; public bool Unreadable; }
+
+    static LockInfo ReadLock()
+    {
+        if (!File.Exists(LockFile)) return null;
+        string t;
+        try { t = File.ReadAllText(LockFile); } catch { return new LockInfo { Holder = "?", Unreadable = true }; }
+        Func<string, string> f = name =>
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(t, "\"" + name + "\"\\s*:\\s*(\"((?:[^\"\\\\]|\\\\.)*)\"|(-?\\d+))");
+            return !m.Success ? null : (m.Groups[2].Success && m.Groups[1].Value.StartsWith("\"") ? m.Groups[2].Value.Replace("\\\"", "\"").Replace("\\\\", "\\") : m.Groups[3].Value);
+        };
+        int pid; int.TryParse(f("pid") ?? "", out pid);
+        var li = new LockInfo { Holder = (f("holder") ?? "?").ToLowerInvariant(), Purpose = f("purpose") ?? "", Since = f("since") ?? "", Kind = f("kind") ?? "round", Pid = pid };
+        if (li.Holder == "?") li.Unreadable = true;
+        return li;
+    }
+
+    static bool Stale(LockInfo l)
+    {
+        if (l == null || l.Kind != "command" || l.Pid <= 0) return false;
+        try { System.Diagnostics.Process.GetProcessById(l.Pid); return false; } catch (ArgumentException) { return true; }
+    }
+
+    static string LockJson(string holder, string purpose, string kind)
+    {
+        return "{\"holder\":" + J(holder) + ",\"purpose\":" + J(purpose) + ",\"since\":" + J(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"))
+            + ",\"kind\":" + J(kind) + ",\"pid\":" + (kind == "command" ? System.Diagnostics.Process.GetCurrentProcess().Id.ToString() : "0") + "}";
+    }
+
+    // Takes the lock only if nobody has it (the rename fails if lock.json exists, so two callers can't both win).
+    static bool TryCreateLock(string json)
+    {
+        Directory.CreateDirectory(DeskSw);
+        string tmp = LockFile + "." + System.Diagnostics.Process.GetCurrentProcess().Id + ".tmp";
+        File.WriteAllText(tmp, json);
+        try { File.Move(tmp, LockFile); return true; }
+        catch (IOException) { try { File.Delete(tmp); } catch { } return false; }
+    }
+
+    static void ReplaceLock(string json)
+    {
+        string tmp = LockFile + "." + System.Diagnostics.Process.GetCurrentProcess().Id + ".tmp";
+        File.WriteAllText(tmp, json);
+        File.Copy(tmp, LockFile, true);
+        File.Delete(tmp);
+    }
+
+    static string Describe(LockInfo l)
+    {
+        return l.Holder + (l.Purpose != "" ? " (" + l.Purpose + ")" : "") + (l.Since != "" ? " since " + l.Since : "") + (l.Kind == "command" ? ", one command" : ", a round");
+    }
+
+    // Before a command: 4 = paused for Grant, 5 = SOLIDWORKS held by someone else, 0 = go (lock taken if free).
+    // While paused, the holder of a round may still save, close and close-all, to reach its safe point.
+    static readonly HashSet<string> SafePointCommands = new HashSet<string> { "save", "close", "close-all" };
+
+    static int Gate(string cmd, string role, string purpose)
+    {
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            var l = ReadLock();
+            if (Stale(l)) { try { File.Delete(LockFile); } catch { } l = null; }
+            bool paused = File.Exists(PauseFile);
+            if (paused && role != "grant" && !(l != null && l.Holder == role && l.Kind == "round" && SafePointCommands.Contains(cmd)))
+            {
+                Console.Error.WriteLine("PAUSED: paused: Grant has asked for SOLIDWORKS (" + PauseFile + "). Nothing was done."
+                    + (l != null && l.Holder == role && l.Kind == "round" ? " You hold a round: save or close-all to a safe point, then unlock." : ""));
+                return 4;
+            }
+            if (l != null && l.Unreadable) { Console.Error.WriteLine("IN USE: " + LockFile + " can't be read; nothing was done."); return 5; }
+            if (l != null && l.Holder != role) { Console.Error.WriteLine("IN USE: SOLIDWORKS is held by " + Describe(l) + ". Nothing was done."); return 5; }
+            if (l != null && l.Kind == "command" && l.Pid != System.Diagnostics.Process.GetCurrentProcess().Id)
+            { Console.Error.WriteLine("IN USE: another SwCmd for " + role + " is running (process " + l.Pid + "). Nothing was done."); return 5; }
+            if (l != null) return 0;   // the caller's own round: it keeps the lock
+            if (TryCreateLock(LockJson(role, purpose, "command"))) { ownsCommandLock = true; return 0; }
+        }
+        Console.Error.WriteLine("IN USE: could not take " + LockFile + ". Nothing was done.");
+        return 5;
+    }
+
+    static void ReleaseCommandLock()
+    {
+        if (!ownsCommandLock) return;
+        var l = ReadLock();
+        if (l != null && l.Kind == "command" && l.Pid == System.Diagnostics.Process.GetCurrentProcess().Id) { try { File.Delete(LockFile); } catch { } }
+        ownsCommandLock = false;
+    }
+
+    static int LockRound(string role, string purpose)
+    {
+        var l = ReadLock();
+        if (Stale(l)) { try { File.Delete(LockFile); } catch { } l = null; }
+        if (File.Exists(PauseFile) && role != "grant") { Console.Error.WriteLine("PAUSED: paused: Grant has asked for SOLIDWORKS. No lock taken."); return 4; }
+        if (l != null && (l.Unreadable || l.Holder != role)) { Console.Error.WriteLine("IN USE: SOLIDWORKS is held by " + Describe(l) + ". No lock taken."); return 5; }
+        string json = LockJson(role, purpose ?? "", "round");
+        if (l != null) { ReplaceLock(json); Console.WriteLine("Lock renewed for " + role + ": " + (purpose ?? "")); return 0; }
+        if (!TryCreateLock(json)) { Console.Error.WriteLine("IN USE: someone took the lock first. No lock taken."); return 5; }
+        Console.WriteLine("Locked SOLIDWORKS for " + role + ": " + (purpose ?? ""));
+        return 0;
+    }
+
+    static int Unlock(string role, bool force)
+    {
+        var l = ReadLock();
+        if (l == null) { Console.WriteLine("No lock to clear."); return 0; }
+        if (l.Holder != role && !force && !Stale(l)) { Console.Error.WriteLine("REFUSED: the lock is held by " + Describe(l) + "; only it can unlock (or --force)."); return 5; }
+        File.Delete(LockFile);
+        Console.WriteLine("Unlocked (was " + Describe(l) + ")" + (File.Exists(PauseFile) ? ". Grant has asked for SOLIDWORKS (pause.json)." : ""));
+        return 0;
+    }
+
     static bool LooksLikePath(string cmd, int i)
     {
         switch (cmd)
@@ -208,6 +364,8 @@ static class SwCmd
         Console.Error.WriteLine("       | move <top> <component path> <target subassembly path> | move <top> <component path> --top  [--save] [--checked-out]");
         Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | pack-and-go <top> <newFolder>");
         Console.Error.WriteLine("       | export-pdf <drawing> <out.pdf> | drawing-info <drawing> [--json]");
+        Console.Error.WriteLine("       | lock --as <role> [--purpose <text>] | unlock --as <role> [--force]");
+        Console.Error.WriteLine("  every command: [--as <role>] (default unknown; grant = Grant's Desk job)");
         return 2;
     }
 
@@ -300,6 +458,9 @@ static class SwCmd
 
     static int Status(ISldWorks sw)
     {
+        var l = ReadLock();
+        Console.WriteLine("Lock: " + (l == null ? "free" : Describe(l) + (Stale(l) ? " [stale: its SwCmd has ended]" : "")) + "; pause: "
+            + (File.Exists(PauseFile) ? "Grant has asked for SOLIDWORKS" : "none"));
         Console.WriteLine("SOLIDWORKS " + sw.RevisionNumber());
         var docs = OpenDocs(sw);
         Console.WriteLine("Open documents: " + docs.Count);

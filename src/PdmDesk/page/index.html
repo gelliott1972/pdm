@@ -110,6 +110,18 @@ details.out pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 26
 .st-waiting { background: var(--amber-soft); color: var(--amber); }
 .st-blocked { background: var(--red-soft); color: var(--red); }
 .st-idle, .st-none { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.act { display: flex; gap: 8px; align-items: baseline; margin-top: 6px; font-size: 13px; overflow-wrap: anywhere; min-width: 0; }
+.act.working { color: var(--green); }
+.act.working span:last-child { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sess > div { min-width: 0; }
+aside { min-width: 0; }
+.act.quiet { color: var(--muted); font-size: 12px; }
+.act.needs { flex-direction: column; gap: 2px; background: var(--amber-soft); color: var(--amber); border-radius: 6px; padding: 6px 9px; }
+.act.needs span { color: var(--ink); font-size: 12px; }
+.card.s.needs-you { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+.pulse { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--green); align-self: center; animation: pulse 1.8s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.75); } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
 .s .doing { margin-top: 4px; overflow-wrap: anywhere; }
 .s .wait { color: var(--muted); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
 .s .when { color: var(--muted); font-size: 12px; margin-top: 4px; }
@@ -228,7 +240,11 @@ function render() {
   const status = state.status || [];
   const by = Object.fromEntries(status.map(s => [String(s.name || s._file).toLowerCase(), s]));
   const order = [...SESSIONS, ...Object.keys(by).filter(k => !SESSIONS.includes(k))];
-  $('sessions').innerHTML = order.map(k => sessionCard(k, by[k])).join('');
+  const acts = Object.fromEntries((state.activity || []).map(a => [String(a.name || a._file).toLowerCase(), a]));
+  const needs = Object.keys(acts).filter(k => acts[k].activity === 'needs-you').map(name);
+  if (needs.length) $('sum').textContent += ` · ${needs.join(', ')} ${needs.length === 1 ? 'needs' : 'need'} you`;
+  const order2 = [...order, ...Object.keys(acts).filter(k => !order.includes(k))];
+  drawSessions(order2, by, acts);
 
   $('notes').innerHTML = (state.notes || []).slice(0, 3).map(n => `<div>${esc(n.text)}<br><small>${when(n.createdAt)}${n.readAt ? ' · read by Admin' : ''}</small></div>`).join('');
   $('problems').innerHTML = (state.problems || []).map(p => 'Couldn\'t read ' + esc(p)).join('<br>');
@@ -371,10 +387,34 @@ function sentRow(t) {
     <div class="ans">${ans}</div><div class="meta">${when(t.answeredAt)}${done}${change}</div></div></div>`;
 }
 
-function sessionCard(k, s) {
+// Live activity from each session's hooks (desk\activity\<role>.json): working (with what), idle, or needs-you.
+// Working with no update for 3 minutes is shown as probably idle (a long command can be silent).
+function activityLine(k, a) {
+  if (!a) return '';
+  const age = (Date.now() - Date.parse(a.at)) / 1000;
+  if (a.activity === 'needs-you') return `<div class="act needs"><b>Needs you in the ${esc(name(k))} window</b>${a.detail ? `<span>${esc(a.detail)}</span>` : ''}</div>`;
+  if (a.activity === 'working' && age < 180) return `<div class="act working"><span class="pulse" aria-hidden="true"></span><span>${esc(a.detail || 'Working')}</span></div>`;
+  if (a.activity === 'working') return `<div class="act quiet">Probably idle · last activity ${ago(a.at)}</div>`;
+  return `<div class="act quiet">Idle · ${ago(a.at)}</div>`;
+}
+
+const sessionHtml = {};
+function drawSessions(order, by, acts) {
+  const box = $('sessions');
+  order.forEach((k, i) => {
+    const html = sessionCard(k, by[k], acts[k]);
+    let el = box.children[i];
+    if (!el || el.dataset.k !== k) { el = document.createElement('div'); el.dataset.k = k; box.insertBefore(el, box.children[i] || null); }
+    if (sessionHtml[k] !== html) { el.innerHTML = html; sessionHtml[k] = html; } // unchanged cards keep their pulse running
+  });
+  while (box.children.length > order.length) box.lastChild.remove();
+}
+
+function sessionCard(k, s, a) {
   const st = s ? String(s.state || 'idle').toLowerCase() : 'none';
   const label = s ? st[0].toUpperCase() + st.slice(1) : 'No status yet';
-  return `<div class="card s"><div class="name">${esc(name(s?.name || k))}<span class="state st-${esc(['working', 'waiting', 'blocked', 'idle'].includes(st) ? st : 'idle')}">${esc(label)}</span></div>
+  return `<div class="card s${a?.activity === 'needs-you' ? ' needs-you' : ''}"><div class="name">${esc(name(s?.name || k))}<span class="state st-${esc(['working', 'waiting', 'blocked', 'idle'].includes(st) ? st : 'idle')}">${esc(label)}</span></div>
+    ${activityLine(k, a)}
     ${s?.doing ? `<div class="doing">${esc(s.doing)}</div>` : ''}${s?.waitingOn ? `<div class="wait">Waiting on: ${esc(s.waitingOn)}</div>` : ''}
     ${s?.updatedAt ? `<div class="when">Updated ${ago(s.updatedAt)}</div>` : ''}</div>`;
 }

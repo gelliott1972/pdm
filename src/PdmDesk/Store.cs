@@ -13,6 +13,7 @@ public partial class Store(string root)
     public string Tickets => Path.Combine(root, "tickets");
     public string Status => Path.Combine(root, "status");
     public string Inbox => Path.Combine(root, "inbox");
+    public string Activity => Path.Combine(root, "activity"); // written by each session's Claude Code hooks
     public readonly object Lock = new();
 
     static readonly JsonSerializerOptions Pretty = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }; // readable files: & and ` stay as typed

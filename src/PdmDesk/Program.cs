@@ -41,7 +41,8 @@ app.MapGet("/api/state", () =>
     var status = Tagged(store.Status, problems);
     var notes = Tagged(store.Inbox, problems)
         .OrderByDescending(n => (string?)n["createdAt"] ?? "").Take(5).ToList();
-    return Results.Ok(new { root, tickets, status, notes, problems, now = Store.Now() });
+    var activity = Tagged(store.Activity, problems);
+    return Results.Ok(new { root, tickets, status, activity, notes, problems, now = Store.Now() });
 });
 
 app.MapPost("/api/answer", async (HttpRequest req) =>

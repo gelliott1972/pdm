@@ -48,3 +48,5 @@ Grant 7 Nov: approved R1 to R10 ("all ok"):
 - R8 = D8 revised: keep the As Welded PartNos James put in the 0804 files.
 - R9 = D13: delete the dead configurations and always-suppressed components on SW's list in the work copies.
 - R10 = D10 Finish: SFA `HDG & PAINTED`; loose bolt-on parts `HDG`; weldments, welded-in parts, K-beam by others and STAs blank.
+
+- R8 detail (Admin, 7 Nov): As Welded configurations carry their As Machined parent's number, including the 26 files whose number came back from file level and the two renumbered ones (`GNRIC-LMW-14`, `08X04-BRP-02`). In make_plan adba786.

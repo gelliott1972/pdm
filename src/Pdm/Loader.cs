@@ -55,6 +55,17 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
         var dupes = all.SelectMany(r => r.PartNos.Select(p => (p.PartNo, r.Path)))
             .GroupBy(x => x.PartNo, StringComparer.OrdinalIgnoreCase).Where(g => g.Select(x => x.Path).Distinct().Count() > 1).ToList();
         foreach (var g in dupes) say($"PartNo {g.Key} is on more than one file: {string.Join(", ", g.Select(x => x.Path).Distinct())}");
+        // 0804 R8: one PartNo on a configuration and its As Welded child(ren). Allowed; the register points at the parent.
+        var shared = all.SelectMany(r => r.PartNos.GroupBy(p => p.PartNo, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1).Select(g => (File: r, Group: g.ToList()))).ToList();
+        if (shared.Count > 0) say($"{shared.Count} PartNo(s) on more than one configuration of the same file; the register points at the parent:");
+        foreach (var (file, group) in shared)
+        {
+            var parent = Index.RegisterEntries(new FileRecord { PartNos = group })[0];
+            var others = group.Where(p => p != parent).Select(p => p.Config == "" ? "(file)" : p.Config);
+            var odd = group.Count(p => !Index.IsAsWelded(p.Config)) != 1 ? "  CHECK: not one parent with As Welded children" : "";
+            say($"  {parent.PartNo}: {file.Path} / {(parent.Config == "" ? "(file)" : parent.Config)} (also on {string.Join(", ", others)}){odd}");
+        }
         say($"{all.Sum(r => r.PartNos.Count)} PartNo values, {all.Sum(r => r.Refs.Count)} references inside the vault, {all.Sum(r => r.MissingRefs.Count)} outside it.");
         foreach (var r in all.Where(r => r.MissingRefs.Count > 0))
             foreach (var m in r.MissingRefs) say($"  {r.Path} refers to {m} (not in the vault)");

@@ -173,10 +173,14 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
     // PartNo register: point each PartNo at its file and configuration, and drop ones the file no longer has.
     // One PartNo can be on several configurations of the same file (0804 R8: an As Welded child carries its parent's
     // number); the register gets one entry per PartNo, pointing at the parent (the configuration that isn't As Welded).
+    public static List<PartNoEntry> RegisterEntries(FileRecord f) =>
+        f.PartNos.GroupBy(p => p.PartNo, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.FirstOrDefault(p => !IsAsWelded(p.Config)) ?? g.First()).ToList();
+    public static bool IsAsWelded(string config) => config.Contains("As Welded", StringComparison.OrdinalIgnoreCase);
+
     public async Task UpdatePartNosAsync(FileRecord f, IEnumerable<PartNoEntry> previous)
     {
-        var entries = f.PartNos.GroupBy(p => p.PartNo, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.FirstOrDefault(p => !p.Config.Contains("As Welded", StringComparison.OrdinalIgnoreCase)) ?? g.First());
+        var entries = RegisterEntries(f);
         await Parallel.ForEachAsync(entries, Several, async (p, _) =>
             await db.PutItemAsync(new PutItemRequest
             {

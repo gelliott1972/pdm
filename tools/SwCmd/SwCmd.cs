@@ -1086,8 +1086,10 @@ static class SwCmd
             int p = m.Key.LastIndexOf(" (");
             string type = p > 0 ? m.Key.Substring(p) : m.Key;
             var parts = m.Value.Select(n => n == "" ? "(planes)" : sig.ContainsKey(n) ? sig[n] : "[" + n + "]").OrderBy(x => x, StringComparer.OrdinalIgnoreCase);
+            string ents;
+            mateEntities.TryGetValue(m.Key + "|" + string.Join(";", m.Value), out ents);
             list.Add(new KeyValuePair<string, string>(type + " | " + string.Join(" + ", parts),
-                m.Key + " [" + string.Join("; ", m.Value.Select(n => n == "" ? "(planes)" : n)) + "]"));
+                m.Key + " [" + string.Join("; ", m.Value.Select(n => n == "" ? "(planes)" : n)) + "]" + (string.IsNullOrEmpty(ents) ? "" : " {" + ents + "}")));
         }
         return list;
     }
@@ -1114,6 +1116,20 @@ static class SwCmd
         return left.Count;
     }
 
+    // What each mate entity is (face, edge, plane by name ...), for the "mate gone" lines.
+    static Dictionary<string, string> mateEntities = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    static string EntityText(MateEntity2 e)
+    {
+        if (e == null) return "?";
+        string t = "?";
+        try { t = FlagName(typeof(swSelectType_e), e.ReferenceType2).Replace("swSel", ""); } catch { }
+        string n = "";
+        try { var feat = e.Reference as Feature; if (feat != null) n = " \"" + feat.Name + "\""; } catch { }
+        if (n == "") try { var ent = e.Reference as Entity; string mn = ent == null ? null : ent.ModelName; if (!string.IsNullOrEmpty(mn)) n = " \"" + mn + "\""; } catch { }
+        return t + n;
+    }
+
     static List<KeyValuePair<string, List<string>>> MatesFrom(Feature first)
     {
         var list = new List<KeyValuePair<string, List<string>>>();
@@ -1122,7 +1138,10 @@ static class SwCmd
             if (f.GetTypeName2() != "MateGroup") continue;
             for (var m = f.GetFirstSubFeature() as Feature; m != null; m = m.GetNextSubFeature() as Feature)
             {
+                // Mate folders (FtrFolder) and their end markers are not mates (SW's B trial, 7 Nov).
+                if (m.GetTypeName2() == "FtrFolder" || m.Name.StartsWith("___EndTag___")) continue;
                 var comps = new List<string>();
+                var ents = new List<string>();
                 var mate = m.GetSpecificFeature2() as Mate2;
                 if (mate != null)
                     for (int i = 0; i < mate.GetMateEntityCount(); i++)
@@ -1130,8 +1149,12 @@ static class SwCmd
                         var e = mate.MateEntity(i);
                         var rc = e == null ? null : e.ReferenceComponent as Component2;
                         comps.Add(rc == null ? "" : rc.Name2);
+                        ents.Add(EntityText(e));
                     }
-                list.Add(new KeyValuePair<string, List<string>>(m.Name + " (" + m.GetTypeName2() + ")", comps));
+                string key = m.Name + " (" + m.GetTypeName2() + ")";
+                mateEntities[key + "|" + string.Join(";", comps)] = string.Join("; ", ents)
+                    + (mate != null ? "; alignment " + FlagName(typeof(swMateAlign_e), mate.Alignment) : "");
+                list.Add(new KeyValuePair<string, List<string>>(key, comps));
             }
         }
         return list;
@@ -1179,6 +1202,7 @@ static class SwCmd
         var movedBefore = Signatures(asm, isKept);
         var snapBefore = Snapshot(asm);
         var matesBefore = Mates(doc);
+        var mateKeysBefore = MateKeys(matesBefore, SigMap(asm));
         var patternsBefore = Patterns(doc);
         Console.WriteLine("Top-level components: " + tops.Count + "; kept in the top: " + string.Join(", ", keepNames) + "; into " + Path.GetFileName(newFile) + ": " + move.Count);
         Console.WriteLine("Before: " + matesBefore.Count + " mates and " + patternsBefore.Count + " pattern/mirror features in the top"
@@ -1258,6 +1282,9 @@ static class SwCmd
             + "; pattern/mirror features: " + patternsAfter.Count + " in the top, " + subPatterns.Count + " in " + sub);
         if (subMates != null && matesAfter.Count + subMates.Count != matesBefore.Count)
             problems.Add("mates: " + matesBefore.Count + " before, " + matesAfter.Count + " + " + subMates.Count + " after");
+        Console.WriteLine("Mates matched by type and the components they tie (file, configuration, position), top + " + sub + " seen from the top:");
+        int goneMates = MateDiff(mateKeysBefore, MateKeys(matesAfter.Concat(MatesOf(made[0])).ToList(), SigMap(asm)));
+        Console.WriteLine("  " + goneMates + " gone" + (goneMates == 0 ? "; every mate is still there" : " (listed above with their names before)"));
         foreach (var m in matesAfter)
         {
             bool steel = m.Value.Any(n => InsideOf(n, sub) || string.Equals(n, sub, StringComparison.OrdinalIgnoreCase));

@@ -1150,8 +1150,24 @@ static class SwCmd
         }
         Console.WriteLine("Selected " + selected + " of " + move.Count + " (SOLIDWORKS counts " + sel.GetSelectedObjectCount2(-1) + ").");
         if (selected != move.Count) { doc.ClearSelection2(true); return Finish(); }
+        var topNamesBefore = new HashSet<string>(tops.Select(c => c.Name2), StringComparer.OrdinalIgnoreCase);
         bool ok = asm.MakeAssemblyFromSelectedComponents(newFile);
         doc.ClearSelection2(true);
+        // SOLIDWORKS 2026 ignores the file name and makes a virtual "Assem1^<top>" (SW's trial, 7 Nov): the one new
+        // top-level component is then saved to newFile, as save-virtual does.
+        var fresh = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>().Where(c => !topNamesBefore.Contains(c.Name2)).ToList();
+        if (ok && fresh.Count == 1 && fresh[0].IsVirtual)
+        {
+            var v = fresh[0];
+            Console.WriteLine("SOLIDWORKS made a virtual subassembly (" + v.Name2 + "); saving it to " + newFile);
+            int st = v.GetSuppression2();
+            if (st != (int)swComponentSuppressionState_e.swComponentFullyResolved && st != (int)swComponentSuppressionState_e.swComponentResolved)
+                v.SetSuppression2((int)swComponentSuppressionState_e.swComponentFullyResolved);
+            bool saved = v.SaveVirtualComponent(newFile);
+            Console.WriteLine((saved && File.Exists(newFile) ? "  saved " : "  SAVE-VIRTUAL FAILED ") + newFile);
+            if (!saved || !File.Exists(newFile)) { problems.Add("SaveVirtualComponent did not write " + newFile + "; close without saving"); return Finish(); }
+        }
+        else if (ok && fresh.Count != 1) problems.Add("expected one new top-level component, found " + fresh.Count + ": " + string.Join(", ", fresh.Select(c => c.Name2)));
         var made = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>()
             .Where(c => string.Equals(c.GetPathName(), newFile, StringComparison.OrdinalIgnoreCase)).ToList();
         Console.WriteLine((ok && made.Count == 1 ? "Formed " : "FORM-SUB FAILED ") + newFile

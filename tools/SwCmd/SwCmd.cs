@@ -70,6 +70,8 @@
 //   [--force] clears it. While pause.json exists every command except status is refused with 4, unless --as grant;
 //   the holder of a round may still save, close and close-all to reach a safe point. A lock held by another role = 5.
 //   status (any time) prints the lock and pause state first. A running command is never interrupted.
+//   status never starts SOLIDWORKS: with none running it says "not running". No command starts SOLIDWORKS while
+//   another role holds the lock (5).
 // Build (from tools\SwCmd, after copying the interop DLLs from tools\sw-macros\bin into bin\):
 //   csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs DialogWatch.cs
 
@@ -189,6 +191,24 @@ static class SwCmd
 
     static int Run(string cmd, List<string> pos, Dictionary<string, string> opts, string config, bool save, bool checkedOut)
     {
+        // status never starts SOLIDWORKS (7 Nov: a status between SwResave's per-file starts started a hidden one, and
+        // SwResave then refused): with no SOLIDWORKS process it reports the lock and "not running".
+        bool running = System.Diagnostics.Process.GetProcessesByName("SLDWORKS").Length > 0;
+        if (cmd == "status" && !running)
+        {
+            PrintLockState();
+            Console.WriteLine("SOLIDWORKS: not running (status does not start it)");
+            return 0;
+        }
+        // No command starts SOLIDWORKS while another role holds the lock (the Gate already refuses those; this is the
+        // last check, against a lock taken between the Gate and here).
+        if (!running)
+        {
+            var held = ReadLock();
+            string me = (opts.ContainsKey("as") ? opts["as"] : "unknown").Trim().ToLowerInvariant();
+            if (held != null && !Stale(held) && (held.Unreadable || held.Holder != me))
+            { Console.Error.WriteLine("IN USE: SOLIDWORKS is not running and is held by " + (held.Unreadable ? "someone (lock unreadable)" : Describe(held)) + "; not starting it. Nothing was done."); return 5; }
+        }
         ISldWorks sw;
         try { sw = Attach(); }
         catch (Exception ex) { Console.Error.WriteLine("Could not reach SOLIDWORKS: " + ex.Message); return 3; }
@@ -466,11 +486,16 @@ static class SwCmd
         return OpenDocs(sw).FirstOrDefault(d => string.Equals(d.GetPathName(), path, StringComparison.OrdinalIgnoreCase));
     }
 
-    static int Status(ISldWorks sw)
+    static void PrintLockState()
     {
         var l = ReadLock();
         Console.WriteLine("Lock: " + (l == null ? "free" : Describe(l) + (Stale(l) ? " [stale: its SwCmd has ended]" : "")) + "; pause: "
             + (File.Exists(PauseFile) ? "Grant has asked for SOLIDWORKS" : "none"));
+    }
+
+    static int Status(ISldWorks sw)
+    {
+        PrintLockState();
         Console.WriteLine("SOLIDWORKS " + sw.RevisionNumber());
         var docs = OpenDocs(sw);
         Console.WriteLine("Open documents: " + docs.Count);

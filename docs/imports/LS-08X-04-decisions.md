@@ -59,3 +59,4 @@ Grant 7 Nov: approved R1 to R10 ("all ok"):
 - R6 done (Grant, Desk SW3, 7 Nov): the bracket part's names are right (LONG = slots parallel to 180); SW uncrossed the bracket assembly's two 180 configurations in all three copies.
 - Prep complete 7 Nov; `-r1` packs by SwCmd: A 92, B 96, C 93 files in `C:\PDM-work\LS-08x-04-r1`; check-open clean (0 missing, 0 outside, What's Wrong empty).
 - SwCheck of `-r1` (7 Nov): B and C clean; A loads everything from inside but 7 files (`LS-08A-04_Skeleton`, `KBEAM_S1..S6`) link James's `LS-08X-04_equations.txt`. Fix as 0811: unlink, values kept (SwCmd unlink-equations), re-pack A, re-plan, then D10 properties and SwKg on the packs.
+- A10 (Grant, Desk, 7 Nov): B's and C's SF04 numbered per configuration as A's (`08A04-SFA-41..49`): matched by configuration name; `-11..-14` become `4A..4D` (style of 0811 `1A`/`1B`). Grant: "A's is in line for 08X06 and 08X11 which is the format we should keep."

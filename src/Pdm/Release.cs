@@ -28,15 +28,12 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     public string SharedTo { get; set; } = "scene";
     // The role whose SwCmd lock this run works under (--as), so it can run while that role holds SOLIDWORKS.
     public string? SwAs { get; set; }
-    // Desk A13 (open): false = R2 as written (table lists official numbers only); true = option (b), every issue listed.
-    public bool TableListsEveryIssue { get; set; } = false;
     public string SwCmd { get; set; } =@"C:\code\pdm\tools\SwCmd\bin\SwCmd.exe";
 
     // R1/R2: official releases are numbers (1, 2, ...); checking versions before them add a letter (0A, 0B, 1A, ...).
     [GeneratedRegex("^(0[A-Z]|[1-9][0-9]*[A-Z]?)$")] private static partial Regex CodePattern();
     public static bool CodeOk(string code) => CodePattern().IsMatch(code);
     public static bool Official(string code) => code.All(char.IsDigit);
-    static int BaseNumber(string code) => int.Parse(Official(code) ? code : code[..^1]);
 
     // A scene is the first two folders of the vault path (Admin 7 Nov, 4a): APEX/SC08/... -> APEX/SC08.
     public static string SceneOf(string key) { var p = key.Split('/'); return p.Length > 2 ? p[0] + "/" + p[1] : p[0]; }
@@ -153,10 +150,9 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         }
     }
 
-    // R4: the title-block REV on every sheet = the code; numbered release: newest revision-table row = the number;
-    // lettered version: the table lists official numbers only, so its newest row is the base number (none before 1).
-    // With TableListsEveryIssue (Desk A13 option (b), off until Grant answers): the table lists lettered issues too,
-    // so its newest row = the code, the same as the title block and the file name.
+    // R4 with Desk A13 (Grant, 7 Nov): the table has one row per formal release plus a top row for the current issue,
+    // replaced on each lettered issue. Check: title-block REV on every sheet = top row = the code (= the file name), and
+    // every row below the top is a formal number. SwCmd lists the rows oldest first, so the top (current) row is the last.
     void CheckRevision(Item item, JsonObject json, string code)
     {
         var sheets = json["sheets"] as JsonArray ?? [];
@@ -168,18 +164,13 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
                 item.Problems.Add($"sheet {(string?)sh?["name"]}: title block REV is \"{rev}\", not {code}");
         }
         var rows = (json["revTable"] as JsonArray ?? []).Select(r => ((string?)r?["rev"] ?? "").Trim()).Where(r => r != "").ToList();
-        var want = BaseNumber(code);
-        if (TableListsEveryIssue)
+        if (rows.Count == 0) item.Problems.Add($"revision table is empty or missing; its top row should be {code}");
+        else
         {
-            if (rows.Count == 0) item.Problems.Add($"revision table is empty or missing; its newest row should be {code}");
-            else if (rows[^1] != code) item.Problems.Add($"revision table's newest row is {rows[^1]}, not {code}");
+            if (rows[^1] != code) item.Problems.Add($"revision table's top row is {rows[^1]}, not {code}");
+            var notFormal = rows[..^1].Where(r => !(Official(r) && CodeOk(r))).ToList();
+            if (notFormal.Count > 0) item.Problems.Add($"revision table has {string.Join(", ", notFormal)} below the top row; only formal releases (1, 2, ...) stay in the table");
         }
-        else if (want == 0)
-        {
-            if (rows.Count > 0) item.Problems.Add($"revision table has row(s) {string.Join(", ", rows)}, but {code} comes before the first official release, so it should be empty");
-        }
-        else if (rows.Count == 0) item.Problems.Add($"revision table is empty or missing; its newest row should be {want}");
-        else if (rows[^1] != want.ToString()) item.Problems.Add($"revision table's newest row is {rows[^1]}, not {want}");
         foreach (var p in json["problems"] as JsonArray ?? []) item.Notes.Add("SwCmd: " + (string?)p);
     }
 

@@ -65,6 +65,11 @@ FINISH_DECIDED = {
     "08X04-PLP-03": (REFER, "A7 (Grant 7 Nov): plate of the floor-plate assembly"),
     "08X04-PLP-06": (REFER, "A7 (Grant 7 Nov): plate of the floor-plate assembly"),
 }
+# A8 (Grant 7 Nov): James's WELDED / AS WELDED on the two LMW family files become the A7 text (one exact string).
+FINISH_DECIDED_FILES = {
+    "08X04-LMW.SLDASM": (REFER, "A8 (Grant 7 Nov): replaces James's WELDED"),
+    "08X04-LMW-40X40.SLDASM": (REFER, "A8 (Grant 7 Nov): replaces James's AS WELDED"),
+}
 
 def sheet(out, specs):
     rows, earlier = [], {}      # earlier: PartNo with the shaft letter blanked -> (shaft, description)
@@ -121,7 +126,9 @@ def sheet(out, specs):
             else: fin, frule = "?", "not settled by R10: %s%s assembly" % (cat, typ)
             dec = {FINISH_DECIDED[x["partno"]] for x in frs if x["partno"] in FINISH_DECIDED}
             if len(dec) > 1: sys.exit("Decided Finishes disagree on %s: %s" % (f0, dec))
-            if dec:
+            if f0.upper() in FINISH_DECIDED_FILES:
+                fin, frule = FINISH_DECIDED_FILES[f0.upper()]
+            elif dec:
                 if len(dec) and any(x["partno"] not in FINISH_DECIDED for x in frs):
                     sys.exit("Only some PartNos of %s have a decided Finish" % f0)
                 fin, frule = dec.pop()

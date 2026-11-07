@@ -51,6 +51,12 @@ h2:first-child { margin-top: 4px; }
 .empty { color: var(--muted); padding: 22px 18px; text-align: center; }
 .top { display: flex; gap: 10px; align-items: flex-start; }
 .title { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; }
+.refnote { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 4px; }
+.swwrap { max-width: 1240px; margin: 4px auto 0; padding: 0 24px; }
+@media (max-width: 880px) { .swwrap { padding: 0 16px; } }
+.swstrip { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.swdot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+.swdot.busy { background: var(--amber); }
 .ref { display: inline-block; font: 600 12px/1 ui-monospace, Consolas, monospace; background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 4px 6px; margin-right: 6px; vertical-align: 1px; }
 .pill { font-size: 11px; font-weight: 600; border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
 .pill.blocking { background: var(--red-soft); color: var(--red); }
@@ -144,6 +150,7 @@ aside { min-width: 0; }
   </span>
 </header>
 <div class="banner" id="banner"></div>
+<div class="swwrap"><div class="swstrip" id="swstrip"></div></div>
 <div class="wrap">
   <main>
     <h2>Tickets</h2>
@@ -237,6 +244,7 @@ function render() {
   const sent = tickets.filter(t => !isOpen(t) && t.answeredAt).sort((a, b) => String(b.answeredAt).localeCompare(String(a.answeredAt))).slice(0, 6);
   $('sentWrap').innerHTML = sent.length ? '<h2>Sent</h2><div class="card sent">' + sent.map(sentRow).join('') + '</div>' : '';
 
+  swStrip();
   const status = state.status || [];
   const by = Object.fromEntries(status.map(s => [String(s.name || s._file).toLowerCase(), s]));
   const order = [...SESSIONS, ...Object.keys(by).filter(k => !SESSIONS.includes(k))];
@@ -250,13 +258,28 @@ function render() {
   $('problems').innerHTML = (state.problems || []).map(p => 'Couldn\'t read ' + esc(p)).join('<br>');
 }
 
+// The ticket's ID first (SW5, A3 ...), as Admin and the sessions name it: the id's leading letters and number.
+const shortId = t => { const id = String(t.id || t._file); const m = id.match(/^[A-Za-z]+\d+/); return m ? m[0] : id; };
+const idChip = t => `<span class="ref">${esc(shortId(t))}</span>`;
+const refNote = t => t.ref && t.ref !== shortId(t) ? ` <span class="refnote">${esc(t.ref)}</span>` : '';
+
+// SOLIDWORKS strip: who has it (desk\sw\lock.json, written by SwCmd, a session's round or the Desk), or Free.
+function swStrip() {
+  const sw = state.sw || {}, l = sw.lock, box = $('swstrip');
+  let h;
+  if (l && l.holder) h = `<span class="swdot busy"></span><b>SOLIDWORKS:</b> ${esc(l.holder === 'grant' ? 'you' : name(l.holder))}${l.purpose ? ' · ' + esc(l.purpose) : ''}${l.since ? ` <span class="meta">since ${ago(l.since)}</span>` : ''}`;
+  else h = '<span class="swdot"></span><b>SOLIDWORKS:</b> free';
+  if (sw.pause) h += ` <span class="meta">· pause requested ${ago(sw.pause.requestedAt)}</span>`;
+  if (box.innerHTML !== h) box.innerHTML = h;
+}
+
 function ticketCard(t) {
   const el = document.createElement('div');
   el.className = 'card';
   const type = t.type || 'decision';
   const pill = type === 'info' ? '<span class="pill info">Info</span>' : `<span class="pill ${t.priority === 'blocking' ? 'blocking' : 'later'}">${t.priority === 'blocking' ? 'Blocking' : 'Later'}</span>`;
   const from = [t.owner ? 'from ' + name(t.owner) : '', ago(t.createdAt)].filter(Boolean).join(' · ');
-  let html = `<div class="top"><div class="title">${t.ref ? `<span class="ref">${esc(t.ref)}</span>` : ''}${esc(t.title || t._file)}</div>${pill}</div>
+  let html = `<div class="top"><div class="title">${idChip(t)}${esc(t.title || t._file)}${refNote(t)}</div>${pill}</div>
     <div class="meta">${esc(from)}</div>${t.body ? `<div class="body">${fmt(t.body)}</div>` : ''}`;
   if (type === 'decision') {
     const d = drafts[t._file] ??= editing.has(t._file) && t.answer ? { choice: t.answer.choice || '', note: t.answer.note || '' } : { choice: '', note: '' };
@@ -383,7 +406,7 @@ function sentRow(t) {
   }
   const done = t.status === 'done' ? ` · done by ${esc(name(t.owner) || 'owner')}` : '';
   const change = t.type === 'decision' || t.type === 'sw-job' ? ` · <button class="link" data-change="${esc(t._file)}">Change answer</button>` : '';
-  return `<div class="row"><div class="what"><div>${t.ref ? `<span class="ref">${esc(t.ref)}</span>` : ''}${esc(t.title || t._file)}</div>
+  return `<div class="row"><div class="what"><div>${idChip(t)}${esc(t.title || t._file)}${refNote(t)}</div>
     <div class="ans">${ans}</div><div class="meta">${when(t.answeredAt)}${done}${change}</div></div></div>`;
 }
 

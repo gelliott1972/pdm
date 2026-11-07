@@ -18,9 +18,10 @@ Description proposals, first that applies:
   4 the same number in an earlier shaft (08A04-SFA-2T for 08B04-SFA-2T), with the screen and shaft swapped;
   5 a pattern: SFA "LS-08x-04 SUB FRAME n TOP|BOTTOM ASSY", K-beam "LS-08x-04 K-BEAM [Sn] ASSY" / "K-BEAM Sn";
   6 the file name, cleaned (marked "check").
-Finish by R10: SFA "HDG & PAINTED"; loose bolt-on parts "HDG" (a part none of whose assemblies here is welded);
-weldments (W), welded-in parts (in an SFA or W), K-beam by others (KB) and STAs blank. Anything R10 doesn't settle
-(other assemblies, parts in them) is "?" for Grant. Where R10 clears a value James set, the row says so.
+Finish by R10 and Grant's Desk answers (7 Nov): SFA "HDG & PAINTED"; loose bolt-on parts "HDG" (a part none of whose
+assemblies here is welded); weldments and parts inside an assembly "Refer Assembly for Surface Finish." (A7, A8, A12);
+the K-beam bracket and floor-plate assemblies and the two EA expansion brackets "HDG & PAINTED" (A7, A12); K-beam by
+others blank (reference only). Anything not settled is "?" for Grant.
 
 actions: reads the (reviewed) Proposed columns and a fresh probe of each pack, and writes <outDir>\<shaft>-actions.tsv
 for DmEdit batch with root = the pack folder. Only differences are written; each line carries the value the probe saw.
@@ -64,6 +65,9 @@ FINISH_DECIDED = {
     **{"08X04-BKP-0%d" % n: (REFER, "A7 (Grant 7 Nov): part of the K-beam bracket assembly") for n in range(2, 6)},
     "08X04-PLP-03": (REFER, "A7 (Grant 7 Nov): plate of the floor-plate assembly"),
     "08X04-PLP-06": (REFER, "A7 (Grant 7 Nov): plate of the floor-plate assembly"),
+    # A12 (Grant 7 Nov): the two EA expansion brackets
+    "08X04-BKP-01": ("HDG & PAINTED", "A12 (Grant 7 Nov): EA expansion bracket"),
+    "08B04-BKP-02": ("HDG & PAINTED", "A12 (Grant 7 Nov): EA expansion bracket"),
 }
 # A8 (Grant 7 Nov): James's WELDED / AS WELDED on the two LMW family files become the A7 text (one exact string).
 FINISH_DECIDED_FILES = {
@@ -114,13 +118,13 @@ def sheet(out, specs):
             cur_fin = g(f0, "(file)", "finish")
             place, cat, typ, num = parse_pn(sorted(r["partno"] for r in frs)[0])
             # Finish for the file
-            if cat == "SF" and typ == "A": fin, frule = "HDG & PAINTED", "R10: SFA"
-            elif typ == "W": fin, frule = "", "R10: weldment, blank"
-            elif cat == "KB": fin, frule = "", "R10: K-beam by others, blank"
+            if cat == "KB": fin, frule = "", "R10 / A12: K-beam by others, reference only, blank"
+            elif cat == "SF" and typ == "A": fin, frule = "HDG & PAINTED", "R10: SFA"
+            elif typ == "W" and cat != "KB": fin, frule = REFER, "A12 (Grant 7 Nov): weldment inside an assembly"
             elif cat == "ST": fin, frule = "", "R10: STA, blank"
             elif typ == "P":
                 w, why = welded(fk)
-                fin, frule = {"yes": ("", "R10: welded-in part, blank (" + why + ")"),
+                fin, frule = {"yes": (REFER, "A12 (Grant 7 Nov): part inside an assembly (" + why + ")"),
                               "no": ("HDG", "R10: loose bolt-on part (" + why + ")"),
                               "?": ("?", "not settled: part " + why)}[w]
             else: fin, frule = "?", "not settled by R10: %s%s assembly" % (cat, typ)

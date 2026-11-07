@@ -20,3 +20,5 @@ Labels R1, R2, … Agreed with Grant 29 Oct 2026 unless marked open. Background:
 Test files: `P:\APEX\SC08\LS-08X-06\ShaftA\08A06-HBA-01.pdf` and `08A06-HBW-01.pdf` (added by Grant 29 Oct, not yet in the vault index). Both are SOLIDWORKS PDFs with title block REV A and one revision-table row "A, ORIGINAL DESIGN, J MCKILLOP, G ELLIOTT"; the text reads cleanly with PyMuPDF; no annotations.
 
 Grant 7 Nov (Desk A4): no PDFs go into the vault with the models. Release PDFs are made by the vault's release step and live only in the scene's release folders (R8). James's own PDFs next to his drawings stay on his PC as drafts; any that reached the vault are removed by check-out once the vault's 0A set exists.
+
+Grant 7 Nov (Desk A5): a shared part's drawing (e.g. `APEX\GNRIC`) issued with a scene's set is filed in that set's scene folder (e.g. `APEX\SC08\_Review`), so each scene's issue is complete in one place.

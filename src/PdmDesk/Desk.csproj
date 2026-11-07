@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- PDM Desk: Grant's local page for tickets and session status. Separate from the engineers' PDM app. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>PdmDesk</AssemblyName>
+    <RootNamespace>Desk</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="page\index.html" LogicalName="index.html" />
+    <Content Remove="page\**" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDM Desk</title>
+<style>
+:root {
+  --bg: #f5f6f8; --panel: #ffffff; --ink: #1c2024; --muted: #646d78; --line: #e3e6ea;
+  --accent: #2f6fde; --accent-ink: #ffffff; --accent-soft: #e8effc;
+  --red: #c8372d; --red-soft: #fbeceb; --amber: #b7791f; --amber-soft: #fbf3e3;
+  --green: #2f8a4c; --green-soft: #e7f4ec; --grey: #8a929c;
+  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317; --panel: #1a1d22; --ink: #e7e9ec; --muted: #9aa2ac; --line: #2a2f36;
+    --accent: #5b8ff0; --accent-ink: #0d1117; --accent-soft: #1d2a42;
+    --red: #ef6b62; --red-soft: #3a1f1d; --amber: #e0a84a; --amber-soft: #352a17;
+    --green: #5cc27f; --green-soft: #17301f; --grey: #6f7782;
+    --shadow: none; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
+header { display: flex; align-items: baseline; gap: 14px; padding: 18px 24px 8px; max-width: 1240px; margin: 0 auto; }
+header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+header .sum { color: var(--muted); }
+header .ago { margin-left: auto; color: var(--muted); font-size: 12px; }
+.wrap { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 20px; padding: 8px 24px 40px; max-width: 1240px; margin: 0 auto; }
+@media (max-width: 880px) { .wrap { grid-template-columns: 1fr; padding: 8px 16px 32px; } header { padding: 16px 16px 8px; } }
+h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 2px 8px; }
+h2:first-child { margin-top: 4px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 16px 18px; margin-bottom: 12px; }
+.empty { color: var(--muted); padding: 22px 18px; text-align: center; }
+.top { display: flex; gap: 10px; align-items: flex-start; }
+.title { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; }
+.ref { display: inline-block; font: 600 12px/1 ui-monospace, Consolas, monospace; background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 4px 6px; margin-right: 6px; vertical-align: 1px; }
+.pill { font-size: 11px; font-weight: 600; border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
+.pill.blocking { background: var(--red-soft); color: var(--red); }
+.pill.later { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.pill.info { background: var(--accent-soft); color: var(--accent); }
+.meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.body { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.body code, .opt code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.opts { display: grid; gap: 8px; margin-top: 14px; }
+.opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; width: 100%; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: inherit; cursor: pointer; }
+.opt:hover { border-color: var(--accent); }
+.opt.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.opt .dot { flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--grey); margin-top: 2px; }
+.opt.on .dot { border-color: var(--accent); background: radial-gradient(var(--accent) 0 4px, transparent 5px); }
+.opt .lab { font-weight: 600; }
+.opt .note { display: block; color: var(--muted); font-size: 13px; }
+.rec { font-size: 11px; font-weight: 600; color: var(--green); background: var(--green-soft); border-radius: 99px; padding: 1px 8px; margin-left: 6px; }
+textarea { width: 100%; min-height: 62px; resize: vertical; margin-top: 12px; padding: 9px 11px; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+textarea:focus, .opt:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.acts { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.acts .msg { color: var(--red); font-size: 13px; }
+.acts .hint { color: var(--muted); font-size: 12px; margin-left: auto; }
+button.b { font: 600 13px/1 inherit; font-family: inherit; border-radius: 7px; padding: 9px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+button.b:hover { border-color: var(--accent); }
+button.b.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.b.primary:hover { filter: brightness(1.06); }
+button.b:disabled { opacity: .45; cursor: default; filter: none; border-color: var(--line); }
+button.link { background: none; border: 0; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; padding: 0; }
+.steps { margin: 10px 0 0 18px; padding: 0; }
+.soon { color: var(--muted); font-size: 12px; margin-top: 10px; }
+.sent .row { display: flex; gap: 10px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--line); }
+.sent .row:first-child { border-top: 0; padding-top: 0; }
+.sent .row:last-child { padding-bottom: 0; }
+.sent .what { flex: 1; min-width: 0; }
+.sent .ans { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.sess { display: grid; gap: 10px; }
+.s { padding: 12px 14px; margin: 0; }
+.s .name { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.s .state { font-size: 11px; font-weight: 600; border-radius: 99px; padding: 1px 8px; margin-left: auto; }
+.st-working { background: var(--green-soft); color: var(--green); }
+.st-waiting { background: var(--amber-soft); color: var(--amber); }
+.st-blocked { background: var(--red-soft); color: var(--red); }
+.st-idle, .st-none { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.s .doing { margin-top: 4px; overflow-wrap: anywhere; }
+.s .wait { color: var(--muted); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
+.s .when { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.notebox textarea { margin-top: 0; }
+.notes { margin-top: 10px; font-size: 13px; }
+.notes div { color: var(--muted); padding: 6px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; white-space: pre-wrap; }
+.banner { max-width: 1240px; margin: 8px auto 0; padding: 0 24px; }
+.banner div { background: var(--red-soft); color: var(--red); border-radius: 8px; padding: 10px 14px; font-weight: 600; }
+.problems { color: var(--amber); font-size: 12px; margin-top: 6px; }
+.gone { opacity: 0; transform: translateY(-4px); transition: opacity .25s, transform .25s; }
+</style>
+</head>
+<body>
+<header>
+  <h1>PDM Desk</h1>
+  <span class="sum" id="sum"></span>
+  <span class="ago" id="ago"></span>
+</header>
+<div class="banner" id="banner"></div>
+<div class="wrap">
+  <main>
+    <h2>Tickets</h2>
+    <div id="tickets"></div>
+    <div id="sentWrap"></div>
+  </main>
+  <aside>
+    <h2>Sessions</h2>
+    <div class="sess" id="sessions"></div>
+    <h2>Note to Admin</h2>
+    <div class="card notebox">
+      <textarea id="note" placeholder="Anything for Admin. It's saved as a file Admin reads."></textarea>
+      <div class="acts"><button class="b primary" id="noteSend" disabled>Send to Admin</button><span class="msg" id="noteMsg"></span></div>
+      <div class="notes" id="notes"></div>
+    </div>
+    <div class="problems" id="problems"></div>
+  </aside>
+</div>
+<script>
+const SESSIONS = ['admin', 'dev', 'sw', 'app'];
+const NAMES = { admin: 'Admin', dev: 'Dev', sw: 'SW', app: 'App' };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Plain text with **bold** and `code`; everything else is shown as typed.
+const fmt = s => esc(s).replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+const name = s => NAMES[s] || (s ? s[0].toUpperCase() + s.slice(1) : '');
+let state = null, lastSeen = 0, lastJson = '';
+const drafts = {};          // ticket file -> { choice, note } while Grant is typing
+const editing = new Set();  // answered tickets reopened with "Change answer"
+const cards = new Map();    // ticket file -> { json, el }
+
+function ago(iso) {
+  const t = Date.parse(iso); if (!t) return '';
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 50) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  if (s < 86400) return Math.round(s / 3600) + ' h ago';
+  const d = new Date(t);
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+const when = iso => { const t = Date.parse(iso); return t ? new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; };
+
+async function post(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Desk': '1' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'The Desk server said no (' + r.status + ').');
+  return j;
+}
+
+async function load() {
+  try {
+    const r = await fetch('/api/state', { cache: 'no-store' });
+    if (!r.ok) throw new Error();
+    const text = await r.text();
+    lastSeen = Date.now();
+    $('banner').innerHTML = '';
+    if (text !== lastJson) { lastJson = text; state = JSON.parse(text); render(); }
+  } catch {
+    $('banner').innerHTML = '<div>The Desk server isn\'t answering. Open PDM Desk from the Start menu to start it again.</div>';
+  }
+  $('ago').textContent = lastSeen ? 'Updated ' + new Date(lastSeen).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+}
+
+const isOpen = t => (t.status || 'open') === 'open' || editing.has(t._file);
+const rank = t => (t.priority === 'blocking' ? 0 : 1);
+
+function render() {
+  const tickets = state.tickets || [];
+  const open = tickets.filter(isOpen).sort((a, b) => rank(a) - rank(b) || String(a.createdAt).localeCompare(String(b.createdAt)));
+  const blocking = open.filter(t => t.priority === 'blocking').length;
+  $('sum').textContent = open.length ? `${open.length} open${blocking ? ` · ${blocking} blocking` : ''}` : 'Nothing waiting for you';
+  document.title = open.length ? `(${open.length}) PDM Desk` : 'PDM Desk';
+
+  // Keyed cards: a card is rebuilt only when its file changed, so typing isn't disturbed.
+  const box = $('tickets'), keep = new Set();
+  if (!open.length) { box.innerHTML = '<div class="card empty">No open tickets. New ones appear here by themselves.</div>'; cards.clear(); }
+  else {
+    box.querySelector('.empty')?.remove();
+    open.forEach(t => {
+      const json = JSON.stringify(t) + editing.has(t._file);
+      let c = cards.get(t._file);
+      if (!c || c.json !== json) { const el = ticketCard(t); if (c) c.el.replaceWith(el); c = { json, el }; cards.set(t._file, c); }
+      keep.add(t._file);
+    });
+    for (const [k, c] of cards) if (!keep.has(k)) { c.el.remove(); cards.delete(k); }
+    // Move cards only when the order changed (moving a card would take the cursor out of its note).
+    const want = open.map(t => cards.get(t._file).el);
+    if (want.some((el, i) => box.children[i] !== el) || box.children.length !== want.length) want.forEach(el => box.appendChild(el));
+  }
+
+  const sent = tickets.filter(t => !isOpen(t) && t.answeredAt).sort((a, b) => String(b.answeredAt).localeCompare(String(a.answeredAt))).slice(0, 6);
+  $('sentWrap').innerHTML = sent.length ? '<h2>Sent</h2><div class="card sent">' + sent.map(sentRow).join('') + '</div>' : '';
+
+  const status = state.status || [];
+  const by = Object.fromEntries(status.map(s => [String(s.name || s._file).toLowerCase(), s]));
+  const order = [...SESSIONS, ...Object.keys(by).filter(k => !SESSIONS.includes(k))];
+  $('sessions').innerHTML = order.map(k => sessionCard(k, by[k])).join('');
+
+  $('notes').innerHTML = (state.notes || []).slice(0, 3).map(n => `<div>${esc(n.text)}<br><small>${when(n.createdAt)}${n.readAt ? ' · read by Admin' : ''}</small></div>`).join('');
+  $('problems').innerHTML = (state.problems || []).map(p => 'Couldn\'t read ' + esc(p)).join('<br>');
+}
+
+function ticketCard(t) {
+  const el = document.createElement('div');
+  el.className = 'card';
+  const type = t.type || 'decision';
+  const pill = type === 'info' ? '<span class="pill info">Info</span>' : `<span class="pill ${t.priority === 'blocking' ? 'blocking' : 'later'}">${t.priority === 'blocking' ? 'Blocking' : 'Later'}</span>`;
+  const from = [t.owner ? 'from ' + name(t.owner) : '', ago(t.createdAt)].filter(Boolean).join(' · ');
+  let html = `<div class="top"><div class="title">${t.ref ? `<span class="ref">${esc(t.ref)}</span>` : ''}${esc(t.title || t._file)}</div>${pill}</div>
+    <div class="meta">${esc(from)}</div>${t.body ? `<div class="body">${fmt(t.body)}</div>` : ''}`;
+  if (type === 'decision') {
+    const d = drafts[t._file] ??= editing.has(t._file) && t.answer ? { choice: t.answer.choice || '', note: t.answer.note || '' } : { choice: '', note: '' };
+    const opts = t.options || [];
+    html += opts.length ? '<div class="opts">' + opts.map(o => `<button type="button" class="opt${d.choice === o.key ? ' on' : ''}" data-key="${esc(o.key)}" role="radio" aria-checked="${d.choice === o.key}">
+        <span class="dot"></span><span><span class="lab">${esc(o.label || o.key)}</span>${o.key === t.recommended ? '<span class="rec">Recommended</span>' : ''}${o.note ? `<span class="note">${fmt(o.note)}</span>` : ''}</span></button>`).join('') + '</div>' : '';
+    html += `<textarea placeholder="${opts.length ? 'Note (optional)' : 'Your answer'}">${esc(d.note)}</textarea>
+      <div class="acts">${t.recommended && opts.some(o => o.key === t.recommended) ? '<button class="b" data-act="rec">Accept recommendation</button>' : ''}
+      <button class="b primary" data-act="send">Send</button>${editing.has(t._file) ? '<button class="b" data-act="cancel">Cancel</button>' : ''}<span class="msg"></span><span class="hint">Ctrl+Enter sends</span></div>`;
+  } else if (type === 'info') {
+    html += '<div class="acts"><button class="b" data-act="dismiss">Dismiss</button><span class="msg"></span></div>';
+  } else if (type === 'sw-job') {
+    const steps = t.steps || [];
+    html += (t.files || []).length ? `<div class="meta" style="margin-top:8px">${(t.files).map(f => esc(f.path) + (f.configuration ? ' · ' + esc(f.configuration) : '')).join('<br>')}</div>` : '';
+    html += steps.length ? '<ol class="steps">' + steps.map(s => `<li>${fmt(s)}</li>`).join('') + '</ol>' : '';
+    html += '<div class="soon">SOLIDWORKS jobs (Start, Next, Done) come in phase 2. For now, the owner session gives these steps in its own window.</div>';
+  }
+  el.innerHTML = html;
+  wire(el, t);
+  return el;
+}
+
+function wire(el, t) {
+  const msg = el.querySelector('.msg'), ta = el.querySelector('textarea'), send = el.querySelector('[data-act="send"]');
+  const d = drafts[t._file];
+  const sync = () => { if (send) send.disabled = !(d.choice || d.note.trim()); };
+  el.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    d.choice = d.choice === b.dataset.key ? '' : b.dataset.key;
+    el.querySelectorAll('.opt').forEach(x => { const on = x.dataset.key === d.choice; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
+    sync();
+  });
+  if (ta) {
+    ta.oninput = () => { d.note = ta.value; sync(); };
+    ta.onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !send.disabled) send.click(); };
+  }
+  sync();
+  const act = async (path, body, btn) => {
+    el.querySelectorAll('button').forEach(b => b.disabled = true); msg.textContent = '';
+    try {
+      await post(path, body);
+      delete drafts[t._file]; editing.delete(t._file);
+      el.classList.add('gone'); setTimeout(() => { lastJson = ''; load(); }, 250);
+    } catch (e) { msg.textContent = e.message; el.querySelectorAll('button').forEach(b => b.disabled = false); sync(); }
+  };
+  if (send) send.onclick = () => act('/api/answer', { id: t._file, choice: d.choice, note: d.note });
+  const rec = el.querySelector('[data-act="rec"]');
+  if (rec) rec.onclick = () => act('/api/answer', { id: t._file, choice: t.recommended, note: d.note });
+  const dis = el.querySelector('[data-act="dismiss"]');
+  if (dis) dis.onclick = () => act('/api/dismiss', { id: t._file });
+  const cancel = el.querySelector('[data-act="cancel"]');
+  if (cancel) cancel.onclick = () => { editing.delete(t._file); delete drafts[t._file]; lastJson = ''; load(); };
+}
+
+function sentRow(t) {
+  let ans = '';
+  if (t.type === 'info') ans = 'Dismissed';
+  else if (t.answer) {
+    const o = (t.options || []).find(o => o.key === t.answer.choice);
+    ans = [o ? (o.label || o.key) : t.answer.choice, t.answer.note].filter(Boolean).map(esc).join(' · ');
+  }
+  const done = t.status === 'done' ? ` · done by ${esc(name(t.owner) || 'owner')}` : '';
+  const change = t.type === 'decision' ? ` · <button class="link" data-change="${esc(t._file)}">Change answer</button>` : '';
+  return `<div class="row"><div class="what"><div>${t.ref ? `<span class="ref">${esc(t.ref)}</span>` : ''}${esc(t.title || t._file)}</div>
+    <div class="ans">${ans}</div><div class="meta">${when(t.answeredAt)}${done}${change}</div></div></div>`;
+}
+
+function sessionCard(k, s) {
+  const st = s ? String(s.state || 'idle').toLowerCase() : 'none';
+  const label = s ? st[0].toUpperCase() + st.slice(1) : 'No status yet';
+  return `<div class="card s"><div class="name">${esc(name(s?.name || k))}<span class="state st-${esc(['working', 'waiting', 'blocked', 'idle'].includes(st) ? st : 'idle')}">${esc(label)}</span></div>
+    ${s?.doing ? `<div class="doing">${esc(s.doing)}</div>` : ''}${s?.waitingOn ? `<div class="wait">Waiting on: ${esc(s.waitingOn)}</div>` : ''}
+    ${s?.updatedAt ? `<div class="when">Updated ${ago(s.updatedAt)}</div>` : ''}</div>`;
+}
+
+$('sentWrap').onclick = e => {
+  const id = e.target?.dataset?.change; if (!id) return;
+  editing.add(id); delete drafts[id]; lastJson = ''; load(); window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+const note = $('note'), noteSend = $('noteSend');
+note.oninput = () => { noteSend.disabled = !note.value.trim(); $('noteMsg').textContent = ''; };
+note.onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !noteSend.disabled) noteSend.click(); };
+noteSend.onclick = async () => {
+  noteSend.disabled = true;
+  try { await post('/api/note', { text: note.value }); note.value = ''; $('noteMsg').textContent = ''; lastJson = ''; load(); }
+  catch (e) { $('noteMsg').textContent = e.message; noteSend.disabled = false; }
+};
+
+load();
+setInterval(load, 3000);
+setInterval(() => { if (state) render(); }, 60000); // keeps "5 min ago" current on the session cards
+</script>
+</body>
+</html>

@@ -36,6 +36,8 @@ app.Use(async (ctx, next) =>
 });
 
 var page = ReadPage();
+// The page's version: an open tab reloads itself when it changes (after an install), so it never runs old code.
+var pageVersion = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(page)))[..12];
 app.MapGet("/", () => Results.Content(page, "text/html; charset=utf-8"));
 app.MapGet("/api/ping", () => Results.Ok(new { desk = true }));
 
@@ -51,7 +53,7 @@ app.MapGet("/api/state", () =>
     // A one-command lock whose SwCmd process has gone is stale (SwCmd takes it over): show SOLIDWORKS as free.
     if (swLock != null && (string?)swLock["kind"] == "command" && (int?)swLock["pid"] is int pid && !Running(pid)) swLock = null;
     var sw = new { @lock = swLock, pause = store.ReadOptional(Path.Combine(store.Sw, "pause.json"), problems) };
-    return Results.Ok(new { root, tickets, status, activity, sw, notes, problems, now = Store.Now() });
+    return Results.Ok(new { root, tickets, status, activity, sw, notes, problems, now = Store.Now(), version = pageVersion });
 });
 
 app.MapPost("/api/answer", async (HttpRequest req) =>

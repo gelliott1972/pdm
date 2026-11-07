@@ -157,6 +157,7 @@ aside { min-width: 0; }
 .owned { font-size: 12px; color: var(--accent); }
 .heard { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .sdetail { margin-top: 6px; font-size: 13px; }
+.slive { margin-top: 4px; font-size: 12px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #history summary { cursor: pointer; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 2px 8px; }
 .notebox textarea { min-height: 44px; }
 .s .wait { color: var(--muted); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
@@ -207,7 +208,8 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 // Plain text with **bold** and `code`; everything else is shown as typed.
 const fmt = s => esc(s).replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
 const name = s => NAMES[s] || (s ? s[0].toUpperCase() + s.slice(1) : '');
-let state = null, lastSeen = 0, lastJson = '';
+let state = null, lastSeen = 0, lastJson = '', pageVersion = null;
+const busyHere = () => running.size > 0 || pdmRunning.size > 0 || [...document.querySelectorAll('textarea')].some(t => t.value.trim());
 const drafts = {};          // ticket file -> { choice, note } while Grant is typing
 const editing = new Set();  // answered tickets reopened with "Change answer"
 const cards = new Map();    // ticket file -> { json, el }
@@ -237,7 +239,13 @@ async function load() {
     const text = await r.text();
     lastSeen = Date.now();
     $('banner').innerHTML = '';
-    if (text !== lastJson) { lastJson = text; state = JSON.parse(text); render(); }
+    if (text !== lastJson) {
+      lastJson = text; state = JSON.parse(text);
+      // A new Desk was installed: reload, unless Grant is typing or something is running.
+      pageVersion ??= state.version;
+      if (state.version && state.version !== pageVersion && !busyHere()) { location.reload(); return; }
+      render();
+    }
   } catch {
     $('banner').innerHTML = '<div>The Desk server isn\'t answering. Open PDM Desk from the Start menu to start it again.</div>';
   }
@@ -561,13 +569,14 @@ const ownedOpen = k => (state.tickets || []).filter(t => isOpen(t) && String(t.o
 
 // One row per session: name, state, its open tickets, when it was last heard from; click for details.
 function sessionCard(k, s, a, owned) {
+  // The pill is live activity (the hooks' desk\activity files); the status file is detail.
+  // A running tool stays "Running" however long it takes; otherwise 3 minutes quiet means "probably idle".
   const age = a ? (Date.now() - Date.parse(a.at)) / 1000 : Infinity;
-  const st = s ? String(s.state || 'idle').toLowerCase() : '';
-  let pill, cls;
+  let pill, cls, live = '';
   if (a?.activity === 'needs-you') [pill, cls] = ['Needs you', 'needs'];
-  else if (a?.activity === 'working' && age < 180) [pill, cls] = ['Working', 'working'];
-  else if (st === 'blocked') [pill, cls] = ['Blocked', 'blocked'];
-  else if (st === 'waiting') [pill, cls] = ['Waiting', 'waiting'];
+  else if (a?.running) { [pill, cls] = ['Running', 'working']; live = `Running ${dur(age)}: ${a.detail || 'a tool'}`; }
+  else if (a?.activity === 'working' && age < 180) { [pill, cls] = ['Working', 'working']; live = a.detail || ''; }
+  else if (a?.activity === 'working') [pill, cls] = ['Probably idle', 'idle'];
   else [pill, cls] = ['Idle', 'idle'];
   const heard = [a?.at, s?.updatedAt].filter(Boolean).sort().pop();
   const openRow = sessionOpen.has(k);
@@ -576,11 +585,17 @@ function sessionCard(k, s, a, owned) {
     <span class="state st-${cls}">${cls === 'working' ? '<span class="pulse" aria-hidden="true"></span>' : ''}${pill}</span>
     ${owned ? `<span class="owned" title="Open tickets from ${esc(name(k))}">${owned} ticket${owned === 1 ? '' : 's'}</span>` : ''}
     <span class="heard">${heard ? ago(heard) : 'not heard from'}</span></div>`;
+  if (live) h += `<div class="slive">${esc(live)}</div>`;
   if (a?.activity === 'needs-you') h += `<div class="act needs"><b>Needs you in the ${esc(name(k))} window</b>${a.detail ? `<span>${esc(a.detail)}</span>` : ''}</div>`;
-  if (openRow) h += `<div class="sdetail">${s?.doing ? `<div class="doing">${esc(s.doing)}</div>` : ''}${s?.waitingOn ? `<div class="wait">Waiting on: ${esc(s.waitingOn)}</div>` : ''}
-    ${a ? `<div class="wait">Latest: ${esc(a.detail || a.activity)} · ${ago(a.at)}</div>` : ''}${!s && !a ? '<div class="wait">No status yet.</div>' : ''}</div>`;
+  if (openRow) {
+    const st = s?.state ? String(s.state) : '';
+    h += `<div class="sdetail">${st ? `<div class="wait">Stage: ${esc(st[0].toUpperCase() + st.slice(1))}${s.updatedAt ? ' · ' + ago(s.updatedAt) : ''}</div>` : ''}
+      ${s?.doing ? `<div class="doing">${esc(s.doing)}</div>` : ''}${s?.waitingOn ? `<div class="wait">Waiting on: ${esc(s.waitingOn)}</div>` : ''}
+      ${a && !live ? `<div class="wait">Latest: ${esc(a.detail || a.activity)} · ${ago(a.at)}</div>` : ''}${!s && !a ? '<div class="wait">No status yet.</div>' : ''}</div>`;
+  }
   return h;
 }
+const dur = sec => sec < 60 ? 'under a minute' : sec < 3600 ? Math.round(sec / 60) + ' min' : Math.floor(sec / 3600) + ' h ' + Math.round(sec % 3600 / 60) + ' min';
 
 $('sentWrap').onclick = e => {
   const id = e.target?.dataset?.change; if (!id) return;

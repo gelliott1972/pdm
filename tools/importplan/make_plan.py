@@ -195,6 +195,9 @@ def DEC_0804(x):
                for o, n in zip(["01", "02", "04", "05", "06", "07", "08", "09", "10"], range(21, 30))})
     if x in "BC" and A10_0804_DECIDED:   # A10 (Desk, proposed 7 Nov): SF04 one number per configuration, as A's
         pn.update({(f"LS-08{x}-04_SF04.SLDASM", c): (f"08{x}04-SFA-{n}", True, A10_0804_NOTE) for c, n in A10_0804[x].items()})
+    if x == "C":   # A11 (Grant 7 Nov, Desk): A's format (08A04-SFA-01), not the register's 1X; the register's 08C04-SFA-01
+        # is on the C Roof, a screen file with no PartNo (D22), so the number is free in practice
+        pn[("LS-08C-04_SF01.SLDASM", "Default")] = ("08C04-SFA-01", True, "A11 (Grant 7 Nov): C's SF01 in A's format, not the register's 1X")
     if x in "BC":   # R7 = D27: keeps its name, no PartNo
         screens = screens + [f"LS-08{x}-04_WITH_SCREEN.SLDASM"]
     return {

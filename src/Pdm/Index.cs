@@ -171,9 +171,13 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
     static readonly ParallelOptions Several = new() { MaxDegreeOfParallelism = 10 };
 
     // PartNo register: point each PartNo at its file and configuration, and drop ones the file no longer has.
+    // One PartNo can be on several configurations of the same file (0804 R8: an As Welded child carries its parent's
+    // number); the register gets one entry per PartNo, pointing at the parent (the configuration that isn't As Welded).
     public async Task UpdatePartNosAsync(FileRecord f, IEnumerable<PartNoEntry> previous)
     {
-        await Parallel.ForEachAsync(f.PartNos, Several, async (p, _) =>
+        var entries = f.PartNos.GroupBy(p => p.PartNo, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.FirstOrDefault(p => !p.Config.Contains("As Welded", StringComparison.OrdinalIgnoreCase)) ?? g.First());
+        await Parallel.ForEachAsync(entries, Several, async (p, _) =>
             await db.PutItemAsync(new PutItemRequest
             {
                 TableName = s.PartNosTable,
@@ -200,11 +204,13 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
         });
     }
 
-    // PartNos already registered to a different file.
+    // PartNos already registered to a different file. The same PartNo on several configurations of this file
+    // (an As Welded child and its parent, 0804 R8) is not a clash.
     public async Task<List<string>> PartNoClashesAsync(FileRecord f)
     {
         var clashes = new System.Collections.Concurrent.ConcurrentBag<string>();
-        await Parallel.ForEachAsync(f.PartNos, Several, async (p, _) =>
+        var distinct = f.PartNos.DistinctBy(p => p.PartNo, StringComparer.OrdinalIgnoreCase);
+        await Parallel.ForEachAsync(distinct, Several, async (p, _) =>
         {
             var r = await db.GetItemAsync(new GetItemRequest
             {

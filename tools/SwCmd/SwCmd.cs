@@ -306,6 +306,11 @@ static class SwCmd
         else Console.WriteLine("Already open: " + path);
         int aerr = 0;
         sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref aerr);
+        if (wasOpen && config != null && !string.Equals(((Configuration)doc.GetActiveConfiguration()).Name, config, StringComparison.OrdinalIgnoreCase))
+        {
+            if (doc.ShowConfiguration2(config)) Console.WriteLine("  switched to configuration " + config);
+            else problems.Add("could not show configuration " + config);
+        }
         return doc;
     }
 

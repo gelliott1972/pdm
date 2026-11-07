@@ -53,3 +53,4 @@ Grant 7 Nov: approved R1 to R10 ("all ok"):
 - R8 extended (Admin, 7 Nov): every As Welded child with no number of its own takes its As Machined parent's number (incl. the D3 brackets and floor plate, and `08B04-BRW-01`/`-02`).
 - R5 confirmed (Dev, SwCmd cut-list 7 Nov): `TIE_40x40x4` is one RHS body, no end caps: `08X04-BRP-02`.
 - SwCmd (tools\SwCmd) passed its SOLIDWORKS test 7 Nov (df7a57d, c207e36) except `move`; the last 0804 SOLIDWORKS round (R3/D15, R9, R1, check-open) runs through it.
+- R3 changed (Grant, Desk ticket SW1, 7 Nov): A's and C's SF04 each have one LCMM that switches configuration, so they cannot follow a split into separate files. A's and C's own 40x40 LCMMs stay in `08X04-LMW-40X40`, keeping their numbers (`08A04-LMW-02/-03`, `08C04-LMW-05/-09`); no separate `08A04-LMW`/`08C04-LMW` files. A named exception to one place tag per family.

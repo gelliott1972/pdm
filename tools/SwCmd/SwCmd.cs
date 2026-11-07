@@ -32,6 +32,7 @@
 //                                                paths as in the tree, e.g. "LS-08B-04_SF02-UPPERv2<1>/PLATE<1>"
 //   cut-list <part> [--config <name>]            cut-list items of a weldment part: bodies and properties (read-only)
 //   tree <asm>                                   the component tree with configurations and suppression (read-only)
+//   mass <file> [--config <name>]                mass (kg), volume (m3), surface (m2) of every configuration, read-only
 //   pack-and-go <top> <newFolder>                copy every file the top uses (suppressed included, no drawings) to a new
 //                                                folder, keeping the path below the drive: C:\PDM-work\LS-08A-04\311v3\X ->
 //                                                <newFolder>\PDM-work\LS-08A-04\311v3\X (as the 0811 -r1 packs). Refuses an
@@ -143,7 +144,7 @@ static class SwCmd
                 if (pos.Count != 2) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
             case "move":
                 if (pos.Count != (opts.ContainsKey("top") ? 2 : 3)) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
-            case "cut-list": case "tree":
+            case "cut-list": case "tree": case "mass":
                 if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]); break;
             case "export-pdf":
                 if (pos.Count != 2) return Usage();
@@ -204,6 +205,7 @@ static class SwCmd
                 case "move": return Move(sw, pos[0], pos[1], opts.ContainsKey("top") ? null : pos[2], save, checkedOut);
                 case "cut-list": return CutList(sw, pos[0], config);
                 case "tree": return Tree(sw, pos[0]);
+                case "mass": openReadOnly = true; return Mass(sw, pos[0], config);
                 case "pack-and-go": return PackAndGo(sw, pos[0], pos[1]);
                 case "export-pdf": openReadOnly = true; return ExportPdf(sw, pos[0], pos[1]);
                 case "drawing-info": openReadOnly = true; return DrawingInfo(sw, pos[0]);
@@ -362,7 +364,7 @@ static class SwCmd
         Console.Error.WriteLine("       | save-virtual <asm> <component> <newFile> [--save] [--checked-out]");
         Console.Error.WriteLine("       | save-as <file> <newFile> [--copy] | delete-config <file> <config> [--save] [--checked-out]");
         Console.Error.WriteLine("       | move <top> <component path> <target subassembly path> | move <top> <component path> --top  [--save] [--checked-out]");
-        Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | pack-and-go <top> <newFolder>");
+        Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | mass <file> [--config <name>] | pack-and-go <top> <newFolder>");
         Console.Error.WriteLine("       | export-pdf <drawing> <out.pdf> | drawing-info <drawing> [--json]");
         Console.Error.WriteLine("       | lock --as <role> [--purpose <text>] | unlock --as <role> [--force]");
         Console.Error.WriteLine("  every command: [--as <role>] (default unknown; grant = Grant's Desk job)");
@@ -1236,6 +1238,36 @@ static class SwCmd
     }
 
     static string Clean(string s) { return (s ?? "").Replace("\r", " ").Replace("\n", " ").Replace("\t", " "); }
+
+    // Mass, volume and surface area of every configuration (or one), in SI units (kg, m3, m2), read-only: each
+    // configuration is shown and rebuilt in memory, never saved. For comparing two versions of a file (open them one
+    // after the other, never together: same name). Output: MASS <config> <kg> <m3> <m2> lines, then OK / PROBLEMS.
+    static int Mass(ISldWorks sw, string path, string config)
+    {
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, path, null, out wasOpen);
+        if (doc == null) return Finish();
+        if (doc.GetType() == (int)swDocumentTypes_e.swDocDRAWING) { problems.Add("mass needs a part or assembly"); return Finish(); }
+        if (wasOpen && doc.GetSaveFlag()) problems.Add("the file was already open with unsaved changes: this measures them, not the saved file");
+        string active = ((Configuration)doc.GetActiveConfiguration()).Name;
+        var names = config != null ? new List<string> { config } : ConfigNames(doc);
+        foreach (var c in names)
+        {
+            if (!string.Equals(((Configuration)doc.GetActiveConfiguration()).Name, c, StringComparison.OrdinalIgnoreCase) && !doc.ShowConfiguration2(c))
+            { problems.Add("could not show configuration " + c); continue; }
+            doc.ForceRebuild3(false);
+            var mp = doc.Extension.CreateMassProperty() as MassProperty;
+            if (mp == null) { problems.Add(c + ": no mass properties"); continue; }
+            mp.UseSystemUnits = true;
+            Console.WriteLine("MASS\t" + c + "\t" + mp.Mass.ToString("G9", System.Globalization.CultureInfo.InvariantCulture)
+                + "\t" + mp.Volume.ToString("G9", System.Globalization.CultureInfo.InvariantCulture)
+                + "\t" + mp.SurfaceArea.ToString("G9", System.Globalization.CultureInfo.InvariantCulture));
+            if (mp.Mass <= 0) problems.Add(c + ": mass is " + mp.Mass);
+        }
+        doc.ShowConfiguration2(active);
+        if (!wasOpen) { sw.CloseDoc(doc.GetTitle()); Console.WriteLine("Closed it again without saving."); }
+        return Finish();
+    }
 
     // ---------- reporting ----------
 

@@ -119,6 +119,10 @@ static class SwCmd
                 if (pos.Count != (opts.ContainsKey("top") ? 2 : 3)) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
             case "cut-list": case "tree":
                 if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]); break;
+            case "pack-and-go":
+                if (pos.Count != 2) return Usage();
+                refusal = ReadRefusal(pos[0]) ?? PackTargetRefusal(pos[0], pos[1]);
+                break;
             default: return Usage();
         }
         if (refusal != null) { Console.Error.WriteLine("REFUSED: " + refusal); return 2; }
@@ -145,6 +149,7 @@ static class SwCmd
                 case "move": return Move(sw, pos[0], pos[1], opts.ContainsKey("top") ? null : pos[2], save, checkedOut);
                 case "cut-list": return CutList(sw, pos[0], config);
                 case "tree": return Tree(sw, pos[0]);
+                case "pack-and-go": return PackAndGo(sw, pos[0], pos[1]);
             }
         }
         catch (COMException ex) { Console.Error.WriteLine("SOLIDWORKS error: " + ex.Message); return 3; }
@@ -171,7 +176,7 @@ static class SwCmd
         Console.Error.WriteLine("       | save-virtual <asm> <component> <newFile> [--save] [--checked-out]");
         Console.Error.WriteLine("       | save-as <file> <newFile> [--copy] | delete-config <file> <config> [--save] [--checked-out]");
         Console.Error.WriteLine("       | move <top> <component path> <target subassembly path> | move <top> <component path> --top  [--save] [--checked-out]");
-        Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm>");
+        Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | pack-and-go <top> <newFolder>");
         return 2;
     }
 
@@ -359,6 +364,8 @@ static class SwCmd
     {
         var parts = path.Split('\\');
         if (InVault(path)) return path.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) ? @"P:\" : @"C:\PDM\";
+        int m = path.IndexOf(@"\311v3\", StringComparison.OrdinalIgnoreCase);   // a work copy or Pack and Go: the folder above 311v3
+        if (m > 0) return path.Substring(0, m + 1);
         if (parts.Length > 3) return string.Join("\\", parts.Take(3)) + "\\";
         return Path.GetDirectoryName(path) + "\\";
     }
@@ -770,6 +777,75 @@ static class SwCmd
             + (s == (int)swComponentSuppressionState_e.swComponentSuppressed ? " [suppressed]" : "")
             + (c.IsVirtual ? " [virtual]" : "") + "   " + c.GetPathName());
         foreach (var k in (c.GetChildren() as object[] ?? new object[0]).Cast<Component2>()) TreeLine(k, depth + 1);
+    }
+
+    // Pack and Go: every file the top uses (suppressed components included, drawings and simulation results not),
+    // copied to <newFolder> with the folder structure below the work copy root kept: C:\PDM-work\LS-08A-04\311v3\X
+    // goes to <newFolder>\311v3\X. Refuses a folder that exists, or one inside M:\ / Dropbox, the vault, .pdm or the
+    // work copy itself; refuses (writes nothing) if the top uses any file from outside its work copy.
+    static string PackTargetRefusal(string top, string target)
+    {
+        string r = WriteRefusal(target, false, true);
+        if (r != null) return r;
+        if (Directory.Exists(target) || File.Exists(target)) return "the target already exists, nothing is overwritten: " + target;
+        string root = TreeRoot(top);
+        string t = target.TrimEnd('\\') + "\\";
+        if (t.StartsWith(root, StringComparison.OrdinalIgnoreCase) || root.StartsWith(t, StringComparison.OrdinalIgnoreCase))
+            return "the target must be outside the work copy " + root + ": " + target;
+        if (Kind(top) != (int)swDocumentTypes_e.swDocASSEMBLY) return "pack-and-go needs an assembly: " + top;
+        return null;
+    }
+
+    static int PackAndGo(ISldWorks sw, string top, string target)
+    {
+        bool wasOpen;
+        var doc = OpenOrActivate(sw, top, null, out wasOpen);
+        if (doc == null) return Finish();
+        string root = TreeRoot(top);
+        var pg = doc.Extension.GetPackAndGo();
+        pg.IncludeDrawings = false;
+        pg.IncludeSimulationResults = false;
+        pg.IncludeToolboxComponents = true;
+        pg.IncludeSuppressed = true;
+        pg.FlattenToSingleFolder = false;
+        object namesObj, saveObj, statusObj;
+        pg.GetDocumentNames(out namesObj);
+        pg.GetDocumentSaveToNames(out saveObj, out statusObj);
+        var names = ((namesObj as object[]) ?? new object[0]).Select(o => (string)o).ToArray();
+        var status = statusObj as int[] ?? new int[0];
+        var targets = new string[names.Length];
+        var outside = new List<string>();
+        int virt = 0;
+        for (int i = 0; i < names.Length; i++)
+        {
+            bool isVirtual = i < status.Length && status[i] == (int)swPackAndGoDocumentStatus_e.swPackAndGoDocumentStatus_Virtual;
+            if (isVirtual) { virt++; targets[i] = names[i]; continue; }
+            if (!names[i].StartsWith(root, StringComparison.OrdinalIgnoreCase)) { outside.Add(names[i]); continue; }
+            targets[i] = Path.Combine(target, names[i].Substring(root.Length));
+        }
+        Console.WriteLine("Pack and Go of " + top + ": " + names.Length + " documents (" + virt + " virtual, kept inside their assembly)");
+        if (outside.Count > 0)
+        {
+            foreach (var o in outside.Take(30)) problems.Add("used from outside the work copy " + root + ": " + o);
+            problems.Add("nothing written: every file must come from the work copy");
+            return Finish();
+        }
+        if (!pg.SetDocumentSaveToNames(targets)) { problems.Add("SetDocumentSaveToNames refused the target names"); return Finish(); }
+        var result = doc.Extension.SavePackAndGo(pg) as int[] ?? new int[0];
+        int written = 0;
+        for (int i = 0; i < names.Length; i++)
+        {
+            if (i < status.Length && status[i] == (int)swPackAndGoDocumentStatus_e.swPackAndGoDocumentStatus_Virtual) continue;
+            if (File.Exists(targets[i])) written++;
+            else problems.Add("not written: " + targets[i] + (i < result.Length ? " (status " + result[i] + ")" : ""));
+        }
+        var bad = result.Where(r => r != 0).Count();
+        Console.WriteLine("Written: " + written + " of " + (names.Length - virt) + " files to " + target + (bad > 0 ? "; " + bad + " non-zero save statuses" : ""));
+        foreach (var dir in targets.Where(x => x != null && x.StartsWith(target, StringComparison.OrdinalIgnoreCase))
+                     .Select(x => Path.GetDirectoryName(x).Substring(target.TrimEnd('\\').Length)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).Take(40))
+            Console.WriteLine("  " + (dir == "" ? "\\" : dir));
+        if (!wasOpen) Console.WriteLine("The top stays open (close-all closes it without saving).");
+        return Finish();
     }
 
     // ---------- reporting ----------

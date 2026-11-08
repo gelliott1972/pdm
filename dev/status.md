@@ -57,6 +57,20 @@ mass identical (A 4263.99022, C 4870.2244), SwCheck nothing new, SwSuppDump iden
 back (stale: one isn't satisfied, 0.27 m off); positions held. Admin's call: B goes ahead with `--accept-gone` for those
 two (SwCmd bdfdad1); Grant's look (Desk SW7) confirms later, and only B is redone if it matters.
 
+**Real run done on P:\ (8 Nov, Grant's go A15)**, logs `scratch\import\restructure-0804\real`. Stage 1 identical to the
+rehearsal (33 out, 21 moved, 30 repointed). Stage 2 stopped safely twice before it ran clean, each time with nothing
+changed in the models and the guard restored (Admin's OK to resume each time): (1) a script bug only on P:\: "$V\APEX"
+with V = "P:\" gave double backslashes, so the 3 tops were made read-only and form-sub refused (fixed: paths from $Vb,
+98e9992); (2) SwCmd's --checked-out save check (vault-only, never reached in the rehearsal) refused A's top because
+read-only modified documents were open; A's STA-01 had already been saved (moved to `real\stopped-2`, kept). Fix
+7e35089: those documents don't count while SOLIDWORKS discards them, and the check runs before any save. Before the
+third start I read every --checked-out / P:\-only path in SwCmd, SwResave, DmEdit, SwCheck, SwSuppDump and the script.
+Then: A, B, C as rehearsed (B drops only Coincident70, Coincident42); no unplanned writes; resave wrote exactly its 16;
+gate only the 3 known faults; STA-01 properties identical to the rehearsal; SwSuppDump identical line for line to the
+rehearsal; SwCheck 1 problem per top (the ReadOnly flag; stored P:\ links are inside the root here); masses identical;
+load 19 uploaded (3 new + 16 changed), 33 checked in; both _WITH_SCREEN removed; 29 ledger rows appended. After: a dry
+load finds 0 new or changed, no ShaftBC folders, no lock files, everything read-only except the 2 PDFs (as before).
+
 **Full rehearsal done (8 Nov)**, on `scratch\import\rehearsal-restructure\vault` (copy of P:\) with App's test pdm.exe
 (vault pdm-apex-test, reset to today's real vault) and a second copy as an engineer's PC. Script
 `scratch\import\restructure-0804\restructure-run.ps1 -Stage 1..5`; logs in `scratch\import\rehearsal-restructure\logs`.

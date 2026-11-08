@@ -23,6 +23,7 @@ public sealed class Page(Settings s)
     AmazonDynamoDBClient? db;
     // The index as read by the current run of requests (one check-in or check-out from the page), so it's read once.
     string runId = "";
+    string? minVersion; // read at login
     List<FileRecord>? runIndex;
 
     public async Task<int> RunAsync(bool openBrowser)
@@ -87,6 +88,11 @@ public sealed class Page(Settings s)
         var engine = new Engine(s, new Index(db!, s), new Vault(s3!, s), session.Email, session.Name, session.SharedEditor, log.Add);
         var run = Str("run");
         engine.Known = run != "" && run == runId ? runIndex : null;
+        if ((path is "/api/get" or "/api/checkout" or "/api/checkin" or "/api/undo" or "/api/remove" or "/api/restore") && Vault.TooOld(Updater.Version, minVersion))
+        {
+            await Send(ctx, 409, new { error = TooOldText() });
+            return;
+        }
         switch (path)
         {
             case "/api/me":
@@ -153,6 +159,7 @@ public sealed class Page(Settings s)
         s3 = new AmazonS3Client(session.Credentials, region);
         db = new AmazonDynamoDBClient(session.Credentials, region);
         updater.Start(new AmazonS3Client(session.Credentials, region), s, Console.WriteLine); // its own client: logout disposes s3
+        minVersion = await new Vault(s3, s).MinVersionAsync();
         await Send(ctx, 200, Me());
         Updater.UpdatedTo = null; // the page has shown it
     }
@@ -184,6 +191,7 @@ public sealed class Page(Settings s)
                 lockedByName = f.LockedByName, lockedAt = f.LockedAt, lockMachine = f.LockMachine, mine,
                 changed = mine && state.IsChanged(f.Path, local), missing = !File.Exists(local),
                 newer = !f.Removed && !mine && (had == null || had.VersionId != f.VersionId || !File.Exists(local)),
+                movedFrom = f.Moves.LastOrDefault()?.From,
                 removed = f.Removed, removedByName = f.RemovedByName, removedAt = f.RemovedAt, removedReason = f.RemovedReason
             };
         }).Concat(added).ToList();
@@ -201,8 +209,12 @@ public sealed class Page(Settings s)
     object Me() => new
     {
         email = session!.Email, name = session.Name, sharedEditor = session.SharedEditor,
-        version = Updater.Version, updateReady = updater.ReadyVersion, updatedTo = Updater.UpdatedTo
+        version = Updater.Version, updateReady = updater.ReadyVersion, updatedTo = Updater.UpdatedTo,
+        tooOld = Vault.TooOld(Updater.Version, minVersion) ? TooOldText() : null
     };
+
+    string TooOldText() => $"This PDM is version {Updater.Version}; the vault needs {minVersion} or later. "
+        + (updater.ReadyVersion != null ? $"Press Update to {updater.ReadyVersion} (top right) first." : "Log out and in again to fetch the update, then press Update.");
 
     string Local(string key) => Paths.LocalOf(s.LocalRoot, key);
 

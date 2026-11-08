@@ -37,11 +37,12 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         var prefix = PrefixOf(folder);
         var wanted = only?.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var state = LocalState.Load(root);
-        int fetched = 0, current = 0, cleared = 0;
+        int fetched = 0, current = 0, cleared = 0, moved = 0;
         foreach (var f in (await AllAsync()).Where(f => f.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && (wanted == null || wanted.Contains(f.Path))).OrderBy(f => f.Path))
         {
             var local = Paths.LocalOf(root, f.Path);
             if (f.Removed) { if (ClearRemoved(f, local, state)) cleared++; continue; }
+            moved += FollowMoves(f, local, state);
             bool mine = Mine(f);
             state.Files.TryGetValue(f.Path, out var had);
             bool upToDate = had != null && had.VersionId == f.VersionId && File.Exists(local);
@@ -72,7 +73,55 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             }
         }
         state.Save(root);
-        say($"Get done: {fetched} downloaded, {current} already up to date{(cleared > 0 ? $", {cleared} removed from this PC" : "")}.");
+        say($"Get done: {fetched} downloaded, {current} already up to date{(moved > 0 ? $", {moved} moved to their new folders" : "")}{(cleared > 0 ? $", {cleared} removed from this PC" : "")}.");
+    }
+
+    // A file moved in the vault: this PC's copy at an old path goes to the new path (or is deleted, when the new
+    // path already has a copy), unless it has changes the vault never had. Old copies are found in state.json by
+    // fileId, or, if state.json lost them, by being the file exactly as it was moved. Returns how many it moved.
+    public int FollowMoves(FileRecord f, string local, LocalState state)
+    {
+        var old = state.Files.Where(e => e.Value.FileId == f.FileId && !e.Key.Equals(f.Path, StringComparison.OrdinalIgnoreCase))
+            .Select(e => (Key: e.Key, Entry: (LocalState.Entry?)e.Value)).ToList();
+        foreach (var m in f.Moves)
+            if (!m.From.Equals(f.Path, StringComparison.OrdinalIgnoreCase) && !state.Files.ContainsKey(m.From) && !old.Any(o => o.Key.Equals(m.From, StringComparison.OrdinalIgnoreCase))
+                && File.Exists(Paths.LocalOf(root, m.From)) && Vault.Md5(Paths.LocalOf(root, m.From)) == m.ETag)
+                old.Add((m.From, null));
+        int n = 0;
+        foreach (var (key, entry) in old)
+        {
+            var from = Paths.LocalOf(root, key);
+            if (!File.Exists(from)) { state.Files.Remove(key); continue; }
+            if (entry != null && LocalState.Differs(entry, from))
+            {
+                say($"Kept {key}: it was moved in the vault to {f.Path}, but the copy on this PC has changes. Move it aside if you need it.");
+                continue;
+            }
+            try
+            {
+                Paths.SetReadOnly(from, false);
+                if (!File.Exists(local) && !state.Files.ContainsKey(f.Path))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(local)!);
+                    File.Move(from, local);
+                    // Recorded as the version it was, so the download below fetches the moved file's newer version if it has one.
+                    if (entry != null) state.Files[f.Path] = entry;
+                    else state.Record(f.Path, local, f.FileId, "", Vault.Md5(local));
+                    Paths.SetReadOnly(local, true);
+                }
+                else File.Delete(from); // the new path already has its copy
+                state.Files.Remove(key);
+                say($"Moved {key} to {f.Path} on this PC.");
+                n++;
+                Paths.RemoveEmptyFolders(root, from);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Paths.SetReadOnly(from, true);
+                say($"Couldn't move {key} to {f.Path} on this PC (open in SOLIDWORKS?): {ex.Message}");
+            }
+        }
+        return n;
     }
 
     // A file removed from the vault leaves this PC too, unless this PC's copy has changes the vault never had.
@@ -88,6 +137,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             File.Delete(local);
             state.Files.Remove(f.Path);
             say($"Removed {f.Path} from this PC ({why}).");
+            Paths.RemoveEmptyFolders(root, local);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -100,7 +150,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
 
     // Removes a file from the vault (soft: the record and every S3 version stay, and Restore brings it back).
     // Refused if anything in the vault uses it, if someone else has it, or if this PC's copy has changes.
-    public async Task RemoveAsync(string path, string reason)
+    public async Task RemoveAsync(string path, string reason, bool dryRun = false)
     {
         reason = reason.Trim();
         var key = Paths.KeyOf(root, path);
@@ -122,9 +172,10 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             say($"Not removed: the copy of {key} on this PC has changes. {(Mine(fresh) ? "Undo them first" : "Move it aside first")}, so nothing is lost by mistake.");
             return;
         }
+        if (!Mine(fresh) && fresh.LockedBy != null) { say($"Not removed: {fresh.LockedByName} has {key} checked out on {fresh.LockMachine}."); return; }
+        if (dryRun) { say($"Would remove {key} from the vault ({reason})."); return; }
         if (!Mine(fresh))
         {
-            if (fresh.LockedBy != null) { say($"Not removed: {fresh.LockedByName} has {key} checked out on {fresh.LockMachine}."); return; }
             try { await index.LockAsync(fresh.FileId, email, name, machine); } // free: take it as part of removing it
             catch (LockTakenException ex) { say($"Not removed: {ex.Holder.LockedByName} has {key} checked out."); return; }
         }
@@ -179,7 +230,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
     }
 
     // Takes the locks on the given files, several at a time; fetches the latest version first, then makes them writable.
-    public async Task CheckOutAsync(IEnumerable<string> paths)
+    public async Task CheckOutAsync(IEnumerable<string> paths, bool dryRun = false)
     {
         var all = await AllAsync();
         var state = LocalState.Load(root);
@@ -192,6 +243,20 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             if (f.Removed) { say($"Can't check out {f.Path}: it was removed from the vault by {f.RemovedByName}. Restore it first."); continue; }
             if (Paths.IsShared(f.Path) && !sharedEditor) { say($"{f.Path} is in a shared folder; you can't check it out."); continue; }
             wanted.Add(f);
+        }
+        if (dryRun)
+        {
+            var state0 = LocalState.Load(root);
+            foreach (var f in wanted)
+            {
+                var local = Paths.LocalOf(root, f.Path);
+                say(Mine(f) ? $"  already checked out to you here: {f.Path}"
+                    : f.LockedBy != null ? $"  NOT OK: {f.LockedByName} has {f.Path} checked out on {f.LockMachine}"
+                    : File.Exists(local) && state0.IsChanged(f.Path, local) ? $"  NOT OK: {f.Path} was changed on this PC without a check-out"
+                    : $"  would check out {f.Path}");
+            }
+            say($"Dry run: {wanted.Count} files; nothing checked out.");
+            return;
         }
         try
         {
@@ -322,7 +387,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             FileId = existing?.FileId ?? Guid.NewGuid().ToString(),
             Path = existing?.Path ?? key,
             UpdatedAt = Index.Now(), UpdatedBy = name, Note = note,
-            LockedBy = existing?.LockedBy
+            LockedBy = existing?.LockedBy, Moves = existing?.Moves ?? new()
         };
         Time.Of("Document Manager", () => { Describe(record, local, all); return 0; });
 
@@ -350,6 +415,28 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         Paths.SetReadOnly(local, true);
         say($"{(existing == null ? "Added" : "Checked in")} {record.Path}");
         foreach (var m in record.MissingRefs) say($"  Note: refers to {m}, which isn't in the vault.");
+    }
+
+    // Releases my check-out without touching the file (an admin round that stops part way: a later load uploads
+    // any changes). Changed files stay writable, unchanged ones go read-only.
+    public async Task ReleaseAsync(IEnumerable<string> paths, bool dryRun)
+    {
+        var all = await AllAsync();
+        var state = LocalState.Load(root);
+        foreach (var p in paths)
+        {
+            var key = Paths.KeyOf(root, p);
+            var f = all.FirstOrDefault(r => r.Path.Equals(key, StringComparison.OrdinalIgnoreCase) && !r.Removed);
+            if (f == null) { say($"  Not in the vault: {key}"); continue; }
+            if (!Mine(f)) { say($"  Not checked out to you here: {key}"); continue; }
+            var local = Paths.LocalOf(root, key);
+            bool changed = File.Exists(local) && state.IsChanged(key, local);
+            if (dryRun) { say($"  would release {key}{(changed ? " (changed here; stays writable)" : "")}"); continue; }
+            await index.UnlockAsync(f.FileId, email, machine);
+            f.LockedBy = f.LockedByName = f.LockedAt = f.LockMachine = null;
+            if (!changed) Paths.SetReadOnly(local, true);
+            say($"  Released {key}{(changed ? " (changed here; stays writable)" : "")}");
+        }
     }
 
     // Releases my lock and puts back the vault's copy.

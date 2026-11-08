@@ -21,7 +21,32 @@ try
         case "shell":
             return await Shell(settings);
         case "load":
-            return await Load(settings, args.Contains("--dry"));
+            return await Load(settings, args.Contains("--dry"), Arg(args, "--note"));
+        case "move" when args.Length >= 2:
+            return await Admin(settings, async (index, vault, engine) =>
+                await new Mover(settings, index, vault, AdminEmail, AdminName, Console.WriteLine).RunAsync(Path.GetFullPath(args[1]), Arg(args, "--note") ?? "", args.Contains("--dry")));
+        case "remove" when args.Length >= 2:
+            return await Admin(settings, async (index, vault, engine) =>
+            {
+                var note = Arg(args, "--note") ?? "";
+                foreach (var f in Files(settings, args, r => r.Action == "retired")) await engine.RemoveAsync(f, note, args.Contains("--dry"));
+                return 0;
+            });
+        case "checkout" when args.Length >= 2:
+            return await Admin(settings, async (index, vault, engine) =>
+            {
+                await engine.CheckOutAsync(Files(settings, args, null), args.Contains("--dry"));
+                return 0;
+            });
+        case "get":
+            // Download latest with the admin login: for the admin PC, and for test copies standing in for an engineer's PC.
+            return await Admin(settings, async (index, vault, engine) => { await engine.GetAsync(null); return 0; });
+        case "unlock" when args.Length >= 2:
+            return await Admin(settings, async (index, vault, engine) =>
+            {
+                await engine.ReleaseAsync(Files(settings, args, null), args.Contains("--dry"));
+                return 0;
+            });
         case "inspect" when args.Length == 2:
             var info = new DocReader().Read(Path.GetFullPath(args[1]));
             foreach (var r in info.References) Console.WriteLine($"ref     {r}");
@@ -34,7 +59,15 @@ try
         default:
             Console.WriteLine("Usage: pdm              open the PDM page");
             Console.WriteLine("       pdm shell        log in and type commands");
-            Console.WriteLine("       pdm load [--dry] admin: load P:\\ into the vault (uses the pdm-admin SSO login)");
+            Console.WriteLine("       pdm load [--dry] [--note \"...\"]");
+            Console.WriteLine("                        admin: load P:\\ into the vault (uses the pdm-admin SSO login); the note goes on new and changed files");
+            Console.WriteLine("       pdm move <list.txt> --note \"...\" [--dry]");
+            Console.WriteLine("                        admin: move vault files, one \"old path -> new path\" per line; all lines checked first");
+            Console.WriteLine("       pdm remove <file> [<file> ...] --note \"why\" [--dry]   admin: remove from the vault (Restore brings back)");
+            Console.WriteLine("       pdm get          admin: Download latest for this PC's root, with the admin login");
+            Console.WriteLine("       pdm checkout <file> [<file> ...] [--dry]   admin: check out here, as the admin login");
+            Console.WriteLine("       pdm unlock <file> [<file> ...] [--dry]     admin: release those check-outs, files left as they are");
+            Console.WriteLine("                        move, remove, checkout and unlock also take a round list (round.csv: action,old_path,new_path,...)");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
             Console.WriteLine("       pdm release <folder> <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role]");
             Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only)");
@@ -128,8 +161,27 @@ static async Task<int> Shell(Settings s)
     }
 }
 
-// Admin load with Grant's SSO login (profile pdm-admin). Run "aws sso login --profile pdm-admin" first.
-static async Task<int> Load(Settings s, bool dryRun)
+// Files named on the command line (vault keys or P:\ paths), or a round list's rows: those matching `pick`,
+// or every file the round holds (changed, moved, moved+changed, retired) when pick is null.
+static List<string> Files(Settings s, string[] args, Func<Round.Row, bool>? pick)
+{
+    var named = args.Skip(1).TakeWhile(a => !a.StartsWith("--")).ToList();
+    if (named.Count == 1 && Round.IsRound(Path.GetFullPath(named[0])))
+    {
+        var file = Path.GetFullPath(named[0]);
+        named = pick == null ? Round.Held(file) : Round.Read(file).Where(pick).Select(r => r.Old).ToList();
+    }
+    return named.Select(f => Path.IsPathRooted(f) ? f : Path.Combine(s.LocalRoot, f.Replace('/', '\\'))).ToList();
+}
+
+static string? Arg(string[] args, string name)
+{
+    var i = Array.IndexOf(args, name);
+    return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+}
+
+// Admin jobs with Grant's SSO login (profile pdm-admin). Run "aws sso login --profile pdm-admin" first.
+static async Task<int> Admin(Settings s, Func<Pdm.Index, Vault, Engine, Task<int>> job)
 {
     if (!new CredentialProfileStoreChain().TryGetAWSCredentials("pdm-admin", out AWSCredentials credentials))
     {
@@ -141,10 +193,18 @@ static async Task<int> Load(Settings s, bool dryRun)
     using var db = new AmazonDynamoDBClient(credentials, region);
     var index = new Pdm.Index(db, s);
     var vault = new Vault(s3, s);
-    var engine = new Engine(s, index, vault, "", "Admin", true, Console.WriteLine);
-    await new Loader(s, index, vault, engine, "Grant Elliott", Console.WriteLine).RunAsync(dryRun);
-    return 0;
+    Console.WriteLine($"Vault: {s.Bucket}, {s.FilesTable}; local root {s.LocalRoot}");
+    return await job(index, vault, new Engine(s, index, vault, AdminEmail, AdminName, true, Console.WriteLine));
 }
+
+// Admin load with Grant's SSO login (profile pdm-admin). Run "aws sso login --profile pdm-admin" first.
+// Files this admin login has checked out on this PC (a round's) are checked in by the load.
+static Task<int> Load(Settings s, bool dryRun, string? note) =>
+    Admin(s, async (index, vault, engine) =>
+    {
+        await new Loader(s, index, vault, engine, AdminName, Console.WriteLine).RunAsync(dryRun, note);
+        return 0;
+    });
 
 // Dry run of the release step: reads the index with the pdm-admin SSO login, copies the set to a scratch folder,
 // exports and checks there, and writes a pass/fail list. Nothing is written to the vault.
@@ -204,4 +264,11 @@ static string ReadHidden(string prompt)
     }
     Console.WriteLine();
     return new string(chars.ToArray());
+}
+
+// Who admin jobs run as: Grant's SSO login. Locks they take for a moment (move, remove) show this name.
+static partial class Program
+{
+    const string AdminEmail = "pdm-admin";
+    const string AdminName = "Grant Elliott";
 }

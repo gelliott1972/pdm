@@ -27,7 +27,12 @@ public sealed class FileRecord
     public string? RemovedByName { get; set; }
     public string? RemovedReason { get; set; }
     public bool Removed => RemovedAt != null;
+    // Moves (path changes) of this file, oldest first. Its S3 versions before a move stay at the old key.
+    public List<MoveEntry> Moves { get; set; } = new();
 }
+
+// One recorded move: from and to are vault keys; etag is the file as moved, so a copy left at the old path can be told apart.
+public sealed record MoveEntry(string From, string To, string At, string By, string Note, string ETag);
 
 public sealed class LockTakenException(FileRecord holder) : Exception($"{holder.Path} is checked out by {holder.LockedByName} since {holder.LockedAt}")
 {
@@ -147,6 +152,43 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
         }
     }
 
+    // Moves a file to a new path (its S3 object already copied there as versionId), records the move and releases
+    // my lock, only while I still hold it, it's still at the old path and it isn't removed.
+    // keepLock: the file stays checked out to me (a round holds its files until the load).
+    public async Task MoveAsync(FileRecord f, MoveEntry m, string versionId, string email, string machine, bool keepLock = false)
+    {
+        try
+        {
+            await db.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName = s.FilesTable,
+                Key = new() { ["fileId"] = S(f.FileId) },
+                UpdateExpression = "SET #p = :to, versionId = :v, updatedAt = :at, updatedBy = :by, note = :note, moves = list_append(if_not_exists(moves, :none), :m)"
+                    + (keepLock ? "" : " REMOVE lockedBy, lockedByName, lockedAt, lockMachine"),
+                ConditionExpression = "lockedBy = :me AND lockMachine = :machine AND #p = :from AND attribute_not_exists(removedAt)",
+                ExpressionAttributeNames = new() { ["#p"] = "path" },
+                ExpressionAttributeValues = new()
+                {
+                    [":to"] = S(m.To), [":from"] = S(m.From), [":v"] = S(versionId), [":at"] = S(m.At), [":by"] = S(m.By), [":note"] = S(m.Note),
+                    [":none"] = new() { L = new() }, [":m"] = new() { L = [MoveItem(m)] },
+                    [":me"] = S(email), [":machine"] = S(machine)
+                }
+            });
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            throw new InvalidOperationException("It changed while being moved (checked out, moved or removed by someone else).");
+        }
+        (f.Path, f.VersionId, f.UpdatedAt, f.UpdatedBy, f.Note) = (m.To, versionId, m.At, m.By, m.Note);
+        if (!keepLock) f.LockedBy = f.LockedByName = f.LockedAt = f.LockMachine = null;
+        f.Moves.Add(m);
+    }
+
+    static AttributeValue MoveItem(MoveEntry m) => new()
+    {
+        M = new() { ["from"] = S(m.From), ["to"] = S(m.To), ["at"] = S(m.At), ["by"] = S(m.By), ["note"] = S(m.Note), ["etag"] = S(m.ETag) }
+    };
+
     // Records a new version and releases the lock, only while I still hold it.
     public async Task CheckInAsync(FileRecord f, string email, string machine)
     {
@@ -247,6 +289,7 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
                 }).ToList()
             }
         };
+        if (f.Moves.Count > 0) item["moves"] = new() { L = f.Moves.Select(MoveItem).ToList() };
         if (f.RemovedAt != null)
         {
             item["removedAt"] = S(f.RemovedAt);
@@ -279,7 +322,10 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
                 ? pn.L.Select(m => new PartNoEntry(m.M["config"].S, m.M["partNo"].S, m.M["status"].S)).ToList()
                 : new(),
             LockedBy = Opt("lockedBy"), LockedByName = Opt("lockedByName"), LockedAt = Opt("lockedAt"), LockMachine = Opt("lockMachine"),
-            RemovedAt = Opt("removedAt"), RemovedBy = Opt("removedBy"), RemovedByName = Opt("removedByName"), RemovedReason = Opt("removedReason")
+            RemovedAt = Opt("removedAt"), RemovedBy = Opt("removedBy"), RemovedByName = Opt("removedByName"), RemovedReason = Opt("removedReason"),
+            Moves = i.TryGetValue("moves", out var mv) && mv.L != null
+                ? mv.L.Select(x => { string M(string k) => x.M.TryGetValue(k, out var a) && a.S != null ? a.S : ""; return new MoveEntry(M("from"), M("to"), M("at"), M("by"), M("note"), M("etag")); }).ToList()
+                : new()
         };
     }
 }

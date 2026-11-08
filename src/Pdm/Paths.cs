@@ -51,6 +51,27 @@ public static class Paths
     public static bool IsSolidWorksFile(string key) =>
         Path.GetExtension(key).ToLowerInvariant() is ".sldprt" or ".sldasm" or ".slddrw" && !Path.GetFileName(key).StartsWith('~');
 
+    // After a file leaves this PC: removes its folder, and the folders above it, while they are empty
+    // (Explorer's desktop.ini and Thumbs.db don't count). Never the root itself. Quietly stops on any error.
+    public static void RemoveEmptyFolders(string root, string removedFile)
+    {
+        var top = Path.GetFullPath(root).TrimEnd('\\');
+        var dir = Path.GetDirectoryName(Path.GetFullPath(removedFile));
+        try
+        {
+            while (dir != null && dir.Length > top.Length && dir.StartsWith(top + "\\", StringComparison.OrdinalIgnoreCase) && Directory.Exists(dir))
+            {
+                if (Directory.EnumerateDirectories(dir).Any()) return;
+                var files = Directory.GetFiles(dir);
+                if (files.Any(f => Path.GetFileName(f) is not ("desktop.ini" or "Thumbs.db"))) return;
+                foreach (var f in files) { File.SetAttributes(f, FileAttributes.Normal); File.Delete(f); }
+                Directory.Delete(dir);
+                dir = Path.GetDirectoryName(dir);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
     public static void SetReadOnly(string localPath, bool readOnly)
     {
         if (!File.Exists(localPath)) return;

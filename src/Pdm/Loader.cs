@@ -8,7 +8,8 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
 {
     static readonly HashSet<string> Junk = new(StringComparer.OrdinalIgnoreCase) { "desktop.ini", "Thumbs.db" };
 
-    public async Task RunAsync(bool dryRun)
+    // note: recorded on every new or changed file (default "Initial load" for new ones; changed ones keep their old note).
+    public async Task RunAsync(bool dryRun, string? note = null)
     {
         var root = s.LocalRoot;
         var existing = (await index.AllAsync()).ToDictionary(r => r.Path, StringComparer.OrdinalIgnoreCase);
@@ -20,20 +21,31 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
 
         // Pass 1: every file gets its id (kept if already in the index) and goes to S3 if new or changed.
         var records = new List<(FileRecord Record, string Local, bool Upload)>();
+        var removedHere = new List<string>();
+        int releasedHere = 0;
         foreach (var (local, key) in files)
         {
             existing.TryGetValue(key, out var old);
+            if (old?.Removed == true) { removedHere.Add(key); continue; } // a removed file stays removed; Restore brings it back
             var md5 = Vault.Md5(local);
+            bool upload = old == null || old.ETag != md5;
             var record = new FileRecord
             {
                 FileId = old?.FileId ?? Guid.NewGuid().ToString(),
                 Path = old?.Path ?? key,
                 VersionId = old?.VersionId ?? "", ETag = md5, Size = new FileInfo(local).Length,
-                UpdatedAt = old?.UpdatedAt ?? Index.Now(), UpdatedBy = old?.UpdatedBy ?? adminName,
-                Note = old?.Note ?? "Initial load",
-                LockedBy = old?.LockedBy, LockedByName = old?.LockedByName, LockedAt = old?.LockedAt, LockMachine = old?.LockMachine
+                UpdatedAt = old != null && !(upload && note != null) ? old.UpdatedAt : Index.Now(),
+                UpdatedBy = old != null && !(upload && note != null) ? old.UpdatedBy : adminName,
+                Note = old != null && !(upload && note != null) ? old.Note : note ?? "Initial load",
+                LockedBy = old?.LockedBy, LockedByName = old?.LockedByName, LockedAt = old?.LockedAt, LockMachine = old?.LockMachine,
+                Moves = old?.Moves ?? new()
             };
-            records.Add((record, local, old == null || old.ETag != md5));
+            if (old != null && engine.Mine(old)) // checked out for a round by this admin login on this PC: the load checks it in
+            {
+                record.LockedBy = record.LockedByName = record.LockedAt = record.LockMachine = null;
+                releasedHere++;
+            }
+            records.Add((record, local, upload));
         }
 
         // Pass 2: references and PartNos, now that every file has an id.
@@ -51,6 +63,11 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
         var uploadMb = records.Where(r => r.Upload).Sum(r => r.Record.Size) / 1048576.0;
         say($"{records.Count} files to load from {root} ({skipped.Count} skipped); {toUpload} new or changed ({uploadMb:0.0} MB to upload), {records.Count - toUpload} already in the vault.");
         foreach (var r in records.Where(r => r.Upload)) say($"  {(r.Record.VersionId == "" ? "new" : "changed")}  {r.Record.Path}");
+        if (releasedHere > 0) say($"{releasedHere} files checked out to you here are checked in by the load (changed or not).");
+        foreach (var k in removedHere) say($"  skipped (removed from the vault; Restore it first if it should come back): {k}");
+        // A changed file someone has checked out is theirs to check in: the load never uploads over a check-out.
+        var held = records.Where(r => r.Upload && r.Record.LockedBy != null).ToList();
+        foreach (var r in held) say($"CHECK: {r.Record.Path} is changed here but checked out by {r.Record.LockedByName} on {r.Record.LockMachine}");
 
         var dupes = all.SelectMany(r => r.PartNos.Select(p => (p.PartNo, r.Path)))
             .GroupBy(x => x.PartNo, StringComparer.OrdinalIgnoreCase).Where(g => g.Select(x => x.Path).Distinct().Count() > 1).ToList();
@@ -72,6 +89,7 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
 
         if (dryRun) { say("Dry run: nothing uploaded or written."); return; }
         if (dupes.Count > 0) { say("Stopped: fix the duplicate PartNos first."); return; }
+        if (held.Count > 0) { say("Stopped: changed files are checked out (CHECK lines above). Nothing was uploaded."); return; }
 
         var state = LocalState.Load(root);
         int n = 0;

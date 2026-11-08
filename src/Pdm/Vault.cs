@@ -18,6 +18,35 @@ public sealed class Vault(IAmazonS3 s3, Settings s)
         return (r.VersionId, r.ETag.Trim('"'));
     }
 
+    // Copies one version to a new key inside the bucket (a move): nothing goes through this PC. Keeps the fileId metadata.
+    public async Task<(string VersionId, string ETag)> CopyAsync(string fromKey, string versionId, string toKey)
+    {
+        var r = await s3.CopyObjectAsync(new CopyObjectRequest
+        {
+            SourceBucket = s.Bucket, SourceKey = fromKey, SourceVersionId = versionId,
+            DestinationBucket = s.Bucket, DestinationKey = toKey, MetadataDirective = S3MetadataDirective.COPY
+        });
+        return (r.VersionId, r.ETag.Trim('"'));
+    }
+
+    // The oldest app version allowed to change files or download (Admin sets it after a change older versions
+    // can't follow, such as moves). Kept in the bucket at .pdm/min-version.txt, a key no vault file can have.
+    public const string MinVersionKey = ".pdm/min-version.txt";
+    public async Task<string?> MinVersionAsync()
+    {
+        try
+        {
+            using var r = await s3.GetObjectAsync(s.Bucket, MinVersionKey);
+            using var reader = new StreamReader(r.ResponseStream);
+            return (await reader.ReadToEndAsync()).Trim();
+        }
+        catch (AmazonS3Exception) { return null; } // none set (or not readable): no gate
+    }
+
+    // True when this version is older than the minimum. A build from source (0.0.0) is never stopped.
+    public static bool TooOld(string version, string? min) =>
+        version != "0.0.0" && System.Version.TryParse(version, out var v) && System.Version.TryParse(min, out var m) && v < m;
+
     // Downloads one version to a temporary file, then swaps it in, so a failed download never leaves half a file.
     public async Task DownloadAsync(string key, string versionId, string localPath)
     {

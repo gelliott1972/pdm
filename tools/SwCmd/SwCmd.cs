@@ -755,14 +755,29 @@ static class SwCmd
         return SaveDoc(sw, doc, checkedOut) ? Finish() : 2;
     }
 
-    static bool SaveDoc(ISldWorks sw, ModelDoc2 doc, bool checkedOut)
+    // Why another modified open document would stop a save, or null. While DiscardReadOnlyRefs has SOLIDWORKS' "don't
+    // prompt to save read-only referenced documents (discard changes)" on, a modified document that is read-only on disk
+    // is not saved by SOLIDWORKS, so it doesn't count (real 0804 run, 8 Nov: form-sub A was refused for the read-only,
+    // modified FAST-HEX-8.8-HDG; the rehearsal on a copy outside the vault never reached this check).
+    static string OtherModifiedRefusal(ISldWorks sw, bool checkedOut)
     {
+        int discarded = 0;
         foreach (var d in OpenDocs(sw))
         {
-            if (!d.GetSaveFlag() || d.GetPathName() == "") continue;
-            string why = WriteRefusal(d.GetPathName(), checkedOut, false);
-            if (why != null) { Console.Error.WriteLine("REFUSED, nothing saved: another modified open document can't be written: " + why); return false; }
+            string p = d.GetPathName();
+            if (!d.GetSaveFlag() || p == "") continue;
+            if (readOnlyRefsWas.HasValue && File.Exists(p) && (File.GetAttributes(p) & FileAttributes.ReadOnly) != 0) { discarded++; continue; }
+            string why = WriteRefusal(p, checkedOut, false);
+            if (why != null) return why;
         }
+        if (discarded > 0) Console.WriteLine("  " + discarded + " other modified open document(s) are read-only on disk: SOLIDWORKS discards their changes (option on), they are not written");
+        return null;
+    }
+
+    static bool SaveDoc(ISldWorks sw, ModelDoc2 doc, bool checkedOut)
+    {
+        string why = OtherModifiedRefusal(sw, checkedOut);
+        if (why != null) { Console.Error.WriteLine("REFUSED, nothing saved: another modified open document can't be written: " + why); return false; }
         int err = 0, warn = 0;
         bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref err, ref warn);
         Console.WriteLine((ok ? "Saved " : "SAVE FAILED ") + doc.GetPathName()
@@ -1435,6 +1450,9 @@ static class SwCmd
         ReportWhatsWrong(doc);
         if (!save) { Console.WriteLine("Not saved (the change is in SOLIDWORKS only; run save, or pass --save)."); return Finish(); }
         if (problems.Count > 0) { Console.WriteLine("Not saved: problems above (close without saving, or save after checking)."); return Finish(); }
+        // The top's save check runs before anything is saved, so a refusal leaves neither file saved here.
+        string why = OtherModifiedRefusal(sw, checkedOut);
+        if (why != null) { problems.Add("nothing saved: another modified open document can't be written: " + why); return Finish(); }
         if (subDoc != null)
         {
             int err = 0, warn = 0;

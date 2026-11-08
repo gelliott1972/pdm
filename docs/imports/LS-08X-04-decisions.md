@@ -78,3 +78,4 @@ D4's `08x04-STA-01` never reached the plan (Admin missed it), so 0804 was import
 - S5: the PDM handles the moves on every PC. Done before James's first Download latest on Monday. The 0A PDF release waits.
 - S6 (SW, 8 Nov, checked on the vault original): B's two dropped mates (`Coincident42` in the top, `Coincident70` in `_WITH_SCREEN`) each already had a missing face, so they held nothing; positions unchanged. `Coincident275` grey = a mate to a plate that is suppressed before and after.
 - A15 (Grant, Desk, 8 Nov): go for the real restructure run, after a clean rehearsal checked by Dev, SW and App.
+- **Restructure done 8 Nov** (Dev, real vault): 21 moved, 3 STA-01s, 16 changed, 2 `_WITH_SCREEN` retired, 29 ledger rows; two safe stops on the way (script path, SwCmd save check), fixed in 98e9992 and 7e35089. Lesson: rehearse under a vault-like path so real-only checks run.

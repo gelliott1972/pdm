@@ -77,3 +77,4 @@ D4's `08x04-STA-01` never reached the plan (Admin missed it), so 0804 was import
 - S4: no `ShaftBC` folders; B+C shared files go in the set's `_Shared` (0804's `08Z04-SFP-01`, and 0811's 11 `08Z11` files).
 - S5: the PDM handles the moves on every PC. Done before James's first Download latest on Monday. The 0A PDF release waits.
 - S6 (SW, 8 Nov, checked on the vault original): B's two dropped mates (`Coincident42` in the top, `Coincident70` in `_WITH_SCREEN`) each already had a missing face, so they held nothing; positions unchanged. `Coincident275` grey = a mate to a plate that is suppressed before and after.
+- A15 (Grant, Desk, 8 Nov): go for the real restructure run, after a clean rehearsal checked by Dev, SW and App.

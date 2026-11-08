@@ -1,0 +1,37 @@
+action,old_path,new_path,who,why
+new,,APEX\SC08\LS-08X-04\08A04-STA-01.SLDASM,SW form-sub,S1: all of that shaft's steel
+new,,APEX\SC08\LS-08X-04\08B04-STA-01.SLDASM,SW form-sub,S1: all of that shaft's steel
+new,,APEX\SC08\LS-08X-04\08C04-STA-01.SLDASM,SW form-sub,S1: all of that shaft's steel
+changed,APEX\SC08\LS-08X-04\LS-08A-04+STRUCTURE.SLDASM,APEX\SC08\LS-08X-04\LS-08A-04+STRUCTURE.SLDASM,SW form-sub,S1/S2: top = STA-01 + screen
+changed,APEX\SC08\LS-08X-04\LS-08B-04+STRUCTURE.SLDASM,APEX\SC08\LS-08X-04\LS-08B-04+STRUCTURE.SLDASM,SW form-sub + dissolve,S1/S2: top = STA-01 + screen
+changed,APEX\SC08\LS-08X-04\LS-08C-04+STRUCTURE.SLDASM,APEX\SC08\LS-08X-04\LS-08C-04+STRUCTURE.SLDASM,SW form-sub + dissolve,S1/S2: top = STA-01 + screen
+changed,APEX\SC08\LS-08X-04\LS-08A-04.SLDASM,APEX\SC08\LS-08X-04\LS-08A-04.SLDASM,Dev repoint + resave,S3: its walls/roof move
+changed,APEX\SC08\LS-08X-04\LS-08B-04.SLDASM,APEX\SC08\LS-08X-04\LS-08B-04.SLDASM,Dev repoint + resave,S3: its walls/roof move
+changed,APEX\SC08\LS-08X-04\LS-08C-04.SLDASM,APEX\SC08\LS-08X-04\LS-08C-04.SLDASM,Dev repoint + resave,S3: its walls/roof move
+moved,APEX\SC08\LS-08X-04\LS-08A-04 LH Side Wall.SLDASM,APEX\SC08\LS-08X-04\Screen_Subassemblies\LS-08A-04 LH Side Wall.SLDASM,App move,S3
+moved,APEX\SC08\LS-08X-04\LS-08A-04 RH Side Wall.SLDASM,APEX\SC08\LS-08X-04\Screen_Subassemblies\LS-08A-04 RH Side Wall.SLDASM,App move,S3
+moved,APEX\SC08\LS-08X-04\LS-08A-04 Rear Wall.SLDASM,APEX\SC08\LS-08X-04\Screen_Subassemblies\LS-08A-04 Rear Wall.SLDASM,App move,S3
+moved,APEX\SC08\LS-08X-04\LS-08A-04 Roof.SLDASM,APEX\SC08\LS-08X-04\Screen_Subassemblies\LS-08A-04 Roof.SLDASM,App move,S3
+moved,APEX\SC08\LS-08X-04\LS-08B-04 Roof.SLDASM,APEX\SC08\LS-08X-04\Screen_Subassemblies\LS-08B-04 Roof.SLDASM,App move,S3
+moved,APEX\SC08\LS-08X-04\LS-08C-04 Roof.SLDASM,APEX\SC08\LS-08X-04\Screen_Subassemblies\LS-08C-04 Roof.SLDASM,App move,S3
+moved,APEX\SC08\LS-08X-04\LS-08BC-04 LH Side Wall.SLDASM,APEX\SC08\LS-08X-04\Screen_Subassemblies\LS-08BC-04 LH Side Wall.SLDASM,App move,S3
+moved,APEX\SC08\LS-08X-04\LS-08BC-04 RH Side Wall.SLDASM,APEX\SC08\LS-08X-04\Screen_Subassemblies\LS-08BC-04 RH Side Wall.SLDASM,App move,S3
+moved,APEX\SC08\LS-08X-04\LS-08BC-04 Rear Wall.SLDASM,APEX\SC08\LS-08X-04\Screen_Subassemblies\LS-08BC-04 Rear Wall.SLDASM,App move,S3
+moved,APEX\SC08\LS-08X-04\ShaftBC\08Z04-SFP-01.SLDPRT,APEX\SC08\LS-08X-04\_Shared\08Z04-SFP-01.SLDPRT,App move,S4
+changed,APEX\SC08\LS-08X-04\ShaftB\08B04-SFA-2T.SLDASM,APEX\SC08\LS-08X-04\ShaftB\08B04-SFA-2T.SLDASM,Dev repoint + resave,S4: uses 08Z04-SFP-01
+changed,APEX\SC08\LS-08X-04\ShaftC\08C04-SFA-2T.SLDASM,APEX\SC08\LS-08X-04\ShaftC\08C04-SFA-2T.SLDASM,Dev repoint + resave,S4: uses 08Z04-SFP-01
+moved,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA.SLDASM,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA.SLDASM,App move,S4 (0811)
+moved,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA-2B.SLDASM,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA-2B.SLDASM,App move,S4 (0811)
+moved,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA-2T.SLDASM,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA-2T.SLDASM,App move,S4 (0811)
+moved,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA-3B.SLDASM,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA-3B.SLDASM,App move,S4 (0811)
+moved,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA-3T.SLDASM,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA-3T.SLDASM,App move,S4 (0811)
+moved+changed,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA-1A.SLDDRW,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA-1A.SLDDRW,App move; Dev repoint + resave,S4 (0811): drawing of a moved model
+moved+changed,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA-1B.SLDDRW,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA-1B.SLDDRW,App move; Dev repoint + resave,S4 (0811): drawing of a moved model
+moved+changed,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA-2B.SLDDRW,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA-2B.SLDDRW,App move; Dev repoint + resave,S4 (0811): drawing of a moved model
+moved+changed,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA-2T.SLDDRW,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA-2T.SLDDRW,App move; Dev repoint + resave,S4 (0811): drawing of a moved model
+moved+changed,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA-3B.SLDDRW,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA-3B.SLDDRW,App move; Dev repoint + resave,S4 (0811): drawing of a moved model
+moved+changed,APEX\SC08\LS-08X-11\ShaftBC\08Z11-SFA-3T.SLDDRW,APEX\SC08\LS-08X-11\_Shared\08Z11-SFA-3T.SLDDRW,App move; Dev repoint + resave,S4 (0811): drawing of a moved model
+changed,APEX\SC08\LS-08X-11\08B11-STA-01.SLDASM,APEX\SC08\LS-08X-11\08B11-STA-01.SLDASM,Dev repoint + resave,S4 (0811): uses the 5 08Z11 assemblies
+changed,APEX\SC08\LS-08X-11\08C11-STA-01.SLDASM,APEX\SC08\LS-08X-11\08C11-STA-01.SLDASM,Dev repoint + resave,S4 (0811): uses the 5 08Z11 assemblies
+retired,APEX\SC08\LS-08X-04\LS-08B-04_WITH_SCREEN.SLDASM,,App remove from vault,S2
+retired,APEX\SC08\LS-08X-04\LS-08C-04_WITH_SCREEN.SLDASM,,App remove from vault,S2

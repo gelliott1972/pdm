@@ -271,7 +271,30 @@ static class SwCmd
             }
         }
         catch (COMException ex) { Console.Error.WriteLine("SOLIDWORKS error: " + ex.Message); return 3; }
+        finally { RestoreReadOnlyRefs(sw); }
         return Usage();
+    }
+
+    // form-sub and dissolve save with SOLIDWORKS' "Don't prompt to save read-only referenced documents (discard changes)"
+    // (External References) on, then put the option back. Without it, saving the new subassembly asks Save As for every
+    // read-only referenced file SOLIDWORKS holds as modified (rehearsal, 8 Nov: ~90 steel and fastener files not checked
+    // out). Those files stay as they are on disk. DialogWatch runs too and cancels any Save As that still comes up.
+    static bool? readOnlyRefsWas;
+    static void DiscardReadOnlyRefs(ISldWorks sw)
+    {
+        int opt = (int)swUserPreferenceToggle_e.swExtRefNoPromptOrSave;
+        if (!readOnlyRefsWas.HasValue) readOnlyRefsWas = sw.GetUserPreferenceToggle(opt);
+        sw.SetUserPreferenceToggle(opt, true);
+        Console.WriteLine("Read-only referenced files: not prompted, not saved (SOLIDWORKS option on for this command; was "
+            + (readOnlyRefsWas.Value ? "on" : "off") + ")" + (sw.GetUserPreferenceToggle(opt) ? "" : " -- SOLIDWORKS DID NOT TAKE IT"));
+        if (!sw.GetUserPreferenceToggle(opt)) problems.Add("could not turn on 'Don't prompt to save read-only referenced documents'");
+        DialogWatch.Start();
+    }
+    static void RestoreReadOnlyRefs(ISldWorks sw)
+    {
+        if (!readOnlyRefsWas.HasValue) return;
+        try { sw.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swExtRefNoPromptOrSave, readOnlyRefsWas.Value); } catch { }
+        readOnlyRefsWas = null;
     }
 
     // ---------- who has SOLIDWORKS: desk\sw\lock.json and pause.json (docs\briefs\desk-v2.md section 2) ----------
@@ -1248,6 +1271,7 @@ static class SwCmd
         if (asm == null) return Finish();
         var doc = (ModelDoc2)asm;
         OneConfiguration(doc, asmPath);
+        DiscardReadOnlyRefs(sw);
         // Lightweight components give no component for their faces in mates: resolve them first (SW, 7 Nov).
         int lw = asm.ResolveAllLightWeightComponents(false);
         Console.WriteLine("Resolved lightweight components (result " + lw + ").");
@@ -1362,6 +1386,7 @@ static class SwCmd
         if (asm == null) return Finish();
         var doc = (ModelDoc2)asm;
         OneConfiguration(doc, asmPath);
+        DiscardReadOnlyRefs(sw);
         // Lightweight components give no component for their faces in mates: resolve them first (SW, 7 Nov).
         int lw = asm.ResolveAllLightWeightComponents(false);
         Console.WriteLine("Resolved lightweight components (result " + lw + ").");

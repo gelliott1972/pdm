@@ -1,7 +1,8 @@
 // DialogWatch: while SwCmd or SwCheck waits on SOLIDWORKS (opening a file), a background thread looks at SOLIDWORKS's
 // dialog boxes. A dialog about a missing linked equations file (its title or text mentions "equation" or ".txt") is
 // cancelled, as Grant did by hand (7 Nov, 0804 A): SOLIDWORKS then keeps the equation values it has, and nothing is
-// written. Every other dialog is left alone and reported once, so a caller sees why SOLIDWORKS is waiting.
+// written. A Save As box (SOLIDWORKS asking where to save a read-only referenced file during a save) is cancelled and
+// reported. Every other dialog is left alone and reported once, so a caller sees why SOLIDWORKS is waiting.
 // Shared by tools\SwCmd and tools\SwCheck (compiled into both). C# 5.
 using System;
 using System.Collections.Generic;
@@ -93,9 +94,24 @@ static class DialogWatch
             string all = (title + " | " + string.Join(" | ", texts)).Replace("\r", " ").Replace("\n", " ");
             if (all.Length > 400) all = all.Substring(0, 400) + "...";
             bool equations = all.IndexOf("equation", StringComparison.OrdinalIgnoreCase) >= 0 || all.IndexOf(".txt", StringComparison.OrdinalIgnoreCase) >= 0;
+            // A Save As box during a save: SOLIDWORKS wants to save a referenced file it can't write (read-only, i.e. not
+            // checked out). Cancelled, so nothing is written there; the caller treats it as a problem (rehearsal, 8 Nov:
+            // form-sub's SaveVirtualComponent asked this for ~90 read-only steel and fastener files, one at a time).
+            bool saveAs = title.Replace("&", "").Trim().Equals("Save As", StringComparison.OrdinalIgnoreCase);
             lock (gate)
             {
-                if (equations)
+                if (saveAs)
+                {
+                    if (reported.Contains(d)) continue;
+                    string file = "";
+                    EnumChildWindows(d, (c, l) => { if (Class(c) == "Edit") { string t = Text(c).Trim(); if (t != "") { file = t; return false; } } return true; }, IntPtr.Zero);
+                    if (cancel != IntPtr.Zero) PostMessage(cancel, BM_CLICK, IntPtr.Zero, IntPtr.Zero);
+                    else PostMessage(d, WM_COMMAND, (IntPtr)IDCANCEL, IntPtr.Zero);
+                    reported.Add(d);
+                    string e = "CANCELLED a SOLIDWORKS Save As for " + (file == "" ? "(no file name shown)" : file) + " (a referenced file it could not write; nothing written there)";
+                    events.Add(e); Console.Error.WriteLine(e);
+                }
+                else if (equations)
                 {
                     if (reported.Contains(d)) continue;
                     if (cancel != IntPtr.Zero) PostMessage(cancel, BM_CLICK, IntPtr.Zero, IntPtr.Zero);

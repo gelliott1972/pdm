@@ -1,6 +1,6 @@
 # Dev status
 
-Updated 7 Nov 2026, on Grant's laptop.
+Updated 8 Nov 2026, on Grant's laptop.
 
 ## Now: 0804 restructure and vault moves (brief `docs\briefs\restructure-0804.md`, S1-S5)
 
@@ -57,8 +57,31 @@ mass identical (A 4263.99022, C 4870.2244), SwCheck nothing new, SwSuppDump iden
 back (stale: one isn't satisfied, 0.27 m off); positions held. Admin's call: B goes ahead with `--accept-gone` for those
 two (SwCmd bdfdad1); Grant's look (Desk SW7) confirms later, and only B is redone if it matters.
 
-Rehearsal copy: `scratch\import\rehearsal-restructure\vault` (robocopy of P:\, 485 files). App is setting up a test
-pdm.exe against a test vault, plus a second copy acting as an engineer's PC.
+**Full rehearsal done (8 Nov)**, on `scratch\import\rehearsal-restructure\vault` (copy of P:\) with App's test pdm.exe
+(vault pdm-apex-test, reset to today's real vault) and a second copy as an engineer's PC. Script
+`scratch\import\restructure-0804\restructure-run.ps1 -Stage 1..5`; logs in `scratch\import\rehearsal-restructure\logs`.
+
+| Stage | Result |
+| --- | --- |
+| 1 | gate before as expected; checkout 33; move 21 of 21; repoint 30 in 16 files, 0 problems |
+| 2 | A, B, C as SW's trial: components 164+2137, 165+1757 (1922), 164+2184 (2348) unchanged; B drops only Coincident70 and Coincident42 (accepted); no other mate lost or changed; only the 3 tops and 3 STA-01s written |
+| 3 | resave all saved; gate: only the 3 known faults; STA-01 properties 9 changes read back; masses identical to SW's (A 4263.99022, B 4761.54117, C 4870.2244); SwSuppDump = baseline except the planned new folders (walls/roofs, 08Z04-SFP-01); SwCheck = baseline part links |
+| 4 | load dry: 3 new + 16 changed, 33 checked in; load 19 uploaded; remove both _WITH_SCREEN |
+| 5 | engineer get: 19 downloaded, 21 moved, 2 removed; second get nothing; both copies identical (486 files by hash) |
+
+Found and fixed in the rehearsal: form-sub hung on a Save As box. Saving the new STA-01 makes SOLIDWORKS save every
+referenced file it holds as modified; the read-only ones (not checked out) each asked Save As (~90). SW's trial didn't
+see it because nothing in its copy was read-only (it silently resaved ~150 files there). Fix (SwCmd daf174b):
+form-sub/dissolve turn on "Don't prompt to save read-only referenced documents (discard changes)" for the command and
+DialogWatch cancels any Save As (a problem, so nothing saved). The script also makes every writable file except the 3
+tops read-only during stage 2 (the round's check-outs; else SOLIDWORKS would resave e.g. `08Z04-SFP-01`), restores them
+after, and stops if any other file's write time changes. Real run: that means toggling read-only on Grant's checked-out
+files on P:\ during stage 2 (asked App).
+
+Seen, not a problem: SwCheck opens each top with a ReadOnly load warning (one more "problem" than SW's after file). The
+top itself opens writable; the flag comes from read-only references SOLIDWORKS holds as modified (`FAST-HEX-8.8-HDG`,
+`GNRIC-LM`), which in SW's copy had been resaved. The load's dry run has one CHECK note on `08X06-SFW-04` (0806, not in
+this round, untouched).
 
 ## Earlier: 0804 import, step 3 (brief `docs\briefs\import-0804.md`)
 

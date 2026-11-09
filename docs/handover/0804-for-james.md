@@ -49,7 +49,7 @@ In 0811 only those paths changed (`08B11-STA-01`, `08C11-STA-01` and the moved d
 ## Drawings and releases
 
 - **Revision table rule** (Grant, 7 Nov): one row per formal release, plus a top row for the issue you're looking at, replaced at each lettered issue until the next formal release locks it in. The first formal release is `1`. So `0A` drawings with a single `0A` row are right. Example over a life: `0A` → `0B` → `1` → `1A, 1` → `1B, 1` → `2, 1`.
-- The vault now makes the release PDFs itself; **no PDFs in the vault next to the models** (check-in refuses them). Grant is removing your two old PDFs in `LS-08X-06\ShaftA` (`08A06-HBA-01.pdf`, `08A06-HBW-01.pdf`).
+- The vault now makes the release PDFs itself; **no PDFs in the vault next to the models** (check-in refuses them). Grant has deleted your two old PDFs in `LS-08X-06\ShaftA` (`08A06-HBA-01.pdf`, `08A06-HBW-01.pdf`).
 - 0804's first drawings are in (`08A04-STA-01`, `08A04-SFA-01`, `08X04-LMW-27/-28/-29`). `08B04-STA-01` and `08C04-STA-01` aren't drawn yet.
 
 ## Small jobs for you

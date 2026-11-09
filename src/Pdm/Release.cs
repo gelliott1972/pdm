@@ -20,6 +20,7 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         public List<string> Notes { get; } = new();         // worth knowing, doesn't stop it
         public List<string> Accepted { get; } = new();      // problems Grant accepted for this drawing (--accept-*), recorded in the set
         public string? Pdf { get; set; }                    // the exported PDF in the work folder
+        public string? TitleBlockModel { get; set; }        // the vault path of the model the title block reads from
         public bool Pass => Problems.Count == 0;
         public string Name => Path.GetFileName(Drawing.Path);
     }
@@ -35,6 +36,14 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     // Only those two kinds of problem can be accepted; each accepted one is recorded with the reason.
     public Dictionary<string, string> AcceptCheckout { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> AcceptRev { get; } = new(StringComparer.OrdinalIgnoreCase);
+    // Admin 9 Nov (after 08B06/08C06-HBW-03 went out showing ShaftA's part): the title block's model must carry the
+    // drawing's number as its PartNo (--accept-partno), and must not be in another shaft's folder (--accept-shaft).
+    public Dictionary<string, string> AcceptPartNo { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> AcceptShaft { get; } = new(StringComparer.OrdinalIgnoreCase);
+    DocReader? dm; string? dmWhy;
+    // A re-issue (Grant, 9 Nov: 08B06/08C06-HBW-03 re-issued still as 0A): the reason. The named drawings' PDFs are
+    // already filed; release-file --reissue files the new ones as new versions of the same release files.
+    public string? Reissue { get; set; }
     static string Key(FileRecord d) => Path.GetFileNameWithoutExtension(d.Path);
 
     // R1/R2: official releases are numbers (1, 2, ...); checking versions before them add a letter (0A, 0B, 1A, ...).
@@ -107,7 +116,67 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
             if (m.LockedBy != null) item.Notes.Add($"{m.Path} is checked out by {m.LockedByName}; the PDF shows the vault's version");
         }
         if (all.Any(r => r.Path.Equals(item.PdfKey, StringComparison.OrdinalIgnoreCase)))
-            item.Problems.Add($"already released: {item.PdfKey} is in the vault");
+        {
+            if (Reissue != null) item.Notes.Add($"re-issue: {item.PdfKey} is in the vault; release-file --reissue files the new PDF as its next version ({Reissue})");
+            else item.Problems.Add($"already released: {item.PdfKey} is in the vault");
+        }
+        else if (Reissue != null) item.Problems.Add($"not a re-issue: {item.PdfKey} has never been filed");
+        CheckTitleBlock(item);
+    }
+
+    // The model the title block reads from (Document Manager, this PC's copies): its PartNo must be the drawing's number,
+    // and it must not belong to another shaft (08B06-... drawing showing a ShaftA part).
+    void CheckTitleBlock(Item item)
+    {
+        var d = item.Drawing; var name = Key(d);
+        if (dm == null && dmWhy == null) { try { dm = new DocReader(); } catch (Exception ex) { dmWhy = ex.Message; } }
+        if (dm == null) { item.Problems.Add($"title block not checked: {dmWhy}"); return; }
+        var local = Paths.LocalOf(s.LocalRoot, d.Path);
+        if (!File.Exists(local)) return; // already a problem (missing copy)
+        (string Model, string Config)? tb;
+        try { tb = dm.TitleBlockModel(local); }
+        catch (Exception ex) { item.Problems.Add($"title block not read: {ex.Message}"); return; }
+        var partNo = new List<string>(); var shaft = new List<string>();
+        if (tb == null) partNo.Add("the title block shows no model, so its number can't be checked");
+        else
+        {
+            var model = item.Models.Where(m => d.Refs.Contains(m.FileId)).Concat(item.Models)
+                .FirstOrDefault(m => Path.GetFileName(m.Path).Equals(tb.Value.Model, StringComparison.OrdinalIgnoreCase));
+            if (model == null) partNo.Add($"the title block's model {tb.Value.Model} isn't among the drawing's files in the vault");
+            else
+            {
+                item.TitleBlockModel = model.Path;
+                string? pn = null;
+                try { pn = dm.ModelProp(Paths.LocalOf(s.LocalRoot, model.Path), tb.Value.Config, "PartNo")?.Trim(); }
+                catch (Exception ex) { partNo.Add($"PartNo of {model.Path} not read: {ex.Message}"); }
+                if (pn != null && !pn.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    partNo.Add($"title block shows PartNo {pn} (from {Path.GetFileName(model.Path)}{(tb.Value.Config == "" ? "" : ", " + tb.Value.Config)}), not the drawing's number {name}");
+                else if (pn == null && partNo.Count == 0)
+                    partNo.Add($"title block's model {Path.GetFileName(model.Path)} has no PartNo, so the drawing's number can't be checked");
+                if (ShaftOf(d.Path) is { } ds && ShaftOf(model.Path) is { } ms && ds != ms)
+                    shaft.Add($"drawing is Shaft{ds}'s but its title block model {model.Path} is Shaft{ms}'s");
+            }
+        }
+        Judge(item, partNo, AcceptPartNo, name);
+        Judge(item, shaft, AcceptShaft, name);
+    }
+
+    static void Judge(Item item, List<string> found, Dictionary<string, string> accept, string name)
+    {
+        if (found.Count == 0) return;
+        if (accept.TryGetValue(name, out var why)) item.Accepted.AddRange(found.Select(p => $"{p} ({why})"));
+        else item.Problems.AddRange(found);
+    }
+
+    // A file's shaft: its ShaftX folder, else the letter in its number (08B06-... -> B; X is shared, so none).
+    [GeneratedRegex("^Shaft([A-Z])$", RegexOptions.IgnoreCase)] private static partial Regex ShaftFolder();
+    [GeneratedRegex("^[0-9]{2}([A-Z])[0-9]{2}-")] private static partial Regex ShaftInNumber();
+    public static string? ShaftOf(string key)
+    {
+        var parts = key.Split('/');
+        foreach (var f in parts[..^1]) if (ShaftFolder().Match(f) is { Success: true } m) return m.Groups[1].Value.ToUpperInvariant();
+        var n = ShaftInNumber().Match(parts[^1]);
+        return n.Success && n.Groups[1].Value != "X" ? n.Groups[1].Value : null;
     }
 
     // Null when this PC has exactly the vault's latest version.
@@ -256,7 +325,8 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     public string Report(List<Item> items, string folderKey, string code, bool dry, string work)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"{(dry ? "DRY RUN" : "RELEASE")} {code}: {folderKey} ({items.Count} drawings), {DateTime.Now:d MMM yyyy HH:mm}");
+        sb.AppendLine($"{(dry ? "DRY RUN" : "RELEASE")} {code}{(Reissue != null ? " RE-ISSUE" : "")}: {folderKey} ({items.Count} drawings), {DateTime.Now:d MMM yyyy HH:mm}");
+        if (Reissue != null) sb.AppendLine($"Re-issue reason: {Reissue}");
         sb.AppendLine($"Passed {items.Count(i => i.Pass)}, failed {items.Count(i => !i.Pass)}.");
         foreach (var i in items)
         {
@@ -272,10 +342,10 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         var json = items.Select(i => new
         {
             drawing = i.Drawing.Path, fileId = i.Drawing.FileId, versionId = i.Drawing.VersionId, pdfKey = i.PdfKey, pdf = i.Pdf,
-            pass = i.Pass, problems = i.Problems, notes = i.Notes, accepted = i.Accepted,
+            pass = i.Pass, problems = i.Problems, notes = i.Notes, accepted = i.Accepted, titleBlockModel = i.TitleBlockModel,
             models = i.Models.Select(m => new { path = m.Path, fileId = m.FileId, versionId = m.VersionId })
         });
-        File.WriteAllText(Path.Combine(work, "report.json"), JsonSerializer.Serialize(new { folder = folderKey, code, dry, items = json }, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(Path.Combine(work, "report.json"), JsonSerializer.Serialize(new { folder = folderKey, code, dry, reissue = Reissue, items = json }, new JsonSerializerOptions { WriteIndented = true }));
         return text;
     }
 }

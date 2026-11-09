@@ -66,6 +66,7 @@ public static class Activity
 
     static readonly TimeZoneInfo Nz = TimeZoneInfo.FindSystemTimeZoneById("New Zealand Standard Time");
     public static string NzDay(string at) => TimeZoneInfo.ConvertTimeFromUtc(Utc(at), Nz).ToString("yyyy-MM-dd");
+    public static DateTime NzToday() => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Nz).Date;
 
     // The events of NZ days [before - days, before) (before: yyyy-MM-dd; default tomorrow), oldest first.
     public static async Task<Days> QueryAsync(Vault vault, string cacheFile, string before, int days)

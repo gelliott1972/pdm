@@ -17,12 +17,15 @@ namespace Pdm;
 // out and listed. A shared drawing is in every set whose models use it; its PDF is filed once. Everything is built from
 // the set info, never by hand. By default nothing is filed unless every set is complete (--incomplete files what's ready;
 // packages are then made only for complete sets). The dry run writes the packages and register to a work folder only.
+// Re-issue (--reissue "reason" --only a,b; Grant, 9 Nov): the named drawings' PDFs, filed before and checked again in a
+// "release --reissue" top-up, are filed as new versions of the same release files (the old ones stay in the vault's
+// history), with new versions of their sets' packages and the register. Nothing else is touched.
 public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string name, Action<string> say, string email = "")
 {
     public sealed record Model(string Path, string FileId, string VersionId);
     public sealed record Item(string Drawing, string FileId, string VersionId, string PdfKey, string? Pdf, bool Pass,
         List<string> Problems, List<Model> Models, List<string>? Accepted = null);
-    sealed record Report(string Folder, string Code, bool Dry, List<Item> Items);
+    sealed record Report(string Folder, string Code, bool Dry, List<Item> Items, string? Reissue = null);
 
     // One drawing-list line, as recorded on the PDF's set info.
     public sealed record Line(string DrawingNo, string Title, string Rev, int Sheets, string Size, string PartNo, string Status,
@@ -40,13 +43,21 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         public string? Run { get; init; }
         public string By { get; init; } = "";          // who issued it (the set info's "by")
         public FileRecord? Record { get; set; }
+        public FileRecord? Previous { get; init; }      // a re-issue: the filed PDF this one becomes the next version of
     }
+    string? reissue;
 
     static readonly JsonSerializerOptions Read = new() { PropertyNameCaseInsensitive = true };
     static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
-    public async Task<int> RunAsync(IList<string> works, bool dryRun, bool incomplete)
+    public async Task<int> RunAsync(IList<string> works, bool dryRun, bool incomplete, string? reissueReason = null, string? only = null)
     {
+        reissue = string.IsNullOrWhiteSpace(reissueReason) || reissueReason.StartsWith("--") ? null : reissueReason.Trim();
+        if ((reissueReason != null) != (reissue != null) || (reissue != null) != (only != null))
+        { say("A re-issue takes both --reissue \"reason\" and --only naming the drawings."); return 2; }
+        static string NameOf(string p) => System.IO.Path.GetFileNameWithoutExtension(p.Trim().Replace('/', '\\'));
+        var names = only == null ? null : (File.Exists(only) ? File.ReadAllLines(only) : only.Split(',')).Select(NameOf).Where(n => n != "")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         // The dry runs, oldest first, so a later check of a drawing replaces an earlier one.
         var reports = new List<(string Work, string Run, Report R)>();
         foreach (var w in works.Select(Path.GetFullPath))
@@ -58,6 +69,10 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         reports = reports.OrderBy(r => r.Run, StringComparer.Ordinal).ToList();
         var code = reports[0].R.Code;
         if (reports.Any(r => r.R.Code != code)) { say("The work folders are for different codes; give one release's folders."); return 2; }
+        if (reissue != null && reports.FirstOrDefault(r => r.R.Reissue == null) is { } plain)
+        { say($"{plain.Run} isn't a re-issue check: re-check the drawings with pdm release ... --reissue \"reason\" --only ... first."); return 2; }
+        if (reissue == null && reports.FirstOrDefault(r => r.R.Reissue != null) is { } ri)
+        { say($"{ri.Run} is a re-issue check: file it with --reissue \"reason\" --only ..."); return 2; }
         var folders = reports.SelectMany(r => r.R.Folder.Split(" + ")).Select(f => f.Trim().Trim('/'))
             .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
 
@@ -81,6 +96,24 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         var newest = new Dictionary<string, (Item I, string Work, string Run)>();
         foreach (var (work, run, r) in reports) foreach (var i in r.Items) newest[i.FileId] = (i, work, run);
 
+        // A re-issue: each named drawing must have a filed PDF of this code and a passed re-check; nothing else is filed.
+        var previous = new Dictionary<string, Issue>();
+        if (names != null)
+        {
+            foreach (var n in names)
+            {
+                var id = newest.Keys.FirstOrDefault(k => NameOf(newest[k].I.Drawing).Equals(n, StringComparison.OrdinalIgnoreCase));
+                var was = before.Values.FirstOrDefault(b => NameOf(b.DrawingPath).Equals(n, StringComparison.OrdinalIgnoreCase));
+                if (id == null) { say($"Nothing filed: {n} isn't in the re-issue check(s)."); return 2; }
+                if (was == null || was.DrawingId != id) { say($"Nothing filed: {n} has no filed {code} PDF to re-issue."); return 2; }
+                var gone = was.Sets.Where(x => !sets.Any(t => $"{t.Name} {code}" == x)).ToList();
+                if (gone.Count > 0) { say($"Nothing filed: {n}'s PDF is also in {string.Join(", ", gone)}; re-check it with that set's folder too."); return 2; }
+                previous[id] = was; before.Remove(id);
+            }
+            foreach (var k in newest.Keys.Where(k => !previous.ContainsKey(k)).ToList()) newest.Remove(k);
+            say($"Re-issue of {previous.Count} PDF(s) as new versions: {string.Join(", ", previous.Values.Select(v => v.PdfKey))}. Reason: {reissue}");
+        }
+
         var issues = new Dictionary<string, Issue>();
         var notFiled = new Dictionary<string, string>();   // drawing id -> why
         DocReader? dm = null;
@@ -88,13 +121,15 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         {
             if (before.ContainsKey(id)) continue;
             if (!i.Pass) { notFiled[id] = $"failed its check in {run}: {string.Join("; ", i.Problems)}"; continue; }
-            var why = WhyNot(i, byId, byPath);
+            var why = WhyNot(i, byId, byPath, previous.ContainsKey(id));
             if (why == null && !sets.Any(x => x.Drawings.Contains(id))) why = "isn't in any of the sets now";
             if (why != null) { notFiled[id] = why + $" (checked in {run})"; continue; }
             try
             {
                 dm ??= new DocReader();
-                issues[id] = new Issue { DrawingId = id, DrawingPath = i.Drawing, PdfKey = i.PdfKey, Item = i, Run = run, By = name, Line = LineOf(dm, i, work, code) };
+                var line = LineOf(dm, i, work, code);
+                if (previous.ContainsKey(id)) line = line with { Notes = string.Join("; ", new[] { line.Notes, $"Re-issued {code}: {reissue}" }.Where(x => x != "")) };
+                issues[id] = new Issue { DrawingId = id, DrawingPath = i.Drawing, PdfKey = i.PdfKey, Item = i, Run = run, By = name, Line = line, Previous = previous.GetValueOrDefault(id)?.Record };
             }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Runtime.InteropServices.COMException)
             { notFiled[id] = $"its drawing-list line couldn't be read: {ex.Message}"; }
@@ -120,7 +155,12 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         var date = DateTime.Now.ToString("yyyy-MM-dd");
 
         var outDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PDM-release",
-            $"{DateTime.Now:yyyyMMdd-HHmmss}_{code}_{(dryRun ? "filing-dry" : "filed")}");
+            $"{DateTime.Now:yyyyMMdd-HHmmss}_{code}_{(reissue != null ? "reissue-" : "")}{(dryRun ? "filing-dry" : "filed")}");
+        if (reissue != null && issues.Count != previous.Count)
+        {
+            say($"Nothing filed: {previous.Count - issues.Count} of the {previous.Count} re-issued drawings can't be filed (above).");
+            return 1;
+        }
         if (!dryRun && !allComplete && !incomplete)
         {
             say($"Nothing filed: not every set is complete. Fix the drawings above and top them up, or run again with --incomplete to file the {issues.Count} PDFs that are ready (packages only for complete sets).");
@@ -151,7 +191,8 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
 
             var packages = new List<(string Key, string Local, string Note, string Info)>();
             // The dry run also previews an incomplete set's package (marked as such, never filed).
-            foreach (var t in dryRun ? sets : complete)
+            // A re-issue rebuilds only the sets its PDFs are in, as new versions of their package files.
+            foreach (var t in (dryRun ? sets : complete).Where(t => reissue == null || issues.Keys.Any(t.Drawings.Contains)))
             {
                 var preview = !complete.Contains(t);
                 var members = t.Drawings.Where(everything.ContainsKey).Select(d => everything[d]).OrderBy(x => x.Line.DrawingNo, StringComparer.OrdinalIgnoreCase).ToList();
@@ -159,15 +200,16 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
                 Directory.CreateDirectory(setDir);
                 var listName = $"{t.Name}_{code}_drawing-list{(preview ? "_INCOMPLETE-preview" : "")}.xlsx";
                 var zipName = $"{t.Name}_{code}_{date}{(preview ? "_INCOMPLETE-preview" : "")}.zip";
+                if (reissue != null && PackageOf(all, $"{t.Name} {code}") is { } zipBefore) zipName = System.IO.Path.GetFileName(zipBefore);
                 var listLocal = System.IO.Path.Combine(setDir, listName);
                 WriteList(listLocal, t, code, date, members, preview ? missing[t.Name].Count : 0);
                 if (preview) { say($"  Preview only (set incomplete, not filed): {listName}, {zipName}"); await WriteZipAsync(System.IO.Path.Combine(setDir, zipName), listLocal, members, outDir); continue; }
                 var zipLocal = System.IO.Path.Combine(setDir, zipName);
                 await WriteZipAsync(zipLocal, listLocal, members, outDir);
-                var info = JsonSerializer.Serialize(new { kind = "package", code, set = $"{t.Name} {code}", folder = t.Folder, at, by = name, pdfs = members.Select(m => m.PdfKey) });
+                var info = JsonSerializer.Serialize(new { kind = "package", code, set = $"{t.Name} {code}", folder = t.Folder, at, by = name, pdfs = members.Select(m => m.PdfKey), reissue = Reissued(issues.Values) });
                 foreach (var (n, l) in new[] { (zipName, zipLocal), (listName, listLocal) })
                     packages.Add(($"{t.Scene}/_Review/_Sets/{n}", l, $"Release {code} ({t.Name} {code}): {(n.EndsWith(".zip") ? "ZIP of the set's PDFs and drawing list" : "drawing list")}", info));
-                say($"  {(dryRun ? "would file" : "filing")} {t.Scene}/_Review/_Sets/{zipName} ({members.Count} PDFs + drawing list) and {listName}");
+                say($"  {(dryRun ? "would file" : "filing")} {t.Scene}/_Review/_Sets/{zipName} ({members.Count} PDFs + drawing list) and {listName}{(reissue != null ? " (new versions)" : "")}");
             }
             foreach (var t in sets.Except(complete)) say($"  No package for {t.Name} {code}: the set isn't complete.");
 
@@ -177,14 +219,16 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
                 var key = Paths.RegisterKey(scene);
                 var local = System.IO.Path.Combine(outDir, System.IO.Path.GetFileName(key));
                 var rows = WriteRegister(local, scene, all, issues.Values.Where(x => dryRun || x.Record != null).ToList(), date);
-                var info = JsonSerializer.Serialize(new { kind = "register", code, sets = sets.Select(t => $"{t.Name} {code}"), at, by = name });
+                var info = JsonSerializer.Serialize(new { kind = "register", code, sets = sets.Select(t => $"{t.Name} {code}"), at, by = name, reissue = Reissued(issues.Values) });
                 packages.Add((key, local, $"Drawing register after release {code} ({string.Join(", ", sets.Select(t => t.Name))})", info));
                 say($"  {(dryRun ? "would rewrite" : "rewriting")} {key} ({rows} drawings)");
             }
 
             if (dryRun)
             {
-                foreach (var p in packages.Where(p => !Paths.IsRegister(p.Key) && byPath.ContainsKey(p.Key))) say($"  NOTE: {p.Key} is already in the vault; the real run won't replace it.");
+                foreach (var p in packages.Where(p => !Paths.IsRegister(p.Key) && byPath.ContainsKey(p.Key)))
+                    say(reissue != null ? $"  {p.Key}: the real run files a new version of it." : $"  NOTE: {p.Key} is already in the vault; the real run won't replace it.");
+                foreach (var t in sets.Where(t => reissue != null && !issues.Keys.Any(t.Drawings.Contains))) say($"  Set {t.Name} {code}: none of the re-issued drawings is in it; its package is left as it is.");
                 say($"Dry run: {issues.Count} PDFs would be filed ({before.Count} filed before), {packages.Count(p => !Paths.IsRegister(p.Key))} package files and the register; nothing written to the vault. Packages and register: {outDir}");
                 return allComplete ? 0 : 1;
             }
@@ -208,6 +252,15 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
     }
 
     static string KeyOf(Dictionary<string, FileRecord> byId, string id) => byId.TryGetValue(id, out var r) ? r.Path : id;
+
+    // What a re-issue changed, for the packages' and register's set info.
+    object? Reissued(IEnumerable<Issue> now) => reissue == null ? null
+        : new { reason = reissue, pdfs = now.Where(x => x.Previous != null).Select(x => new { pdfKey = x.PdfKey, previousVersionId = x.Previous!.VersionId }) };
+
+    // A set's ZIP as filed before (its set info), e.g. APEX/SC08/_Review/_Sets/LS-08X-06_0A_2026-11-09.zip.
+    static string? PackageOf(List<FileRecord> all, string set) => all.Where(r => !r.Removed && r.ReleaseSet != null
+            && r.Path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && Paths.InReleaseFolder(r.Path))
+        .FirstOrDefault(r => { try { var j = JsonNode.Parse(r.ReleaseSet!); return (string?)j?["kind"] == "package" && (string?)j["set"] == set; } catch (JsonException) { return false; } })?.Path;
     static string? Code(FileRecord r) { try { return (string?)JsonNode.Parse(r.ReleaseSet!)?["code"]; } catch (JsonException) { return null; } }
 
     // A PDF filed before: its drawing-list line and sets from its set info (records without them are left out).
@@ -231,8 +284,9 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         var local = Paths.LocalOf(s.LocalRoot, x.PdfKey);
         try
         {
-            if (File.Exists(local) && Vault.Md5(local) != Vault.Md5(i.Pdf!)) { say($"  Not filed: {x.PdfKey}: a different file is already at {local}"); return null; }
+            if (x.Previous == null && File.Exists(local) && Vault.Md5(local) != Vault.Md5(i.Pdf!)) { say($"  Not filed: {x.PdfKey}: a different file is already at {local}"); return null; }
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(local)!);
+            if (x.Previous != null && File.Exists(local)) { Paths.SetReadOnly(local, false); File.Delete(local); }
             if (!File.Exists(local)) File.Copy(i.Pdf!, local);
             var set = new
             {
@@ -240,19 +294,17 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
                 drawing = new { path = i.Drawing, fileId = i.FileId, versionId = i.VersionId },
                 models = i.Models.Select(m => new { path = m.Path, fileId = m.FileId, versionId = m.VersionId }),
                 accepted = i.Accepted is { Count: > 0 } ? i.Accepted : null,
-                line = x.Line
+                line = x.Line,
+                reissue = x.Previous == null ? null : new { reason = reissue, previousVersionId = x.Previous.VersionId, previousAt = x.Previous.UpdatedAt }
             };
-            var rec = new FileRecord
-            {
-                FileId = Guid.NewGuid().ToString(), Path = x.PdfKey, UpdatedAt = at, UpdatedBy = name,
-                Note = $"Release {code} ({string.Join(", ", x.Sets)}): {System.IO.Path.GetFileName(i.Drawing)}",
-                Size = new FileInfo(local).Length, ReleaseSet = JsonSerializer.Serialize(set)
-            };
+            var note = $"{(x.Previous != null ? $"Re-issued {code}: {reissue}. " : "")}Release {code} ({string.Join(", ", x.Sets)}): {System.IO.Path.GetFileName(i.Drawing)}";
+            var rec = x.Previous ?? new FileRecord { FileId = Guid.NewGuid().ToString(), Path = x.PdfKey };
+            rec.UpdatedAt = at; rec.UpdatedBy = name; rec.Note = note; rec.Size = new FileInfo(local).Length; rec.ReleaseSet = JsonSerializer.Serialize(set);
             (rec.VersionId, rec.ETag) = await vault.UploadAsync(local, rec.Path, rec.FileId);
-            await index.AddAsync(rec);
+            if (x.Previous == null) await index.AddAsync(rec); else await index.PutAsync(rec);
             state.Record(rec.Path, local, rec.FileId, rec.VersionId, rec.ETag);
             Paths.SetReadOnly(local, true);
-            say($"  Filed {rec.Path}");
+            say($"  Filed {rec.Path}{(x.Previous != null ? " (new version)" : "")}");
             await Activity.LogAsync(vault, new ActivityEvent(at, name, "released", rec.Path, rec.FileId, Email: email, VersionId: rec.VersionId, Note: rec.Note), say);
             return rec;
         }
@@ -270,7 +322,8 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         byPath.TryGetValue(key, out var existing);
         try
         {
-            if (existing != null && !Paths.IsRegister(key)) { say($"  Not filed: {key} is already in the vault; release packages stay as issued."); return null; }
+            if (existing != null && !Paths.IsRegister(key) && reissue == null) { say($"  Not filed: {key} is already in the vault; release packages stay as issued."); return null; }
+            if (reissue != null) note = $"Re-issued: {reissue}. {note}";
             if (existing?.LockedBy != null) { say($"  Not filed: {key} is checked out by {existing.LockedByName}; the register wasn't rewritten."); return null; }
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(local)!);
             if (File.Exists(local)) { Paths.SetReadOnly(local, false); File.Delete(local); }
@@ -417,11 +470,11 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
     }
 
     // Null when this PDF can be filed as checked: everything it was made from is still the vault's latest.
-    static string? WhyNot(Item i, Dictionary<string, FileRecord> byId, Dictionary<string, FileRecord> byPath)
+    static string? WhyNot(Item i, Dictionary<string, FileRecord> byId, Dictionary<string, FileRecord> byPath, bool reissued = false)
     {
         if (i.Pdf == null || !File.Exists(i.Pdf)) return "its PDF isn't in the work folder";
         if (!Paths.IsPdf(i.PdfKey) || !Paths.InReleaseFolder(i.PdfKey)) return $"{i.PdfKey} isn't a PDF in a release folder";
-        if (byPath.TryGetValue(i.PdfKey, out var there)) return $"already filed: {i.PdfKey} is in the vault{(there.Removed ? " (removed)" : "")}";
+        if (byPath.TryGetValue(i.PdfKey, out var there) && (!reissued || there.Removed)) return $"already filed: {i.PdfKey} is in the vault{(there.Removed ? " (removed)" : "")}";
         if (!byId.TryGetValue(i.FileId, out var d) || d.Removed) return "the drawing is no longer in the vault";
         if (d.VersionId != i.VersionId) return $"the drawing has changed in the vault since the dry run ({d.UpdatedBy}, {d.UpdatedAt}); run the dry run again";
         // A check-out Grant accepted in the dry run (--accept-checkout) is fine while it's still the same person's.

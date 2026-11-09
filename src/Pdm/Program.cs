@@ -68,7 +68,8 @@ try
             // Several work folders (a first dry run and its top-ups) file as one release: PDFs, set packages, register.
             return await Admin(settings, (index, vault, engine) =>
                 new ReleaseFiler(settings, index, vault, AdminName, Console.WriteLine, AdminEmail).RunAsync(
-                    args.Skip(1).TakeWhile(a => !a.StartsWith("--")).ToList(), args.Contains("--dry"), args.Contains("--incomplete")));
+                    args.Skip(1).TakeWhile(a => !a.StartsWith("--")).ToList(), args.Contains("--dry"), args.Contains("--incomplete"),
+                    Arg(args, "--reissue"), Arg(args, "--only")));
         case "activity":
             // The Activity tab's lines (admin): pdm activity [--days 14] [--before yyyy-mm-dd]
             return await Admin(settings, async (index, vault, engine) =>
@@ -76,6 +77,15 @@ try
                 var d = await Activity.QueryAsync(vault, Path.Combine(Path.GetTempPath(), "pdm-activity-cache.json"), Arg(args, "--before") ?? "", int.TryParse(Arg(args, "--days"), out var n) ? n : 14);
                 Console.WriteLine($"NZ days {d.From} to {d.To} (not including): {d.Events.Count} events");
                 foreach (var l in Activity.Summary(d)) Console.WriteLine(l);
+                return 0;
+            });
+        case "coverage":
+            // The Activity tab's drawing progress per folder and forecast (admin): pdm coverage
+            return await Admin(settings, async (index, vault, engine) =>
+            {
+                var r = await Coverage.ComputeAsync(settings, await index.AllAsync(), vault,
+                    Path.Combine(Path.GetTempPath(), "pdm-activity-cache.json"), Path.Combine(Path.GetTempPath(), "pdm-titleblock-cache.json"));
+                foreach (var l in Coverage.Summary(r)) Console.WriteLine(l);
                 return 0;
             });
         case "activity-backfill":
@@ -98,12 +108,16 @@ try
             Console.WriteLine("                        move, remove, checkout and unlock also take a round list (round.csv: action,old_path,new_path,...)");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
             Console.WriteLine("       pdm release <folder> [<folder> ...] <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role] [--only a,b|list.txt]");
-            Console.WriteLine("                        [--accept-checkout \"NAME=reason\"] [--accept-rev \"NAME=reason\"]   Grant's exceptions, recorded in the set");
+            Console.WriteLine("                        [--accept-checkout|--accept-rev|--accept-partno|--accept-shaft \"NAME=reason\"]   Grant's exceptions, recorded in the set");
             Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only); several folders make one set");
             Console.WriteLine("       pdm activity-backfill [--dry] [--since yyyy-mm-dd]   admin: fill the activity log from the vault's history");
-            Console.WriteLine("       pdm release-file <dry run work folder> [<work folder> ...] [--dry] [--incomplete]");
+            Console.WriteLine("       pdm activity [--days 14] [--before yyyy-mm-dd]   admin: the Activity tab's days, as text");
+            Console.WriteLine("       pdm coverage     admin: drawing progress per folder and the finish forecast, as text");
+            Console.WriteLine("       pdm release-file <dry run work folder> [<work folder> ...] [--dry] [--incomplete] [--reissue \"reason\" --only a,b]");
             Console.WriteLine("                        admin: files the checked PDFs into the scene's _Review folder, each set's ZIP and drawing list into");
             Console.WriteLine("                        _Review\\_Sets, and rewrites the scene's drawing register; nothing unless every set is complete");
+            Console.WriteLine("                        --reissue: re-files the named drawings' PDFs (a release --reissue top-up) as new versions of the");
+            Console.WriteLine("                        same release files, with new versions of their sets' packages and the register");
             return 2;
     }
 }
@@ -261,20 +275,31 @@ static async Task<int> ReleaseDry(Settings s, string[] args)
     var i = Array.IndexOf(args, "--shared-to");
     if (i > 0 && i + 1 < args.Length) release.SharedTo = args[i + 1] == "own" ? "own" : "scene";
     if (Environment.GetEnvironmentVariable("PDM_SWCMD") is { Length: > 0 } sw) release.SwCmd = sw;
-    // Grant's exceptions: --accept-checkout "NAME=reason" and --accept-rev "NAME=reason", each as often as needed.
+    // Grant's exceptions: --accept-checkout, --accept-rev, --accept-partno, --accept-shaft "NAME=reason", each as often as needed.
     for (var k = 1; k + 1 < args.Length; k++)
     {
-        if (args[k] is not ("--accept-checkout" or "--accept-rev")) continue;
+        var to = args[k] switch
+        {
+            "--accept-checkout" => release.AcceptCheckout, "--accept-rev" => release.AcceptRev,
+            "--accept-partno" => release.AcceptPartNo, "--accept-shaft" => release.AcceptShaft, _ => null
+        };
+        if (to == null) continue;
         var eq = args[k + 1].IndexOf('=');
         if (eq <= 0 || eq == args[k + 1].Length - 1) { Console.WriteLine($"{args[k]} takes \"NAME=reason\""); return 2; }
-        (args[k] == "--accept-rev" ? release.AcceptRev : release.AcceptCheckout)[Path.GetFileNameWithoutExtension(args[k + 1][..eq].Trim())] = args[k + 1][(eq + 1)..].Trim();
+        to[Path.GetFileNameWithoutExtension(args[k + 1][..eq].Trim())] = args[k + 1][(eq + 1)..].Trim();
     }
 
+    // --only a,b,c (or a list file, one per line): a top-up run of just those drawings of the set, by file name.
+    var only = Arg(args, "--only");
+    // --reissue "reason": a top-up of drawings whose PDFs are already filed, to re-file as new versions (needs --only).
+    if (Arg(args, "--reissue") is { } reissue)
+    {
+        if (only == null || reissue.Trim() == "" || reissue.StartsWith("--")) { Console.WriteLine("--reissue \"reason\" goes with --only, naming the drawings to re-issue."); return 2; }
+        release.Reissue = reissue.Trim();
+    }
     var items = folderKeys.SelectMany(f => release.Plan(f, code, args.Contains("--with-shared")))
         .GroupBy(x => x.Drawing.FileId).Select(g => g.First()).OrderBy(x => x.Drawing.Path, StringComparer.OrdinalIgnoreCase).ToList();
     if (items.Count == 0) { Console.WriteLine($"No drawings in the vault under {folderKey}."); return 1; }
-    // --only a,b,c (or a list file, one per line): a top-up run of just those drawings of the set, by file name.
-    var only = Arg(args, "--only");
     if (only != null)
     {
         static string Name(string p) => Path.GetFileNameWithoutExtension(p.Trim().Replace('/', '\\'));
@@ -286,7 +311,7 @@ static async Task<int> ReleaseDry(Settings s, string[] args)
         items = items.Where(x => names.Contains(Name(x.Drawing.Path))).ToList();
     }
     var work = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PDM-release",
-        $"{DateTime.Now:yyyyMMdd-HHmmss}_{code}_{string.Join("+", folderKeys.Select(f => f.Split('/')[^1]))}{(only != null ? "_top-up" : "")}");
+        $"{DateTime.Now:yyyyMMdd-HHmmss}_{code}_{string.Join("+", folderKeys.Select(f => f.Split('/')[^1]))}{(release.Reissue != null ? "_reissue" : only != null ? "_top-up" : "")}");
     Console.WriteLine($"{items.Count} drawings; {items.Count(x => x.Pass)} pass the checks before export. Work folder: {work}");
     if (!args.Contains("--no-export")) await release.ExportAndCheckAsync(items, code, work, Path.Combine(work, "copy"));
     Console.WriteLine();

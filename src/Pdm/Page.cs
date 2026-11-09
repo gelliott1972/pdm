@@ -23,7 +23,8 @@ public sealed class Page(Settings s)
     AmazonDynamoDBClient? db;
     // The index as read by the current run of requests (one check-in or check-out from the page), so it's read once.
     string runId = "";
-    string? minVersion; // read at login
+    string? minVersion; // read at login, on Reload list and about hourly
+    DateTime lastCheck;
     List<FileRecord>? runIndex;
 
     public async Task<int> RunAsync(bool openBrowser)
@@ -96,6 +97,13 @@ public sealed class Page(Settings s)
         switch (path)
         {
             case "/api/me":
+                // The page asks every 30 s while it's in view; about once an hour that also looks for an update.
+                if (DateTime.UtcNow - lastCheck > TimeSpan.FromHours(1)) await CheckAsync();
+                await Send(ctx, 200, Me());
+                return;
+            case "/api/check":
+                // Reload list: look for an update and re-read the vault's minimum version now.
+                await CheckAsync();
                 await Send(ctx, 200, Me());
                 return;
             case "/api/password":
@@ -113,6 +121,11 @@ public sealed class Page(Settings s)
             case "/api/activity":
                 if (!Activity.IsAdmin(session.Email)) { await Send(ctx, 403, new { error = "Activity is for the admin only." }); return; }
                 await Send(ctx, 200, await Activity.QueryAsync(new Vault(s3!, s), Path.Combine(s.LocalRoot, ".pdm", "activity-cache.json"), Str("before"), body.ValueKind == JsonValueKind.Object && body.TryGetProperty("days", out var dv) && dv.TryGetInt32(out var dn) ? dn : 14));
+                return;
+            case "/api/coverage":
+                if (!Activity.IsAdmin(session.Email)) { await Send(ctx, 403, new { error = "Activity is for the admin only." }); return; }
+                await Send(ctx, 200, await Coverage.ComputeAsync(s, await new Index(db!, s).AllAsync(), new Vault(s3!, s),
+                    Path.Combine(s.LocalRoot, ".pdm", "activity-cache.json"), Path.Combine(s.LocalRoot, ".pdm", "titleblock-cache.json")));
                 return;
             case "/api/get":
                 var only = Strs("paths");
@@ -164,6 +177,7 @@ public sealed class Page(Settings s)
         db = new AmazonDynamoDBClient(session.Credentials, region);
         updater.Start(new AmazonS3Client(session.Credentials, region), s, Console.WriteLine); // its own client: logout disposes s3
         minVersion = await new Vault(s3, s).MinVersionAsync();
+        lastCheck = DateTime.UtcNow;
         await Send(ctx, 200, Me());
         Updater.UpdatedTo = null; // the page has shown it
     }
@@ -217,8 +231,19 @@ public sealed class Page(Settings s)
         tooOld = Vault.TooOld(Updater.Version, minVersion) ? TooOldText() : null
     };
 
+    // Starts an update check in the background (skipped while one runs or an update is already downloaded; nothing is
+    // applied until Update is pressed) and re-reads the vault's minimum version, so "too old" shows without a restart.
+    async Task CheckAsync()
+    {
+        lastCheck = DateTime.UtcNow;
+        updater.Start(new AmazonS3Client(session!.Credentials, RegionEndpoint.GetBySystemName(s.Region)), s, Console.WriteLine);
+        try { minVersion = await new Vault(s3!, s).MinVersionAsync(); }
+        catch (Exception ex) when (ex is Amazon.Runtime.AmazonServiceException or HttpRequestException or IOException)
+        { Console.WriteLine($"Minimum version not read: {ex.Message}"); }
+    }
+
     string TooOldText() => $"This PDM is version {Updater.Version}; the vault needs {minVersion} or later. "
-        + (updater.ReadyVersion != null ? $"Press Update to {updater.ReadyVersion} (top right) first." : "Log out and in again to fetch the update, then press Update.");
+        + (updater.ReadyVersion != null ? $"Press Update to {updater.ReadyVersion} (top right) first." : "Press Reload list to fetch the update; when Update appears (top right), press it.");
 
     string Local(string key) => Paths.LocalOf(s.LocalRoot, key);
 

@@ -69,6 +69,14 @@
   .act-who { cursor: pointer; padding: 1px 4px; border-radius: 2px; }
   .act-who:hover { background: #e8eef8; }
   .act-files { margin: 2px 0 6px 16px; width: calc(100% - 16px); }
+  .act-h { margin: 14px 0 4px; font-weight: 600; }
+  .act-sum td, .act-sum th { padding: 1px 8px 1px 0; text-align: right; white-space: nowrap; }
+  .act-sum td:first-child, .act-sum th:first-child { text-align: left; }
+  .act-sum .grp td { font-weight: 600; padding-top: 6px; }
+  .act-sum .tot td { font-weight: 600; }
+  .act-sum tr[data-cov] { cursor: pointer; }
+  .act-sum tr[data-cov]:hover { background: #e8eef8; }
+  .act-undrawn { white-space: normal !important; text-align: left !important; padding-left: 16px !important; }
 </style>
 </head>
 <body>
@@ -88,7 +96,7 @@
 <div id="app" hidden>
   <header>
     <b>PDM</b>
-    <button id="refreshBtn" title="Shows the latest list from the vault. Downloads nothing.">Reload list</button>
+    <button id="refreshBtn" title="Shows the latest list from the vault and looks for a PDM update. Downloads no vault files.">Reload list</button>
     <button id="getBtn" title="Downloads every file that's newer in the vault than on this PC. Your checked-out files are left alone.">Download latest</button>
     <span class="who" id="who"></span>
     <button id="restartBtn" class="main" hidden title="Installs the new version of PDM and restarts it. Log in again afterwards."></button>
@@ -152,7 +160,7 @@ function status(f) {
 // ---- login
 function showLogin() {
   me = null; $('app').hidden = true; $('login').hidden = false; $('email').focus();
-  if (typeof act !== 'undefined') { act.data = null; act.err = ''; act.open.clear(); act.days = 14; } // the next login may not be the admin
+  if (typeof act !== 'undefined') { act.data = null; act.err = ''; act.open.clear(); act.days = 14; act.cov = null; act.covErr = ''; } // the next login may not be the admin
   if (tab === 'act') tab = 'out';
 }
 async function login() {
@@ -509,12 +517,64 @@ async function changePassword() {
 }
 
 // ---- right: activity (admin only): per NZ day, per person, counts first; a click lists the files with their notes
-const act = { days: 14, data: null, loading: false, err: '', open: new Set() };
+const act = { days: 14, data: null, loading: false, err: '', open: new Set(), cov: null, covLoading: false, covErr: '' };
 async function loadActivity() {
   act.loading = true; act.err = '';
+  if (!act.cov && !act.covLoading) loadCoverage();
   try { act.data = await api('activity', { days: act.days }); }
   catch (e) { act.err = e.message; }
   finally { act.loading = false; if (tab === 'act') drawPanel(); }
+}
+async function loadCoverage() {
+  act.covLoading = true; act.covErr = '';
+  try { act.cov = await api('coverage', {}); }
+  catch (e) { act.covErr = e.message; }
+  finally { act.covLoading = false; if (tab === 'act') drawPanel(); }
+}
+const fmtDay = (day, opt) => new Date(day + 'T00:00:00').toLocaleDateString(undefined, opt);
+// 1) One row per NZ day: what was made and changed.
+function drawOverview() {
+  const rows = {};
+  for (const e of act.data.events) {
+    const r = rows[e.day] ??= { nd: 0, sh: 0, dc: 0, of: 0, rm: 0, rel: 0 };
+    const k = actKind(e);
+    if (k === 'newdrw') { r.nd++; r.sh += e.sheets || 0; }
+    else if (k === 'changed' && e.drawing) r.dc++;
+    else if (k === 'new' || k === 'changed') r.of++;
+    else if (k === 'removed') r.rm++;
+    else if (k === 'released') r.rel++;
+  }
+  const days = Object.keys(rows).sort().reverse();
+  if (!days.length) return '';
+  const n = x => x || '<span class="muted">-</span>';
+  return '<div class="act-h">Overview</div><table class="act-sum"><tr class="muted"><th>Day</th><th>New drawings</th><th>Their sheets</th><th>Drawings changed</th><th>Other files new or changed</th><th>Removed</th><th>Release PDFs</th></tr>'
+    + days.map(d => { const r = rows[d]; return `<tr><td>${esc(fmtDay(d, { weekday: 'short', day: 'numeric', month: 'short' }))}</td><td>${r.nd ? `<b>${r.nd}</b>` : n(0)}</td><td>${n(r.sh)}</td><td>${n(r.dc)}</td><td>${n(r.of)}</td><td>${n(r.rm)}</td><td>${n(r.rel)}</td></tr>`; }).join('')
+    + '</table>';
+}
+// 2) and 3) Drawing progress folder by folder, and when it would be done at James's pace.
+function drawCoverage() {
+  const head = '<div class="act-h">Drawing progress</div>';
+  if (act.covErr) return head + `<span class="tag bad">Can't work out the progress: ${esc(act.covErr)}</span>`;
+  const c = act.cov;
+  if (!c) return head + '<span class="muted">Working it out… (the first time it reads every drawing&#39;s title block)</span>';
+  const when = l => l.days === 0 ? 'done' : l.days == null ? '<span class="muted">no recent drawings</span>'
+    : `about ${l.days} working days (${esc(fmtDay(l.finish, { day: 'numeric', month: 'short' }))})`;
+  const out = [head, `<div class="muted">Pace: ${esc(c.who)} made ${plural(c.rateDrawings, 'new drawing')} in the ${c.rateDays} working days ${esc(fmtDay(c.rateFrom, { day: 'numeric', month: 'short' }))} to ${esc(fmtDay(c.rateTo, { day: 'numeric', month: 'short' }))}: ${c.rate} a day.</div>`];
+  if (c.titleBlocks) out.push(`<div class="tag bad">${esc(c.titleBlocks)}</div>`);
+  out.push('<table class="act-sum"><tr class="muted"><th>Folder</th><th>Drawn</th><th>Items</th><th></th><th>Not drawn</th><th>At that pace</th></tr>');
+  for (const g of c.groups) {
+    const solo = g.lines.length === 1 && g.lines[0].name === '';
+    if (!solo) out.push(`<tr class="grp"><td colspan="6">${esc(g.name)}</td></tr>`);
+    for (const l of g.lines) {
+      const key = g.name + '|' + l.name, open = act.open.has('cov|' + key), pct = l.items ? Math.floor(100 * l.drawn / l.items) + '%' : '';
+      const label = solo ? g.name : (l.total ? 'Screen total' : l.name);
+      const click = !l.total && l.undrawn.length;
+      out.push(`<tr class="${l.total ? 'tot' : ''}" ${click ? `data-cov="${esc(key)}"` : ''}><td>${solo ? '' : '&nbsp;&nbsp;'}${click ? (open ? '▾ ' : '▸ ') : ''}${esc(label)}</td><td>${l.drawn}</td><td>${l.items}</td><td>${pct}</td><td>${l.items - l.drawn}</td><td>${when(l)}</td></tr>`);
+      if (open) out.push(`<tr><td colspan="6" class="act-undrawn muted">Not drawn: ${esc(l.undrawn.join(', '))}</td></tr>`);
+    }
+  }
+  out.push('</table>', `<div class="muted" style="margin-top:4px">${esc(c.rules)}</div>`);
+  return out.join('');
 }
 const actKinds = [['newdrw', 'new drawing'], ['new', 'new file'], ['changed', 'changed'], ['moved', 'moved'], ['removed', 'removed'], ['restored', 'restored'], ['released', 'release PDF'], ['package', 'release package file']];
 function actKind(e) { return e.kind === 'new' && e.drawing ? 'newdrw' : e.kind === 'register' ? 'package' : e.kind; }
@@ -525,10 +585,10 @@ function drawActivity() {
   const head = '<div class="bar"><button id="actReload" title="Reads the activity log again.">Reload</button>'
     + `<span class="muted">Last ${act.days} days (NZ dates and times)${act.loading ? ' · loading…' : ''}</span></div>`;
   if (act.err) return head + `<span class="tag bad">Can't read the activity log: ${esc(act.err)}</span>`;
-  if (!act.data) return head;
+  if (!act.data) return head + drawCoverage();
   const days = {};
   for (const e of act.data.events) ((days[e.day] ??= {})[e.by] ??= []).push(e);
-  const out = [head];
+  const out = [head, drawOverview(), drawCoverage(), '<div class="act-h">Day by day</div>'];
   const order = Object.keys(days).sort().reverse();
   if (!order.length) out.push('<span class="muted">Nothing in these days.</span>');
   for (const day of order) {
@@ -617,15 +677,20 @@ $('panel').addEventListener('click', e => {
   if (tab !== 'act') return;
   const w = e.target.closest('[data-act]');
   if (w) { const k = w.dataset.act; act.open.has(k) ? act.open.delete(k) : act.open.add(k); drawPanel(); return; }
+  const cv = e.target.closest('[data-cov]');
+  if (cv) { const k = 'cov|' + cv.dataset.cov; act.open.has(k) ? act.open.delete(k) : act.open.add(k); drawPanel(); return; }
   if (e.target.id === 'actMore') { act.days += 14; loadActivity(); drawPanel(); }
-  if (e.target.id === 'actReload') { loadActivity(); drawPanel(); }
+  if (e.target.id === 'actReload') { act.cov = null; loadActivity(); drawPanel(); }
 });
 $('settingsBtn').onclick = () => { if (tab !== 'settings') lastTab = tab; tab = 'settings'; hideResult(); drawTabs(); drawPanel(); };
 for (const ev of ['input', 'change']) $('panel').addEventListener(ev, () => { panelDirty = true; });
 $('resultMore').onclick = e => { e.preventDefault(); const l = $('resultLines'); l.hidden = !l.hidden; $('resultMore').textContent = l.hidden ? 'Details' : 'Hide'; };
 $('filter').oninput = drawTree;
 $('getBtn').onclick = getLatest;
-$('refreshBtn').onclick = () => load().catch(e => showResult(['Error: ' + e.message]));
+$('refreshBtn').onclick = () => {
+  api('check').then(r => { me = r; showMe(); }).catch(() => {}); // also looks for an update
+  load().catch(e => showResult(['Error: ' + e.message]));
+};
 $('logoutBtn').onclick = async () => { await api('logout').catch(() => {}); showLogin(); };
 $('loginBtn').onclick = login;
 for (const id of ['email', 'password', 'new1', 'new2']) $(id).addEventListener('keydown', e => { if (e.key === 'Enter') login(); });

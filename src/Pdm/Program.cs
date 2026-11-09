@@ -1,4 +1,4 @@
-﻿using Amazon;
+using Amazon;
 using Amazon.DynamoDBv2;
 using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
@@ -17,6 +17,7 @@ try
     switch (command)
     {
         case "page":
+            Tray.LogToFile(); // the tray icon replaces the console window; output goes to the log file
             return await new Page(settings).RunAsync(openBrowser: !args.Contains("--no-open"));
         case "shell":
             return await Shell(settings);

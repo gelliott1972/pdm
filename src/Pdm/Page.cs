@@ -25,22 +25,29 @@ public sealed class Page(Settings s)
     string runId = "";
     string? minVersion; // read at login, on Reload list and about hourly
     DateTime lastCheck;
+    // A get, check-out, check-in, undo, remove or restore running, or just finished (the page sends several in a row):
+    // the tray's Update and Exit ask first.
+    int working; DateTime lastWork;
     List<FileRecord>? runIndex;
 
     public async Task<int> RunAsync(bool openBrowser)
     {
         var url = $"http://localhost:{s.PagePort}/";
+        // One copy per PC: starting it again just opens the page of the one running.
+        using var single = new Mutex(true, @"Local\PDM-page", out var first);
+        if (!first) { Console.WriteLine("PDM is already running; opening its page."); Tray.Open(url); return 0; }
         using var listener = new HttpListener();
         listener.Prefixes.Add(url);
         try { listener.Start(); }
         catch (HttpListenerException ex)
         {
             Console.WriteLine($"Can't start the page on {url}: {ex.Message}. Is pdm already running?");
+            System.Windows.Forms.MessageBox.Show($"PDM can't start its page on {url}:\n{ex.Message}\n\nDetails are in {Tray.LogFile}", "PDM");
             return 1;
         }
-        Console.WriteLine($"PDM page: {url}  (close this window to stop)");
-        if (openBrowser)
-            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
+        Console.WriteLine($"PDM {Updater.Version} page: {url}  (tray icon: Open PDM page, Exit)");
+        Tray.Start(url, () => updater.ReadyVersion, () => working > 0 || DateTime.UtcNow - lastWork < TimeSpan.FromSeconds(15), updater.ApplyAndRestart);
+        if (openBrowser) Tray.Open(url);
 
         while (true)
         {
@@ -94,6 +101,15 @@ public sealed class Page(Settings s)
             await Send(ctx, 409, new { error = TooOldText() });
             return;
         }
+        var mutating = path is "/api/get" or "/api/checkout" or "/api/checkin" or "/api/undo" or "/api/remove" or "/api/restore";
+        if (mutating) Interlocked.Increment(ref working);
+        try { await HandleLoggedInAsync(ctx, path, body, Str, Strs, engine, run, log); }
+        finally { if (mutating) { lastWork = DateTime.UtcNow; Interlocked.Decrement(ref working); } }
+    }
+
+    async Task HandleLoggedInAsync(HttpListenerContext ctx, string path, JsonElement body, Func<string, string> Str, Func<string, List<string>> Strs,
+        Engine engine, string run, List<string> log)
+    {
         switch (path)
         {
             case "/api/me":
@@ -107,23 +123,24 @@ public sealed class Page(Settings s)
                 await Send(ctx, 200, Me());
                 return;
             case "/api/password":
-                try { await session.User.ChangePasswordAsync(Str("old"), Str("new")); }
+                try { await session!.User.ChangePasswordAsync(Str("old"), Str("new")); }
                 catch (Exception ex) { await Send(ctx, 400, new { error = PasswordError(ex) }); return; }
                 await Send(ctx, 200, new { });
                 return;
             case "/api/restart":
                 await Send(ctx, 200, new { });
+                if (updater.ReadyVersion != null) Tray.Hide();
                 updater.ApplyAndRestart(); // exits this process when an update is ready
                 return;
             case "/api/files":
                 await Send(ctx, 200, await FilesAsync(engine));
                 return;
             case "/api/activity":
-                if (!Activity.IsAdmin(session.Email)) { await Send(ctx, 403, new { error = "Activity is for the admin only." }); return; }
+                if (!Activity.IsAdmin(session!.Email)) { await Send(ctx, 403, new { error = "Activity is for the admin only." }); return; }
                 await Send(ctx, 200, await Activity.QueryAsync(new Vault(s3!, s), Path.Combine(s.LocalRoot, ".pdm", "activity-cache.json"), Str("before"), body.ValueKind == JsonValueKind.Object && body.TryGetProperty("days", out var dv) && dv.TryGetInt32(out var dn) ? dn : 14));
                 return;
             case "/api/coverage":
-                if (!Activity.IsAdmin(session.Email)) { await Send(ctx, 403, new { error = "Activity is for the admin only." }); return; }
+                if (!Activity.IsAdmin(session!.Email)) { await Send(ctx, 403, new { error = "Activity is for the admin only." }); return; }
                 await Send(ctx, 200, await Coverage.ComputeAsync(s, await new Index(db!, s).AllAsync(), new Vault(s3!, s),
                     Path.Combine(s.LocalRoot, ".pdm", "activity-cache.json"), Path.Combine(s.LocalRoot, ".pdm", "titleblock-cache.json")));
                 return;

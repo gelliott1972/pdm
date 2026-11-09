@@ -5,9 +5,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>pdm</AssemblyName>
+    <!-- The page's tray icon (Tray.cs). WinForms names aren't imported everywhere, to keep them apart from the app's own. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <!-- The Document Manager interop DLL comes from the SOLIDWORKS install, not the repo. -->
     <SolidWorksDir Condition="'$(SolidWorksDir)' == ''">C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS</SolidWorksDir>
   </PropertyGroup>
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Amazon.Extensions.CognitoAuthentication" Version="3.1.5" />
     <PackageReference Include="AWSSDK.CognitoIdentity" Version="4.0.100.20" />

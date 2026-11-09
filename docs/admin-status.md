@@ -26,7 +26,7 @@ Document Manager keeps a stale referenced configuration after Replace Components
 
 1. D17: 9 fastener PartNos (FAST-HEX/NUT/WSH) by Grant's check-out; Dev writes, Grant checks in.
 2. 0806 B/C grout and anchors, in the PDM (decision 7). B's concrete-beam anchor needs a new configuration in `MDL-ANCHOR-08X06`. Grant: "adding grout is small".
-2a. **Activity tab (Grant 9 Nov)**: admin-only view of what was checked in each day, per person, to track James's progress. Step 1 only; progress against a plan (step 2) later. App designs first, after the 0A filing.
+2a. **Activity tab (Grant 9 Nov)**: admin-only view of what was checked in each day, per person, to track James's progress. Step 1 only; progress against a plan (step 2) later. Grant OK'd App's design (per-file history on check-in, backfill from S3 versions, tab in 0.1.12, admin = Grant hard-coded) and added: new drawings (and sheets) per day, drawing coverage per screen/shaft, and a simple finish forecast ("how long until James has finished 0804 Shaft A"). Coverage rule's judgment calls go to Grant. Min version 0.1.11 once James's PC shows it; 0.1.12 later, ask again.
 3. Tidy later: Dev's scratch vaults; the `-hold` work copies. **Grant 9 Nov: after the 0A filing, tidy his PC**: old vault copies and intermediate files (e.g. old P:\ stand-ins, scratch and rehearsal copies, PNGs), so he can't open an old copy by mistake (he checked a stale copy of 08XXX-PLP-33 on 9 Nov). Admin lists everything first; Grant OKs each delete.
 4. Ask Grant about App 0.1.7 at his next real multi-file check-in: did the bar show "Checking in n of m" and fill? Are the buttons at the top?
 5. List for James: D3 drawings, D8/D9 register mismatches, D4/D20 changes, the splice kit weight (D26), D28.

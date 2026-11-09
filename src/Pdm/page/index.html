@@ -185,18 +185,18 @@ async function load(fromTimer) {
 }
 
 // ---- the result line: one summary under the tabs, problems first, the full list behind Details
-const done = [['Checked out ', 'Checked out'], ['Checked in ', 'Checked in'], ['Added ', 'Added'], ['No changes in ', 'Released (no changes)'], ['Undone ', 'Undone'], ['Got ', 'Downloaded'], ['Removed ', 'Removed'], ['Restored ', 'Restored']];
+const done = [['Checked out ', 'Checked out'], ['Checked in ', 'Checked in'], ['Added ', 'Added'], ['No changes in ', 'Released (no changes)'], ['Undone ', 'Undone'], ['Got ', 'Downloaded'], ['Moved ', 'Moved', ' to new folders'], ['Removed ', 'Removed'], ['Restored ', 'Restored']];
 // fraction (0..1) shows the progress bar while working.
 function showResult(lines, working, fraction) {
   const kind = l => done.find(([p]) => l.startsWith(p));
   const problems = working ? [] : lines.filter(l => !kind(l) && !l.startsWith('Get done') && !l.startsWith('  Note') && !l.startsWith('  Time'));
   const parts = [];
   if (problems.length) parts.push(problems.length === 1 ? problems[0] : problems.length + ' problems');
-  for (const [p, label] of done) {
+  for (const [p, label, after = ''] of done) {
     const n = lines.filter(l => l.startsWith(p)).length;
-    if (n) parts.push(label + ' ' + n + ' file' + (n === 1 ? '' : 's'));
+    if (n) parts.push(label + ' ' + n + ' file' + (n === 1 ? '' : 's') + after);
   }
-  if (lines.some(l => l.startsWith('Get done')) && !lines.some(l => l.startsWith('Got '))) parts.push('Up to date');
+  if (lines.some(l => l.startsWith('Get done')) && !lines.some(l => ['Got ', 'Moved ', 'Removed '].some(p => l.startsWith(p)))) parts.push('Up to date');
   const notes = lines.filter(l => l.startsWith('  Note')).length;
   if (notes) parts.push(notes + ' note' + (notes === 1 ? '' : 's') + ': see Details');
   $('result').hidden = false;
@@ -244,9 +244,13 @@ async function runSteps(plan) {
     catch (e) { log.push('Error: ' + e.message); if (!me) break; } // logged out: stop
     n += s.paths.length;
   }
-  // Each get reports its own "Get done" line; one is enough.
+  // Each get reports its own "Get done" line; one line with the totals is enough. ("Already up to date" is left
+  // out: a file fetched by the first pass counts as up to date again in the later one.)
   const gets = log.filter(l => l.startsWith('Get done'));
-  showResult([...log.filter(l => !l.startsWith('Get done')), ...(gets.length ? ['Get done.'] : []), timeLine(Date.now() - started, time)]);
+  const sum = re => gets.reduce((t, l) => t + Number((l.match(re) || [0, 0])[1]), 0);
+  const got = sum(/(\d+) downloaded/), moved = sum(/(\d+) moved/), gone = sum(/(\d+) removed/);
+  const getLine = 'Get done: ' + got + ' downloaded' + (moved ? ', ' + moved + ' moved to their new folders' : '') + (gone ? ', ' + gone + ' removed from this PC' : '') + '.';
+  showResult([...log.filter(l => !l.startsWith('Get done')), ...(gets.length ? [getLine] : []), timeLine(Date.now() - started, time)]);
   await load().catch(() => {}); // still busy, so nothing acts on the old list
   busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false);
 }

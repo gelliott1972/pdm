@@ -29,6 +29,8 @@ public sealed class FileRecord
     public bool Removed => RemovedAt != null;
     // Moves (path changes) of this file, oldest first. Its S3 versions before a move stay at the old key.
     public List<MoveEntry> Moves { get; set; } = new();
+    // A release PDF: the set it came from (JSON: code, set, at, by, drawing and model versions). See Release.FileAsync.
+    public string? ReleaseSet { get; set; }
 }
 
 // One recorded move: from and to are vault keys; etag is the file as moved, so a copy left at the old path can be told apart.
@@ -66,6 +68,12 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
 
     // Whole-record write, used by the loader.
     public Task PutAsync(FileRecord f) => db.PutItemAsync(new PutItemRequest { TableName = s.FilesTable, Item = ToItem(f) });
+
+    // A new file only: refused if the fileId is already there.
+    public Task AddAsync(FileRecord f) => db.PutItemAsync(new PutItemRequest
+    {
+        TableName = s.FilesTable, Item = ToItem(f), ConditionExpression = "attribute_not_exists(fileId)"
+    });
 
     // Takes the lock unless someone else holds it. A lock belongs to a person on one PC; holding it already there is fine.
     public async Task LockAsync(string fileId, string email, string name, string machine)
@@ -289,6 +297,7 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
                 }).ToList()
             }
         };
+        if (f.ReleaseSet != null) item["release"] = S(f.ReleaseSet);
         if (f.Moves.Count > 0) item["moves"] = new() { L = f.Moves.Select(MoveItem).ToList() };
         if (f.RemovedAt != null)
         {
@@ -322,6 +331,7 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
                 ? pn.L.Select(m => new PartNoEntry(m.M["config"].S, m.M["partNo"].S, m.M["status"].S)).ToList()
                 : new(),
             LockedBy = Opt("lockedBy"), LockedByName = Opt("lockedByName"), LockedAt = Opt("lockedAt"), LockMachine = Opt("lockMachine"),
+            ReleaseSet = Opt("release"),
             RemovedAt = Opt("removedAt"), RemovedBy = Opt("removedBy"), RemovedByName = Opt("removedByName"), RemovedReason = Opt("removedReason"),
             Moves = i.TryGetValue("moves", out var mv) && mv.L != null
                 ? mv.L.Select(x => { string M(string k) => x.M.TryGetValue(k, out var a) && a.S != null ? a.S : ""; return new MoveEntry(M("from"), M("to"), M("at"), M("by"), M("note"), M("etag")); }).ToList()

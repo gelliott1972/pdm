@@ -54,6 +54,10 @@ try
             return 0;
         case "map" when args.Length == 2:
             return Drive.Map(settings.LocalRoot, args[1], Console.WriteLine);
+        case "release-file" when args.Length >= 2:
+            // The release step's real run: files the PDFs a dry run passed (its work folder) into the vault.
+            return await Admin(settings, (index, vault, engine) =>
+                new ReleaseFiler(settings, index, vault, AdminName, Console.WriteLine).RunAsync(args[1], args.Contains("--dry")));
         case "release" when args.Length >= 3:
             return await ReleaseDry(settings, args);
         default:
@@ -69,8 +73,10 @@ try
             Console.WriteLine("       pdm unlock <file> [<file> ...] [--dry]     admin: release those check-outs, files left as they are");
             Console.WriteLine("                        move, remove, checkout and unlock also take a round list (round.csv: action,old_path,new_path,...)");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
-            Console.WriteLine("       pdm release <folder> <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role]");
-            Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only)");
+            Console.WriteLine("       pdm release <folder> [<folder> ...] <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role]");
+            Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only); several folders make one set");
+            Console.WriteLine("       pdm release-file <dry run work folder> [--dry]");
+            Console.WriteLine("                        admin: files the PDFs that dry run passed into the scene's _Review folder, with the set recorded");
             return 2;
     }
 }
@@ -210,10 +216,14 @@ static Task<int> Load(Settings s, bool dryRun, string? note) =>
 // exports and checks there, and writes a pass/fail list. Nothing is written to the vault.
 static async Task<int> ReleaseDry(Settings s, string[] args)
 {
-    if (!args.Contains("--dry")) { Console.WriteLine("Only --dry for now: the real release runs from the page."); return 2; }
-    var code = args[2].Trim();
+    if (!args.Contains("--dry")) { Console.WriteLine("The release is a dry run first (--dry); then pdm release-file <its work folder> files the PDFs it passed."); return 2; }
+    // pdm release <folder> [<folder> ...] <code>: several folders make one set (a shared drawing used by both is in once).
+    var positional = args.Skip(1).TakeWhile(a => !a.StartsWith("--")).ToList();
+    if (positional.Count < 2) { Console.WriteLine("Give the folder(s), then the code: pdm release <folder> [<folder> ...] <code> --dry"); return 2; }
+    var code = positional[^1].Trim();
     if (!Release.CodeOk(code)) { Console.WriteLine($"\"{code}\" isn't a revision code (0A, 0B, 1, 1A, 2 ...)."); return 2; }
-    var folderKey = Paths.KeyOf(s.LocalRoot, Path.GetFullPath(args[1]));
+    var folderKeys = positional[..^1].Select(f => Paths.KeyOf(s.LocalRoot, Path.GetFullPath(f)).TrimEnd('/')).ToList();
+    var folderKey = string.Join(" + ", folderKeys);
     if (!new CredentialProfileStoreChain().TryGetAWSCredentials("pdm-admin", out AWSCredentials credentials))
     { Console.WriteLine("No pdm-admin profile on this PC."); return 1; }
     using var db = new AmazonDynamoDBClient(credentials, RegionEndpoint.GetBySystemName(s.Region));
@@ -225,10 +235,11 @@ static async Task<int> ReleaseDry(Settings s, string[] args)
     if (i > 0 && i + 1 < args.Length) release.SharedTo = args[i + 1] == "own" ? "own" : "scene";
     if (Environment.GetEnvironmentVariable("PDM_SWCMD") is { Length: > 0 } sw) release.SwCmd = sw;
 
-    var items = release.Plan(folderKey, code, args.Contains("--with-shared"));
+    var items = folderKeys.SelectMany(f => release.Plan(f, code, args.Contains("--with-shared")))
+        .GroupBy(x => x.Drawing.FileId).Select(g => g.First()).OrderBy(x => x.Drawing.Path, StringComparer.OrdinalIgnoreCase).ToList();
     if (items.Count == 0) { Console.WriteLine($"No drawings in the vault under {folderKey}."); return 1; }
     var work = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PDM-release",
-        $"{DateTime.Now:yyyyMMdd-HHmmss}_{code}_{folderKey.TrimEnd('/').Replace('/', '_')}");
+        $"{DateTime.Now:yyyyMMdd-HHmmss}_{code}_{string.Join("+", folderKeys.Select(f => f.Split('/')[^1]))}");
     Console.WriteLine($"{items.Count} drawings; {items.Count(x => x.Pass)} pass the checks before export. Work folder: {work}");
     if (!args.Contains("--no-export")) await release.ExportAndCheckAsync(items, code, work, Path.Combine(work, "copy"));
     Console.WriteLine();

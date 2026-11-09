@@ -38,7 +38,7 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
                 UpdatedBy = old != null && !(upload && note != null) ? old.UpdatedBy : adminName,
                 Note = old != null && !(upload && note != null) ? old.Note : note ?? "Initial load",
                 LockedBy = old?.LockedBy, LockedByName = old?.LockedByName, LockedAt = old?.LockedAt, LockMachine = old?.LockMachine,
-                Moves = old?.Moves ?? new()
+                Moves = old?.Moves ?? new(), ReleaseSet = old?.ReleaseSet
             };
             if (old != null && engine.Mine(old)) // checked out for a round by this admin login on this PC: the load checks it in
             {

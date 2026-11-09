@@ -242,6 +242,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             if (f == null) { say($"Not in the vault: {key}"); continue; }
             if (f.Removed) { say($"Can't check out {f.Path}: it was removed from the vault by {f.RemovedByName}. Restore it first."); continue; }
             if (Paths.IsShared(f.Path) && !sharedEditor) { say($"{f.Path} is in a shared folder; you can't check it out."); continue; }
+            if (Paths.InReleaseFolder(f.Path)) { say($"Can't check out {f.Path}: it's a release file, and releases stay as issued."); continue; }
             wanted.Add(f);
         }
         if (dryRun)
@@ -387,7 +388,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             FileId = existing?.FileId ?? Guid.NewGuid().ToString(),
             Path = existing?.Path ?? key,
             UpdatedAt = Index.Now(), UpdatedBy = name, Note = note,
-            LockedBy = existing?.LockedBy, Moves = existing?.Moves ?? new()
+            LockedBy = existing?.LockedBy, Moves = existing?.Moves ?? new(), ReleaseSet = existing?.ReleaseSet
         };
         Time.Of("Document Manager", () => { Describe(record, local, all); return 0; });
 

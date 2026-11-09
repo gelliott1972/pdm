@@ -1,6 +1,6 @@
 # 0804 is in the vault: notes for James
 
-DRAFT for Grant to check. Weekend of 7–8 Nov 2026.
+From Grant, 9 Nov 2026: what changed in the vault over the weekend of 7–8 Nov.
 
 ## First, before you open anything
 
@@ -49,12 +49,10 @@ In 0811 only those paths changed (`08B11-STA-01`, `08C11-STA-01` and the moved d
 ## Drawings and releases
 
 - **Revision table rule** (Grant, 7 Nov): one row per formal release, plus a top row for the issue you're looking at, replaced at each lettered issue until the next formal release locks it in. The first formal release is `1`. So `0A` drawings with a single `0A` row are right. Example over a life: `0A` → `0B` → `1` → `1A, 1` → `1B, 1` → `2, 1`.
-- The vault now makes the release PDFs itself; **no PDFs in the vault next to the models** (check-in refuses them). Your two old PDFs in `LS-08X-06\ShaftA` (`08A06-HBA-01.pdf`, `08A06-HBW-01.pdf`) can go with **Remove from vault**.
-- 0804 has **no drawings yet**, including the three new `08x04-STA-01`s.
+- The vault now makes the release PDFs itself; **no PDFs in the vault next to the models** (check-in refuses them). Grant is removing your two old PDFs in `LS-08X-06\ShaftA` (`08A06-HBA-01.pdf`, `08A06-HBW-01.pdf`).
+- 0804's first drawings are in (`08A04-STA-01`, `08A04-SFA-01`, `08X04-LMW-27/-28/-29`). `08B04-STA-01` and `08C04-STA-01` aren't drawn yet.
 
 ## Small jobs for you
 
-1. Remove your two stray drawings with **Remove from vault** (they're checked out to you): `08X06-DBP.SLDDRW` and `GNRIC-BRW-20.SLDDRW`.
-2. Remove the two old PDFs above.
-3. Two older drawings still link to old Dropbox paths: `GNRIC-LPP-05.SLDDRW` and `08XXX-PLP-33.SLDDRW`. Repoint them when you next have them out.
-4. Glance over the 36 file-name descriptions in 0804.
+1. Two older drawings still link to old Dropbox paths: `GNRIC-LPP-05.SLDDRW` and `08XXX-PLP-33.SLDDRW`. Repoint them when you next have them out.
+2. Glance over the 36 file-name descriptions in 0804.

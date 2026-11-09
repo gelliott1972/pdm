@@ -73,7 +73,7 @@ try
             Console.WriteLine("       pdm unlock <file> [<file> ...] [--dry]     admin: release those check-outs, files left as they are");
             Console.WriteLine("                        move, remove, checkout and unlock also take a round list (round.csv: action,old_path,new_path,...)");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
-            Console.WriteLine("       pdm release <folder> [<folder> ...] <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role]");
+            Console.WriteLine("       pdm release <folder> [<folder> ...] <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role] [--only a,b|list.txt]");
             Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only); several folders make one set");
             Console.WriteLine("       pdm release-file <dry run work folder> [--dry]");
             Console.WriteLine("                        admin: files the PDFs that dry run passed into the scene's _Review folder, with the set recorded");
@@ -238,8 +238,20 @@ static async Task<int> ReleaseDry(Settings s, string[] args)
     var items = folderKeys.SelectMany(f => release.Plan(f, code, args.Contains("--with-shared")))
         .GroupBy(x => x.Drawing.FileId).Select(g => g.First()).OrderBy(x => x.Drawing.Path, StringComparer.OrdinalIgnoreCase).ToList();
     if (items.Count == 0) { Console.WriteLine($"No drawings in the vault under {folderKey}."); return 1; }
+    // --only a,b,c (or a list file, one per line): a top-up run of just those drawings of the set, by file name.
+    var only = Arg(args, "--only");
+    if (only != null)
+    {
+        static string Name(string p) => Path.GetFileNameWithoutExtension(p.Trim().Replace('/', '\\'));
+        var names = (File.Exists(only) ? File.ReadAllLines(only) : only.Split(',')).Select(Name).Where(n => n != "")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missing = names.Where(n => !items.Any(x => Name(x.Drawing.Path).Equals(n, StringComparison.OrdinalIgnoreCase))).ToList();
+        if (missing.Count > 0) { Console.WriteLine($"Not drawings of this set: {string.Join(", ", missing)}"); return 2; }
+        Console.WriteLine($"Top-up: {names.Count} of the set's {items.Count} drawings.");
+        items = items.Where(x => names.Contains(Name(x.Drawing.Path))).ToList();
+    }
     var work = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PDM-release",
-        $"{DateTime.Now:yyyyMMdd-HHmmss}_{code}_{string.Join("+", folderKeys.Select(f => f.Split('/')[^1]))}");
+        $"{DateTime.Now:yyyyMMdd-HHmmss}_{code}_{string.Join("+", folderKeys.Select(f => f.Split('/')[^1]))}{(only != null ? "_top-up" : "")}");
     Console.WriteLine($"{items.Count} drawings; {items.Count(x => x.Pass)} pass the checks before export. Work folder: {work}");
     if (!args.Contains("--no-export")) await release.ExportAndCheckAsync(items, code, work, Path.Combine(work, "copy"));
     Console.WriteLine();

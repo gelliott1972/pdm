@@ -26,7 +26,7 @@ Document Manager keeps a stale referenced configuration after Replace Components
 
 1. D17: 9 fastener PartNos (FAST-HEX/NUT/WSH) by Grant's check-out; Dev writes, Grant checks in.
 2. 0806 B/C grout and anchors, in the PDM (decision 7). B's concrete-beam anchor needs a new configuration in `MDL-ANCHOR-08X06`. Grant: "adding grout is small".
-3. Tidy later: Dev's scratch vaults; the `-hold` work copies.
+3. Tidy later: Dev's scratch vaults; the `-hold` work copies. **Grant 9 Nov: after the 0A filing, tidy his PC**: old vault copies and intermediate files (e.g. old P:\ stand-ins, scratch and rehearsal copies, PNGs), so he can't open an old copy by mistake (he checked a stale copy of 08XXX-PLP-33 on 9 Nov). Admin lists everything first; Grant OKs each delete.
 4. Ask Grant about App 0.1.7 at his next real multi-file check-in: did the bar show "Checking in n of m" and fill? Are the buttons at the top?
 5. List for James: D3 drawings, D8/D9 register mismatches, D4/D20 changes, the splice kit weight (D26), D28.
 6. James's notes 28 Oct (`scratch\notes_from_james_2026-10-28.txt`), Grant's answers:

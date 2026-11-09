@@ -8,13 +8,14 @@ namespace Pdm;
 
 // The release step (docs\briefs\release-0A.md): a set of drawings and a revision code; each drawing is checked,
 // exported to PDF with Dev's SwCmd, and its revision checked (R4). The dry run stops there; the real run (later, from
-// the page) files the PDFs into the scene's _Review folder and records the set on each PDF's index entry.
+// the page) files the PDFs into the set's folder, <Scene>/_Review/<Set>_<code>/, and records the set on each PDF's index entry.
 public sealed partial class Release(Settings s, List<FileRecord> all, Action<string> say)
 {
     public sealed class Item
     {
         public required FileRecord Drawing { get; init; }
-        public required string PdfKey { get; init; }       // where the real run files it, e.g. APEX/SC08/_Review/08A06-HBA-01_0A.pdf
+        public required string PdfKey { get; init; }       // where the real run files it, e.g. APEX/SC08/_Review/LS-08X-06_0A/08A06-HBA-01_0A.pdf
+                                                            // (a drawing in several sets: a copy in each set's folder, same file name)
         public List<FileRecord> Models { get; } = new();    // everything the drawing references, all the way down
         public List<string> Problems { get; } = new();      // any of these stops this drawing
         public List<string> Notes { get; } = new();         // worth knowing, doesn't stop it
@@ -54,6 +55,12 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     // A scene is the first two folders of the vault path (Admin 7 Nov, 4a): APEX/SC08/... -> APEX/SC08.
     public static string SceneOf(string key) { var p = key.Split('/'); return p.Length > 2 ? p[0] + "/" + p[1] : p[0]; }
     public static string PdfName(string drawingKey, string code) => Path.GetFileNameWithoutExtension(drawingKey) + "_" + code + ".pdf";
+    // One folder per release set (Grant, 9 Nov): <Scene>/_Review/<Set>_<code>/, e.g. APEX/SC08/_Review/LS-08X-06_0A/.
+    public static string SetFolder(string scene, string set, string code) => $"{scene}/_Review/{set}_{code}";
+    // A filed PDF of this drawing and code anywhere in the scene's release folders (any set's folder, or the old flat layout).
+    public static FileRecord? Filed(IEnumerable<FileRecord> all, string scene, string pdfName) => all.FirstOrDefault(r => !r.Removed
+        && Paths.InReleaseFolder(r.Path) && Path.GetFileName(r.Path).Equals(pdfName, StringComparison.OrdinalIgnoreCase)
+        && SceneOf(r.Path).Equals(scene, StringComparison.OrdinalIgnoreCase));
 
     // 1 and 2 of the brief: the set's drawings and the checks that need no SOLIDWORKS.
     public List<Item> Plan(string folderKey, string code, bool withShared)
@@ -63,6 +70,7 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         var inFolder = all.Where(r => r.Path.StartsWith(folderKey, StringComparison.OrdinalIgnoreCase)).ToList();
         var drawings = inFolder.Where(IsDrawing).ToList();
         var setScene = SceneOf(folderKey + "x");
+        var setName = folderKey.TrimEnd('/').Split('/')[^1];
 
         if (withShared)
         {
@@ -76,7 +84,7 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         foreach (var d in drawings.OrderBy(r => r.Path, StringComparer.OrdinalIgnoreCase))
         {
             var scene = Paths.IsShared(d.Path) && SharedTo == "scene" ? setScene : SceneOf(d.Path);
-            var item = new Item { Drawing = d, PdfKey = $"{scene}/_Review/{PdfName(d.Path, code)}" };
+            var item = new Item { Drawing = d, PdfKey = $"{SetFolder(scene, setName, code)}/{PdfName(d.Path, code)}" };
             item.Models.AddRange(Closure(d, byId).Where(r => r.FileId != d.FileId));
             Check(item);
             items.Add(item);
@@ -115,12 +123,12 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
             foreach (var x in m.MissingRefs) item.Problems.Add($"{m.Path} refers to {x}, which isn't in the vault");
             if (m.LockedBy != null) item.Notes.Add($"{m.Path} is checked out by {m.LockedByName}; the PDF shows the vault's version");
         }
-        if (all.Any(r => r.Path.Equals(item.PdfKey, StringComparison.OrdinalIgnoreCase)))
+        if (Filed(all, SceneOf(item.PdfKey), Path.GetFileName(item.PdfKey)) is { } was)
         {
-            if (Reissue != null) item.Notes.Add($"re-issue: {item.PdfKey} is in the vault; release-file --reissue files the new PDF as its next version ({Reissue})");
-            else item.Problems.Add($"already released: {item.PdfKey} is in the vault");
+            if (Reissue != null) item.Notes.Add($"re-issue: {was.Path} is in the vault; release-file --reissue files the new PDF as its next version in each set's folder ({Reissue})");
+            else item.Problems.Add($"already released: {was.Path} is in the vault");
         }
-        else if (Reissue != null) item.Problems.Add($"not a re-issue: {item.PdfKey} has never been filed");
+        else if (Reissue != null) item.Problems.Add($"not a re-issue: {Path.GetFileName(item.PdfKey)} has never been filed");
         CheckTitleBlock(item);
     }
 

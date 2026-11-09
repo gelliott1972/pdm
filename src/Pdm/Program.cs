@@ -71,6 +71,10 @@ try
                 new ReleaseFiler(settings, index, vault, AdminName, Console.WriteLine, AdminEmail).RunAsync(
                     args.Skip(1).TakeWhile(a => !a.StartsWith("--")).ToList(), args.Contains("--dry"), args.Contains("--incomplete"),
                     Arg(args, "--reissue"), Arg(args, "--only")));
+        case "release-folders" when args.Length >= 3:
+            // One-off (Grant, 9 Nov): a release filed in the old layout moved into one folder per set.
+            return await Admin(settings, (index, vault, engine) =>
+                new ReleaseFiler(settings, index, vault, AdminName, Console.WriteLine, AdminEmail).RelayoutAsync(args[1], args[2], args.Contains("--dry")));
         case "activity":
             // The Activity tab's lines (admin): pdm activity [--days 14] [--before yyyy-mm-dd]
             return await Admin(settings, async (index, vault, engine) =>
@@ -115,10 +119,13 @@ try
             Console.WriteLine("       pdm activity [--days 14] [--before yyyy-mm-dd]   admin: the Activity tab's days, as text");
             Console.WriteLine("       pdm coverage     admin: drawing progress per folder and the finish forecast, as text");
             Console.WriteLine("       pdm release-file <dry run work folder> [<work folder> ...] [--dry] [--incomplete] [--reissue \"reason\" --only a,b]");
-            Console.WriteLine("                        admin: files the checked PDFs into the scene's _Review folder, each set's ZIP and drawing list into");
-            Console.WriteLine("                        _Review\\_Sets, and rewrites the scene's drawing register; nothing unless every set is complete");
+            Console.WriteLine("                        admin: files the checked PDFs, each set's ZIP and drawing list into the set's folder,");
+            Console.WriteLine("                        <Scene>\\_Review\\<Set>_<code> (a shared drawing in each), and rewrites the scene's drawing register;");
+            Console.WriteLine("                        nothing unless every set is complete");
             Console.WriteLine("                        --reissue: re-files the named drawings' PDFs (a release --reissue top-up) as new versions of the");
             Console.WriteLine("                        same release files, with new versions of their sets' packages and the register");
+            Console.WriteLine("       pdm release-folders <scene> <code> [--dry]   admin, one-off: a release filed straight in _Review (packages in");
+            Console.WriteLine("                        _Review\\_Sets) moved into one folder per set, lists re-made without the Notes column");
             return 2;
     }
 }

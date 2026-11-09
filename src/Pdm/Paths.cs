@@ -41,7 +41,7 @@ public static class Paths
 
     // A scene's release folders (R8): <Scene>/_Released, _Review, _Commented, _WIP.
     static readonly string[] ReleaseFolders = ["_Released", "_Review", "_Commented", "_WIP"];
-    // In one of them, or below one (a release's packages are in <Scene>/_Review/_Sets).
+    // In one of them, or below one (a release set's folder, <Scene>/_Review/<Set>_<code>).
     public static bool InReleaseFolder(string key)
     {
         var parts = key.Split('/');

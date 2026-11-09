@@ -437,7 +437,7 @@ function drawOut() {
 
 // Remove from vault (soft): the file leaves the tree and each PC at its next Download latest; Restore brings it back.
 function removeForm(f) {
-  if (f.isNew || /\/(_Released|_Review|_Commented|_WIP)\/[^/]*$/i.test(f.path)) return '';
+  if (f.isNew || /\/(_Released|_Review|_Commented|_WIP)\//i.test(f.path) || /^[^/]+\/([^/]+)\/\1_Drawing_Register\.xlsx$/i.test(f.path)) return ''; // release files (in any set's folder) and the register
   const users = f.usedBy.map(id => byId[id]).filter(Boolean);
   let why = '';
   if (users.length) why = 'it is used by ' + users.map(u => base(u.path)).join(', ') + ': change those first.';

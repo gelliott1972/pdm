@@ -74,6 +74,7 @@ try
             Console.WriteLine("                        move, remove, checkout and unlock also take a round list (round.csv: action,old_path,new_path,...)");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
             Console.WriteLine("       pdm release <folder> [<folder> ...] <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role] [--only a,b|list.txt]");
+            Console.WriteLine("                        [--accept-checkout \"NAME=reason\"] [--accept-rev \"NAME=reason\"]   Grant's exceptions, recorded in the set");
             Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only); several folders make one set");
             Console.WriteLine("       pdm release-file <dry run work folder> [--dry]");
             Console.WriteLine("                        admin: files the PDFs that dry run passed into the scene's _Review folder, with the set recorded");
@@ -234,6 +235,14 @@ static async Task<int> ReleaseDry(Settings s, string[] args)
     var i = Array.IndexOf(args, "--shared-to");
     if (i > 0 && i + 1 < args.Length) release.SharedTo = args[i + 1] == "own" ? "own" : "scene";
     if (Environment.GetEnvironmentVariable("PDM_SWCMD") is { Length: > 0 } sw) release.SwCmd = sw;
+    // Grant's exceptions: --accept-checkout "NAME=reason" and --accept-rev "NAME=reason", each as often as needed.
+    for (var k = 1; k + 1 < args.Length; k++)
+    {
+        if (args[k] is not ("--accept-checkout" or "--accept-rev")) continue;
+        var eq = args[k + 1].IndexOf('=');
+        if (eq <= 0 || eq == args[k + 1].Length - 1) { Console.WriteLine($"{args[k]} takes \"NAME=reason\""); return 2; }
+        (args[k] == "--accept-rev" ? release.AcceptRev : release.AcceptCheckout)[Path.GetFileNameWithoutExtension(args[k + 1][..eq].Trim())] = args[k + 1][(eq + 1)..].Trim();
+    }
 
     var items = folderKeys.SelectMany(f => release.Plan(f, code, args.Contains("--with-shared")))
         .GroupBy(x => x.Drawing.FileId).Select(g => g.First()).OrderBy(x => x.Drawing.Path, StringComparer.OrdinalIgnoreCase).ToList();

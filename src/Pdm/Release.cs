@@ -18,6 +18,7 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         public List<FileRecord> Models { get; } = new();    // everything the drawing references, all the way down
         public List<string> Problems { get; } = new();      // any of these stops this drawing
         public List<string> Notes { get; } = new();         // worth knowing, doesn't stop it
+        public List<string> Accepted { get; } = new();      // problems Grant accepted for this drawing (--accept-*), recorded in the set
         public string? Pdf { get; set; }                    // the exported PDF in the work folder
         public bool Pass => Problems.Count == 0;
         public string Name => Path.GetFileName(Drawing.Path);
@@ -29,6 +30,12 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     // The role whose SwCmd lock this run works under (--as), so it can run while that role holds SOLIDWORKS.
     public string? SwAs { get; set; }
     public string SwCmd { get; set; } =@"C:\code\pdm\tools\SwCmd\bin\SwCmd.exe";
+    // Grant's exceptions, by drawing name (no extension) -> his reason: release the vault version although the drawing
+    // is checked out (--accept-checkout), or pass the revision check on his own look at the drawing (--accept-rev).
+    // Only those two kinds of problem can be accepted; each accepted one is recorded with the reason.
+    public Dictionary<string, string> AcceptCheckout { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> AcceptRev { get; } = new(StringComparer.OrdinalIgnoreCase);
+    static string Key(FileRecord d) => Path.GetFileNameWithoutExtension(d.Path);
 
     // R1/R2: official releases are numbers (1, 2, ...); checking versions before them add a letter (0A, 0B, 1A, ...).
     [GeneratedRegex("^(0[A-Z]|[1-9][0-9]*[A-Z]?)$")] private static partial Regex CodePattern();
@@ -85,7 +92,12 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     void Check(Item item)
     {
         var d = item.Drawing;
-        if (d.LockedBy != null) item.Problems.Add($"checked out by {d.LockedByName} since {d.LockedAt}");
+        if (d.LockedBy != null)
+        {
+            var lockText = $"checked out by {d.LockedByName} since {d.LockedAt}";
+            if (AcceptCheckout.TryGetValue(Key(d), out var reason)) item.Accepted.Add($"{lockText}; the vault's version is released ({reason})");
+            else item.Problems.Add(lockText);
+        }
         if (Stale(d) is { } why) item.Problems.Add($"this PC's copy {why}");
         foreach (var m in d.MissingRefs) item.Problems.Add($"refers to {m}, which isn't in the vault");
         foreach (var m in item.Models)
@@ -155,22 +167,25 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     // every row below the top is a formal number. SwCmd lists the rows oldest first, so the top (current) row is the last.
     void CheckRevision(Item item, JsonObject json, string code)
     {
+        var found = new List<string>();
         var sheets = json["sheets"] as JsonArray ?? [];
         if (sheets.Count == 0) item.Problems.Add("no sheets found");
         foreach (var sh in sheets)
         {
             var rev = ((string?)sh?["rev"] ?? "").Trim();
             if (!rev.Equals(code, StringComparison.Ordinal))
-                item.Problems.Add($"sheet {(string?)sh?["name"]}: title block REV is \"{rev}\", not {code}");
+                found.Add($"sheet {(string?)sh?["name"]}: title block REV is \"{rev}\", not {code}");
         }
         var rows = (json["revTable"] as JsonArray ?? []).Select(r => ((string?)r?["rev"] ?? "").Trim()).Where(r => r != "").ToList();
-        if (rows.Count == 0) item.Problems.Add($"revision table is empty or missing; its top row should be {code}");
+        if (rows.Count == 0) found.Add($"revision table is empty or missing; its top row should be {code}");
         else
         {
-            if (rows[^1] != code) item.Problems.Add($"revision table's top row is {rows[^1]}, not {code}");
+            if (rows[^1] != code) found.Add($"revision table's top row is {rows[^1]}, not {code}");
             var notFormal = rows[..^1].Where(r => !(Official(r) && CodeOk(r))).ToList();
-            if (notFormal.Count > 0) item.Problems.Add($"revision table has {string.Join(", ", notFormal)} below the top row; only formal releases (1, 2, ...) stay in the table");
+            if (notFormal.Count > 0) found.Add($"revision table has {string.Join(", ", notFormal)} below the top row; only formal releases (1, 2, ...) stay in the table");
         }
+        if (AcceptRev.TryGetValue(Key(item.Drawing), out var why)) item.Accepted.AddRange(found.Select(p => $"{p} ({why})"));
+        else item.Problems.AddRange(found);
         foreach (var p in json["problems"] as JsonArray ?? []) item.Notes.Add("SwCmd: " + (string?)p);
     }
 
@@ -248,6 +263,7 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
             sb.AppendLine();
             sb.AppendLine($"{(i.Pass ? "PASS" : "FAIL")}  {i.Drawing.Path}  ->  {i.PdfKey}");
             foreach (var p in i.Problems) sb.AppendLine($"      problem: {p}");
+            foreach (var a in i.Accepted) sb.AppendLine($"      accepted: {a}");
             foreach (var x in i.Notes) sb.AppendLine($"      note: {x}");
         }
         var text = sb.ToString();
@@ -256,7 +272,7 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         var json = items.Select(i => new
         {
             drawing = i.Drawing.Path, fileId = i.Drawing.FileId, versionId = i.Drawing.VersionId, pdfKey = i.PdfKey, pdf = i.Pdf,
-            pass = i.Pass, problems = i.Problems, notes = i.Notes,
+            pass = i.Pass, problems = i.Problems, notes = i.Notes, accepted = i.Accepted,
             models = i.Models.Select(m => new { path = m.Path, fileId = m.FileId, versionId = m.VersionId })
         });
         File.WriteAllText(Path.Combine(work, "report.json"), JsonSerializer.Serialize(new { folder = folderKey, code, dry, items = json }, new JsonSerializerOptions { WriteIndented = true }));

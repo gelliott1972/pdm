@@ -11,7 +11,7 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
 {
     public sealed record Model(string Path, string FileId, string VersionId);
     public sealed record Item(string Drawing, string FileId, string VersionId, string PdfKey, string? Pdf, bool Pass,
-        List<string> Problems, List<Model> Models);
+        List<string> Problems, List<Model> Models, List<string>? Accepted = null);
     sealed record Report(string Folder, string Code, bool Dry, List<Item> Items);
 
     static readonly JsonSerializerOptions Read = new() { PropertyNameCaseInsensitive = true };
@@ -64,7 +64,8 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
                     {
                         code = report.Code, set = report.Folder, run, at, by = name,
                         drawing = new { path = i.Drawing, fileId = i.FileId, versionId = i.VersionId },
-                        models = i.Models.Select(m => new { path = m.Path, fileId = m.FileId, versionId = m.VersionId })
+                        models = i.Models.Select(m => new { path = m.Path, fileId = m.FileId, versionId = m.VersionId }),
+                        accepted = i.Accepted is { Count: > 0 } ? i.Accepted : null
                     };
                     var rec = new FileRecord
                     {
@@ -102,7 +103,9 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         if (byPath.TryGetValue(i.PdfKey, out var there)) return $"already filed: {i.PdfKey} is in the vault{(there.Removed ? " (removed)" : "")}";
         if (!byId.TryGetValue(i.FileId, out var d) || d.Removed) return "the drawing is no longer in the vault";
         if (d.VersionId != i.VersionId) return $"the drawing has changed in the vault since the dry run ({d.UpdatedBy}, {d.UpdatedAt}); run the dry run again";
-        if (d.LockedBy != null) return $"the drawing is checked out by {d.LockedByName}";
+        // A check-out Grant accepted in the dry run (--accept-checkout) is fine while it's still the same person's.
+        if (d.LockedBy != null && !(i.Accepted ?? []).Any(a => a.StartsWith($"checked out by {d.LockedByName} since ", StringComparison.Ordinal)))
+            return $"the drawing is checked out by {d.LockedByName}";
         foreach (var m in i.Models)
         {
             if (!byId.TryGetValue(m.FileId, out var r) || r.Removed) return $"{m.Path} is no longer in the vault";

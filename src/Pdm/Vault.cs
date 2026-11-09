@@ -18,6 +18,47 @@ public sealed class Vault(IAmazonS3 s3, Settings s)
         return (r.VersionId, r.ETag.Trim('"'));
     }
 
+    // Small text objects under .pdm/ (the activity log): written, listed and read whole.
+    public Task PutTextAsync(string key, string text) =>
+        s3.PutObjectAsync(new PutObjectRequest { BucketName = s.Bucket, Key = key, ContentBody = text, ContentType = "application/json" });
+
+    public async Task<List<string>> ListKeysAsync(string prefix)
+    {
+        var keys = new List<string>();
+        var req = new ListObjectsV2Request { BucketName = s.Bucket, Prefix = prefix };
+        ListObjectsV2Response r;
+        do
+        {
+            r = await s3.ListObjectsV2Async(req);
+            keys.AddRange((r.S3Objects ?? []).Select(o => o.Key));
+            req.ContinuationToken = r.NextContinuationToken;
+        } while (r.IsTruncated == true);
+        return keys;
+    }
+
+    public async Task<string> GetTextAsync(string key)
+    {
+        using var r = await s3.GetObjectAsync(s.Bucket, key);
+        using var reader = new StreamReader(r.ResponseStream);
+        return await reader.ReadToEndAsync();
+    }
+
+    // Every object version in the bucket (not delete markers), for the activity backfill.
+    public async Task<List<(string Key, string VersionId, DateTime At)>> AllVersionsAsync()
+    {
+        var list = new List<(string, string, DateTime)>();
+        var req = new ListVersionsRequest { BucketName = s.Bucket };
+        ListVersionsResponse r;
+        do
+        {
+            r = await s3.ListVersionsAsync(req);
+            foreach (var v in r.Versions ?? [])
+                if (v.IsDeleteMarker != true) list.Add((v.Key, v.VersionId, (v.LastModified ?? DateTime.MinValue).ToUniversalTime()));
+            req.KeyMarker = r.NextKeyMarker; req.VersionIdMarker = r.NextVersionIdMarker;
+        } while (r.IsTruncated == true);
+        return list;
+    }
+
     // Copies one version to a new key inside the bucket (a move): nothing goes through this PC. Keeps the fileId metadata.
     public async Task<(string VersionId, string ETag)> CopyAsync(string fromKey, string versionId, string toKey)
     {

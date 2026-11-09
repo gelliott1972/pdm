@@ -103,6 +103,8 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
             }
             existing.TryGetValue(record.Path, out var old);
             await index.PutAsync(record);
+            if (upload) await Activity.LogAsync(vault, new ActivityEvent(record.UpdatedAt, adminName, Activity.KindOf(record.Path, old == null), record.Path, record.FileId,
+                Email: engine.Email, VersionId: record.VersionId, Note: record.Note), say);
             await index.UpdatePartNosAsync(record, old?.PartNos ?? new());
             state.Record(record.Path, local, record.FileId, record.VersionId, record.ETag);
             if (record.LockedBy == null) Paths.SetReadOnly(local, true);

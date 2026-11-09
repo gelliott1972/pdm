@@ -7,6 +7,8 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
     readonly string machine = Environment.MachineName;
     DocReader? reader;
     DocReader Reader => reader ??= new DocReader();
+    public string Email => email;
+    public string Name => name;
     readonly object sayLock = new();
     static readonly ParallelOptions Several = new() { MaxDegreeOfParallelism = 12 }; // locks taken or released at once
 
@@ -186,6 +188,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         fresh.LockedBy = fresh.LockedByName = fresh.LockedAt = fresh.LockMachine = null;
         Remember(fresh);
         say($"Removed {key} from the vault ({reason}). Restore brings it back.");
+        await Activity.LogAsync(vault, new ActivityEvent(fresh.RemovedAt!, name, "removed", key, fresh.FileId, Email: email, Note: reason), say);
         ClearRemoved(fresh, local, state);
         state.Save(root);
     }
@@ -206,6 +209,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         f.RemovedAt = f.RemovedBy = f.RemovedByName = f.RemovedReason = null;
         Remember(f);
         say($"Restored {key}. Download latest puts it back on this PC.");
+        await Activity.LogAsync(vault, new ActivityEvent(Index.Now(), name, "restored", key, f.FileId, Email: email), say);
     }
 
     // What I hold, what others hold, and what has changed in the vault since my last get.
@@ -422,6 +426,10 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         state.Save(root);
         Paths.SetReadOnly(local, true);
         say($"{(existing == null ? "Added" : "Checked in")} {record.Path}");
+        int? sheets = null;
+        if (record.Path.EndsWith(".slddrw", StringComparison.OrdinalIgnoreCase)) try { sheets = Reader.Sheets(local); } catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException) { }
+        await Activity.LogAsync(vault, new ActivityEvent(record.UpdatedAt, name, Activity.KindOf(record.Path, existing == null), record.Path, record.FileId,
+            Email: email, VersionId: record.VersionId, Note: note, Sheets: sheets), say);
         foreach (var m in record.MissingRefs) say($"  Note: refers to {m}, which isn't in the vault.");
     }
 

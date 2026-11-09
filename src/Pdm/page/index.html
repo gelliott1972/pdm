@@ -65,6 +65,10 @@
   #result a { color: var(--muted); font-size: 12px; }
   #resultLines { margin-top: 6px; }
   #progress { display: block; width: 100%; height: 6px; margin-top: 6px; accent-color: var(--mine); }
+  .act-day { margin: 12px 0 2px; font-weight: 600; }
+  .act-who { cursor: pointer; padding: 1px 4px; border-radius: 2px; }
+  .act-who:hover { background: #e8eef8; }
+  .act-files { margin: 2px 0 6px 16px; width: calc(100% - 16px); }
 </style>
 </head>
 <body>
@@ -102,6 +106,7 @@
         <button id="tabIn">Check in</button>
         <button id="tabWho">Who has what</button>
         <button id="tabNew">Changes</button>
+        <button id="tabAct" hidden title="What was checked in, added, removed, moved and released each day (NZ dates). For the admin only.">Activity</button>
       </div>
       <div id="result" hidden><span id="resultText"></span> <a href="#" id="resultMore">Details</a><pre id="resultLines" hidden></pre><progress id="progress" hidden></progress></div>
       <div id="panel"></div>
@@ -145,7 +150,11 @@ function status(f) {
 }
 
 // ---- login
-function showLogin() { me = null; $('app').hidden = true; $('login').hidden = false; $('email').focus(); }
+function showLogin() {
+  me = null; $('app').hidden = true; $('login').hidden = false; $('email').focus();
+  if (typeof act !== 'undefined') { act.data = null; act.err = ''; act.open.clear(); act.days = 14; } // the next login may not be the admin
+  if (tab === 'act') tab = 'out';
+}
 async function login() {
   $('loginErr').textContent = '';
   const body = { email: $('email').value.trim(), password: $('password').value };
@@ -499,9 +508,51 @@ async function changePassword() {
   finally { $('pwBtn').disabled = false; }
 }
 
+// ---- right: activity (admin only): per NZ day, per person, counts first; a click lists the files with their notes
+const act = { days: 14, data: null, loading: false, err: '', open: new Set() };
+async function loadActivity() {
+  act.loading = true; act.err = '';
+  try { act.data = await api('activity', { days: act.days }); }
+  catch (e) { act.err = e.message; }
+  finally { act.loading = false; if (tab === 'act') drawPanel(); }
+}
+const actKinds = [['newdrw', 'new drawing'], ['new', 'new'], ['changed', 'changed'], ['moved', 'moved'], ['removed', 'removed'], ['restored', 'restored'], ['released', 'release PDF'], ['package', 'release package file']];
+function actKind(e) { return e.kind === 'new' && e.drawing ? 'newdrw' : e.kind === 'register' ? 'package' : e.kind; }
+function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+function drawActivity() {
+  if (!act.data && !act.loading && !act.err) loadActivity();
+  const head = '<div class="bar"><button id="actReload" title="Reads the activity log again.">Reload</button>'
+    + `<span class="muted">Last ${act.days} days (NZ dates and times)${act.loading ? ' · loading…' : ''}</span></div>`;
+  if (act.err) return head + `<span class="tag bad">Can't read the activity log: ${esc(act.err)}</span>`;
+  if (!act.data) return head;
+  const days = {};
+  for (const e of act.data.events) ((days[e.day] ??= {})[e.by] ??= []).push(e);
+  const out = [head];
+  const order = Object.keys(days).sort().reverse();
+  if (!order.length) out.push('<span class="muted">Nothing in these days.</span>');
+  for (const day of order) {
+    const d = new Date(day + 'T00:00:00');
+    out.push(`<div class="act-day">${esc(d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}</div>`);
+    for (const who of Object.keys(days[day]).sort()) {
+      const evs = days[day][who], key = day + '|' + who, count = {};
+      for (const e of evs) count[actKind(e)] = (count[actKind(e)] || 0) + 1;
+      const sheets = evs.filter(e => actKind(e) === 'newdrw').reduce((n, e) => n + (e.sheets || 0), 0);
+      const parts = actKinds.filter(([k]) => count[k]).map(([k, w]) => k === 'newdrw'
+        ? `<b>${plural(count[k], w)}</b>${sheets ? ` (${plural(sheets, 'sheet')})` : ''}` : esc(plural(count[k], w)));
+      const isOpen = act.open.has(key);
+      out.push(`<div class="act-who" data-act="${esc(key)}">${isOpen ? '▾' : '▸'} ${esc(who)}: ${parts.join(', ')}</div>`);
+      if (isOpen) out.push('<table class="act-files">' + evs.map(e => `<tr><td class="tag ${actKind(e) === 'newdrw' ? 'new' : ''} nw">${actKind(e) === 'newdrw' ? '<b>new drawing</b>' : esc(actKinds.find(([k]) => k === actKind(e))?.[1] || e.kind)}</td>`
+        + `<td>${esc(e.path)}${e.from ? ` <span class="muted">from ${esc(e.from)}</span>` : ''}${e.sheets ? ` <span class="muted">(${plural(e.sheets, 'sheet')})</span>` : ''}</td>`
+        + `<td class="muted nw">${esc(new Date(e.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZone: 'Pacific/Auckland' }))}</td><td class="muted">${esc(e.note)}</td></tr>`).join('') + '</table>');
+    }
+  }
+  out.push(`<div class="bar"><button id="actMore" ${act.loading ? 'disabled' : ''}>Show 14 more days</button></div>`);
+  return out.join('');
+}
+
 // Tab labels carry counts; Check in turns red while I have changed files not yet checked in.
 function drawTabs() {
-  for (const [id, t] of [['tabOut', 'out'], ['tabIn', 'in'], ['tabWho', 'who'], ['tabNew', 'new']]) $(id).classList.toggle('on', tab === t);
+  for (const [id, t] of [['tabOut', 'out'], ['tabIn', 'in'], ['tabWho', 'who'], ['tabNew', 'new'], ['tabAct', 'act']]) $(id).classList.toggle('on', tab === t);
   $('settingsBtn').classList.toggle('on', tab === 'settings');
   const changed = files.filter(f => f.mine && f.changed).length, newer = files.filter(f => f.newer).length;
   const added = files.filter(f => f.isNew && (!f.shared || me.sharedEditor)).length;
@@ -512,7 +563,7 @@ function drawTabs() {
 }
 
 function drawPanel() {
-  $('panel').innerHTML = { out: drawOut, in: drawIn, who: drawWho, new: drawNew, settings: drawSettings }[tab]();
+  $('panel').innerHTML = { out: drawOut, in: drawIn, who: drawWho, new: drawNew, act: drawActivity, settings: drawSettings }[tab]();
   panelDirty = false;
   // "Tick all" ticks or clears every row that can be ticked, and shows ticked / part-ticked as the rows change.
   const boxes = k => [...$('panel').querySelectorAll(`[data-${k}]:not(:disabled)`)];
@@ -560,6 +611,14 @@ $('tabOut').onclick = () => { tab = 'out'; hideResult(); drawTabs(); drawPanel()
 $('tabIn').onclick = () => { tab = 'in'; hideResult(); drawTabs(); drawPanel(); };
 $('tabWho').onclick = () => { tab = 'who'; hideResult(); drawTabs(); drawPanel(); };
 $('tabNew').onclick = () => { tab = 'new'; hideResult(); drawTabs(); drawPanel(); };
+$('tabAct').onclick = () => { tab = 'act'; hideResult(); drawTabs(); drawPanel(); };
+$('panel').addEventListener('click', e => {
+  if (tab !== 'act') return;
+  const w = e.target.closest('[data-act]');
+  if (w) { const k = w.dataset.act; act.open.has(k) ? act.open.delete(k) : act.open.add(k); drawPanel(); return; }
+  if (e.target.id === 'actMore') { act.days += 14; loadActivity(); drawPanel(); }
+  if (e.target.id === 'actReload') { loadActivity(); drawPanel(); }
+});
 $('settingsBtn').onclick = () => { if (tab !== 'settings') lastTab = tab; tab = 'settings'; hideResult(); drawTabs(); drawPanel(); };
 for (const ev of ['input', 'change']) $('panel').addEventListener(ev, () => { panelDirty = true; });
 $('resultMore').onclick = e => { e.preventDefault(); const l = $('resultLines'); l.hidden = !l.hidden; $('resultMore').textContent = l.hidden ? 'Details' : 'Hide'; };
@@ -580,6 +639,8 @@ setInterval(() => {
 // Name, version, and an Update button once an update has downloaded (it restarts the app).
 function showMe() {
   $('who').textContent = me.name + (me.sharedEditor ? ' · shared editor' : '') + ' · v' + me.version;
+  $('tabAct').hidden = !me.admin;
+  if (!me.admin && tab === 'act') { tab = 'out'; drawTabs(); drawPanel(); }
   $('restartBtn').hidden = !me.updateReady;
   $('restartBtn').textContent = 'Update to ' + me.updateReady;
 }

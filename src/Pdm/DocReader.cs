@@ -70,6 +70,15 @@ public sealed class DocReader
         finally { try { doc.CloseDoc(); } catch { } }
     }
 
+    // A drawing's number of sheets.
+    public int Sheets(string drawing)
+    {
+        var doc = app.GetDocument(drawing, SwDmDocumentType.swDmDocumentDrawing, true, out var err) as ISwDMDocument10
+            ?? throw new InvalidOperationException($"Document Manager could not open {Path.GetFileName(drawing)}: {err}");
+        try { return doc.GetSheetCount(); }
+        finally { try { doc.CloseDoc(); } catch { } }
+    }
+
     // A custom property as a title block shows it: the configuration's value first, else the file's. Resolved values.
     public string? ModelProp(string model, string config, string name)
     {

@@ -67,8 +67,12 @@ try
             // The release step's real run: files the PDFs a dry run passed (its work folder) into the vault.
             // Several work folders (a first dry run and its top-ups) file as one release: PDFs, set packages, register.
             return await Admin(settings, (index, vault, engine) =>
-                new ReleaseFiler(settings, index, vault, AdminName, Console.WriteLine).RunAsync(
+                new ReleaseFiler(settings, index, vault, AdminName, Console.WriteLine, AdminEmail).RunAsync(
                     args.Skip(1).TakeWhile(a => !a.StartsWith("--")).ToList(), args.Contains("--dry"), args.Contains("--incomplete")));
+        case "activity-backfill":
+            // One-off fill of the activity log from the vault's history (S3 versions, moves, removals); --since yyyy-mm-dd.
+            return await Admin(settings, (index, vault, engine) => new ActivityBackfill(settings, index, vault, Console.WriteLine)
+                .RunAsync(args.Contains("--dry"), Arg(args, "--since") is { } since ? DateTime.SpecifyKind(DateTime.Parse(since), DateTimeKind.Utc) : null));
         case "release" when args.Length >= 3:
             return await ReleaseDry(settings, args);
         default:
@@ -87,6 +91,7 @@ try
             Console.WriteLine("       pdm release <folder> [<folder> ...] <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role] [--only a,b|list.txt]");
             Console.WriteLine("                        [--accept-checkout \"NAME=reason\"] [--accept-rev \"NAME=reason\"]   Grant's exceptions, recorded in the set");
             Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only); several folders make one set");
+            Console.WriteLine("       pdm activity-backfill [--dry] [--since yyyy-mm-dd]   admin: fill the activity log from the vault's history");
             Console.WriteLine("       pdm release-file <dry run work folder> [<work folder> ...] [--dry] [--incomplete]");
             Console.WriteLine("                        admin: files the checked PDFs into the scene's _Review folder, each set's ZIP and drawing list into");
             Console.WriteLine("                        _Review\\_Sets, and rewrites the scene's drawing register; nothing unless every set is complete");

@@ -128,6 +128,7 @@ public sealed class Mover(Settings s, Index index, Vault vault, string email, st
             return false;
         }
         say($"  Moved {l.From} -> {l.To}{(held ? " (still checked out to you)" : "")}");
+        await Activity.LogAsync(vault, new ActivityEvent(m.At, name, "moved", l.To, f.FileId, Email: email, Note: note, From: l.From), say);
         MoveHere(f, l, state, held);
         return true;
     }

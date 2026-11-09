@@ -17,7 +17,7 @@ namespace Pdm;
 // out and listed. A shared drawing is in every set whose models use it; its PDF is filed once. Everything is built from
 // the set info, never by hand. By default nothing is filed unless every set is complete (--incomplete files what's ready;
 // packages are then made only for complete sets). The dry run writes the packages and register to a work folder only.
-public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string name, Action<string> say)
+public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string name, Action<string> say, string email = "")
 {
     public sealed record Model(string Path, string FileId, string VersionId);
     public sealed record Item(string Drawing, string FileId, string VersionId, string PdfKey, string? Pdf, bool Pass,
@@ -253,6 +253,7 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
             state.Record(rec.Path, local, rec.FileId, rec.VersionId, rec.ETag);
             Paths.SetReadOnly(local, true);
             say($"  Filed {rec.Path}");
+            await Activity.LogAsync(vault, new ActivityEvent(at, name, "released", rec.Path, rec.FileId, Email: email, VersionId: rec.VersionId, Note: rec.Note), say);
             return rec;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Amazon.Runtime.AmazonServiceException)
@@ -281,6 +282,7 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
             state.Record(rec.Path, local, rec.FileId, rec.VersionId, rec.ETag);
             Paths.SetReadOnly(local, true);
             say($"  Filed {rec.Path}{(existing != null ? " (new version)" : "")}");
+            await Activity.LogAsync(vault, new ActivityEvent(at, name, Activity.KindOf(rec.Path, existing == null), rec.Path, rec.FileId, Email: email, VersionId: rec.VersionId, Note: note), say);
             return rec;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Amazon.Runtime.AmazonServiceException)

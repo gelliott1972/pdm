@@ -192,8 +192,13 @@ function showResult(lines, working, fraction) {
   const problems = working ? [] : lines.filter(l => !kind(l) && !l.startsWith('Get done') && !l.startsWith('  Note') && !l.startsWith('  Time'));
   const parts = [];
   if (problems.length) parts.push(problems.length === 1 ? problems[0] : problems.length + ' problems');
-  for (const [p, label, after = ''] of done) {
-    const n = lines.filter(l => l.startsWith(p)).length;
+  for (let [p, label, after = ''] of done) {
+    let mine = lines.filter(l => l.startsWith(p)), n = mine.length;
+    if (p === 'Removed ') {
+      // Remove says it twice per file ("from the vault", then "from this PC"): count each file once.
+      n = new Set(mine.map(l => (l.match(/^Removed (.+?) from (the vault|this PC)/) || [l, l])[1].toLowerCase())).size;
+      after = mine.some(l => / from the vault/.test(l) && !/ from this PC/.test(l)) ? ' from the vault' : ' from this PC';
+    }
     if (n) parts.push(label + ' ' + n + ' file' + (n === 1 ? '' : 's') + after);
   }
   if (lines.some(l => l.startsWith('Get done')) && !lines.some(l => ['Got ', 'Moved ', 'Removed '].some(p => l.startsWith(p)))) parts.push('Up to date');

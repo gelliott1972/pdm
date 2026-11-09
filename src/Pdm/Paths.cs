@@ -41,11 +41,24 @@ public static class Paths
 
     // A scene's release folders (R8): <Scene>/_Released, _Review, _Commented, _WIP.
     static readonly string[] ReleaseFolders = ["_Released", "_Review", "_Commented", "_WIP"];
+    // In one of them, or below one (a release's packages are in <Scene>/_Review/_Sets).
     public static bool InReleaseFolder(string key)
     {
         var parts = key.Split('/');
-        return parts.Length >= 2 && ReleaseFolders.Contains(parts[^2], StringComparer.OrdinalIgnoreCase);
+        return parts.Length >= 2 && parts[..^1].Any(p => ReleaseFolders.Contains(p, StringComparer.OrdinalIgnoreCase));
     }
+
+    // A scene's drawing register, rewritten by each release (Grant, 9 Nov): <Scene>/<scene>_Drawing_Register.xlsx,
+    // e.g. APEX/SC08/SC08_Drawing_Register.xlsx.
+    public static string RegisterKey(string scene) => $"{scene}/{scene.Split('/')[^1]}_Drawing_Register.xlsx";
+    public static bool IsRegister(string key)
+    {
+        var parts = key.Split('/');
+        return parts.Length == 3 && parts[2].Equals($"{parts[1]}_Drawing_Register.xlsx", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Written only by the release step: everything in release folders, and the drawing registers.
+    public static bool IsReleaseFile(string key) => InReleaseFolder(key) || IsRegister(key);
 
     // A part, assembly or drawing, not one of SOLIDWORKS's ~ temp or lock files.
     public static bool IsSolidWorksFile(string key) =>

@@ -51,6 +51,58 @@ public sealed class DocReader
         finally { try { doc.CloseDoc(); } catch { } }
     }
 
+    // The model a drawing's title block reads its properties from: sheet 1's "use custom property values from model
+    // shown in" view (or its first view showing a model), as (model file name, configuration). Null when it has none.
+    public (string Model, string Config)? TitleBlockModel(string drawing)
+    {
+        var doc = app.GetDocument(drawing, SwDmDocumentType.swDmDocumentDrawing, true, out var err) as ISwDMDocument10
+            ?? throw new InvalidOperationException($"Document Manager could not open {Path.GetFileName(drawing)}: {err}");
+        try
+        {
+            if ((doc.GetSheets() as object[])?.FirstOrDefault() is not ISwDMSheet4 sheet) return null;
+            var views = ((sheet.GetViews() as object[]) ?? []).OfType<ISwDMView>().Where(v => !string.IsNullOrEmpty(v.ReferencedDocument)).ToList();
+            string named = Convert.ToString(sheet.CustomPropertyView) ?? "";
+            var v = views.FirstOrDefault(x => string.Equals(Convert.ToString(x.Name), named, StringComparison.OrdinalIgnoreCase)) ?? views.FirstOrDefault();
+            if (v == null) return null;
+            string model = Convert.ToString(v.ReferencedDocument) ?? "", config = Convert.ToString(v.ReferencedConfiguration) ?? "";
+            return (Path.GetFileName(model.Replace('/', '\\')), config);
+        }
+        finally { try { doc.CloseDoc(); } catch { } }
+    }
+
+    // A custom property as a title block shows it: the configuration's value first, else the file's. Resolved values.
+    public string? ModelProp(string model, string config, string name)
+    {
+        var doc = app.GetDocument(model, TypeOf(model), true, out var err) as ISwDMDocument31
+            ?? throw new InvalidOperationException($"Document Manager could not open {Path.GetFileName(model)}: {err}");
+        try
+        {
+            string? v = null;
+            if (config != "") v = GetResolved(doc, config, name);
+            if (string.IsNullOrEmpty(v)) v = GetResolved(doc, null, name);
+            return string.IsNullOrEmpty(v) ? null : v;
+        }
+        finally { try { doc.CloseDoc(); } catch { } }
+    }
+
+    static string? GetResolved(ISwDMDocument31 doc, string? config, string name)
+    {
+        try
+        {
+            if (config == null)
+            {
+                var n = ((doc.GetCustomPropertyNames() as string[]) ?? []).FirstOrDefault(x => x.Equals(name, StringComparison.OrdinalIgnoreCase));
+                if (n == null) return null;
+                return doc.GetCustomPropertyValues(n, out _, out _); // the evaluated value; the out is the expression
+            }
+            var cfg = (doc.ConfigurationManager.GetConfigurationByName(config) ?? doc.ConfigurationManager.GetConfigurationByName(config.Split('<')[0])) as ISwDMConfiguration18;
+            var cn = ((cfg?.GetCustomPropertyNames() as string[]) ?? []).FirstOrDefault(x => x.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (cn == null) return null;
+            return cfg!.GetCustomPropertyValues(cn, out _, out _);
+        }
+        catch { return null; }
+    }
+
     // The resolved reference list (what SOLIDWORKS loads), without virtual components.
     IEnumerable<string> References(ISwDMDocument31 doc)
     {

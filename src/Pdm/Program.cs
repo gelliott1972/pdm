@@ -51,13 +51,24 @@ try
             var info = new DocReader().Read(Path.GetFullPath(args[1]));
             foreach (var r in info.References) Console.WriteLine($"ref     {r}");
             foreach (var p in info.PartNos) Console.WriteLine($"partno  {(p.Config == "" ? "(file)" : p.Config)} = {p.PartNo} {p.Status}");
+            if (args[1].EndsWith(".slddrw", StringComparison.OrdinalIgnoreCase))
+            {
+                var dm = new DocReader();
+                var tb = dm.TitleBlockModel(Path.GetFullPath(args[1]));
+                Console.WriteLine($"title block model  {tb?.ToString() ?? "(none)"}");
+                var model = tb == null ? null : info.References.FirstOrDefault(r => Path.GetFileName(r).Equals(tb.Value.Model, StringComparison.OrdinalIgnoreCase));
+                if (model != null)
+                    foreach (var p in new[] { "Description", "PartNo" }) Console.WriteLine($"title block {p}  {dm.ModelProp(model, tb!.Value.Config, p) ?? "(none)"}");
+            }
             return 0;
         case "map" when args.Length == 2:
             return Drive.Map(settings.LocalRoot, args[1], Console.WriteLine);
         case "release-file" when args.Length >= 2:
             // The release step's real run: files the PDFs a dry run passed (its work folder) into the vault.
+            // Several work folders (a first dry run and its top-ups) file as one release: PDFs, set packages, register.
             return await Admin(settings, (index, vault, engine) =>
-                new ReleaseFiler(settings, index, vault, AdminName, Console.WriteLine).RunAsync(args[1], args.Contains("--dry")));
+                new ReleaseFiler(settings, index, vault, AdminName, Console.WriteLine).RunAsync(
+                    args.Skip(1).TakeWhile(a => !a.StartsWith("--")).ToList(), args.Contains("--dry"), args.Contains("--incomplete")));
         case "release" when args.Length >= 3:
             return await ReleaseDry(settings, args);
         default:
@@ -76,8 +87,9 @@ try
             Console.WriteLine("       pdm release <folder> [<folder> ...] <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role] [--only a,b|list.txt]");
             Console.WriteLine("                        [--accept-checkout \"NAME=reason\"] [--accept-rev \"NAME=reason\"]   Grant's exceptions, recorded in the set");
             Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only); several folders make one set");
-            Console.WriteLine("       pdm release-file <dry run work folder> [--dry]");
-            Console.WriteLine("                        admin: files the PDFs that dry run passed into the scene's _Review folder, with the set recorded");
+            Console.WriteLine("       pdm release-file <dry run work folder> [<work folder> ...] [--dry] [--incomplete]");
+            Console.WriteLine("                        admin: files the checked PDFs into the scene's _Review folder, each set's ZIP and drawing list into");
+            Console.WriteLine("                        _Review\\_Sets, and rewrites the scene's drawing register; nothing unless every set is complete");
             return 2;
     }
 }

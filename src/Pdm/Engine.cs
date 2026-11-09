@@ -159,7 +159,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         var f = all.FirstOrDefault(r => r.Path.Equals(key, StringComparison.OrdinalIgnoreCase));
         if (f == null || Paths.IsIgnored(key)) { say($"Not in the vault: {key}"); return; }
         if (f.Removed) { say($"{key} is already removed ({f.RemovedByName}, {Local(f.RemovedAt)})."); return; }
-        if (Paths.InReleaseFolder(key)) { say($"Not removed: {key} is a release file; releases stay as issued."); return; }
+        if (Paths.IsReleaseFile(key)) { say($"Not removed: {key} is a release file; releases stay as issued."); return; }
         if (Paths.IsShared(key) && !sharedEditor) { say($"Not removed: {key} is in a shared folder."); return; }
         var users = all.Where(r => !r.Removed && r.Refs.Contains(f.FileId)).Select(r => r.Path).OrderBy(p => p).ToList();
         if (users.Count > 0) { say($"Not removed: {key} is used by {string.Join(", ", users)}. Change those first."); return; }
@@ -242,7 +242,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             if (f == null) { say($"Not in the vault: {key}"); continue; }
             if (f.Removed) { say($"Can't check out {f.Path}: it was removed from the vault by {f.RemovedByName}. Restore it first."); continue; }
             if (Paths.IsShared(f.Path) && !sharedEditor) { say($"{f.Path} is in a shared folder; you can't check it out."); continue; }
-            if (Paths.InReleaseFolder(f.Path)) { say($"Can't check out {f.Path}: it's a release file, and releases stay as issued."); continue; }
+            if (Paths.IsReleaseFile(f.Path)) { say($"Can't check out {f.Path}: it's a release file, and releases stay as issued."); continue; }
             wanted.Add(f);
         }
         if (dryRun)
@@ -373,6 +373,13 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
                 say($"No changes in {existing.Path}; released.");
                 return;
             }
+        }
+        if (Paths.IsReleaseFile(key) && !Paths.IsPdf(key) && !release)
+        {
+            // Grant, 9 Nov: a release's ZIP and drawing list, and the scene's drawing register, are written only by the release step.
+            say($"Not checked in: {key} is a release file (release folders and the drawing register are written only by the release step)."
+                + (existing != null ? " Use Undo to release it." : ""));
+            return;
         }
         if (Paths.IsPdf(key) && !release)
         {

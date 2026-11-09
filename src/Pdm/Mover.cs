@@ -33,7 +33,7 @@ public sealed class Mover(Settings s, Index index, Vault vault, string email, st
             else if (f.LockedBy != null && !(f.LockedBy == email && f.LockMachine == machine)) p.Add($"checked out by {f.LockedByName} on {f.LockMachine}");
             if (l.From.Equals(l.To, StringComparison.OrdinalIgnoreCase)) p.Add("old and new paths are the same (a change of capitals only isn't a move)");
             if (!Path.GetExtension(l.From).Equals(Path.GetExtension(l.To), StringComparison.OrdinalIgnoreCase)) p.Add("the file type would change");
-            if (Paths.InReleaseFolder(l.From) || Paths.InReleaseFolder(l.To)) p.Add("release folders stay as issued");
+            if (Paths.IsReleaseFile(l.From) || Paths.IsReleaseFile(l.To)) p.Add("release files stay as issued");
             if (Paths.IsIgnored(l.To)) p.Add("the new path isn't a vault path");
             if (byPath.TryGetValue(l.To, out var there)) p.Add($"the new path is already in the vault{(there.Removed ? " (a removed file)" : "")}");
             if (lines.Count(o => o.From.Equals(l.From, StringComparison.OrdinalIgnoreCase)) > 1) p.Add("the old path is listed more than once");

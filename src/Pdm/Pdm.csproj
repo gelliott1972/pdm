@@ -32,6 +32,9 @@
     <None Update="page\index.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="release\pdfpages.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="release\pdftext.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

@@ -43,10 +43,10 @@ public static class Activity
         Dictionary<string, ActivityEvent> cache;
         try { cache = File.Exists(cacheFile) ? JsonSerializer.Deserialize<Dictionary<string, ActivityEvent>>(File.ReadAllText(cacheFile), Json) ?? new() : new(); }
         catch (JsonException) { cache = new(); }
-        var keys = new List<string>();
-        foreach (var d in utcDates.Distinct()) keys.AddRange(await vault.ListKeysAsync($"{Prefix}{d:yyyy-MM-dd}/"));
+        var lists = await Task.WhenAll(utcDates.Distinct().Select(d => vault.ListKeysAsync($"{Prefix}{d:yyyy-MM-dd}/")));
+        var keys = lists.SelectMany(l => l).ToList();
         var fetched = new ConcurrentDictionary<string, ActivityEvent>();
-        await Parallel.ForEachAsync(keys.Where(k => !cache.ContainsKey(k)), new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (k, _) =>
+        await Parallel.ForEachAsync(keys.Where(k => !cache.ContainsKey(k)), new ParallelOptions { MaxDegreeOfParallelism = 48 }, async (k, _) =>
         {
             try { if (JsonSerializer.Deserialize<ActivityEvent>(await vault.GetTextAsync(k), Json) is { } e) fetched[k] = e; }
             catch (JsonException) { }
@@ -58,6 +58,46 @@ public static class Activity
             File.WriteAllText(cacheFile, JsonSerializer.Serialize(cache, Json));
         }
         return keys.Where(cache.ContainsKey).Select(k => cache[k]).ToList();
+    }
+
+    // One event as the page shows it, with its NZ day.
+    public sealed record Shown(string Day, string At, string By, string Kind, string Path, string Note, int? Sheets, string? From, bool Drawing);
+    public sealed record Days(string From, string To, List<Shown> Events);
+
+    static readonly TimeZoneInfo Nz = TimeZoneInfo.FindSystemTimeZoneById("New Zealand Standard Time");
+    public static string NzDay(string at) => TimeZoneInfo.ConvertTimeFromUtc(Utc(at), Nz).ToString("yyyy-MM-dd");
+
+    // The events of NZ days [before - days, before) (before: yyyy-MM-dd; default tomorrow), oldest first.
+    public static async Task<Days> QueryAsync(Vault vault, string cacheFile, string before, int days)
+    {
+        days = Math.Clamp(days, 1, 366);
+        var to = DateTime.TryParse(before, out var b) ? b.Date : TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Nz).Date.AddDays(1);
+        var from = to.AddDays(-days);
+        var utcDates = Enumerable.Range(-1, days + 2).Select(i => from.AddDays(i)); // NZ is ahead of UTC: the day before too
+        var events = await ReadAsync(vault, utcDates, cacheFile);
+        var f = from.ToString("yyyy-MM-dd"); var t = to.ToString("yyyy-MM-dd");
+        return new Days(f, t, events.Select(e => (e, day: NzDay(e.At))).Where(x => string.CompareOrdinal(x.day, f) >= 0 && string.CompareOrdinal(x.day, t) < 0)
+            .OrderBy(x => x.e.At, StringComparer.Ordinal)
+            .Select(x => new Shown(x.day, x.e.At, x.e.By == "" ? "(who not recorded)" : x.e.By, x.e.Kind, x.e.Path, x.e.Note ?? "", x.e.Sheets, x.e.From,
+                x.e.Path.EndsWith(".slddrw", StringComparison.OrdinalIgnoreCase))).ToList());
+    }
+
+    // The page's per-day, per-person lines, as text (the admin command's view).
+    public static IEnumerable<string> Summary(Days d)
+    {
+        // Nouns take an s; the rest ("changed", "moved") don't.
+        string KindOf(Shown e) => e.Kind == "new" && e.Drawing ? "new drawing" : e.Kind == "new" ? "new file" : e.Kind is "package" or "register" ? "release package file" : e.Kind == "released" ? "release PDF" : e.Kind;
+        static string Count(int n, string w) => $"{n} {w}{(n != 1 && (w.EndsWith("drawing") || w.EndsWith("file") || w.EndsWith("PDF") || w == "sheet") ? "s" : "")}";
+        foreach (var day in d.Events.GroupBy(e => e.Day).OrderByDescending(g => g.Key))
+        {
+            yield return day.Key;
+            foreach (var who in day.GroupBy(e => e.By).OrderBy(g => g.Key))
+            {
+                var sheets = who.Where(e => KindOf(e) == "new drawing").Sum(e => e.Sheets ?? 0);
+                yield return $"  {who.Key}: " + string.Join(", ", who.GroupBy(KindOf).OrderBy(g => g.Key == "new drawing" ? 0 : 1)
+                    .Select(g => Count(g.Count(), g.Key) + (g.Key == "new drawing" && sheets > 0 ? $" ({Count(sheets, "sheet")})" : "")));
+            }
+        }
     }
 
     // What a vault path is, for the log: release PDFs, packages and the register have their own kinds.

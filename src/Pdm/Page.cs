@@ -112,7 +112,7 @@ public sealed class Page(Settings s)
                 return;
             case "/api/activity":
                 if (!Activity.IsAdmin(session.Email)) { await Send(ctx, 403, new { error = "Activity is for the admin only." }); return; }
-                await Send(ctx, 200, await ActivityAsync(Str("before"), body.ValueKind == JsonValueKind.Object && body.TryGetProperty("days", out var dv) && dv.TryGetInt32(out var dn) ? dn : 14));
+                await Send(ctx, 200, await Activity.QueryAsync(new Vault(s3!, s), Path.Combine(s.LocalRoot, ".pdm", "activity-cache.json"), Str("before"), body.ValueKind == JsonValueKind.Object && body.TryGetProperty("days", out var dv) && dv.TryGetInt32(out var dn) ? dn : 14));
                 return;
             case "/api/get":
                 var only = Strs("paths");
@@ -209,29 +209,6 @@ public sealed class Page(Settings s)
         LimitExceededException or TooManyRequestsException => "Too many tries. Wait a few minutes and try again.",
         _ => ex.Message
     };
-
-    // The activity log for NZ days [before - days, before) (before: yyyy-MM-dd, default tomorrow), each event with its NZ day.
-    static readonly TimeZoneInfo Nz = TimeZoneInfo.FindSystemTimeZoneById("New Zealand Standard Time");
-    public static string NzDay(string at) => TimeZoneInfo.ConvertTimeFromUtc(Activity.Utc(at), Nz).ToString("yyyy-MM-dd");
-    async Task<object> ActivityAsync(string before, int days)
-    {
-        days = Math.Clamp(days, 1, 366);
-        var to = DateTime.TryParse(before, out var b) ? b.Date : TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Nz).Date.AddDays(1);
-        var from = to.AddDays(-days);
-        var utcDates = Enumerable.Range(-1, days + 2).Select(i => from.AddDays(i)); // NZ is ahead of UTC: the day before too
-        var events = await Activity.ReadAsync(new Vault(s3!, s), utcDates, Path.Combine(s.LocalRoot, ".pdm", "activity-cache.json"));
-        var f = from.ToString("yyyy-MM-dd"); var t = to.ToString("yyyy-MM-dd");
-        return new
-        {
-            from = f, to = t,
-            events = events.Select(e => new { e, day = NzDay(e.At) }).Where(x => string.CompareOrdinal(x.day, f) >= 0 && string.CompareOrdinal(x.day, t) < 0)
-                .OrderBy(x => x.e.At, StringComparer.Ordinal).Select(x => new
-                {
-                    x.day, at = x.e.At, by = x.e.By == "" ? "(who not recorded)" : x.e.By, kind = x.e.Kind, path = x.e.Path, note = x.e.Note ?? "",
-                    sheets = x.e.Sheets, from = x.e.From, drawing = x.e.Path.EndsWith(".slddrw", StringComparison.OrdinalIgnoreCase)
-                })
-        };
-    }
 
     object Me() => new
     {

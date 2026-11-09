@@ -516,9 +516,10 @@ async function loadActivity() {
   catch (e) { act.err = e.message; }
   finally { act.loading = false; if (tab === 'act') drawPanel(); }
 }
-const actKinds = [['newdrw', 'new drawing'], ['new', 'new'], ['changed', 'changed'], ['moved', 'moved'], ['removed', 'removed'], ['restored', 'restored'], ['released', 'release PDF'], ['package', 'release package file']];
+const actKinds = [['newdrw', 'new drawing'], ['new', 'new file'], ['changed', 'changed'], ['moved', 'moved'], ['removed', 'removed'], ['restored', 'restored'], ['released', 'release PDF'], ['package', 'release package file']];
 function actKind(e) { return e.kind === 'new' && e.drawing ? 'newdrw' : e.kind === 'register' ? 'package' : e.kind; }
-function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+// Nouns take an s; "changed", "moved" and the like don't.
+function plural(n, word) { return n + ' ' + word + (n !== 1 && /(drawing|file|PDF|sheet)$/.test(word) ? 's' : ''); }
 function drawActivity() {
   if (!act.data && !act.loading && !act.err) loadActivity();
   const head = '<div class="bar"><button id="actReload" title="Reads the activity log again.">Reload</button>'

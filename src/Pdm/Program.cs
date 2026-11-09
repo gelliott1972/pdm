@@ -69,6 +69,15 @@ try
             return await Admin(settings, (index, vault, engine) =>
                 new ReleaseFiler(settings, index, vault, AdminName, Console.WriteLine, AdminEmail).RunAsync(
                     args.Skip(1).TakeWhile(a => !a.StartsWith("--")).ToList(), args.Contains("--dry"), args.Contains("--incomplete")));
+        case "activity":
+            // The Activity tab's lines (admin): pdm activity [--days 14] [--before yyyy-mm-dd]
+            return await Admin(settings, async (index, vault, engine) =>
+            {
+                var d = await Activity.QueryAsync(vault, Path.Combine(Path.GetTempPath(), "pdm-activity-cache.json"), Arg(args, "--before") ?? "", int.TryParse(Arg(args, "--days"), out var n) ? n : 14);
+                Console.WriteLine($"NZ days {d.From} to {d.To} (not including): {d.Events.Count} events");
+                foreach (var l in Activity.Summary(d)) Console.WriteLine(l);
+                return 0;
+            });
         case "activity-backfill":
             // One-off fill of the activity log from the vault's history (S3 versions, moves, removals); --since yyyy-mm-dd.
             return await Admin(settings, (index, vault, engine) => new ActivityBackfill(settings, index, vault, Console.WriteLine)

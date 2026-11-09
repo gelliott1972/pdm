@@ -69,10 +69,10 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         reports = reports.OrderBy(r => r.Run, StringComparer.Ordinal).ToList();
         var code = reports[0].R.Code;
         if (reports.Any(r => r.R.Code != code)) { say("The work folders are for different codes; give one release's folders."); return 2; }
-        if (reissue != null && reports.FirstOrDefault(r => r.R.Reissue == null) is { } plain)
-        { say($"{plain.Run} isn't a re-issue check: re-check the drawings with pdm release ... --reissue \"reason\" --only ... first."); return 2; }
-        if (reissue == null && reports.FirstOrDefault(r => r.R.Reissue != null) is { } ri)
-        { say($"{ri.Run} is a re-issue check: file it with --reissue \"reason\" --only ..."); return 2; }
+        if (reissue != null && reports.Where(r => r.R.Reissue == null).Select(r => r.Run).FirstOrDefault() is { } plain)
+        { say($"{plain} isn't a re-issue check: re-check the drawings with pdm release ... --reissue \"reason\" --only ... first."); return 2; }
+        if (reissue == null && reports.Where(r => r.R.Reissue != null).Select(r => r.Run).FirstOrDefault() is { } ri)
+        { say($"{ri} is a re-issue check: file it with --reissue \"reason\" --only ..."); return 2; }
         var folders = reports.SelectMany(r => r.R.Folder.Split(" + ")).Select(f => f.Trim().Trim('/'))
             .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
 

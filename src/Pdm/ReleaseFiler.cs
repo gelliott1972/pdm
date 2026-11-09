@@ -38,6 +38,7 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         public List<string> Sets { get; } = new();
         public Item? Item { get; init; }
         public string? Run { get; init; }
+        public string By { get; init; } = "";          // who issued it (the set info's "by")
         public FileRecord? Record { get; set; }
     }
 
@@ -93,7 +94,7 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
             try
             {
                 dm ??= new DocReader();
-                issues[id] = new Issue { DrawingId = id, DrawingPath = i.Drawing, PdfKey = i.PdfKey, Item = i, Run = run, Line = LineOf(dm, i, work, code) };
+                issues[id] = new Issue { DrawingId = id, DrawingPath = i.Drawing, PdfKey = i.PdfKey, Item = i, Run = run, By = name, Line = LineOf(dm, i, work, code) };
             }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Runtime.InteropServices.COMException)
             { notFiled[id] = $"its drawing-list line couldn't be read: {ex.Message}"; }
@@ -216,7 +217,7 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         {
             var j = JsonNode.Parse(r.ReleaseSet!) as JsonObject;
             if (j?["line"] is not JsonObject line || j["drawing"] is not JsonObject d) return null;
-            var iss = new Issue { DrawingId = (string)d["fileId"]!, DrawingPath = (string)d["path"]!, PdfKey = r.Path, Record = r, Line = line.Deserialize<Line>(Read)! };
+            var iss = new Issue { DrawingId = (string)d["fileId"]!, DrawingPath = (string)d["path"]!, PdfKey = r.Path, Record = r, By = (string?)j["by"] ?? "", Line = line.Deserialize<Line>(Read)! };
             iss.Sets.AddRange((j["sets"] as JsonArray ?? []).Select(x => (string)x!));
             return iss;
         }
@@ -346,12 +347,19 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
 
     static readonly string[] ListHeaders = ["Drawing No", "Title (Description)", "REV", "Sheets", "Size", "Part No", "Status", "Issue date", "PDF file name", "Notes"];
 
-    static void WriteList(string path, SetDef t, string code, string date, List<Issue> members, int missing) =>
+    // Grant, 9 Nov: a title line and the issue line above the header; date and issuer from the set info.
+    static void WriteList(string path, SetDef t, string code, string date, List<Issue> members, int missing)
+    {
+        static string Show(string iso) => DateTime.TryParse(iso, out var d) ? d.ToString("dd-MMM-yyyy", System.Globalization.CultureInfo.InvariantCulture) : iso;
+        var dates = string.Join(", ", members.Select(m => m.Line.Issued).Distinct().OrderBy(x => x, StringComparer.Ordinal).Select(Show));
+        var by = string.Join(", ", members.Select(m => m.By).Where(x => x != "").Distinct());
+        string[] above = [$"{t.Name} Drawing List - Issue {code}", $"Issue date: {dates}   Issued by: {by}   Status: {StatusOf(code)}"];
         Xlsx.Write(path, $"{t.Name} {code}", ListHeaders,
             members.Select(m => new[] { m.Line.DrawingNo, m.Line.Title, m.Line.Rev, m.Line.Sheets.ToString(), m.Line.Size, m.Line.PartNo, m.Line.Status, m.Line.Issued, m.Line.Pdf, m.Line.Notes }),
-            [16, 42, 6, 7, 6, 16, 14, 12, 22, 50], Template("drawing-list.xlsx"));
+            [16, 42, 6, 7, 6, 16, 14, 12, 22, 50], Template("drawing-list.xlsx"), above);
+    }
 
-    // A layout Grant has saved (release	emplates next to the app), if there is one.
+    // A layout Grant has saved (release\templates next to the app), if there is one.
     static string Template(string name) => System.IO.Path.Combine(AppContext.BaseDirectory, "release", "templates", name);
 
     // The set's PDFs (the checked files; for PDFs filed before, the vault's copy) and its drawing list.

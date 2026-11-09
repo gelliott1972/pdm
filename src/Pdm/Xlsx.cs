@@ -12,14 +12,18 @@ namespace Pdm;
 // each column's header (row 1) and data (row 2) formats.
 public static partial class Xlsx
 {
-    public static void Write(string path, string sheetName, string[] headers, IEnumerable<string[]> rows, double[] widths, string? template = null)
+    public static void Write(string path, string sheetName, string[] headers, IEnumerable<string[]> rows, double[] widths, string? template = null,
+        string[]? above = null)
     {
+        // Optional plain lines above the header (the first bold), then a blank row, then the header.
+        above ??= [];
+        var hr = above.Length == 0 ? 1 : above.Length + 2;
         var all = rows.ToList();
-        var t = template != null && File.Exists(template) ? Template.Read(template) : null;
+        var t = template != null && File.Exists(template) ? Template.Read(template, hr) : null;
         var sb = new StringBuilder();
         sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")
           .Append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">")
-          .Append("<sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/></sheetView></sheetViews>")
+          .Append($"<sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"{hr}\" topLeftCell=\"A{hr + 1}\" activePane=\"bottomLeft\" state=\"frozen\"/></sheetView></sheetViews>")
           .Append("<sheetFormatPr defaultRowHeight=\"15\"/>");
         if (t?.Cols != null) sb.Append(t.Cols);
         else
@@ -29,12 +33,15 @@ public static partial class Xlsx
                 sb.Append($"<col min=\"{c + 1}\" max=\"{c + 1}\" width=\"{(c < widths.Length ? widths[c] : 14):0.#}\" customWidth=\"1\"/>");
             sb.Append("</cols>");
         }
-        sb.Append("<sheetData><row r=\"1\">");
-        for (var c = 0; c < headers.Length; c++) sb.Append(Text($"{Col(c)}1", headers[c], t?.HeadStyle(c) ?? 1));
+        sb.Append("<sheetData>");
+        for (var a = 0; a < above.Length; a++)
+            sb.Append($"<row r=\"{a + 1}\">{Text($"A{a + 1}", above[a], t?.AboveStyle(a) ?? (a == 0 ? 1 : 0))}</row>");
+        sb.Append($"<row r=\"{hr}\">");
+        for (var c = 0; c < headers.Length; c++) sb.Append(Text($"{Col(c)}{hr}", headers[c], t?.HeadStyle(c) ?? 1));
         sb.Append("</row>");
         for (var r = 0; r < all.Count; r++)
         {
-            var n = 2 + r;
+            var n = hr + 1 + r;
             sb.Append($"<row r=\"{n}\">");
             for (var c = 0; c < headers.Length; c++)
                 if (c < all[r].Length && !string.IsNullOrEmpty(all[r][c])) sb.Append(Cell($"{Col(c)}{n}", all[r][c], t?.DataStyle(c)));
@@ -121,9 +128,10 @@ public static partial class Xlsx
     sealed partial class Template
     {
         public string? Styles, Cols;
-        readonly Dictionary<int, int> head = new(), data = new();
+        readonly Dictionary<int, int> head = new(), data = new(), above = new();
         public int? HeadStyle(int c) => head.TryGetValue(c, out var s) ? s : null;
         public int? DataStyle(int c) => data.TryGetValue(c, out var s) ? s : null;
+        public int? AboveStyle(int r) => above.TryGetValue(r, out var s) ? s : null;
 
         [GeneratedRegex(@"<cols>.*?</cols>", RegexOptions.Singleline)] private static partial Regex ColsRx();
         [GeneratedRegex(@"<row [^>]*\br=""(\d+)""[^>]*>(.*?)</row>", RegexOptions.Singleline)] private static partial Regex RowRx();
@@ -131,7 +139,8 @@ public static partial class Xlsx
         [GeneratedRegex(@"\br=""([A-Z]+)\d+""")] private static partial Regex RefRx();
         [GeneratedRegex(@"\bs=""(\d+)""")] private static partial Regex StyleRx();
 
-        public static Template Read(string path)
+        // headerRow: where the header is (the lines above it take their style from the template's column A there).
+        public static Template Read(string path, int headerRow)
         {
             using var zip = ZipFile.OpenRead(path);
             string Text(string name) { using var r = new StreamReader(zip.GetEntry(name)!.Open()); return r.ReadToEnd(); }
@@ -140,7 +149,15 @@ public static partial class Xlsx
             t.Cols = ColsRx().Match(sheet) is { Success: true } m ? m.Value : null;
             foreach (Match row in RowRx().Matches(sheet))
             {
-                var map = row.Groups[1].Value switch { "1" => t.head, "2" => t.data, _ => null };
+                var rn = int.Parse(row.Groups[1].Value);
+                var map = rn == headerRow ? t.head : rn == headerRow + 1 ? t.data : null;
+                if (rn < headerRow - 1)
+                {
+                    // A line above the header: column A's style.
+                    var a = CellRx().Matches(row.Groups[2].Value).Cast<Match>().FirstOrDefault(c => RefRx().Match(c.Groups[1].Value).Groups[1].Value == "A");
+                    if (a != null) t.above[rn - 1] = StyleRx().Match(a.Groups[1].Value) is { Success: true } sm ? int.Parse(sm.Groups[1].Value) : 0;
+                    continue;
+                }
                 if (map == null) continue;
                 foreach (Match c in CellRx().Matches(row.Groups[2].Value))
                 {

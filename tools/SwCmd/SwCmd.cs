@@ -63,6 +63,9 @@
 // pack-and-go (7 Nov, scratch C top): 97 of 97 files written, 3 virtual kept in their assemblies; the pack's references point
 // into the pack (SetDocumentSaveToNames refuses even SOLIDWORKS's own names, so its default layout is used).
 // export-pdf, drawing-info (text and --json), close (7 Nov, scratch copies of GNRIC-BRW-16 and 08A11-SFA-1T): pass.
+// export-pdf white recolour (10 Nov, C:\PDM-work\whitetest copies): 08A11-STA-01 36 recoloured, pdfwhite text/strokes/fills
+// 36/72/36 -> 0/0/0; GNRIC-BRP-10 2 recoloured, strokes 2 -> 0; both .SLDDRW unchanged (time, size, MD5); an already
+// open drawing refused with exit 1 and no PDF. Only single-sheet drawings tried (every drawing on P:\ has one sheet).
 //
 // Safety (every command): never M:\ or anything in Dropbox; never anything under .pdm. A command that writes refuses
 // the vault (P:\, C:\PDM\) unless --checked-out is given and the file is not read-only on disk (checked out); a new
@@ -1616,20 +1619,23 @@ static class SwCmd
         return Finish();
     }
 
-    // Export every sheet of a drawing to one PDF (release brief, 7 Nov). Opened read-only if this command opens it;
-    // a drawing already open is exported as it is in SOLIDWORKS (unsaved changes are flagged).
+    // Export every sheet of a drawing to one PDF (release brief, 7 Nov). Opened read-only by this command, white
+    // annotations recoloured in memory (RecolourWhite), closed without saving. A drawing already open is refused (10 Nov).
     static int ExportPdf(ISldWorks sw, string drawing, string pdf)
     {
         bool wasOpen;
         var doc = OpenOrActivate(sw, drawing, null, out wasOpen);
         if (doc == null) return Finish();
-        if (wasOpen && doc.GetSaveFlag()) problems.Add("the drawing was already open with unsaved changes: the PDF shows them, not the saved file");
         var drw = (DrawingDoc)doc;
         var sheets = ((drw.GetSheetNames() as object[]) ?? new object[0]).Cast<string>().ToList();
         var data = (ExportPdfData)sw.GetExportFileData((int)swExportDataFileType_e.swExportPdfData);
         data.ViewPdfAfterSaving = false;
         data.SetSheets((int)swExportDataSheetsToExport_e.swExportData_ExportAllSheets, null);
         Directory.CreateDirectory(Path.GetDirectoryName(pdf));
+        // A drawing already open is refused (Admin, 10 Nov): its white annotations can't be recoloured without changing
+        // the document the user has open. Nothing is exported; close it in SOLIDWORKS (or close-all) and run again.
+        if (wasOpen) { problems.Add("REFUSED: drawing already open in SOLIDWORKS, so its white annotations can't be recoloured; no PDF written (close it and run again)"); return Finish(); }
+        RecolourWhite(doc);
         int err = 0, warn = 0;
         int options = (int)swSaveAsOptions_e.swSaveAsOptions_Silent | (int)swSaveAsOptions_e.swSaveAsOptions_UpdateInactiveViews;
         bool ok = doc.Extension.SaveAs3(pdf, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, options, data, null, ref err, ref warn);
@@ -1642,6 +1648,44 @@ static class SwCmd
         else if (pages != sheets.Count) problems.Add("the PDF has " + pages + " pages for " + sheets.Count + " sheets");
         if (!wasOpen) { sw.CloseDoc(doc.GetTitle()); Console.WriteLine("Closed the drawing again without saving."); }
         return Finish();
+    }
+
+    // Annotations whose own colour is pure white vanish on paper (41 of the 0A drawings, sw\0A-white-pdfs.md, 10 Nov).
+    // In memory only, just before the PDF: every sheet (GetViews gives one array per sheet, sheet view first), every
+    // view, every annotation coloured 0xFFFFFF gets its layer's colour, or black if it has no layer or the layer is
+    // white too. The drawing is closed without saving, so the file on disk never changes.
+    static void RecolourWhite(ModelDoc2 doc)
+    {
+        const int White = 0xFFFFFF;
+        var lm = doc.GetLayerManager() as LayerMgr;
+        int n = 0, failed = 0;
+        var perSheet = ((DrawingDoc)doc).GetViews() as object[];
+        foreach (var s in perSheet ?? new object[0])
+            foreach (var o in (s as object[]) ?? new object[0])
+            {
+                var view = o as View;
+                if (view == null) continue;
+                var ann = view.GetFirstAnnotation3() as Annotation;
+                while (ann != null)
+                {
+                    try
+                    {
+                        if (ann.Color == White)
+                        {
+                            Layer layer = null;
+                            string ln = ann.Layer;
+                            if (lm != null && !string.IsNullOrEmpty(ln)) layer = lm.GetLayer(ln) as Layer;
+                            int c = layer != null && layer.Color != White ? layer.Color : 0;
+                            ann.Color = c;
+                            if (ann.Color == White) failed++; else n++;
+                        }
+                    }
+                    catch (Exception) { failed++; }
+                    ann = ann.GetNext3() as Annotation;
+                }
+            }
+        Console.WriteLine("Recoloured " + n + " white annotation(s) for the PDF (not saved)");
+        if (failed > 0) problems.Add(failed + " white annotation(s) could not be recoloured: they may not show on paper");
     }
 
     // Page objects in a PDF ("/Type /Page", not "/Pages"); good enough to compare with the sheet count.

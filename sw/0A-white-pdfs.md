@@ -55,3 +55,20 @@ In 08A11-STA-01 (read from the drawing open in SOLIDWORKS):
 - 6 other annotations on layer 0 take the layer's colour.
 - 47 notes are on no layer and are black.
 - The PDF has 36 white text items, which are exactly those notes.
+
+## Test, 10 Nov (Grant's go)
+
+These are scratch copies in `C:\PDM-work\whitetest`, exported with SwCmd export-pdf. Neither drawing was saved, and each setting was put back afterwards.
+
+| Export | 08A11-STA-01 white text / lines | GNRIC-BRP-10 white lines |
+| --- | --- | --- |
+| As it is now | 36 / 72 | 2 |
+| (a) Page "Print White Items Black" = 1 (registry, set while SOLIDWORKS was closed) | 36 / 72 | 2 |
+| (b) Drawings paper colour pure white (API pref 217) | 36 / 72 | 2 |
+| (c) Page setup drawing colour = Black and white (API pref 139) | 36 / 72 | 2 |
+| (d) PDF Export In Color off (API toggle 323) | 36 / 72, everything else black | 2 |
+| (e) White annotations recoloured in memory to their layer colour, then export | **0 / 0** | **0** |
+
+No SOLIDWORKS setting changes what Save as PDF writes. The white is a colour stored on the annotations themselves. BRP-10's two white segments are also annotations (2 of its 71); they show as two short tick marks at the drainage holes.
+
+All settings were restored. Page, Colors and Color Schemes match the backup exactly, and a fresh SOLIDWORKS reads paper 14411494, page-setup colour 1 and PDF-in-colour on.

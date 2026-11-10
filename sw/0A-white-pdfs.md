@@ -72,3 +72,19 @@ These are scratch copies in `C:\PDM-work\whitetest`, exported with SwCmd export-
 No SOLIDWORKS setting changes what Save as PDF writes. The white is a colour stored on the annotations themselves. BRP-10's two white segments are also annotations (2 of its 71); they show as two short tick marks at the drainage holes.
 
 All settings were restored. Page, Colors and Color Schemes match the backup exactly, and a fresh SOLIDWORKS reads paper 14411494, page-setup colour 1 and PDF-in-colour on.
+
+## Re-issue, night of 10 Nov (Grant's go in SW's window; Admin's conditions)
+
+Dev added the recolour to SwCmd export-pdf (6a60bb0). It runs in memory only: the drawing closes without saving, and export-pdf refuses a drawing that's already open. App ran the release step with --reissue and filed the result.
+
+| Drawings | Result |
+| --- | --- |
+| 35 re-issued (63 PDFs: LS-08X-06_0A 34, LS-08X-11_0A 29) | SW scan of the dry-run PDFs: 33 have no white, and they match the filed 0A apart from colour (pages, page size, every text item within 2 pt, number of drawn items) |
+| GNRIC-BRW-16, 08BXX-HBW-01 | One white path is left: the sheet format's 24 zone ticks (≈5 mm, around the border), as in the old 0A. Admin: --accept-white for these two only |
+| GNRIC-LPP-05 | Clean; --accept-rev with Grant's 9 Nov reason (REV read as "/ 0A") |
+| 08A06/08B06/08C06/08A11/08B11/08C11-STA-01 | Left out (Admin): James checked in new versions of shared parts they use on 10 Nov, so a re-export would carry his changes. Still white |
+
+SW's check after filing (all 240 PDFs in `P:\APEX\SC08\_Review\LS-08X-06_0A` and `LS-08X-11_0A`):
+- White is left only in the 6 STA-01 PDFs and the zone ticks.
+- All 63 filed PDFs are byte-identical to the scanned dry-run PDFs.
+- Each ZIP holds exactly its folder's PDFs (127 and 113), byte-identical.

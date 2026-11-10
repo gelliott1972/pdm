@@ -113,7 +113,8 @@ try
             Console.WriteLine("                        move, remove, checkout and unlock also take a round list (round.csv: action,old_path,new_path,...)");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
             Console.WriteLine("       pdm release <folder> [<folder> ...] <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role] [--only a,b|list.txt]");
-            Console.WriteLine("                        [--accept-checkout|--accept-rev|--accept-partno|--accept-shaft \"NAME=reason\"]   Grant's exceptions, recorded in the set");
+            Console.WriteLine("                        [--accept-checkout|--accept-rev|--accept-partno|--accept-shaft|--accept-white \"NAME=reason\"]   Grant's exceptions, recorded in the set");
+            Console.WriteLine("                        checks include: no white text or white lines in the PDF (they vanish on paper)");
             Console.WriteLine("                        admin: dry run of a release set on scratch copies (pdm-admin SSO, reads only); several folders make one set");
             Console.WriteLine("       pdm activity-backfill [--dry] [--since yyyy-mm-dd]   admin: fill the activity log from the vault's history");
             Console.WriteLine("       pdm activity [--days 14] [--before yyyy-mm-dd]   admin: the Activity tab's days, as text");
@@ -283,13 +284,13 @@ static async Task<int> ReleaseDry(Settings s, string[] args)
     var i = Array.IndexOf(args, "--shared-to");
     if (i > 0 && i + 1 < args.Length) release.SharedTo = args[i + 1] == "own" ? "own" : "scene";
     if (Environment.GetEnvironmentVariable("PDM_SWCMD") is { Length: > 0 } sw) release.SwCmd = sw;
-    // Grant's exceptions: --accept-checkout, --accept-rev, --accept-partno, --accept-shaft "NAME=reason", each as often as needed.
+    // Grant's exceptions: --accept-checkout, --accept-rev, --accept-partno, --accept-shaft, --accept-white "NAME=reason", each as often as needed.
     for (var k = 1; k + 1 < args.Length; k++)
     {
         var to = args[k] switch
         {
             "--accept-checkout" => release.AcceptCheckout, "--accept-rev" => release.AcceptRev,
-            "--accept-partno" => release.AcceptPartNo, "--accept-shaft" => release.AcceptShaft, _ => null
+            "--accept-partno" => release.AcceptPartNo, "--accept-shaft" => release.AcceptShaft, "--accept-white" => release.AcceptWhite, _ => null
         };
         if (to == null) continue;
         var eq = args[k + 1].IndexOf('=');

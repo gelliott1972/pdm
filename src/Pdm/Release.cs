@@ -41,6 +41,9 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     // drawing's number as its PartNo (--accept-partno), and must not be in another shaft's folder (--accept-shaft).
     public Dictionary<string, string> AcceptPartNo { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> AcceptShaft { get; } = new(StringComparer.OrdinalIgnoreCase);
+    // Admin 10 Nov (balloons, dimensions and notes on layer "0" came out white in Grant's exports): no white text or
+    // white lines in the PDF (--accept-white, e.g. white text on a dark fill on purpose).
+    public Dictionary<string, string> AcceptWhite { get; } = new(StringComparer.OrdinalIgnoreCase);
     DocReader? dm; string? dmWhy;
     // A re-issue (Grant, 9 Nov: 08B06/08C06-HBW-03 re-issued still as 0A): the reason. The named drawings' PDFs are
     // already filed; release-file --reissue files the new ones as new versions of the same release files.
@@ -277,6 +280,40 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         for (var i = 0; i < pages.Count; i++)
             if (!token.IsMatch(pages[i])) item.Problems.Add($"PDF page {i + 1}: {code} not found in its text");
         if (Official(code)) item.Notes.Add($"PDF read-back for a number ({code}) only proves the number appears somewhere on each page");
+
+        List<string> white;
+        try { white = WhiteProblems(item.Pdf!, item.Notes); }
+        catch (Exception ex) { item.Problems.Add($"PDF white check not run: {ex.Message}"); return; }
+        if (AcceptWhite.TryGetValue(Key(item.Drawing), out var ok)) item.Accepted.AddRange(white.Select(p => $"{p} ({ok})"));
+        else item.Problems.AddRange(white);
+    }
+
+    // Text or lines drawn in white (or nearly white), which vanish on paper: one problem per page that has any.
+    // White filled shapes alone (masks, white-filled arrowheads) are a note, not a problem. release-file runs it again.
+    public const string WhitePrefix = "PDF has white";
+    public static List<string> WhiteProblems(string pdf, List<string>? notes = null)
+    {
+        var script = Path.Combine(AppContext.BaseDirectory, "release", "pdfwhite.py");
+        var psi = new ProcessStartInfo("python") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8 };
+        foreach (var a in new[] { "-I", script, pdf }) psi.ArgumentList.Add(a);
+        using var p = Process.Start(psi) ?? throw new IOException("Python didn't start");
+        var output = p.StandardOutput.ReadToEnd(); var err = p.StandardError.ReadToEnd();
+        p.WaitForExit();
+        if (p.ExitCode != 0) throw new IOException(Last(err));
+        var pages = JsonNode.Parse(output) as JsonArray ?? throw new IOException("no result");
+        var found = new List<string>();
+        for (var i = 0; i < pages.Count; i++)
+        {
+            var pg = pages[i]!;
+            int text = (int)pg["text"]!, strokes = (int)pg["strokes"]!, fills = (int)pg["fills"]!;
+            var samples = (pg["samples"] as JsonArray ?? []).Select(x => $"\"{(string?)x}\"").ToList();
+            var what = new List<string>();
+            if (text > 0) what.Add($"{text} text item(s){(samples.Count > 0 ? $" (e.g. {string.Join(", ", samples)})" : "")}");
+            if (strokes > 0) what.Add($"{strokes} line(s)");
+            if (what.Count > 0) found.Add($"{WhitePrefix} {string.Join(" and ", what)} on page {i + 1}, invisible on paper (layer \"0\" or a white colour)");
+            else if (fills > 0) notes?.Add($"PDF page {i + 1}: {fills} white-filled shape(s) (masks?), no white text or lines");
+        }
+        return found;
     }
 
     // Text per page via PyMuPDF (release\pdftext.py next to the app). No .NET PDF reader is used: the usual one isn't

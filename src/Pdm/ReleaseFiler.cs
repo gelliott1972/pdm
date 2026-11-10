@@ -135,6 +135,16 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         {
             if (before.ContainsKey(id)) continue;
             if (!i.Pass) { notFiled[id] = $"failed its check in {run}: {string.Join("; ", i.Problems)}"; continue; }
+            // Admin 10 Nov: checked again here, so a PDF checked before the white check existed can't be filed.
+            if (i.Pdf != null && File.Exists(i.Pdf) && !(i.Accepted ?? []).Any(a => a.StartsWith(Release.WhitePrefix))) // a missing PDF: WhyNot says so
+            {
+                try
+                {
+                    var white = Release.WhiteProblems(i.Pdf!);
+                    if (white.Count > 0) { notFiled[id] = $"{string.Join("; ", white)} (checked in {run}; fix and re-check it)"; continue; }
+                }
+                catch (Exception ex) { notFiled[id] = $"PDF white check not run: {ex.Message}"; continue; }
+            }
             var pdfName = System.IO.Path.GetFileName(i.PdfKey);
             var inSets = sets.Where(t => t.Drawings.Contains(id)).ToList();
             var why = inSets.Count == 0 ? "isn't in any of the sets now"
@@ -692,6 +702,7 @@ public sealed class ReleaseFiler(Settings s, Index index, Vault vault, string na
         // Grant's exceptions in plain words; the full reasons are in the set info.
         foreach (var a in i.Accepted ?? [])
             notes.Add(a.StartsWith("checked out by ") ? $"Issued from the vault version; drawing checked out to {a["checked out by ".Length..a.IndexOf(" since ")]} at the time"
+                : a.StartsWith(Release.WhitePrefix) ? "White text or lines in the PDF accepted by Grant"
                 : "Revision checked visually by Grant");
         notes = notes.Distinct().ToList();
         return new Line(System.IO.Path.GetFileNameWithoutExtension(i.Drawing), title, code, pages.Count,

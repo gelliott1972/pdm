@@ -1,0 +1,42 @@
+﻿Attached to the running SOLIDWORKS (process 47000).
+Read-only referenced files: not prompted, not saved (SOLIDWORKS option on for this command; was off)
+Opened P:\APEX\SC08\LS-08X-04\ShaftC\08C04-SFA-3T.SLDASM
+  (needs a rebuild: it was saved out of date)
+Instances of 08C04-SFP-03.SLDPRT: 08C04-SFP-03-1 (fixed)
+Mate entities on those instances: 5 in 5 mates
+  Coincident28 [0] 08C04-SFP-03-1: Face2 of body "Rhs RHS80X40X8(1)"
+  Coincident26 [0] 08C04-SFP-03-1: Face2 of body "Rhs RHS80X40X8(1)"
+  Distance3 [0] 08C04-SFP-03-1: Face2 of body "End cap1"
+  Coincident2 [0] 08C04-SFP-03-1: Face2 of body "Rhs RHS80X40X8(1)"
+  Coincident1 [0] 08C04-SFP-03-1: Face2 of body "Rhs RHS80X40X8(1)"
+  Coincident28: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident26: swMateCOINCIDENT, swAlignNONE
+  Distance3: swMateDISTANCE, swAlignNONE, flipped, 11 mm
+  Coincident2: swMateCOINCIDENT, swAlignNONE
+  Coincident1: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  pattern LocalLPattern1- VERTICALS + STUBS: direction on the assembly (_ComObject), seeds 
+  pattern LocalLPattern2- TIES VERTICALLY: seeds 
+Replaced 1 instance(s) by P:\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-03.SLDASM <Default>
+Changes in the tree (5 lines; - removed, + added, ~ changed):
+  - 08C04-SFP-03-1: P:\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-03.SLDPRT <Default<As Machined>>
+  + 08C04-SFP-03-2: P:\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-03.SLDASM <Default>
+  (and 3 lines for components inside the changed ones)
+In 08C04-SFP-03.SLDASM (swResolveNotPerformed): 08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> Lightweight, 08C04-SFP-06-1 <Default<As Machined>> Lightweight, 08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> Lightweight
+  Coincident28 [0]: Face2 of body "Rhs RHS80X40X8(1)" -> found by position (1 match: 08C04-SFP-03-2/08C04-SFP-06-1); face of 08C04-SFP-03-2/08C04-SFP-06-1
+  Coincident26 [0]: Face2 of body "Rhs RHS80X40X8(1)" -> found by position (1 match: 08C04-SFP-03-2/08C04-SFP-06-1); face of 08C04-SFP-03-2/08C04-SFP-06-1
+  Distance3 [0]: Face2 of body "End cap1" -> found by position (1 match: 08C04-SFP-03-2/08C04-SFP-06-1); face of 08C04-SFP-03-2/08C04-SFP-06-1
+  Coincident2 [0]: Face2 of body "Rhs RHS80X40X8(1)" -> found by position (1 match: 08C04-SFP-03-2/08C04-SFP-06-1); face of 08C04-SFP-03-2/08C04-SFP-06-1
+  Coincident1 [0]: Face2 of body "Rhs RHS80X40X8(1)" -> found by position (1 match: 08C04-SFP-03-2/08C04-SFP-06-1); face of 08C04-SFP-03-2/08C04-SFP-06-1
+  Coincident28: added again on the new assembly (Coincident31 renamed Coincident28), the broken one deleted
+  Coincident26: added again on the new assembly (Coincident31 renamed Coincident26), the broken one deleted
+  Distance3: added again on the new assembly (Distance4 renamed Distance3), the broken one deleted
+  Coincident2: added again on the new assembly (Coincident31 renamed Coincident2), the broken one deleted
+  Coincident1: added again on the new assembly (Coincident31 renamed Coincident1), the broken one deleted
+Other components: 171, moved: 0
+  new instance 08C04-SFP-03-2, fixed
+Mates put back: 5 of 5; dropped: none; items wrong: 0 before, 1 now
+  warning: LocalLPattern1- VERTICALS + STUBS (LocalLPattern) swFeatureErrorUnknown
+FOR GRANT'S CHECK: pattern LocalLPattern1- VERTICALS + STUBS (new warning after the swap; its instances did not move)
+  2 other modified open document(s) are read-only on disk: SOLIDWORKS discards their changes (option on), they are not written
+Saved P:\APEX\SC08\LS-08X-04\ShaftC\08C04-SFA-3T.SLDASM
+OK

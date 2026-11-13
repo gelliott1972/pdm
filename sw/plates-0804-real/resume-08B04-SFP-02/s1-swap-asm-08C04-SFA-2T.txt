@@ -1,0 +1,66 @@
+﻿Attached to the running SOLIDWORKS (process 47000).
+Read-only referenced files: not prompted, not saved (SOLIDWORKS option on for this command; was off)
+Opened P:\APEX\SC08\LS-08X-04\ShaftC\08C04-SFA-2T.SLDASM
+  (needs a rebuild: it was saved out of date)
+Instances of 08C04-SFP-02.SLDPRT: 08C04-SFP-02-1 (fixed)
+Mate entities on those instances: 10 in 10 mates
+  Distance2 [1] 08C04-SFP-02-1: Face2 of body "M12 Clearance Slot1"
+  Coincident63 [0] 08C04-SFP-02-1: Face2 of body "End cap2[1]"
+  Coincident48 [0] 08C04-SFP-02-1: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]"
+  Coincident47 [0] 08C04-SFP-02-1: Face2 of body "End cap1[1]"
+  Coincident46 [0] 08C04-SFP-02-1: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]"
+  Coincident31 [0] 08C04-SFP-02-1: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]"
+  Coincident10 [0] 08C04-SFP-02-1: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[2]"
+  Coincident9 [0] 08C04-SFP-02-1: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[2]"
+  Coincident4 [0] 08C04-SFP-02-1: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]"
+  Coincident2 [0] 08C04-SFP-02-1: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]"
+  Distance2: swMateDISTANCE, swAlignNONE, 946 mm
+  Coincident63: swMateCOINCIDENT, swAlignNONE
+  Coincident48: swMateCOINCIDENT, swAlignNONE
+  Coincident47: swMateCOINCIDENT, swAlignNONE
+  Coincident46: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident31: swMateCOINCIDENT, swAlignNONE
+  Coincident10: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident9: swMateCOINCIDENT, swAlignNONE
+  Coincident4: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident2: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  pattern LocalLPattern1 - LCMM40X80-02A: direction on 08X04-LMW-2/GNRIC-LPP-1 (edge), seeds 
+  pattern LocalLPattern2 - LCMM40X80-03A: direction on 08X04-LMW-7/GNRIC-LPP-1 (edge), seeds 
+  pattern LocalLPattern3 - ALL TIES VERTICALLY: direction on 08X04-LMW-1/GNRIC-LM-1 (edge), seeds 
+    direction 1 is __ComObject of body "M12 Clearance Slot1"
+  pattern LocalLPattern1 - STUBS: direction on 08C04-SFP-02-1 (edge), seeds 
+Replaced 1 instance(s) by P:\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-02.SLDASM <Default>
+Changes in the tree (6 lines; - removed, + added, ~ changed):
+  - 08C04-SFP-02-1: P:\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-02.SLDPRT <Default<As Machined>>
+  + 08C04-SFP-02-2: P:\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-02.SLDASM <Default>
+  (and 4 lines for components inside the changed ones)
+In 08C04-SFP-02.SLDASM (swResolveNotPerformed): 08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> Lightweight, 08C04-SFP-05-1 <Default<As Machined>> Lightweight, 08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> Lightweight, 08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> Lightweight
+  Distance2 [1]: Face2 of body "M12 Clearance Slot1" -> found by position (1 match: 08C04-SFP-02-2/08X04-PLP-1); face of 08C04-SFP-02-2/08X04-PLP-1
+  Coincident63 [0]: Face2 of body "End cap2[1]" -> found by position (1 match: 08C04-SFP-02-2/08C04-SFP-05-1); face of 08C04-SFP-02-2/08C04-SFP-05-1
+  Coincident48 [0]: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]" -> found by position (1 match: 08C04-SFP-02-2/08C04-SFP-05-1); face of 08C04-SFP-02-2/08C04-SFP-05-1
+  Coincident47 [0]: Face2 of body "End cap1[1]" -> found by position (1 match: 08C04-SFP-02-2/08C04-SFP-05-1); face of 08C04-SFP-02-2/08C04-SFP-05-1
+  Coincident46 [0]: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]" -> found by position (1 match: 08C04-SFP-02-2/08C04-SFP-05-1); face of 08C04-SFP-02-2/08C04-SFP-05-1
+  Coincident31 [0]: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]" -> found by position (1 match: 08C04-SFP-02-2/08C04-SFP-05-1); face of 08C04-SFP-02-2/08C04-SFP-05-1
+  Coincident10 [0]: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[2]" -> found by position (1 match: 08C04-SFP-02-2/08C04-SFP-05-1); face of 08C04-SFP-02-2/08C04-SFP-05-1
+  Coincident9 [0]: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[2]" -> found by position (1 match: 08C04-SFP-02-2/08C04-SFP-05-1); face of 08C04-SFP-02-2/08C04-SFP-05-1
+  Coincident4 [0]: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]" -> found by position (1 match: 08C04-SFP-02-2/08C04-SFP-05-1); face of 08C04-SFP-02-2/08C04-SFP-05-1
+  Coincident2 [0]: Face2 of body " C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]" -> found by position (1 match: 08C04-SFP-02-2/08C04-SFP-05-1); face of 08C04-SFP-02-2/08C04-SFP-05-1
+  Distance2: added again on the new assembly (Distance3 renamed Distance2), the broken one deleted
+  Coincident63: added again on the new assembly (Coincident70 renamed Coincident63), the broken one deleted
+  Coincident48: added again on the new assembly (Coincident70 renamed Coincident48), the broken one deleted
+  Coincident47: added again on the new assembly (Coincident70 renamed Coincident47), the broken one deleted
+  Coincident46: added again on the new assembly (Coincident70 renamed Coincident46), the broken one deleted
+  Coincident31: added again on the new assembly (Coincident70 renamed Coincident31), the broken one deleted
+  Coincident10: added again on the new assembly (Coincident70 renamed Coincident10), the broken one deleted
+  Coincident9: added again on the new assembly (Coincident70 renamed Coincident9), the broken one deleted
+  Coincident4: added again on the new assembly (Coincident70 renamed Coincident4), the broken one deleted
+  Coincident2: added again on the new assembly (Coincident70 renamed Coincident2), the broken one deleted
+  pattern LocalLPattern1 - STUBS: direction edge by position: 1 match
+  pattern LocalLPattern1 - STUBS: direction 1 put back on the new assembly
+Other components: 160, moved: 0
+  new instance 08C04-SFP-02-2, fixed
+Mates put back: 10 of 10; dropped: none; items wrong: 0 before, 0 now
+What's wrong: nothing.
+  2 other modified open document(s) are read-only on disk: SOLIDWORKS discards their changes (option on), they are not written
+Saved P:\APEX\SC08\LS-08X-04\ShaftC\08C04-SFA-2T.SLDASM
+OK

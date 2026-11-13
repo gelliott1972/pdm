@@ -1,0 +1,43 @@
+﻿made read-only for this stage: 7 file(s)
+lock : exit 0, 0 s; Locked SOLIDWORKS for sw: plates-0804 run (P:\)
+close-all : exit 0, 0 s; Closed 0 documents without saving (0 had unsaved changes, now discarded).
+place 08B04-SFP-02 1 : exit 0, 10 s; OK
+close-all b 08B04-SFP-02 : exit 0, 1 s; Closed 2 documents without saving (1 had unsaved changes, now discarded).
+save-as 08C04-SFP-05 : exit 0, 2 s; OK
+delete-feature 08C04-SFP-05 : exit 0, 16 s; OK
+close-all a 08C04-SFP-05 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08C04-SFP-02 : exit 0, 6 s; OK
+place 08C04-SFP-02 1 : exit 0, 11 s; OK
+place 08C04-SFP-02 2 : exit 0, 9 s; OK
+place 08C04-SFP-02 3 : exit 0, 12 s; OK
+close-all b 08C04-SFP-02 : exit 0, 2 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+save-as 08C04-SFP-06 : exit 0, 3 s; OK
+delete-feature 08C04-SFP-06 : exit 0, 14 s; OK
+close-all a 08C04-SFP-06 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08C04-SFP-03 : exit 0, 6 s; OK
+place 08C04-SFP-03 1 : exit 0, 16 s; OK
+place 08C04-SFP-03 2 : exit 0, 13 s; OK
+close-all b 08C04-SFP-03 : exit 0, 2 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+swap-asm 08A04-SFA-2T : exit 0, 86 s; OK
+close-all c 08A04-SFA-2T : exit 0, 1 s; Closed 4 documents without saving (1 had unsaved changes, now discarded).
+swap-asm 08A04-SFA-3T : exit 0, 52 s; OK
+close-all c 08A04-SFA-3T : exit 0, 1 s; Closed 4 documents without saving (1 had unsaved changes, now discarded).
+swap-asm 08B04-SFA-3T : exit 0, 38 s; OK
+close-all c 08B04-SFA-3T : exit 0, 1 s; Closed 6 documents without saving (3 had unsaved changes, now discarded).
+swap-asm 08B04-SFA-2T : exit 1, 26 s;   08B04-SFP-05.SLDPRT is not loaded
+made writable again: 7 file(s)
+powershell : STOPPED at swap-asm 08B04-SFA-2T (exit 1, see 
+At line:1 char:318
++ ... :\code\pdm; powershell -NoProfile -ExecutionPolicy Bypass -File sw\pl ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (STOPPED at swap...T (exit 1, see :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\code\pdm\sw\plates-0804-real\resume-08B04-SFP-02\s1-swap-asm-08B04-SFA-2T.txt)
+At C:\code\pdm\sw\plates-0804-run.ps1:32 char:35
++ ... -notcontains $code) { throw "STOPPED at $name (exit $code, see $f)" }
++                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (STOPPED at swap...B04-SFA-2T.txt):String) [], RuntimeException
+    + FullyQualifiedErrorId : STOPPED at swap-asm 08B04-SFA-2T (exit 1, see C:\code\pdm\sw\plates-0804-real\resume-08B 
+   04-SFP-02\s1-swap-asm-08B04-SFA-2T.txt)
+ 

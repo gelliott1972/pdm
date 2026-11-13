@@ -1,0 +1,155 @@
+﻿Attached to the running SOLIDWORKS (process 37600).
+Read-only referenced files: not prompted, not saved (SOLIDWORKS option on for this command; was off)
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-SFA-2T.SLDASM
+Instances of 08A04-HBW-02.SLDPRT: 08A04-HBW-02-1 (fixed)
+Mate entities on those instances: 10 in 10 mates
+  Distance2 [0] 08A04-HBW-02-1: Face2 of body "M12 Clearance Slot1"
+  Coincident30 [0] 08A04-HBW-02-1: Face2 of body "Rhs RHS80X40X8(1)[1]"
+  Coincident31 [0] 08A04-HBW-02-1: Face2 of body "Rhs RHS80X40X8(1)[1]"
+  Coincident10 [0] 08A04-HBW-02-1: Face2 of body "Rhs RHS80X40X8(1)[2]"
+  Coincident9 [0] 08A04-HBW-02-1: Face2 of body "Rhs RHS80X40X8(1)[2]"
+  Coincident8 [0] 08A04-HBW-02-1: Face2 of body "Ø10.0 (10) Diameter Hole2"
+  Coincident4 [0] 08A04-HBW-02-1: Face2 of body "Rhs RHS80X40X8(1)[1]"
+  Coincident3 [0] 08A04-HBW-02-1: Face2 of body "Ø10.0 (10) Diameter Hole1"
+  Coincident2 [0] 08A04-HBW-02-1: Face2 of body "Rhs RHS80X40X8(1)[1]"
+  Coincident1 [0] 08A04-HBW-02-1: Face2 of body "Rhs RHS80X40X8(1)[1]"
+  Distance2: swMateDISTANCE, swAlignNONE, flipped, 946 mm
+  Coincident30: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident31: swMateCOINCIDENT, swAlignNONE
+  Coincident10: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident9: swMateCOINCIDENT, swAlignNONE
+  Coincident8: swMateCOINCIDENT, swAlignNONE
+  Coincident4: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident3: swMateCOINCIDENT, swAlignNONE
+  Coincident2: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident1: swMateCOINCIDENT, swAlignNONE
+  pattern LocalLPattern1 - LCMM40X80-02A: direction on 08X04-LMW-2/GNRIC-LPP-1
+  pattern LocalLPattern2 - LCMM40X80-03A: direction on 08X04-LMW-7/GNRIC-LPP-1
+  pattern LocalLPattern3 - ALL TIES VERTICALLY: direction on 08X04-LMW-1/GNRIC-LM-1
+    direction 1 is __ComObject of body "M12 Clearance Slot1"
+  pattern LocalLPattern1 - STUBS: direction on 08A04-HBW-02-1  <- ON THE OLD PART: Grant to check after
+Replaced 1 instance(s) by C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-02.SLDASM <Default>
+Changes in the tree (6 lines; - removed, + added, ~ changed):
+  - 08A04-HBW-02-1: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-02.SLDPRT <Default<As Machined>>
+  + 08A04-HBW-02-2: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-02.SLDASM <Default>
+  (and 4 lines for components inside the changed ones)
+Resolved lightweight components (swResolveError)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_LONG_AXIS
+    children: 08A04-HBW-02-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08A04-HBW-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> swComponentLightweight NO MODEL
+    looked for area 23893.142 mm2 box (1469, -90, 30)-(1609, 90, 30); nearest: none
+  Distance2 [0]: Face2 of body "M12 Clearance Slot1" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_LONG_AXIS
+    children: 08A04-HBW-02-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08A04-HBW-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> swComponentLightweight NO MODEL
+    looked for area 32880 mm2 box (-40, -40, -10)-(1604, -40, 10); nearest: none
+  Coincident30 [0]: Face2 of body "Rhs RHS80X40X8(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_LONG_AXIS
+    children: 08A04-HBW-02-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08A04-HBW-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> swComponentLightweight NO MODEL
+    looked for area 96240 mm2 box (-30, -30, 20)-(1604, 30, 20); nearest: none
+  Coincident31 [0]: Face2 of body "Rhs RHS80X40X8(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_LONG_AXIS
+    children: 08A04-HBW-02-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08A04-HBW-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> swComponentLightweight NO MODEL
+    looked for area 25740 mm2 box (-30, -30, -20)-(30, 429, -20); nearest: none
+  Coincident10 [0]: Face2 of body "Rhs RHS80X40X8(1)[2]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_LONG_AXIS
+    children: 08A04-HBW-02-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08A04-HBW-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> swComponentLightweight NO MODEL
+    looked for area 9380 mm2 box (-40, -40, -10)-(-40, 429, 10); nearest: none
+  Coincident9 [0]: Face2 of body "Rhs RHS80X40X8(1)[2]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_LONG_AXIS
+    children: 08A04-HBW-02-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08A04-HBW-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> swComponentLightweight NO MODEL
+    looked for area 2170.522 mm2 box (-36, 434, -16)-(36, 434, 16); nearest: none
+  Coincident8 [0]: Face2 of body "Ø10.0 (10) Diameter Hole2" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_LONG_AXIS
+    children: 08A04-HBW-02-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08A04-HBW-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> swComponentLightweight NO MODEL
+    looked for area 96240 mm2 box (-30, -30, -20)-(1604, 30, -20); nearest: none
+  Coincident4 [0]: Face2 of body "Rhs RHS80X40X8(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_LONG_AXIS
+    children: 08A04-HBW-02-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08A04-HBW-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> swComponentLightweight NO MODEL
+    looked for area 2170.522 mm2 box (1609, -36, -16)-(1609, 36, 16); nearest: none
+  Coincident3 [0]: Face2 of body "Ø10.0 (10) Diameter Hole1" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_LONG_AXIS
+    children: 08A04-HBW-02-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08A04-HBW-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> swComponentLightweight NO MODEL
+    looked for area 96240 mm2 box (-30, -30, -20)-(1604, 30, -20); nearest: none
+  Coincident2 [0]: Face2 of body "Rhs RHS80X40X8(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_LONG_AXIS
+    children: 08A04-HBW-02-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08A04-HBW-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08A04-HBW-02-2/08X04-PLP-3 <180x140x10_SLOTS_LONG_AXIS> swComponentLightweight NO MODEL
+    looked for area 32880 mm2 box (-40, -40, -10)-(1604, -40, 10); nearest: none
+  Coincident1 [0]: Face2 of body "Rhs RHS80X40X8(1)[1]" -> NOT FOUND by position on a plate (0 match)
+  pattern LocalLPattern1 - STUBS: direction not found again (not in 08A04-HBW-04.SLDPRT, ID swPersistReferencedObject_Ok: on a plate?), left for Grant's check
+Other components: 160, moved: 0
+  new instance 08A04-HBW-02-2, fixed
+Mates put back: 0 of 10; dropped: none; items wrong: 0 before, 12 now
+  warning: LocalLPattern1 - STUBS (LocalLPattern) swFeatureErrorUnknown
+FOR GRANT'S CHECK: pattern LocalLPattern1 - STUBS (direction was on 08A04-HBW-02.SLDPRT)
+Not saved (the change is in SOLIDWORKS only; run save, or pass --save).
+PROBLEMS (21):
+  Distance2 [0]: Face2 of body "M12 Clearance Slot1" not found in the new assembly: not put back (--accept-gone Distance2 to drop it)
+  Coincident30 [0]: Face2 of body "Rhs RHS80X40X8(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident30 to drop it)
+  Coincident31 [0]: Face2 of body "Rhs RHS80X40X8(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident31 to drop it)
+  Coincident10 [0]: Face2 of body "Rhs RHS80X40X8(1)[2]" not found in the new assembly: not put back (--accept-gone Coincident10 to drop it)
+  Coincident9 [0]: Face2 of body "Rhs RHS80X40X8(1)[2]" not found in the new assembly: not put back (--accept-gone Coincident9 to drop it)
+  Coincident8 [0]: Face2 of body "Ø10.0 (10) Diameter Hole2" not found in the new assembly: not put back (--accept-gone Coincident8 to drop it)
+  Coincident4 [0]: Face2 of body "Rhs RHS80X40X8(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident4 to drop it)
+  Coincident3 [0]: Face2 of body "Ø10.0 (10) Diameter Hole1" not found in the new assembly: not put back (--accept-gone Coincident3 to drop it)
+  Coincident2 [0]: Face2 of body "Rhs RHS80X40X8(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident2 to drop it)
+  Coincident1 [0]: Face2 of body "Rhs RHS80X40X8(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident1 to drop it)
+  error: Mates (MateGroup) swFeatureErrorUnknown
+  error: Coincident1 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident2 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident3 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident4 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident8 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident9 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident10 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident31 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident30 (MateCoincident) swFeatureErrorMateBroken
+  error: Distance2 (MateDistanceDim) swFeatureErrorMateBroken

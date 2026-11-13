@@ -1,0 +1,115 @@
+﻿Attached to the running SOLIDWORKS (process 37600).
+Read-only referenced files: not prompted, not saved (SOLIDWORKS option on for this command; was off)
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFA-2T.SLDASM
+  (needs a rebuild: it was saved out of date)
+Instances of 08B04-SFP-02.SLDPRT: 08B04-SFP-02-3 (floating), 08B04-SFP-02-2 (floating), 08B04-SFP-02-1 (floating), 08B04-SFP-02-5 (floating), 08B04-SFP-02-4 (floating)
+Mate entities on those instances: 9 in 9 mates
+  Coincident151 [1] 08B04-SFP-02-5: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident150 [1] 08B04-SFP-02-5: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident149 [1] 08B04-SFP-02-5: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident148 [1] 08B04-SFP-02-4: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident147 [1] 08B04-SFP-02-4: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident146 [1] 08B04-SFP-02-4: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident133 [0] 08B04-SFP-02-1: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident132 [0] 08B04-SFP-02-1: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident131 [0] 08B04-SFP-02-1: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident151: swMateCOINCIDENT, swAlignNONE
+  Coincident150: swMateCOINCIDENT, swAlignNONE
+  Coincident149: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident148: swMateCOINCIDENT, swAlignNONE
+  Coincident147: swMateCOINCIDENT, swAlignNONE
+  Coincident146: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident133: swMateCOINCIDENT, swAlignNONE
+  Coincident132: swMateCOINCIDENT, swAlignNONE
+  Coincident131: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  pattern LocalLPattern1 - LCMM40X80-02A: direction on 08X04-LMW-2/GNRIC-LPP-1
+  pattern LocalLPattern2 - LCMM40X80-03A: direction on 08X04-LMW-7/GNRIC-LPP-3
+  pattern LocalLPattern3 - ALL TIES VERTICALLY: direction on 08X04-LMW-1/GNRIC-LM-1
+  pattern LocalLPattern1 - STUBS: direction on 08X04-LMW-10/GNRIC-LM-1
+Replaced 5 instance(s) by C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+Changes in the tree (20 lines; - removed, + added, ~ changed):
+  - 08B04-SFP-02-3: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT <Default<As Machined>>
+  - 08B04-SFP-02-2: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT <Default<As Machined>>
+  - 08B04-SFP-02-1: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT <Default<As Machined>>
+  - 08B04-SFP-02-5: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT <Default<As Machined>>
+  - 08B04-SFP-02-4: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT <Default<As Machined>>
+  + 08B04-SFP-02-8: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+  + 08B04-SFP-02-7: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+  + 08B04-SFP-02-6: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+  + 08B04-SFP-02-10: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+  + 08B04-SFP-02-9: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+  (and 10 lines for components inside the changed ones)
+Resolved lightweight components (swResolveError)
+Already open: C:\PDM-work\plates-0804\vault\APEX\GNRIC\GNRIC-LPP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-05.SLDPRT
+    children: 08B04-SFP-02-10/GNRIC-LPP-1 <DOUBLE_BOTTOM> swComponentLightweight NO MODEL, 08B04-SFP-02-10/08B04-SFP-05-1 <Default<As Machined>> swComponentLightweight NO MODEL
+    looked for area 4560 mm2 box (20, 0, -12)-(20, 202, 12); nearest: none
+  Coincident151 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\GNRIC\GNRIC-LPP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-05.SLDPRT
+    children: 08B04-SFP-02-10/GNRIC-LPP-1 <DOUBLE_BOTTOM> swComponentLightweight NO MODEL, 08B04-SFP-02-10/08B04-SFP-05-1 <Default<As Machined>> swComponentLightweight NO MODEL
+    looked for area 4080 mm2 box (-12, 0, 20)-(12, 170, 20); nearest: none
+  Coincident150 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\GNRIC\GNRIC-LPP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-05.SLDPRT
+    children: 08B04-SFP-02-10/GNRIC-LPP-1 <DOUBLE_BOTTOM> swComponentLightweight NO MODEL, 08B04-SFP-02-10/08B04-SFP-05-1 <Default<As Machined>> swComponentLightweight NO MODEL
+    looked for area 534.796 mm2 box (-20, 0, -20)-(20, 0, 20); nearest: none
+  Coincident149 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\GNRIC\GNRIC-LPP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-05.SLDPRT
+    children: 08B04-SFP-02-9/GNRIC-LPP-1 <DOUBLE_BOTTOM> swComponentLightweight NO MODEL, 08B04-SFP-02-9/08B04-SFP-05-1 <Default<As Machined>> swComponentLightweight NO MODEL
+    looked for area 4080 mm2 box (-12, 0, 20)-(12, 170, 20); nearest: none
+  Coincident148 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\GNRIC\GNRIC-LPP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-05.SLDPRT
+    children: 08B04-SFP-02-9/GNRIC-LPP-1 <DOUBLE_BOTTOM> swComponentLightweight NO MODEL, 08B04-SFP-02-9/08B04-SFP-05-1 <Default<As Machined>> swComponentLightweight NO MODEL
+    looked for area 4560 mm2 box (20, 0, -12)-(20, 202, 12); nearest: none
+  Coincident147 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\GNRIC\GNRIC-LPP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-05.SLDPRT
+    children: 08B04-SFP-02-9/GNRIC-LPP-1 <DOUBLE_BOTTOM> swComponentLightweight NO MODEL, 08B04-SFP-02-9/08B04-SFP-05-1 <Default<As Machined>> swComponentLightweight NO MODEL
+    looked for area 534.796 mm2 box (-20, 0, -20)-(20, 0, 20); nearest: none
+  Coincident146 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\GNRIC\GNRIC-LPP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-05.SLDPRT
+    children: 08B04-SFP-02-6/GNRIC-LPP-1 <DOUBLE_BOTTOM> swComponentLightweight NO MODEL, 08B04-SFP-02-6/08B04-SFP-05-1 <Default<As Machined>> swComponentLightweight NO MODEL
+    looked for area 4080 mm2 box (-12, 0, 20)-(12, 170, 20); nearest: none
+  Coincident133 [0]: Face2 of body "Shs SHS40X40X4(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\GNRIC\GNRIC-LPP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-05.SLDPRT
+    children: 08B04-SFP-02-6/GNRIC-LPP-1 <DOUBLE_BOTTOM> swComponentLightweight NO MODEL, 08B04-SFP-02-6/08B04-SFP-05-1 <Default<As Machined>> swComponentLightweight NO MODEL
+    looked for area 4560 mm2 box (20, 0, -12)-(20, 202, 12); nearest: none
+  Coincident132 [0]: Face2 of body "Shs SHS40X40X4(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\GNRIC\GNRIC-LPP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-05.SLDPRT
+    children: 08B04-SFP-02-6/GNRIC-LPP-1 <DOUBLE_BOTTOM> swComponentLightweight NO MODEL, 08B04-SFP-02-6/08B04-SFP-05-1 <Default<As Machined>> swComponentLightweight NO MODEL
+    looked for area 534.796 mm2 box (-20, 0, -20)-(20, 0, 20); nearest: none
+  Coincident131 [0]: Face2 of body "Shs SHS40X40X4(1)[1]" -> NOT FOUND by position on a plate (0 match)
+Other components: 164, moved: 0
+  new instance 08B04-SFP-02-8, floating
+  new instance 08B04-SFP-02-7, floating
+  new instance 08B04-SFP-02-6, floating
+  new instance 08B04-SFP-02-10, floating
+  new instance 08B04-SFP-02-9, floating
+Mates put back: 0 of 9; dropped: none; items wrong: 0 before, 10 now
+  warning: Mates (MateGroup) swFeatureErrorUnknown
+Not saved (the change is in SOLIDWORKS only; run save, or pass --save).
+PROBLEMS (18):
+  Coincident151 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident151 to drop it)
+  Coincident150 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident150 to drop it)
+  Coincident149 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident149 to drop it)
+  Coincident148 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident148 to drop it)
+  Coincident147 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident147 to drop it)
+  Coincident146 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident146 to drop it)
+  Coincident133 [0]: Face2 of body "Shs SHS40X40X4(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident133 to drop it)
+  Coincident132 [0]: Face2 of body "Shs SHS40X40X4(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident132 to drop it)
+  Coincident131 [0]: Face2 of body "Shs SHS40X40X4(1)[1]" not found in the new assembly: not put back (--accept-gone Coincident131 to drop it)
+  error: Coincident131 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident132 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident133 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident146 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident147 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident148 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident149 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident150 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident151 (MateCoincident) swFeatureErrorMateBroken

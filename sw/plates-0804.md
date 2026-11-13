@@ -47,3 +47,7 @@ Slip (01:56-01:58Z): my plate-comparison run didn't stop on a refused lock and s
 | Mass gate | old part = new assembly to the last digit, all six (mass, volume, area) |
 | Properties (DmEdit batch, `scratch\import\plates-0804\sw\props-dry.tsv`) | 46 changes, read back. Assemblies: PartNo, PartNoStatus, Description, Weight (own file). Weldment-only: PartNo = new number on every configuration, PartNoStatus; As Welded Weight of HBW-04/-05 pointed at the old file, fixed. PLP-32 PartNo + Description "SF INTERFACE PLATE 180x140"; Type 2 PartNo left out (number to come) |
 | SFA replace + mates | waiting for Dev's mate-repairing replace (Dev: 10 mates break in 08A04-SFA-2T) |
+
+## SFA swap, look pass (13 Nov ~02:40Z; `sw\plates-0804-dry\swap-look-*.txt`)
+
+swap-asm (Dev, 03e0eb3) without --save on all six copies: no mate put back in any SFA (every face "not found", "Resolved lightweight components (swResolveError)"); other components unmoved; nothing saved. Dev's own test had 9 of 10. Sent to Dev; waiting. Patterns whose direction was on the old part: A-2T and C-2T "LocalLPattern1 - STUBS", A-3T "LocalLPattern1 - VERTICALS + STUBS". Mates on plate faces: Distance2 in A-2T and C-2T (946 mm).

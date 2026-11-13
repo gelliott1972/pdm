@@ -1,0 +1,82 @@
+﻿Attached to the running SOLIDWORKS (process 37600).
+Read-only referenced files: not prompted, not saved (SOLIDWORKS option on for this command; was off)
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFA-3T.SLDASM
+  (needs a rebuild: it was saved out of date)
+Instances of 08B04-SFP-01.SLDPRT: 08B04-SFP-01-1 (fixed)
+Mate entities on those instances: 6 in 6 mates
+  Coincident28 [0] 08B04-SFP-01-1: Face2 of body "Rhs RHS80X40X8(1)"
+  Coincident27 [0] 08B04-SFP-01-1: Face2 of body "End cap1"
+  Coincident26 [0] 08B04-SFP-01-1: Face2 of body "Rhs RHS80X40X8(1)"
+  Coincident4 [0] 08B04-SFP-01-1: Face2 of body "End cap1"
+  Coincident2 [0] 08B04-SFP-01-1: Face2 of body "Rhs RHS80X40X8(1)"
+  Coincident1 [0] 08B04-SFP-01-1: Face2 of body "Rhs RHS80X40X8(1)"
+  Coincident28: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident27: swMateCOINCIDENT, swAlignNONE
+  Coincident26: swMateCOINCIDENT, swAlignNONE
+  Coincident4: swMateCOINCIDENT, swAlignNONE
+  Coincident2: swMateCOINCIDENT, swAlignNONE
+  Coincident1: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  pattern LocalLPattern1- VERTICALS + STUBS: direction on the assembly
+  pattern LocalLPattern2- TIES VERTICALLY: no direction read
+Replaced 1 instance(s) by C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-01.SLDASM <Default>
+Changes in the tree (5 lines; - removed, + added, ~ changed):
+  - 08B04-SFP-01-1: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-01.SLDPRT <Default<As Machined>>
+  + 08B04-SFP-01-2: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-01.SLDASM <Default>
+  (and 3 lines for components inside the changed ones)
+Resolved lightweight components (swResolveError)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+  switched to configuration 180x140x10_SLOTS_SHORT_AXIS
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+    children: 08B04-SFP-01-2/08B04-SFP-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL
+    looked for area 38000 mm2 box (-950, -10, -40)-(950, 10, -40); nearest: none
+  Coincident28 [0]: Face2 of body "Rhs RHS80X40X8(1)" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+    children: 08B04-SFP-01-2/08B04-SFP-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL
+    looked for area 2249.062 mm2 box (-955, -16, -36)-(-955, 16, 36); nearest: none
+  Coincident27 [0]: Face2 of body "End cap1" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+    children: 08B04-SFP-01-2/08B04-SFP-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL
+    looked for area 114000 mm2 box (-950, 20, -30)-(950, 20, 30); nearest: none
+  Coincident26 [0]: Face2 of body "Rhs RHS80X40X8(1)" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+    children: 08B04-SFP-01-2/08B04-SFP-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL
+    looked for area 2249.062 mm2 box (-955, -16, -36)-(-955, 16, 36); nearest: none
+  Coincident4 [0]: Face2 of body "End cap1" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+    children: 08B04-SFP-01-2/08B04-SFP-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL
+    looked for area 38000 mm2 box (-950, -10, -40)-(950, 10, -40); nearest: none
+  Coincident2 [0]: Face2 of body "Rhs RHS80X40X8(1)" -> NOT FOUND by position on a plate (0 match)
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-04.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+Already open: C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+    children: 08B04-SFP-01-2/08B04-SFP-04-1 <Default<As Machined>> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-1 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL, 08B04-SFP-01-2/08X04-PLP-2 <180x140x10_SLOTS_SHORT_AXIS> swComponentLightweight NO MODEL
+    looked for area 114000 mm2 box (-950, -20, -30)-(950, -20, 30); nearest: none
+  Coincident1 [0]: Face2 of body "Rhs RHS80X40X8(1)" -> NOT FOUND by position on a plate (0 match)
+Other components: 171, moved: 0
+  new instance 08B04-SFP-01-2, fixed
+Mates put back: 0 of 6; dropped: none; items wrong: 0 before, 8 now
+  warning: Mates (MateGroup) swFeatureErrorUnknown
+  warning: LocalLPattern1- VERTICALS + STUBS (LocalLPattern) swFeatureErrorUnknown
+Not saved (the change is in SOLIDWORKS only; run save, or pass --save).
+PROBLEMS (12):
+  Coincident28 [0]: Face2 of body "Rhs RHS80X40X8(1)" not found in the new assembly: not put back (--accept-gone Coincident28 to drop it)
+  Coincident27 [0]: Face2 of body "End cap1" not found in the new assembly: not put back (--accept-gone Coincident27 to drop it)
+  Coincident26 [0]: Face2 of body "Rhs RHS80X40X8(1)" not found in the new assembly: not put back (--accept-gone Coincident26 to drop it)
+  Coincident4 [0]: Face2 of body "End cap1" not found in the new assembly: not put back (--accept-gone Coincident4 to drop it)
+  Coincident2 [0]: Face2 of body "Rhs RHS80X40X8(1)" not found in the new assembly: not put back (--accept-gone Coincident2 to drop it)
+  Coincident1 [0]: Face2 of body "Rhs RHS80X40X8(1)" not found in the new assembly: not put back (--accept-gone Coincident1 to drop it)
+  error: Coincident1 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident2 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident4 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident26 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident27 (MateCoincident) swFeatureErrorMateBroken
+  error: Coincident28 (MateCoincident) swFeatureErrorMateBroken

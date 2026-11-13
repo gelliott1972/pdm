@@ -1,17 +1,30 @@
 # Dev status
 
-Updated 13 Nov 2026, on Grant's laptop.
+Updated 13 Nov 2026 (plates-0804), on Grant's laptop.
 
-## Now: idle, waiting for Admin's next brief
+## Now: plates out of six 0804 weldments (brief `docsriefs\plates-0804.md`, Grant 13 Nov)
 
-Nothing open for Dev: no Dev Desk tickets open, no brief after `restructure-0804.md`.
+Dev's part: SwCmd steps, tested on Dev's copy `scratch\import\plates-0804\toolcopy` (copy of P:\ 13 Nov); SW does the dry
+run, real run and check-in. Round list and draft ledger rows: `scratch\import\plates-0804\make_round.py` ->
+`round.csv` (12 new, 7 changed, 6 retired), `ledger-rows-draft.csv` (18 rows: per configuration old part -> weldment-only
+part, and old part -> the new assembly).
+
+| Step (SwCmd) | Test on the copy |
+| --- | --- |
+| `bodies` (read-only) | 08A04-HBW-02: 3 plates 180x140x10 (two 238931.42 mm3, one 240874.45: slots the other way), 2 RHS, 2 end caps 72x32x5 |
+| `add-config` | 08X04-PLP from SHORT_AXIS, D2@Sketch1=180, Thru Hole Dia.@Sketch5=15, hole suppressed = 238931.42 mm3, the Type 1 plate exactly; from configuration unchanged. Two bugs found and fixed on the way (value went into the wrong configuration) |
+| `save-as --copy`, `delete-feature` | HBW-02 -> HBW-04, plates deleted, 2 RHS + 2 end caps left in both configurations |
+| `new-asm`, `place` | 08A04-HBW-02.SLDASM: HBW-04 fixed at origin; 3 plates fixed; Type 1 overlap 100 %; wrong-way slots refused; mass 30.8559 -> 30.8498 kg (test plate's 10 mm hole) |
+| `swap-asm` (SFA) | built; plain replace breaks 10 mates in 08A04-SFA-2T; swap-asm puts them back on the weldment-only part by face ID. Test next |
+
+Open: P2 (two plate types, PLP-32 configuration) with Admin via SW.
+
+## Earlier: idle 13 Nov morning
 
 | Done since 8 Nov | Result |
 | --- | --- |
-| GNRIC-LM.SLDPRT PartNos (9 Nov) | 10 PartNos LMW-20..24(B) -> LWP-20..24(B) written; App confirms the version is checked in, latest, not checked out. The backup copy in an old session scratchpad is no longer needed (S3 keeps the previous version). |
-| SwCmd export-pdf white recolour (10 Nov, 6a60bb0) | White annotations recoloured to their layer colour in memory only (drawing closed unsaved); refuses a drawing already open. App filed the 0A white re-issue with it (63 PDFs, 35 drawings), SW checked it clean. |
-
-Open elsewhere, not Dev's: the 6 STA-01 drawings (James's 10 Nov model check-ins; Grant decides on a re-issue via Admin/App).
+| GNRIC-LM.SLDPRT PartNos (9 Nov) | 10 PartNos LMW-20..24(B) -> LWP-20..24(B); App confirms checked in |
+| SwCmd export-pdf white recolour (10 Nov, 6a60bb0) | used for the 0A white re-issue (63 PDFs), SW checked it clean |
 
 ## Earlier: 0804 restructure and vault moves (brief `docs\briefs\restructure-0804.md`, S1-S5)
 

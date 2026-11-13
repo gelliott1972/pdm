@@ -346,6 +346,188 @@ static partial class SwCmd
         }
     }
 
+    // ---------- swap-asm ----------
+
+    // swap-asm <asm> <oldPart> <newAsm> <innerPart> [--save] [--checked-out]
+    // Every top-level instance of <oldPart> in <asm> is replaced by <newAsm>, which holds <innerPart> (a Save As copy of
+    // <oldPart>, so its faces keep their IDs) at its origin. Replacing a part by an assembly breaks every mate on the
+    // part (13 Nov test: 10 in 08A04-SFA-2T), so before the replace each mate entity on <oldPart> is found in the part
+    // (face, edge, vertex: by matching the component's entities; plane, axis, point: by feature name) and its persistent
+    // ID kept; after it, the same entity is taken from <innerPart> inside the new instance and put back into the mate.
+    // An entity on a body that <innerPart> no longer has (a plate) can't be put back: listed as a problem.
+    class MateFix
+    {
+        public string Mate, OldInst, What, FeatName, BodyName;
+        public int Index;
+        public object Pid;
+        public double[] Xf;
+        public bool Done;
+    }
+
+    static List<Feature> TopMates(ModelDoc2 doc)
+    {
+        var r = new List<Feature>();
+        for (var f = doc.FirstFeature() as Feature; f != null; f = f.GetNextFeature() as Feature)
+        {
+            if (f.GetTypeName2() != "MateGroup") continue;
+            var stack = new Stack<Feature>();
+            for (var m = f.GetFirstSubFeature() as Feature; m != null; m = m.GetNextSubFeature() as Feature) stack.Push(m);
+            while (stack.Count > 0)
+            {
+                var m = stack.Pop();
+                if (m.GetTypeName2() == "FtrFolder")
+                {   // mates in a folder
+                    for (var s = m.GetFirstSubFeature() as Feature; s != null; s = s.GetNextSubFeature() as Feature) stack.Push(s);
+                    continue;
+                }
+                if (m.Name.StartsWith("___EndTag___")) continue;
+                if (m.GetSpecificFeature2() is Mate2) r.Add(m);
+            }
+        }
+        return r;
+    }
+
+    static object[] MateEntities(Feature f, out object data)
+    {
+        data = f.GetDefinition();
+        if (data == null) return null;
+        try { return ((dynamic)data).EntitiesToMate as object[]; } catch { return null; }
+    }
+
+    static int SwapAsm(ISldWorks sw, string asmPath, string oldPart, string newAsm, string innerPart, bool save, bool checkedOut)
+    {
+        var asm = OpenAssembly(sw, asmPath);
+        if (asm == null || ReadOnlyOpen((ModelDoc2)asm)) return Finish();
+        var doc = (ModelDoc2)asm;
+        var insts = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>()
+            .Where(c => string.Equals(c.GetPathName(), oldPart, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (insts.Count == 0) { problems.Add("no top-level instance of " + oldPart + " in " + asmPath); return Finish(); }
+        foreach (var c in insts)
+        {
+            int st = c.GetSuppression2();
+            if (st == (int)swComponentSuppressionState_e.swComponentSuppressed) { problems.Add(c.Name2 + " is suppressed"); return Finish(); }
+            if (st != (int)swComponentSuppressionState_e.swComponentFullyResolved && st != (int)swComponentSuppressionState_e.swComponentResolved)
+                c.SetSuppression2((int)swComponentSuppressionState_e.swComponentFullyResolved);
+        }
+        Console.WriteLine("Instances of " + Path.GetFileName(oldPart) + ": " + string.Join(", ", insts.Select(c => c.Name2 + (c.IsFixed() ? " (fixed)" : " (floating)"))));
+        doc.ForceRebuild3(false);
+        int errorsBefore = doc.Extension.GetWhatsWrongCount();
+        if (errorsBefore > 0) { Console.WriteLine("Before the swap:"); ReportWhatsWrong(doc); problems.Clear(); Console.WriteLine("  (" + errorsBefore + " items wrong already; compared after)"); }
+
+        // 1. Every mate entity on an instance: its persistent ID in the part.
+        var fixes = new List<MateFix>();
+        var instByName = insts.ToDictionary(c => c.Name2, StringComparer.OrdinalIgnoreCase);
+        var cache = new Dictionary<string, List<KeyValuePair<object, object>>>();   // instance -> (part entity, assembly entity)
+        foreach (var mf in TopMates(doc))
+        {
+            var mate = (Mate2)mf.GetSpecificFeature2();
+            object data;
+            var ents = MateEntities(mf, out data);
+            for (int i = 0; i < mate.GetMateEntityCount(); i++)
+            {
+                var me = mate.MateEntity(i);
+                var rc = me == null ? null : me.ReferenceComponent as Component2;
+                if (rc == null || !instByName.ContainsKey(rc.Name2)) continue;
+                var fx = new MateFix { Mate = mf.Name, OldInst = rc.Name2, Index = i, Xf = (double[])rc.Transform2.ArrayData };
+                fixes.Add(fx);
+                object ent = ents != null && i < ents.Length ? ents[i] : me.Reference;
+                var feat = ent as Feature;
+                if (feat != null) { fx.FeatName = feat.Name; fx.What = "feature \"" + feat.Name + "\""; continue; }
+                var oldDoc = rc.GetModelDoc2() as ModelDoc2;
+                if (oldDoc == null) { fx.What = "? (part not loaded)"; continue; }
+                List<KeyValuePair<object, object>> list;
+                if (!cache.TryGetValue(rc.Name2, out list))
+                {
+                    list = new List<KeyValuePair<object, object>>();
+                    foreach (var b in SolidBodies((PartDoc)oldDoc))
+                        foreach (var arr in new[] { b.GetFaces(), b.GetEdges(), b.GetVertices() })
+                            foreach (var pe in (arr as object[] ?? new object[0]))
+                            {
+                                object ce = null;
+                                try { ce = rc.GetCorrespondingEntity(pe); } catch { }
+                                if (ce != null) list.Add(new KeyValuePair<object, object>(pe, ce));
+                            }
+                    cache[rc.Name2] = list;
+                }
+                Type want = ent is Face2 ? typeof(Face2) : ent is Edge ? typeof(Edge) : ent is Vertex ? typeof(Vertex) : null;
+                var hit = list.FirstOrDefault(kv => (want == null || want.IsInstanceOfType(kv.Key))
+                    && sw.IsSame(kv.Value, ent) == (int)swObjectEquality.swObjectSame);
+                if (hit.Key == null) { fx.What = (want != null ? want.Name : "entity") + " (not found in the part)"; continue; }
+                fx.Pid = oldDoc.Extension.GetPersistReference3(hit.Key);
+                var face = hit.Key as Face2;
+                var body = face != null ? face.GetBody() as Body2 : hit.Key is Edge ? ((Edge)hit.Key).GetBody() as Body2 : null;
+                fx.BodyName = body != null ? body.Name : "";
+                fx.What = want.Name + (fx.BodyName != "" ? " of body \"" + fx.BodyName + "\"" : "");
+            }
+        }
+        Console.WriteLine("Mate entities on those instances: " + fixes.Count + " in " + fixes.Select(f => f.Mate).Distinct().Count() + " mates");
+        foreach (var fx in fixes) Console.WriteLine("  " + fx.Mate + " [" + fx.Index + "] " + fx.OldInst + ": " + fx.What + (fx.Pid == null && fx.FeatName == null ? "  <- NO ID" : ""));
+        if (fixes.Any(f => f.Pid == null && f.FeatName == null)) { problems.Add("some mate entities could not be identified in the part; nothing replaced"); return Finish(); }
+
+        // 2. Replace every instance.
+        var before = Snapshot(asm);
+        if (!Select(doc, insts[0])) return Finish();
+        bool ok = asm.ReplaceComponents2(newAsm, "Default", true, (int)swReplaceComponentsConfiguration_e.swReplaceComponentsConfiguration_ManuallySelect, true);
+        Console.WriteLine((ok ? "Replaced " : "REPLACE FAILED ") + insts.Count + " instance(s) by " + newAsm + " <Default>");
+        if (!ok) { problems.Add("ReplaceComponents2 returned false"); return Finish(); }
+        doc.ForceRebuild3(false);
+        var news = (asm.GetComponents(true) as object[] ?? new object[0]).Cast<Component2>()
+            .Where(c => string.Equals(c.GetPathName(), newAsm, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (news.Count != insts.Count) problems.Add(news.Count + " instances of the new assembly, " + insts.Count + " before");
+        Diff(before, Snapshot(asm));
+
+        // 3. The same entities from the inner part of each new instance (matched to the old one by position).
+        Func<double[], Component2> newAt = xf => news.FirstOrDefault(n =>
+        {
+            var d = (double[])n.Transform2.ArrayData;
+            return Enumerable.Range(0, 12).All(i => Math.Abs(d[i] - xf[i]) < 1e-9);
+        });
+        var fixedNow = news.Where(n => n.IsFixed()).Count();
+        foreach (var grp in fixes.GroupBy(f => f.Mate))
+        {
+            var mf = ((AssemblyDoc)doc).FeatureByName(grp.Key) as Feature;
+            if (mf == null) { problems.Add("mate " + grp.Key + " is gone after the replace"); continue; }
+            object data;
+            var ents = MateEntities(mf, out data);
+            if (ents == null) { problems.Add(grp.Key + ": can't read its entities"); continue; }
+            bool changed = false;
+            foreach (var fx in grp)
+            {
+                var ni = newAt(fx.Xf);
+                if (ni == null) { problems.Add(grp.Key + ": no new instance where " + fx.OldInst + " was"); continue; }
+                var inner = ((ni.GetChildren() as object[]) ?? new object[0]).Cast<Component2>()
+                    .FirstOrDefault(c => string.Equals(c.GetPathName(), innerPart, StringComparison.OrdinalIgnoreCase));
+                if (inner == null) { problems.Add(ni.Name2 + " has no " + Path.GetFileName(innerPart)); continue; }
+                object ne = null;
+                if (fx.FeatName != null) ne = inner.FeatureByName(fx.FeatName);
+                else
+                {
+                    var innerDoc = inner.GetModelDoc2() as ModelDoc2;
+                    int err;
+                    var pe = innerDoc == null ? null : innerDoc.Extension.GetObjectByPersistReference3(fx.Pid, out err);
+                    if (pe != null) ne = inner.GetCorrespondingEntity(pe);
+                }
+                if (ne == null) { problems.Add(grp.Key + " [" + fx.Index + "]: " + fx.What + " is not in " + Path.GetFileName(innerPart) + " (a plate?): not put back"); continue; }
+                if (fx.Index >= ents.Length) { problems.Add(grp.Key + ": has " + ents.Length + " entities now"); continue; }
+                ents[fx.Index] = ne; changed = true; fx.Done = true;
+            }
+            if (!changed) continue;
+            try { ((dynamic)data).EntitiesToMate = ents; } catch (Exception ex) { problems.Add(grp.Key + ": " + ex.Message); continue; }
+            bool mok = mf.ModifyDefinition(data, doc, null);
+            Console.WriteLine("  " + grp.Key + ": " + (mok ? "put back on " + Path.GetFileName(innerPart) : "SOLIDWORKS REFUSED the change"));
+            if (!mok) problems.Add(grp.Key + ": ModifyDefinition failed");
+        }
+        doc.ForceRebuild3(false);
+        foreach (var n in news) Console.WriteLine("  new instance " + n.Name2 + (n.IsFixed() ? ", fixed" : ", floating"));
+        int wrong = doc.Extension.GetWhatsWrongCount();
+        Console.WriteLine("Mates put back: " + fixes.Count(f => f.Done) + " of " + fixes.Count + " entities; items wrong: " + errorsBefore + " before, " + wrong + " now");
+        ReportWhatsWrong(doc);
+        if (save && problems.Count > 0) { Console.Error.WriteLine("Not saved: problems above."); return Finish(); }
+        if (save) { if (!SaveDoc(sw, doc, checkedOut)) return 2; }
+        else Console.WriteLine("Not saved (the change is in SOLIDWORKS only; run save, or pass --save).");
+        return Finish();
+    }
+
     // ---------- dims, add-config ----------
 
     // Every feature (and sketch under it) with its dimensions: full name, value in mm (or degrees), in one configuration.

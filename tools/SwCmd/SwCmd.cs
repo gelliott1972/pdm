@@ -43,7 +43,7 @@
 //   form-sub / dissolve --accept-gone <mate name> (repeatable): that mate may be lost (B, Admin 7 Nov: two stale mates);
 //                                                any other mate lost, new or changed is still a PROBLEM (no save)
 //   cut-list <part> [--config <name>]            cut-list items of a weldment part: bodies and properties (read-only)
-//   bodies, place, new-asm, delete-feature, dims, add-config: see Place.cs (plates out of the 0804 weldments, 13 Nov)
+//   bodies, place, new-asm, delete-feature, dims, add-config, swap-asm: see Place.cs (plates out of the 0804 weldments, 13 Nov)
 //   save-as / new-asm --round <round.csv>: as form-sub, a new file in the vault only as a "new" row of that list
 //   tree <asm>                                   the component tree with configurations and suppression (read-only)
 //   mass <file> [--config <name>]                mass (kg), volume (m3), surface (m2) of every configuration, read-only
@@ -227,6 +227,14 @@ static partial class SwCmd
                 if (refusal == null && (Kind(pos[0]) != (int)swDocumentTypes_e.swDocASSEMBLY || Kind(pos[1]) != (int)swDocumentTypes_e.swDocPART))
                     refusal = "new-asm needs a new .SLDASM and a .SLDPRT";
                 break;
+            case "swap-asm":
+                if (pos.Count != 4) return Usage();
+                refusal = WriteRefusal(pos[0], checkedOut, false) ?? ReadRefusal(pos[1]) ?? ReadRefusal(pos[2]) ?? ReadRefusal(pos[3]);
+                for (int k = 1; k < 4 && refusal == null; k++) if (!File.Exists(pos[k])) refusal = "no such file: " + pos[k];
+                if (refusal == null && (Kind(pos[0]) != (int)swDocumentTypes_e.swDocASSEMBLY || Kind(pos[1]) != (int)swDocumentTypes_e.swDocPART
+                    || Kind(pos[2]) != (int)swDocumentTypes_e.swDocASSEMBLY || Kind(pos[3]) != (int)swDocumentTypes_e.swDocPART))
+                    refusal = "swap-asm needs <asm.SLDASM> <oldPart.SLDPRT> <newAsm.SLDASM> <innerPart.SLDPRT>";
+                break;
             case "dims":
                 if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]);
                 if (refusal == null && Kind(pos[0]) != (int)swDocumentTypes_e.swDocPART) refusal = "dims needs a part";
@@ -312,6 +320,7 @@ static partial class SwCmd
                 case "place": return Place(sw, pos[0], pos[1], pos[2], pos[3], config, opts.ContainsKey("src-config") ? opts["src-config"] : null, save, checkedOut);
                 case "new-asm": return NewAsm(sw, pos[0], pos[1], config);
                 case "dims": return Dims(sw, pos[0], config);
+                case "swap-asm": return SwapAsm(sw, pos[0], pos[1], pos[2], pos[3], save, checkedOut);
                 case "add-config": return AddConfig(sw, pos[0], pos[1], opts["from"], dimArgs, suppressArgs, save, checkedOut);
                 case "delete-feature": return DeleteFeature(sw, pos[0], pos.Skip(1).ToList(), save, checkedOut);
                 case "pack-and-go": return PackAndGo(sw, pos[0], pos[1]);
@@ -502,6 +511,7 @@ static partial class SwCmd
         Console.Error.WriteLine("       | dissolve <asm> <component> [--accept-gone <mate> ...] [--save] [--checked-out]");
         Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | mass <file> [--config <name>] | pack-and-go <top> <newFolder>");
         Console.Error.WriteLine("       | bodies <part> [--config <name>] | dims <part> [--config <name>]");
+        Console.Error.WriteLine("       | swap-asm <asm> <oldPart> <newAsm> <innerPart> [--save] [--checked-out]");
         Console.Error.WriteLine("       | add-config <part> <newCfg> --from <cfg> [--dim <name>=<mm> ...] [--suppress <feature> ...] [--save] [--checked-out]");
         Console.Error.WriteLine("       | place <asm> <part> <srcPart> <body> [--config <cfg>] [--src-config <cfg>] [--tolerance <percent>] [--save] [--checked-out]");
         Console.Error.WriteLine("       | new-asm <newAsm> <part> [--config <cfg>] [--round <round.csv>] | delete-feature <part> <feature> [<feature> ...] [--save] [--checked-out]");

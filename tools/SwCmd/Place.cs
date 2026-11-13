@@ -198,6 +198,10 @@ static partial class SwCmd
     {
         if (Kind(partPath) != (int)swDocumentTypes_e.swDocPART || Kind(srcPath) != (int)swDocumentTypes_e.swDocPART)
         { problems.Add("place inserts a part at a body of a part"); return Finish(); }
+        // The inserted part is opened in the configuration used, which marks it modified. In the vault it is read-only
+        // (not checked out) and must stay as it is: leave it unsaved, as swap-asm does (real run, 13 Nov: GNRIC-LPP
+        // <DOUBLE_BOTTOM> refused the save of 08B04-SFP-02.SLDASM; the rehearsal on a copy didn't reach this).
+        if (save) DiscardReadOnlyRefs(sw);
         var mu = (MathUtility)sw.GetMathUtility();
 
         // Target: the named body in the source part.

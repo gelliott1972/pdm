@@ -1,0 +1,48 @@
+﻿made read-only for this stage: 7 file(s)
+lock : exit 0, 0 s; Locked SOLIDWORKS for sw: plates-0804 run (P:\)
+close-all : exit 0, 8 s; Closed 0 documents without saving (0 had unsaved changes, now discarded).
+add-config PLP-32 : exit 0, 59 s; OK
+add-config PLP-33 : exit 0, 39 s; OK
+close-all plp : exit 0, 1 s; Closed 1 documents without saving (0 had unsaved changes, now discarded).
+save-as 08A04-HBW-04 : exit 0, 3 s; OK
+delete-feature 08A04-HBW-04 : exit 0, 84 s; OK
+close-all a 08A04-HBW-04 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08A04-HBW-02 : exit 0, 8 s; OK
+place 08A04-HBW-02 1 : exit 0, 41 s; OK
+place 08A04-HBW-02 2 : exit 0, 37 s; OK
+place 08A04-HBW-02 3 : exit 0, 46 s; OK
+close-all b 08A04-HBW-02 : exit 0, 2 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+save-as 08A04-HBW-05 : exit 0, 3 s; OK
+delete-feature 08A04-HBW-05 : exit 0, 58 s; OK
+close-all a 08A04-HBW-05 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08A04-HBW-06 : exit 0, 8 s; OK
+place 08A04-HBW-06 1 : exit 0, 45 s; OK
+place 08A04-HBW-06 2 : exit 0, 45 s; OK
+close-all b 08A04-HBW-06 : exit 0, 2 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+save-as 08B04-SFP-04 : exit 0, 3 s; OK
+delete-feature 08B04-SFP-04 : exit 0, 39 s; OK
+close-all a 08B04-SFP-04 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08B04-SFP-01 : exit 0, 6 s; OK
+place 08B04-SFP-01 1 : exit 0, 9 s; OK
+place 08B04-SFP-01 2 : exit 0, 9 s; OK
+close-all b 08B04-SFP-01 : exit 0, 1 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+save-as 08B04-SFP-05 : exit 0, 2 s; OK
+delete-feature 08B04-SFP-05 : exit 0, 15 s; OK
+close-all a 08B04-SFP-05 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08B04-SFP-02 : exit 0, 5 s; OK
+place 08B04-SFP-02 1 : exit 2, 7 s;  
+made writable again: 7 file(s)
+powershell : STOPPED at place 08B04-SFP-02 1 (exit 2, see C:\code\pdm\sw\plates-0804-real\s1-place-08B04-SFP-02-1.txt)
+At line:1 char:318
++ ... :\code\pdm; powershell -NoProfile -ExecutionPolicy Bypass -File sw\pl ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (STOPPED at plac...4-SFP-02-1.txt):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+At C:\code\pdm\sw\plates-0804-run.ps1:29 char:35
++ ... -notcontains $code) { throw "STOPPED at $name (exit $code, see $f)" }
++                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (STOPPED at plac...4-SFP-02-1.txt):String) [], RuntimeException
+    + FullyQualifiedErrorId : STOPPED at place 08B04-SFP-02 1 (exit 2, see C:\code\pdm\sw\plates-0804-real\s1-place-08 
+   B04-SFP-02-1.txt)
+ 

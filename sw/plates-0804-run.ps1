@@ -9,7 +9,10 @@
 #   -Stage 4 (-Real only): pdm unlock the six old parts (unchanged), pdm load (--dry first), pdm remove them (--dry first).
 # Stops at the first failure. Logs to -Log.
 param([Parameter(Mandatory)] [int] $Stage, [switch] $Real, [switch] $Go, [string] $V = "C:\PDM-work\plates-0804\rehearsal",
-      [string] $Log = "C:\code\pdm\sw\plates-0804-rehearsal")
+      [string] $Log = "C:\code\pdm\sw\plates-0804-rehearsal", [string] $From = "", [int] $FromPlace = 1)
+# -From <old part, e.g. 08B04-SFP-02> -FromPlace <n>: resume stage 1 after a stop. PLP configurations and the jobs before
+# <old part> are skipped (done); in that job, save-as/delete-feature and new-asm are skipped if their file exists, and
+# placing starts at plate <n>. Logs of a resumed run get the suffix "-r".
 $repo = "C:\code\pdm"; $T = "$repo\tools"; $S = "$T\SwCmd\bin\SwCmd.exe"; $round = "$repo\scratch\import\plates-0804\round.csv"
 $Pdm = "$env:LOCALAPPDATA\PDM\current\pdm.exe"
 if ($Real) {
@@ -51,7 +54,10 @@ $jobs = @(
 switch ($Stage) {
     1 {
         if (-not (Test-Path $PLP)) { "No $PLP"; exit 1 }
-        foreach ($j in $jobs) { foreach ($x in "$L\$($j.sh)\$($j.new).SLDPRT", "$L\$($j.sh)\$($j.old).SLDASM") { if (Test-Path $x) { "STOPPED: $x exists already"; exit 1 } } }
+        $fi = if ($From) { [array]::FindIndex([object[]]$jobs, [Predicate[object]]{ param($j) $j.old -eq $From }) } else { 0 }
+        if ($fi -lt 0) { "STOPPED: -From $From is not one of the six"; exit 1 }
+        if ($From) { $script:Log = "$Log" + [char]92 + "resume-$From"; New-Item -ItemType Directory -Force $script:Log | Out-Null }
+        foreach ($j in $jobs[($fi + 1)..($jobs.Count - 1)] + $(if (-not $From) { @($jobs[0]) } else { @() })) { foreach ($x in "$L\$($j.sh)\$($j.new).SLDPRT", "$L\$($j.sh)\$($j.old).SLDASM") { if (Test-Path $x) { "STOPPED: $x exists already"; exit 1 } } }
         $allowed = @($PLP) + @(foreach ($j in $jobs) { "$L\$($j.sh)\$($j.new).SLDPRT"; "$L\$($j.sh)\$($j.old).SLDASM"; "$L\$($j.sh)\$($j.sfa).SLDASM" })
         $files = @(Get-ChildItem -LiteralPath $V -Recurse -File | Where-Object { $_.FullName -notlike "*\.pdm\*" })
         $snap = @{}; foreach ($f in $files) { $snap[$f.FullName] = $f.LastWriteTimeUtc }
@@ -62,17 +68,22 @@ switch ($Stage) {
         Step 'lock' @('lock', '--as', 'sw', '--purpose', "plates-0804 run ($V)") | Out-Null
         try {
             Step 'close-all' @('close-all', '--as', 'sw') | Out-Null
+            if (-not $From) {
             Step 'add-config PLP-32' (@('add-config', $PLP, $T1, '--from', '150x140x10_SLOTS_SHORT_AXIS', '--dim', 'D2@Sketch1=180', '--dim', 'Thru Hole Dia.@Sketch5=15', '--suppress', $hole, '--save') + $w) | Out-Null
             Step 'add-config PLP-33' (@('add-config', $PLP, $T2, '--from', '150x140x10_SLOTS_LONG_AXIS', '--dim', 'D2@Sketch1=180', '--suppress', $hole, '--save') + $w) | Out-Null
             Step 'close-all plp' @('close-all', '--as', 'sw') | Out-Null
-            foreach ($j in $jobs) {
+            }
+            foreach ($j in $jobs[$fi..($jobs.Count - 1)]) {
                 $d = "$L\$($j.sh)"; $o = "$d\$($j.old).SLDPRT"; $n = "$d\$($j.new).SLDPRT"; $a = "$d\$($j.old).SLDASM"
+                $resume = $From -and $j.old -eq $From
+                if (-not ($resume -and (Test-Path $n))) {
                 Step "save-as $($j.new)" (@('save-as', $o, $n, '--copy') + $rnd + @('--as', 'sw')) | Out-Null
                 Step "delete-feature $($j.new)" (@('delete-feature', $n) + $j.del + @('--save') + $w) | Out-Null
                 Step "close-all a $($j.new)" @('close-all', '--as', 'sw') | Out-Null
-                Step "new-asm $($j.old)" (@('new-asm', $a, $n, '--config', $src) + $rnd + @('--as', 'sw')) | Out-Null
+                }
+                if (-not ($resume -and (Test-Path $a))) { Step "new-asm $($j.old)" (@('new-asm', $a, $n, '--config', $src) + $rnd + @('--as', 'sw')) | Out-Null }
                 $i = 0
-                foreach ($p in $j.plates) { $i++; Step "place $($j.old) $i" (@('place', $a, $p[1], $o, $p[0], '--config', $p[2], '--src-config', $src, '--save') + $w) | Out-Null }
+                foreach ($p in $j.plates) { $i++; if ($resume -and $i -lt $FromPlace) { continue }; Step "place $($j.old) $i" (@('place', $a, $p[1], $o, $p[0], '--config', $p[2], '--src-config', $src, '--save') + $w) | Out-Null }
                 Step "close-all b $($j.old)" @('close-all', '--as', 'sw') | Out-Null
             }
             foreach ($j in $jobs) {
@@ -88,7 +99,8 @@ switch ($Stage) {
         }
         $wr = @(Get-ChildItem -LiteralPath $V -Recurse -File | Where-Object { $_.FullName -notlike "*\.pdm\*" -and $allowed -notcontains $_.FullName -and (-not $snap.ContainsKey($_.FullName) -or $snap[$_.FullName] -ne $_.LastWriteTimeUtc) })
         if ($wr.Count) { $wr | ForEach-Object { "  written, not planned: " + $_.FullName } | Tee-Object "$Log\s1-unplanned-writes.txt"; "STOPPED: unplanned writes"; exit 1 }
-        $miss = @($allowed | Where-Object { -not (Test-Path $_) -or $snap[$_] -eq (Get-Item $_).LastWriteTimeUtc })
+        $must = if ($From) { @(foreach ($j in $jobs) { "$L\$($j.sh)\$($j.sfa).SLDASM" }) + @(foreach ($j in $jobs[$fi..($jobs.Count - 1)]) { "$L\$($j.sh)\$($j.old).SLDASM" }) } else { $allowed }
+        $miss = @($must | Where-Object { -not (Test-Path $_) -or $snap[$_] -eq (Get-Item $_).LastWriteTimeUtc })
         if ($miss.Count) { $miss | ForEach-Object { "  planned, not written: $_" }; "STOPPED: planned files not all written"; exit 1 }
         "stage 1 done: all $($allowed.Count) planned files written, nothing else"
     }

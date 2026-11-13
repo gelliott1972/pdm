@@ -43,6 +43,8 @@
 //   form-sub / dissolve --accept-gone <mate name> (repeatable): that mate may be lost (B, Admin 7 Nov: two stale mates);
 //                                                any other mate lost, new or changed is still a PROBLEM (no save)
 //   cut-list <part> [--config <name>]            cut-list items of a weldment part: bodies and properties (read-only)
+//   bodies, place, new-asm, delete-feature, dims, add-config: see Place.cs (plates out of the 0804 weldments, 13 Nov)
+//   save-as / new-asm --round <round.csv>: as form-sub, a new file in the vault only as a "new" row of that list
 //   tree <asm>                                   the component tree with configurations and suppression (read-only)
 //   mass <file> [--config <name>]                mass (kg), volume (m3), surface (m2) of every configuration, read-only
 //   pack-and-go <top> <newFolder>                copy every file the top uses (suppressed included, no drawings) to a new
@@ -86,7 +88,7 @@
 //   status never starts SOLIDWORKS: with none running it says "not running". No command starts SOLIDWORKS while
 //   another role holds the lock (5).
 // Build (from tools\SwCmd, after copying the interop DLLs from tools\sw-macros\bin into bin\):
-//   csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs DialogWatch.cs
+//   csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs DialogWatch.cs Place.cs
 
 using System;
 using System.Collections.Generic;
@@ -96,9 +98,10 @@ using System.Runtime.InteropServices;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
-static class SwCmd
+static partial class SwCmd
 {
     static List<string> problems = new List<string>();
+    static List<string> dimArgs = new List<string>(), suppressArgs = new List<string>();   // add-config
 
     static int Main(string[] args)
     {
@@ -110,16 +113,27 @@ static class SwCmd
         {
             if (args[i] == "--except")
             { if (i + 1 >= args.Length) return Usage(); excepts.Add(args[++i]); }
+            else if (args[i] == "--dim" || args[i] == "--suppress")
+            { if (i + 1 >= args.Length) return Usage(); (args[i] == "--dim" ? dimArgs : suppressArgs).Add(args[++i]); }
             else if (args[i] == "--accept-gone")
             { if (i + 1 >= args.Length) return Usage(); acceptGone.Add(args[++i].Trim()); }
-            else if (args[i] == "--config" || args[i] == "--as" || args[i] == "--purpose" || args[i] == "--round")
+            else if (args[i] == "--config" || args[i] == "--as" || args[i] == "--purpose" || args[i] == "--round" || args[i] == "--src-config" || args[i] == "--from" || args[i] == "--tolerance")
             { if (i + 1 >= args.Length) return Usage(); opts[args[i].Substring(2)] = args[++i]; }
             else if (args[i].StartsWith("--")) opts[args[i].Substring(2)] = "yes";
             else pos.Add(args[i]);
         }
         string cmd = args[0].ToLowerInvariant();
-        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top", "json", "as", "purpose", "force", "round" };
-        if (opts.ContainsKey("round") && cmd != "form-sub") { Console.Error.WriteLine("--round is only for form-sub"); return 2; }
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top", "json", "as", "purpose", "force", "round", "src-config", "from", "tolerance" };
+        if (opts.ContainsKey("round") && cmd != "form-sub" && cmd != "save-as" && cmd != "new-asm") { Console.Error.WriteLine("--round is only for form-sub, save-as and new-asm"); return 2; }
+        if (opts.ContainsKey("tolerance"))
+        {
+            double tol;
+            if (cmd != "place" || !double.TryParse(opts["tolerance"], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out tol) || tol < 0 || tol > 5)
+            { Console.Error.WriteLine("--tolerance <percent, 0..5> is only for place"); return 2; }
+            placeTolerance = tol / 100;
+        }
+        if (opts.ContainsKey("src-config") && cmd != "place") { Console.Error.WriteLine("--src-config is only for place"); return 2; }
+        if ((opts.ContainsKey("from") || dimArgs.Count > 0 || suppressArgs.Count > 0) && cmd != "add-config") { Console.Error.WriteLine("--from, --dim, --suppress are only for add-config"); return 2; }
         if (excepts.Count > 0 && cmd != "form-sub") { Console.Error.WriteLine("--except is only for form-sub"); return 2; }
         if (acceptGone.Count > 0 && cmd != "form-sub" && cmd != "dissolve") { Console.Error.WriteLine("--accept-gone is only for form-sub and dissolve"); return 2; }
         foreach (var k in opts.Keys) if (!known.Contains(k)) { Console.Error.WriteLine("Unknown option: --" + k); return 2; }
@@ -166,7 +180,7 @@ static class SwCmd
                 break;
             case "save-as":
                 if (pos.Count != 2) return Usage();
-                refusal = ReadRefusal(pos[0]) ?? WriteRefusal(pos[1], false, true);
+                refusal = ReadRefusal(pos[0]) ?? NewFileRefusal(pos[1], opts);
                 if (refusal == null && File.Exists(pos[1])) refusal = "already exists, not overwritten: " + pos[1];
                 if (refusal == null && Kind(pos[0]) != Kind(pos[1])) refusal = "save-as keeps the file type: " + pos[1];
                 break;
@@ -174,7 +188,7 @@ static class SwCmd
                 if (pos.Count != 2) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
             case "move":
                 if (pos.Count != (opts.ContainsKey("top") ? 2 : 3)) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
-            case "cut-list": case "tree": case "mass":
+            case "cut-list": case "tree": case "mass": case "bodies":
                 if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]); break;
             case "export-pdf":
                 if (pos.Count != 2) return Usage();
@@ -197,6 +211,34 @@ static class SwCmd
                 break;
             case "dissolve":
                 if (pos.Count != 2) return Usage(); refusal = WriteRefusal(pos[0], checkedOut, false); break;
+            case "place":
+                if (pos.Count != 4) return Usage();
+                refusal = WriteRefusal(pos[0], checkedOut, false) ?? ReadRefusal(pos[1]) ?? ReadRefusal(pos[2]);
+                if (refusal == null && !File.Exists(pos[1])) refusal = "no such file: " + pos[1];
+                if (refusal == null && !File.Exists(pos[2])) refusal = "no such file: " + pos[2];
+                if (refusal == null && (Kind(pos[0]) != (int)swDocumentTypes_e.swDocASSEMBLY || Kind(pos[1]) != (int)swDocumentTypes_e.swDocPART || Kind(pos[2]) != (int)swDocumentTypes_e.swDocPART))
+                    refusal = "place needs <asm.SLDASM> <part.SLDPRT> <srcPart.SLDPRT> <body>";
+                break;
+            case "new-asm":
+                if (pos.Count != 2) return Usage();
+                refusal = NewFileRefusal(pos[0], opts) ?? ReadRefusal(pos[1]);
+                if (refusal == null && File.Exists(pos[0])) refusal = "already exists, not overwritten: " + pos[0];
+                if (refusal == null && !File.Exists(pos[1])) refusal = "no such file: " + pos[1];
+                if (refusal == null && (Kind(pos[0]) != (int)swDocumentTypes_e.swDocASSEMBLY || Kind(pos[1]) != (int)swDocumentTypes_e.swDocPART))
+                    refusal = "new-asm needs a new .SLDASM and a .SLDPRT";
+                break;
+            case "dims":
+                if (pos.Count != 1) return Usage(); refusal = ReadRefusal(pos[0]);
+                if (refusal == null && Kind(pos[0]) != (int)swDocumentTypes_e.swDocPART) refusal = "dims needs a part";
+                break;
+            case "add-config":
+                if (pos.Count != 2 || !opts.ContainsKey("from")) return Usage();
+                refusal = WriteRefusal(pos[0], checkedOut, false);
+                if (refusal == null && Kind(pos[0]) != (int)swDocumentTypes_e.swDocPART) refusal = "add-config is for parts";
+                break;
+            case "delete-feature":
+                if (pos.Count < 2) return Usage();
+                refusal = WriteRefusal(pos[0], checkedOut, false); break;
             case "pack-and-go":
                 if (pos.Count != 2) return Usage();
                 refusal = ReadRefusal(pos[0]) ?? PackTargetRefusal(pos[0], pos[1]);
@@ -266,6 +308,12 @@ static class SwCmd
                 case "cut-list": return CutList(sw, pos[0], config);
                 case "tree": return Tree(sw, pos[0]);
                 case "mass": openReadOnly = true; return Mass(sw, pos[0], config);
+                case "bodies": openReadOnly = true; return Bodies(sw, pos[0], config);
+                case "place": return Place(sw, pos[0], pos[1], pos[2], pos[3], config, opts.ContainsKey("src-config") ? opts["src-config"] : null, save, checkedOut);
+                case "new-asm": return NewAsm(sw, pos[0], pos[1], config);
+                case "dims": return Dims(sw, pos[0], config);
+                case "add-config": return AddConfig(sw, pos[0], pos[1], opts["from"], dimArgs, suppressArgs, save, checkedOut);
+                case "delete-feature": return DeleteFeature(sw, pos[0], pos.Skip(1).ToList(), save, checkedOut);
                 case "pack-and-go": return PackAndGo(sw, pos[0], pos[1]);
                 case "form-sub": return FormSub(sw, pos[0], pos[1], formSubExcepts, save, checkedOut);
                 case "dissolve": return Dissolve(sw, pos[0], pos[1], save, checkedOut);
@@ -434,7 +482,8 @@ static class SwCmd
         switch (cmd)
         {
             case "replace": case "save-virtual": return i == 0 || i == 2;
-            case "set-config": case "delete": case "delete-config": case "move": case "dissolve": return i == 0;
+            case "set-config": case "delete": case "delete-config": case "move": case "dissolve": case "delete-feature": case "add-config": return i == 0;
+            case "place": return i <= 2;
             default: return true;
         }
     }
@@ -452,6 +501,11 @@ static class SwCmd
         Console.Error.WriteLine("       | form-sub <asm> <newFile> --except <component> [--except ...] [--round <round.csv>] [--accept-gone <mate> ...] [--save] [--checked-out]");
         Console.Error.WriteLine("       | dissolve <asm> <component> [--accept-gone <mate> ...] [--save] [--checked-out]");
         Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | mass <file> [--config <name>] | pack-and-go <top> <newFolder>");
+        Console.Error.WriteLine("       | bodies <part> [--config <name>] | dims <part> [--config <name>]");
+        Console.Error.WriteLine("       | add-config <part> <newCfg> --from <cfg> [--dim <name>=<mm> ...] [--suppress <feature> ...] [--save] [--checked-out]");
+        Console.Error.WriteLine("       | place <asm> <part> <srcPart> <body> [--config <cfg>] [--src-config <cfg>] [--tolerance <percent>] [--save] [--checked-out]");
+        Console.Error.WriteLine("       | new-asm <newAsm> <part> [--config <cfg>] [--round <round.csv>] | delete-feature <part> <feature> [<feature> ...] [--save] [--checked-out]");
+        Console.Error.WriteLine("       | save-as ... [--round <round.csv>]: a new vault file only as a \"new\" row of the round list");
         Console.Error.WriteLine("       | export-pdf <drawing> <out.pdf> | drawing-info <drawing> [--json]");
         Console.Error.WriteLine("       | lock --as <role> [--purpose <text>] | unlock --as <role> [--force]");
         Console.Error.WriteLine("  every command: [--as <role>] (default unknown; grant = Grant's Desk job)");
@@ -496,6 +550,12 @@ static class SwCmd
             if (c.Length > Math.Max(ia, inew) && c[ia] == "new" && string.Equals(c[inew], rel, StringComparison.OrdinalIgnoreCase)) return null;
         }
         return "not a \"new\" row of " + roundCsv + ": " + newFile;
+    }
+
+    // A new file: never in the vault, except as a "new" row of --round <round.csv> (0804 restructure; plates-0804).
+    static string NewFileRefusal(string p, Dictionary<string, string> opts)
+    {
+        return InVault(p) && opts.ContainsKey("round") ? RoundNewRefusal(opts["round"], p) : WriteRefusal(p, false, true);
     }
 
     static string WriteRefusal(string p, bool checkedOut, bool newFile)

@@ -643,7 +643,17 @@ static partial class SwCmd
         if (naInner.Count != 1) { problems.Add(Path.GetFileName(newAsm) + " has " + naInner.Count + " instances of " + Path.GetFileName(innerPart) + ", not 1"); return Finish(); }
         var innerTop = naInner[0];
         var innerDoc = FindOpen(sw, innerPart) ?? innerTop.GetModelDoc2() as ModelDoc2;
-        if (innerDoc == null) { problems.Add(Path.GetFileName(innerPart) + " is not loaded"); return Finish(); }
+        if (innerDoc == null)
+        {   // Lightweight in the new assembly and not open (real run on P:\, 13 Nov, B-2T: "not loaded"; the rehearsal had
+            // it open from an earlier step). Open it as saved (its saved configuration, so nothing changes); not saved here.
+            int oerr = 0, owarn = 0;
+            DialogWatch.Start();
+            innerDoc = sw.OpenDoc6(innerPart, (int)swDocumentTypes_e.swDocPART, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref oerr, ref owarn);
+            foreach (var e in DialogWatch.Stop()) problems.Add(e);
+            Console.WriteLine("  " + Path.GetFileName(innerPart) + " was not loaded: " + (innerDoc != null ? "opened as saved" + (innerDoc.GetSaveFlag() ? " (BUT IT SHOWS AS MODIFIED)" : "")
+                : "could not open it (" + FlagNames(typeof(swFileLoadError_e), oerr) + "); faces are found by position only"));
+            if (innerDoc != null && innerDoc.GetSaveFlag()) problems.Add(Path.GetFileName(innerPart) + " shows as modified after opening it");
+        }
         int aerr2 = 0;
         sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref aerr2);
 
@@ -656,6 +666,7 @@ static partial class SwCmd
         Func<Component2, object, object> upFromInner = (ni, pid) =>
         {
             int err = 0;
+            if (innerDoc == null) return null;
             var pe = innerDoc.Extension.GetObjectByPersistReference3(pid, out err);
             if (pe == null) return null;
             var e1 = innerTop.GetCorrespondingEntity(pe);
@@ -790,7 +801,7 @@ static partial class SwCmd
         {
             var ni = newAt(px.Xf);
             int perr = 0;
-            var pe = innerDoc.Extension.GetObjectByPersistReference3(px.Pid, out perr);
+            var pe = innerDoc == null ? null : innerDoc.Extension.GetObjectByPersistReference3(px.Pid, out perr);
             var ne = ni == null ? null : upFromInner(ni, px.Pid);
             if (ne == null && ni != null && px.Geo != null && px.Geo.Length == 6)
             {   // an edge (of a plate): the one edge of the new instance's children in the same place

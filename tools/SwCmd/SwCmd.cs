@@ -135,7 +135,7 @@ static partial class SwCmd
         if (opts.ContainsKey("src-config") && cmd != "place") { Console.Error.WriteLine("--src-config is only for place"); return 2; }
         if ((opts.ContainsKey("from") || dimArgs.Count > 0 || suppressArgs.Count > 0) && cmd != "add-config") { Console.Error.WriteLine("--from, --dim, --suppress are only for add-config"); return 2; }
         if (excepts.Count > 0 && cmd != "form-sub") { Console.Error.WriteLine("--except is only for form-sub"); return 2; }
-        if (acceptGone.Count > 0 && cmd != "form-sub" && cmd != "dissolve") { Console.Error.WriteLine("--accept-gone is only for form-sub and dissolve"); return 2; }
+        if (acceptGone.Count > 0 && cmd != "form-sub" && cmd != "dissolve" && cmd != "swap-asm") { Console.Error.WriteLine("--accept-gone is only for form-sub, dissolve and swap-asm"); return 2; }
         foreach (var k in opts.Keys) if (!known.Contains(k)) { Console.Error.WriteLine("Unknown option: --" + k); return 2; }
         bool checkedOut = opts.ContainsKey("checked-out"), save = opts.ContainsKey("save");
         if (opts.ContainsKey("json"))
@@ -511,7 +511,7 @@ static partial class SwCmd
         Console.Error.WriteLine("       | dissolve <asm> <component> [--accept-gone <mate> ...] [--save] [--checked-out]");
         Console.Error.WriteLine("       | cut-list <part> [--config <name>] | tree <asm> | mass <file> [--config <name>] | pack-and-go <top> <newFolder>");
         Console.Error.WriteLine("       | bodies <part> [--config <name>] | dims <part> [--config <name>]");
-        Console.Error.WriteLine("       | swap-asm <asm> <oldPart> <newAsm> <innerPart> [--save] [--checked-out]");
+        Console.Error.WriteLine("       | swap-asm <asm> <oldPart> <newAsm> <innerPart> [--accept-gone <mate> ...] [--save] [--checked-out]");
         Console.Error.WriteLine("       | add-config <part> <newCfg> --from <cfg> [--dim <name>=<mm> ...] [--suppress <feature> ...] [--save] [--checked-out]");
         Console.Error.WriteLine("       | place <asm> <part> <srcPart> <body> [--config <cfg>] [--src-config <cfg>] [--tolerance <percent>] [--save] [--checked-out]");
         Console.Error.WriteLine("       | new-asm <newAsm> <part> [--config <cfg>] [--round <round.csv>] | delete-feature <part> <feature> [<feature> ...] [--save] [--checked-out]");

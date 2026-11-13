@@ -35,6 +35,13 @@
   .tag.newer { color: var(--newer); }
   .tag.bad { color: var(--bad); }
   .tag.new { color: var(--new); }
+  .links { margin-top: 16px; border-top: 1px solid #e3e3e3; padding-top: 8px; }
+  .links h2 { margin: 10px 0 4px; }
+  .links h2:first-child { margin-top: 0; }
+  .links table { width: auto; }
+  .links td:first-child { padding-right: 24px; }
+  .links a { color: var(--mine); text-decoration: none; }
+  .links a:hover { text-decoration: underline; }
   details.remove { margin-top: 18px; border-top: 1px solid #e3e3e3; padding-top: 8px; }
   details.remove summary { cursor: pointer; color: var(--bad); font-size: 12px; }
   details.remove p { margin: 6px 0; }
@@ -432,7 +439,33 @@ function drawOut() {
   }).join('');
   return `<h2>${esc(v.title)}</h2><div class="bar"><button class="main" id="outBtn">Check out ticked</button>`
     + `<label class="nw"><input type="checkbox" data-all="out"> Tick all</label><span class="muted" id="outCount"></span></div>${rows}`
-    + (v.top ? removeForm(v.top) : '');
+    + (v.top ? usedByList(v.top) + removeForm(v.top) : '');
+}
+
+// Where a picked file is used (every vault file whose references include it, drawings too), and for a part or
+// assembly what it uses itself. Removed files aren't in byId, so they're left out. A name picks that file.
+function usedByList(f) {
+  if (f.isNew) return '';
+  const list = (title, ids) => {
+    const xs = [...new Set(ids)].map(id => byId[id]).filter(x => x && x.id !== f.id).sort((a, b) => base(a.path).localeCompare(base(b.path)));
+    if (!xs.length) return `<h2>${title}: <span class="muted">nothing</span></h2>`;
+    return `<h2>${title} (${xs.length})</h2><table>` + xs.map(x => `<tr><td class="nw"><a href="#" data-goto="${esc(x.path)}">${esc(base(x.path))}</a></td>`
+      + `<td class="muted">${esc(dir(x.path))}</td></tr>`).join('') + '</table>';
+  };
+  const model = /\.(sldprt|sldasm)$/i.test(f.path);
+  return '<div class="links">' + list('Used by', f.usedBy) + (model && (isAsm(f.path) || f.refs.length) ? list('Uses', f.refs) : '') + '</div>';
+}
+// Pick a file from a Used by / Uses link: as a plain click on it in the tree, with its folders opened and the row in view.
+function goTo(p) {
+  if (!byPath[p]) return;
+  const q = $('filter').value.trim().toLowerCase();
+  if (q && !p.toLowerCase().includes(q)) $('filter').value = ''; // the filter would hide it
+  const parts = p.split('/');
+  for (let i = 1; i < parts.length; i++) open.add(parts.slice(0, i).join('/') + '/');
+  picked = new Set([p]); anchor = p; selected = p; tab = 'out'; panelDirty = false;
+  hideResult(); drawTabs(); drawTree(); drawPanel();
+  $('panel').scrollTop = 0; $('panel').parentElement.scrollTop = 0;
+  [...$('tree').querySelectorAll('[data-path]')].find(r => r.dataset.path === p)?.scrollIntoView({ block: 'nearest' });
 }
 
 // Remove from vault (soft): the file leaves the tree and each PC at its next Download latest; Restore brings it back.
@@ -674,6 +707,8 @@ $('tabWho').onclick = () => { tab = 'who'; hideResult(); drawTabs(); drawPanel()
 $('tabNew').onclick = () => { tab = 'new'; hideResult(); drawTabs(); drawPanel(); };
 $('tabAct').onclick = () => { tab = 'act'; hideResult(); drawTabs(); drawPanel(); };
 $('panel').addEventListener('click', e => {
+  const g = e.target.closest('[data-goto]');
+  if (g) { e.preventDefault(); goTo(g.dataset.goto); return; }
   if (tab !== 'act') return;
   const w = e.target.closest('[data-act]');
   if (w) { const k = w.dataset.act; act.open.has(k) ? act.open.delete(k) : act.open.add(k); drawPanel(); return; }

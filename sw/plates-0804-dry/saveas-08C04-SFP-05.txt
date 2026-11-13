@@ -1,0 +1,4 @@
+﻿Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-02.SLDPRT
+Saved as C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-05.SLDPRT (copy; C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-02.SLDPRT stays open)
+OK

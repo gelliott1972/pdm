@@ -1,0 +1,9 @@
+﻿Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-05.SLDPRT (Default<As Machined>)
+New assembly from C:\ProgramData\SolidWorks\SOLIDWORKS 2026\templates\Assembly.asmdot
+  08B04-SFP-05-1 <Default<As Machined>> at the origin, fixed
+  configurations: Default
+  file properties: none
+  Default properties: none
+Saved C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM
+OK

@@ -36,3 +36,14 @@ Open points to settle with `bodies`: the third slot body in HBW-02 / C SFP-02; t
 End caps 72x32x5 (HBW-02/-06 with a Ø10 drain hole) and 36x36x5 stay. B SFP-02's plate = GNRIC-LPP DOUBLE_BOTTOM (same volume).
 P2 stop: asked Admin (Type 2's own configuration and number? Ø10 hole in the new configurations?). PLP-31 short-axis not read yet.
 Slip (01:56-01:58Z): my plate-comparison run didn't stop on a refused lock and shared SOLIDWORKS with Dev's commands; read-only on my copies, nothing saved; told Dev.
+
+## Dry run on the copy, steps 1-4 (13 Nov, ~02:05-02:40Z; logs `sw\plates-0804-dry`)
+
+| Step | Result |
+| --- | --- |
+| PLP configurations (SwCmd add-config) | `180x140x10_SLOTS_SHORT_AXIS` (from 150 SHORT, 180 long, slot 15, Ø10 suppressed) = Type 1, 238931.42 mm3. Provisional `180x140x10_SLOTS_LONG_AXIS` (from 150 LONG, 180, Ø10 suppressed) = Type 2, 240874.45 mm3. Names provisional (Admin's call) |
+| Weldment-only parts (save-as --copy + delete-feature) | all six; only members and end caps left in both configurations. B: the Insert Part's own planes and `Body-Move/Copy2` named too |
+| New assemblies (new-asm + place) | all six; 13 plates placed fixed, each 0 % missing (overlap = full volume) |
+| Mass gate | old part = new assembly to the last digit, all six (mass, volume, area) |
+| Properties (DmEdit batch, `scratch\import\plates-0804\sw\props-dry.tsv`) | 46 changes, read back. Assemblies: PartNo, PartNoStatus, Description, Weight (own file). Weldment-only: PartNo = new number on every configuration, PartNoStatus; As Welded Weight of HBW-04/-05 pointed at the old file, fixed. PLP-32 PartNo + Description "SF INTERFACE PLATE 180x140"; Type 2 PartNo left out (number to come) |
+| SFA replace + mates | waiting for Dev's mate-repairing replace (Dev: 10 mates break in 08A04-SFA-2T) |

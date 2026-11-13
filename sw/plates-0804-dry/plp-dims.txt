@@ -1,0 +1,20 @@
+Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT (150x140x10_SLOTS_LONG_AXIS)
+Configuration: 150x140x10_SLOTS_LONG_AXIS (configurations: 150x140x10_SLOTS_LONG_AXIS, 150x140x10_SLOTS_SHORT_AXIS)
+DIM	D1@Sketch1@08X04-PLP.Part	140	Sketch1 (ProfileFeature)
+DIM	D2@Sketch1@08X04-PLP.Part	150	Sketch1 (ProfileFeature)
+DIM	D1@PLATE@08X04-PLP.Part	10	PLATE (Extrusion)
+DIM	Thru Hole Dia.@Sketch3@08X04-PLP.Part	13.5	M12 Clearance Slot1 (HoleWzd)
+DIM	Thru Hole Depth@Sketch3@08X04-PLP.Part	10	M12 Clearance Slot1 (HoleWzd)
+DIM	D1@Sketch2@08X04-PLP.Part	10	M12 Clearance Slot1 (HoleWzd)
+DIM	D2@Sketch2@08X04-PLP.Part	25	M12 Clearance Slot1 (HoleWzd)
+DIM	D3@Sketch2@08X04-PLP.Part	25	M12 Clearance Slot1 (HoleWzd)
+DIM	Thru Hole Dia.@Sketch5@08X04-PLP.Part	13.5	M12 Clearance Slot2 (HoleWzd) [suppressed]
+DIM	Thru Hole Depth@Sketch5@08X04-PLP.Part	10	M12 Clearance Slot2 (HoleWzd) [suppressed]
+DIM	D1@Sketch4@08X04-PLP.Part	10	M12 Clearance Slot2 (HoleWzd) [suppressed]
+DIM	D2@Sketch4@08X04-PLP.Part	25	M12 Clearance Slot2 (HoleWzd) [suppressed]
+DIM	D3@Sketch4@08X04-PLP.Part	25	M12 Clearance Slot2 (HoleWzd) [suppressed]
+DIM	Thru Hole Dia.@Sketch7@08X04-PLP.Part	10	O10.0 (10) Diameter Hole1 (HoleWzd)
+DIM	Thru Hole Depth@Sketch7@08X04-PLP.Part	10	O10.0 (10) Diameter Hole1 (HoleWzd)
+Closed it again without saving.
+OK

@@ -1,0 +1,6 @@
+﻿Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-02.SLDASM
+  (needs a rebuild: it was saved out of date)
+MASS	Default	30.8558933	0.00395588376	0.993238466
+Closed it again without saving.
+OK

@@ -1,0 +1,26 @@
+﻿Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT (150x140x10_SLOTS_SHORT_AXIS)
+Added configuration 180x140x10_SLOTS_SHORT_AXIS from 150x140x10_SLOTS_SHORT_AXIS; active now: 180x140x10_SLOTS_SHORT_AXIS
+  showing 180x140x10_SLOTS_SHORT_AXIS
+What's wrong: nothing.
+  D2@Sketch1@08X04-PLP.Part: 180x140x10_SLOTS_SHORT_AXIS 180, 150x140x10_SLOTS_SHORT_AXIS 150 (before 150)
+  Thru Hole Dia.@Sketch5@08X04-PLP.Part: 180x140x10_SLOTS_SHORT_AXIS 15, 150x140x10_SLOTS_SHORT_AXIS 13.5 (before 13.5)
+  suppressed in 180x140x10_SLOTS_SHORT_AXIS: Ø10.0 (10) Diameter Hole1
+  180x140x10_SLOTS_SHORT_AXIS: BOM part number source 1, description '150x140x10_SLOTS_SHORT_AXIS'
+  150x140x10_SLOTS_SHORT_AXIS properties: 4
+    Description = SF INTERFACE PLATE 150x140 v2
+    PartNo = 08X04-PLP-31
+    Weight = "SW-Mass@@150x140x10_SLOTS_SHORT_AXIS@08X04-PLP.SLDPRT"   (0.0)
+    PartNoStatus = Provisional
+  180x140x10_SLOTS_SHORT_AXIS properties (new; set PartNo etc. after): 4
+    Description = SF INTERFACE PLATE 150x140 v2
+    PartNo = 08X04-PLP-31
+    Weight = "SW-Mass@@180x140x10_SLOTS_SHORT_AXIS@08X04-PLP.SLDPRT"   (1.9)
+    PartNoStatus = Provisional
+CONFIG	180x140x10_SLOTS_SHORT_AXIS
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 238931.42 mm3	centre (0, -5, 0)	frame O (0, -5, 0) u (1, 0, 0) w (0, -1, 0)	faces 22	features PLATE, M12 Clearance Slot2
+  150x140x10_SLOTS_SHORT_AXIS: bodies unchanged
+  configurations now: 150x140x10_SLOTS_LONG_AXIS, 150x140x10_SLOTS_SHORT_AXIS, 180x140x10_SLOTS_SHORT_AXIS
+  rebuilt every configuration: ok
+Saved C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+OK

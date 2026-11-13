@@ -1,0 +1,50 @@
+﻿pdm unlock old parts dry : exit 0, 15 s;   would release APEX/SC08/LS-08X-04/ShaftC/08C04-SFP-03.SLDPRT
+pdm unlock old parts : exit 0, 17 s;   Released APEX/SC08/LS-08X-04/ShaftC/08C04-SFP-03.SLDPRT
+pdm load dry : exit 0, 25 s; Dry run: nothing uploaded or written.
+  33 line(s) matching '^\s+(new|changed)\s'
+  changed  APEX/GNRIC/GNRIC-MSW-01.SLDPRT
+  changed  APEX/GNRIC/MDL-HEX-BOLT-WASHERS-NUTS-GNRIC.SLDASM
+  changed  APEX/SC08/LS-08X-04/08A04-STA-01.SLDASM
+  changed  APEX/SC08/LS-08X-04/08A04-STA-01.SLDDRW
+  new  APEX/SC08/LS-08X-04/ShaftA/08A04-HBW-02.SLDASM
+  new  APEX/SC08/LS-08X-04/ShaftA/08A04-HBW-04.SLDPRT
+  new  APEX/SC08/LS-08X-04/ShaftA/08A04-HBW-05.SLDPRT
+  new  APEX/SC08/LS-08X-04/ShaftA/08A04-HBW-06.SLDASM
+  changed  APEX/SC08/LS-08X-04/ShaftA/08A04-SFA-01.SLDDRW
+  changed  APEX/SC08/LS-08X-04/ShaftA/08A04-SFA-2B.SLDDRW
+  changed  APEX/SC08/LS-08X-04/ShaftA/08A04-SFA-2T.SLDASM
+  changed  APEX/SC08/LS-08X-04/ShaftA/08A04-SFA-2T.SLDDRW
+  changed  APEX/SC08/LS-08X-04/ShaftA/08A04-SFA-3B.SLDDRW
+  changed  APEX/SC08/LS-08X-04/ShaftA/08A04-SFA-3T.SLDASM
+  changed  APEX/SC08/LS-08X-04/ShaftA/08A04-SFA-3T.SLDDRW
+  changed  APEX/SC08/LS-08X-04/ShaftA/08A04-SFA-5T.SLDDRW
+  changed  APEX/SC08/LS-08X-04/ShaftB/08B04-SFA-2T.SLDASM
+  changed  APEX/SC08/LS-08X-04/ShaftB/08B04-SFA-3T.SLDASM
+  new  APEX/SC08/LS-08X-04/ShaftB/08B04-SFP-01.SLDASM
+  new  APEX/SC08/LS-08X-04/ShaftB/08B04-SFP-02.SLDASM
+  new  APEX/SC08/LS-08X-04/ShaftB/08B04-SFP-04.SLDPRT
+  new  APEX/SC08/LS-08X-04/ShaftB/08B04-SFP-05.SLDPRT
+  changed  APEX/SC08/LS-08X-04/ShaftC/08C04-SFA-2T.SLDASM
+  changed  APEX/SC08/LS-08X-04/ShaftC/08C04-SFA-3T.SLDASM
+  new  APEX/SC08/LS-08X-04/ShaftC/08C04-SFP-02.SLDASM
+  new  APEX/SC08/LS-08X-04/ShaftC/08C04-SFP-03.SLDASM
+  new  APEX/SC08/LS-08X-04/ShaftC/08C04-SFP-05.SLDPRT
+  new  APEX/SC08/LS-08X-04/ShaftC/08C04-SFP-06.SLDPRT
+  changed  APEX/SC08/LS-08X-04/_Shared/08X04-LMW-40X40.SLDASM
+  changed  APEX/SC08/LS-08X-04/_Shared/08X04-LMW.SLDASM
+  changed  APEX/SC08/LS-08X-04/_Shared/08X04-PLP-03.SLDPRT
+  changed  APEX/SC08/LS-08X-04/_Shared/08X04-PLP.SLDPRT
+  changed  _Shared/_Fasteners/FAST-HEX-8.8-HDG.SLDPRT
+powershell : STOPPED: the load would upload 33 files, 19 planned (12 new, 6 SFAs, 08X04-PLP)
+At line:1 char:318
++ ... :\code\pdm; powershell -NoProfile -ExecutionPolicy Bypass -File sw\pl ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (STOPPED: the lo...FAs, 08X04-PLP):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+At C:\code\pdm\sw\plates-0804-run.ps1:159 char:38
++ ...  19) { $up; throw "STOPPED: the load would upload $($up.Count) files, ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (STOPPED: the lo...FAs, 08X04-PLP):String) [], RuntimeException
+    + FullyQualifiedErrorId : STOPPED: the load would upload 33 files, 19 planned (12 new, 6 SFAs, 08X04-PLP)
+ 

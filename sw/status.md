@@ -1,5 +1,9 @@
 # SW status
 
+## plates-0804 (brief `docsriefs\plates-0804.md`, 13 Nov 2026): done in the vault, apart from 08X04-HBW-05.SLDASM
+
+Details and logs: `sw\plates-0804.md`, `sw\plates-0804-run.ps1`, `sw\plates-0804-real`. Six weldments split into assembly (today's number) + weldment-only part (new number) + plates fixed (08X04-PLP-32 x10, -PLP-33 x2, GNRIC-LPP DOUBLE_BOTTOM x1). Rehearsed on a full copy, then run on P:\: masses equal, 45/45 SFA mates put back, six old parts removed, PartNos as P4. Open: 08X04-HBW-05.SLDASM Weight/Material (James has it checked out); Grant's check of the six SFAs.
+
 ## 0A white re-issue (10 Nov 2026, Grant's go, overnight): done and checked
 
 Details in `sw\0A-white-pdfs.md`. Dev's SwCmd export-pdf now recolours white annotations in memory (6a60bb0). App re-issued 35 of the 41 drawings as 0A: 63 PDFs, both ZIPs, both lists and the register. SW checked: no white left except the 6 STA-01 drawings (left out by Admin: James's 10 Nov check-ins of shared parts) and the zone ticks on GNRIC-BRW-16 and 08BXX-HBW-01 (invisible before too; accepted). Open: the 6 STA-01 drawings.

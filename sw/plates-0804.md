@@ -66,3 +66,13 @@ swap-asm (Dev, 03e0eb3) without --save on all six copies: no mate put back in an
 
 Found: `pdm load` stops on one PartNo on two files, and `pdm remove` refuses a file still used. So on P:\ the new assemblies' PartNo goes in by a second check-out and load after the removals (script stage 4).
 Real run started on P:\ (stage 1) after the gate passed and Admin's "network OK, go".
+
+## Real run on P:\ (13 Nov, 12:57-14:10 NZ; logs `sw\plates-0804-real`)
+
+| Step | Result |
+| --- | --- |
+| Stage 1 (SOLIDWORKS) | PLP-32/-33, 6 weldment-only parts, 6 assemblies (13 plates, 0 % missing), 6 SFA swaps (45/45 mates, 0 moved). Exactly the 19 planned files written. Two stops, both safe, nothing saved: place refused GNRIC-LPP (read-only, only a configuration switch; Dev 8167178), swap-asm on 08B04-SFA-2T "08B04-SFP-05 not loaded" (Dev 094a030). Resumed with `-From` / by hand with the old parts read-only |
+| Stage 2 | masses old = new to the last digit (all six); 40 properties read back |
+| Stage 3 | SwCheck: six SFAs all inside P:\, nothing missing; STA-01s only the ReadOnly flag (as before) |
+| Stage 4 | first load dry run listed 33 files: 14 were older copies on this PC of files James checked in during the day (STA-01, 08A04-SFA drawings, LMW, GNRIC-MSW-01...). Stopped, nothing uploaded; `pdm get` fetched exactly those 14; 08A04-STA-01 and the 08A04-SFA-2T/-3T drawings re-checked with the swapped SFAs: nothing wrong. Then load (19), remove the six old .SLDPRT (reason "plates moved to assembly 0xx04-xxx-0n.SLDASM"), check out the six assemblies, PartNo, load (6). Read back: every PartNo as P4 |
+| Not done | 08X04-HBW-05.SLDASM Weight/Material: James has it checked out |

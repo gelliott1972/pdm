@@ -9,7 +9,7 @@
 #   -Stage 4 (-Real only): pdm unlock the six old parts (unchanged), pdm load (--dry first), pdm remove them (--dry first).
 # Stops at the first failure. Logs to -Log.
 param([Parameter(Mandatory)] [int] $Stage, [switch] $Real, [switch] $Go, [string] $V = "C:\PDM-work\plates-0804\rehearsal",
-      [string] $Log = "C:\code\pdm\sw\plates-0804-rehearsal", [string] $From = "", [int] $FromPlace = 1)
+      [string] $Log = "C:\code\pdm\sw\plates-0804-rehearsal", [string] $From = "", [int] $FromPlace = 1, [switch] $SkipUnlock)
 # -From <old part, e.g. 08B04-SFP-02> -FromPlace <n>: resume stage 1 after a stop. PLP configurations and the jobs before
 # <old part> are skipped (done); in that job, save-as/delete-feature and new-asm are skipped if their file exists, and
 # placing starts at plate <n>. Logs of a resumed run get the suffix "-r".
@@ -152,8 +152,11 @@ switch ($Stage) {
             if ($expect) { $n = @(Get-Content $f | Where-Object { $_ -match $expect }).Count; Write-Host "  $n line(s) matching '$expect'" }
             return $f
         }
+        if (-not $SkipUnlock) {
         PdmStep 'pdm unlock old parts dry' (@('unlock') + $olds + @('--dry')) $null | Out-Null
         PdmStep 'pdm unlock old parts' (@('unlock') + $olds) $null | Out-Null
+        }
+        if ($SkipUnlock) { $script:Log = $Log + [char]92 + 'resume-load'; New-Item -ItemType Directory -Force $script:Log | Out-Null }
         $f = PdmStep 'pdm load dry' @('load', '--dry', '--note', $note) '^\s+(new|changed)\s'
         $up = @(Get-Content $f | Where-Object { $_ -match '^\s+(new|changed)\s' })
         if ($up.Count -ne 19) { $up; throw "STOPPED: the load would upload $($up.Count) files, 19 planned (12 new, 6 SFAs, 08X04-PLP)" }

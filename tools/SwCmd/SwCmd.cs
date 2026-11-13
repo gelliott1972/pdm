@@ -88,7 +88,7 @@
 //   status never starts SOLIDWORKS: with none running it says "not running". No command starts SOLIDWORKS while
 //   another role holds the lock (5).
 // Build (from tools\SwCmd, after copying the interop DLLs from tools\sw-macros\bin into bin\):
-//   csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs DialogWatch.cs Place.cs
+//   csc /platform:x64 /r:Microsoft.VisualBasic.dll /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs DialogWatch.cs Place.cs
 
 using System;
 using System.Collections.Generic;

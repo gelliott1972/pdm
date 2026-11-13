@@ -1,0 +1,72 @@
+﻿Attached to the running SOLIDWORKS (process 47000).
+Read-only referenced files: not prompted, not saved (SOLIDWORKS option on for this command; was off)
+Opened P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFA-2T.SLDASM
+  (needs a rebuild: it was saved out of date)
+Instances of 08B04-SFP-02.SLDPRT: 08B04-SFP-02-2 (floating), 08B04-SFP-02-3 (floating), 08B04-SFP-02-4 (floating), 08B04-SFP-02-5 (floating), 08B04-SFP-02-1 (floating)
+Mate entities on those instances: 9 in 9 mates
+  Coincident151 [1] 08B04-SFP-02-5: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident150 [1] 08B04-SFP-02-5: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident149 [1] 08B04-SFP-02-5: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident148 [1] 08B04-SFP-02-4: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident147 [1] 08B04-SFP-02-4: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident146 [1] 08B04-SFP-02-4: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident133 [0] 08B04-SFP-02-1: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident132 [0] 08B04-SFP-02-1: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident131 [0] 08B04-SFP-02-1: Face2 of body "Shs SHS40X40X4(1)[1]"
+  Coincident151: swMateCOINCIDENT, swAlignNONE
+  Coincident150: swMateCOINCIDENT, swAlignNONE
+  Coincident149: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident148: swMateCOINCIDENT, swAlignNONE
+  Coincident147: swMateCOINCIDENT, swAlignNONE
+  Coincident146: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  Coincident133: swMateCOINCIDENT, swAlignNONE
+  Coincident132: swMateCOINCIDENT, swAlignNONE
+  Coincident131: swMateCOINCIDENT, swMateAlignANTI_ALIGNED
+  pattern LocalLPattern1 - LCMM40X80-02A: direction on 08X04-LMW-2/GNRIC-LPP-1 (edge), seeds 
+  pattern LocalLPattern2 - LCMM40X80-03A: direction on 08X04-LMW-7/GNRIC-LPP-3 (edge), seeds 
+  pattern LocalLPattern3 - ALL TIES VERTICALLY: direction on 08X04-LMW-1/GNRIC-LM-1 (edge), seeds 
+  pattern LocalLPattern1 - STUBS: direction on 08X04-LMW-10/GNRIC-LM-1 (edge), seeds 
+Replaced 5 instance(s) by P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+Changes in the tree (20 lines; - removed, + added, ~ changed):
+  - 08B04-SFP-02-2: P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT <Default<As Machined>>
+  - 08B04-SFP-02-3: P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT <Default<As Machined>>
+  - 08B04-SFP-02-4: P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT <Default<As Machined>>
+  - 08B04-SFP-02-5: P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT <Default<As Machined>>
+  - 08B04-SFP-02-1: P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT <Default<As Machined>>
+  + 08B04-SFP-02-7: P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+  + 08B04-SFP-02-8: P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+  + 08B04-SFP-02-9: P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+  + 08B04-SFP-02-10: P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+  + 08B04-SFP-02-6: P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDASM <Default>
+  (and 10 lines for components inside the changed ones)
+In 08B04-SFP-02.SLDASM (swResolveNotPerformed): GNRIC-LPP-1 <DOUBLE_BOTTOM> Lightweight, 08B04-SFP-05-1 <Default<As Machined>> Lightweight
+  08B04-SFP-05.SLDPRT was not loaded: opened as saved
+  Coincident151 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> found by position (1 match: 08B04-SFP-02-10/08B04-SFP-05-1); face of 08B04-SFP-02-10/08B04-SFP-05-1
+  Coincident150 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> found by position (1 match: 08B04-SFP-02-10/08B04-SFP-05-1); face of 08B04-SFP-02-10/08B04-SFP-05-1
+  Coincident149 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> found by position (1 match: 08B04-SFP-02-10/08B04-SFP-05-1); face of 08B04-SFP-02-10/08B04-SFP-05-1
+  Coincident148 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> found by position (1 match: 08B04-SFP-02-9/08B04-SFP-05-1); face of 08B04-SFP-02-9/08B04-SFP-05-1
+  Coincident147 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> found by position (1 match: 08B04-SFP-02-9/08B04-SFP-05-1); face of 08B04-SFP-02-9/08B04-SFP-05-1
+  Coincident146 [1]: Face2 of body "Shs SHS40X40X4(1)[1]" -> found by position (1 match: 08B04-SFP-02-9/08B04-SFP-05-1); face of 08B04-SFP-02-9/08B04-SFP-05-1
+  Coincident133 [0]: Face2 of body "Shs SHS40X40X4(1)[1]" -> found by position (1 match: 08B04-SFP-02-6/08B04-SFP-05-1); face of 08B04-SFP-02-6/08B04-SFP-05-1
+  Coincident132 [0]: Face2 of body "Shs SHS40X40X4(1)[1]" -> found by position (1 match: 08B04-SFP-02-6/08B04-SFP-05-1); face of 08B04-SFP-02-6/08B04-SFP-05-1
+  Coincident131 [0]: Face2 of body "Shs SHS40X40X4(1)[1]" -> found by position (1 match: 08B04-SFP-02-6/08B04-SFP-05-1); face of 08B04-SFP-02-6/08B04-SFP-05-1
+  Coincident151: added again on the new assembly (Coincident169 renamed Coincident151), the broken one deleted
+  Coincident150: added again on the new assembly (Coincident169 renamed Coincident150), the broken one deleted
+  Coincident149: added again on the new assembly (Coincident169 renamed Coincident149), the broken one deleted
+  Coincident148: added again on the new assembly (Coincident169 renamed Coincident148), the broken one deleted
+  Coincident147: added again on the new assembly (Coincident169 renamed Coincident147), the broken one deleted
+  Coincident146: added again on the new assembly (Coincident169 renamed Coincident146), the broken one deleted
+  Coincident133: added again on the new assembly (Coincident169 renamed Coincident133), the broken one deleted
+  Coincident132: added again on the new assembly (Coincident169 renamed Coincident132), the broken one deleted
+  Coincident131: added again on the new assembly (Coincident169 renamed Coincident131), the broken one deleted
+Other components: 164, moved: 0
+  new instance 08B04-SFP-02-7, floating
+  new instance 08B04-SFP-02-8, floating
+  new instance 08B04-SFP-02-9, floating
+  new instance 08B04-SFP-02-10, floating
+  new instance 08B04-SFP-02-6, floating
+Mates put back: 9 of 9; dropped: none; items wrong: 0 before, 0 now
+What's wrong: nothing.
+  2 other modified open document(s) are read-only on disk: SOLIDWORKS discards their changes (option on), they are not written
+Saved P:\APEX\SC08\LS-08X-04\ShaftB\08B04-SFA-2T.SLDASM
+OK

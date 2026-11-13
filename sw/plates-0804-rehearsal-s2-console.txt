@@ -1,0 +1,30 @@
+﻿lock mass : exit 0, 0 s; Locked SOLIDWORKS for sw: plates-0804 masses (C:\PDM-work\plates-0804\rehearsal), read-only
+mass old 08A04-HBW-02 : exit 0, 4 s; OK
+mass new 08A04-HBW-02 : exit 0, 3 s; OK
+close-all m 08A04-HBW-02 : exit 0, 0 s; Closed 0 documents without saving (0 had unsaved changes, now discarded).
+mass old 08A04-HBW-06 : exit 0, 3 s; OK
+mass new 08A04-HBW-06 : exit 0, 3 s; OK
+close-all m 08A04-HBW-06 : exit 0, 0 s; Closed 0 documents without saving (0 had unsaved changes, now discarded).
+mass old 08B04-SFP-01 : exit 0, 3 s; OK
+mass new 08B04-SFP-01 : exit 0, 3 s; OK
+close-all m 08B04-SFP-01 : exit 0, 0 s; Closed 0 documents without saving (0 had unsaved changes, now discarded).
+mass old 08B04-SFP-02 : exit 0, 3 s; OK
+mass new 08B04-SFP-02 : exit 0, 3 s; OK
+close-all m 08B04-SFP-02 : exit 0, 0 s; Closed 0 documents without saving (0 had unsaved changes, now discarded).
+mass old 08C04-SFP-02 : exit 0, 3 s; OK
+mass new 08C04-SFP-02 : exit 0, 3 s; OK
+close-all m 08C04-SFP-02 : exit 0, 0 s; Closed 0 documents without saving (0 had unsaved changes, now discarded).
+mass old 08C04-SFP-03 : exit 0, 3 s; OK
+mass new 08C04-SFP-03 : exit 0, 3 s; OK
+close-all m 08C04-SFP-03 : exit 0, 0 s; Closed 0 documents without saving (0 had unsaved changes, now discarded).
+08A04-HBW-02	30.8558933	30.8558933	same
+08A04-HBW-06	27.3358375	27.3358375	same
+08B04-SFP-01	27.3419636	27.3419636	same
+08B04-SFP-02	1.53593089	1.53593089	same
+08C04-SFP-02	30.8620194	30.8620194	same
+08C04-SFP-03	27.3419636	27.3419636	same
+probe : exit 0, 11 s; Output:        C:\code\pdm\sw\plates-0804-rehearsal\s2-probe-before-props
+props list : exit 0, 0 s; APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT | 180x140x10_SLOTS_LONG_AXIS | Description | set | SF INTERFACE PLATE 180x140 v1 | SF INTERFACE PLATE 150x140 v1
+props : exit 0, 2 s; RESULT: 13 files, 46 changes, all read back
+probe after : exit 0, 9 s; Output:        C:\code\pdm\sw\plates-0804-rehearsal\s2-probe-after
+stage 2 done

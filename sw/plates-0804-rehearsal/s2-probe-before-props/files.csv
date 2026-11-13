@@ -1,0 +1,203 @@
+﻿file,folder,type,opened,toolbox,sw_version,config_count,active_config,file_PartNo,config_PartNos,file_prop_names
+08A04-STA-01.SLDASM,,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-STA-01,Description
+08A04-STA-01.SLDDRW,,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08B04-STA-01.SLDASM,,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-STA-01,
+08C04-STA-01.SLDASM,,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-STA-01,
+LS-08A-04+STRUCTURE.SLDASM,,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08A-04.SLDASM,,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08B-04+STRUCTURE.SLDASM,,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08B-04.SLDASM,,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08C-04+STRUCTURE.SLDASM,,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08C-04.SLDASM,,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08A-04 LH Side Wall.SLDASM,Screen_Subassemblies,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08A-04 Rear Wall.SLDASM,Screen_Subassemblies,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08A-04 RH Side Wall.SLDASM,Screen_Subassemblies,assembly,yes,NotAToolboxPart,19000,1,v1,,,
+LS-08A-04 Roof.SLDASM,Screen_Subassemblies,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08B-04 Roof.SLDASM,Screen_Subassemblies,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08BC-04 LH Side Wall.SLDASM,Screen_Subassemblies,assembly,yes,NotAToolboxPart,19000,1,v1,,,
+LS-08BC-04 Rear Wall.SLDASM,Screen_Subassemblies,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+LS-08BC-04 RH Side Wall.SLDASM,Screen_Subassemblies,assembly,yes,NotAToolboxPart,19000,1,Default,,,Description
+LS-08C-04 Roof.SLDASM,Screen_Subassemblies,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+08A04-HBP-01.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-HBP-01.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08A04-HBP-01,Description; Material; Weight; Finish
+08A04-HBP-02.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-HBP-02.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08A04-HBP-02,Description; Material; Weight; Finish
+08A04-HBW-01.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-HBW-01.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08A04-HBW-01,Description; Material; Weight; Finish
+08A04-HBW-02.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+08A04-HBW-02.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08A04-HBW-02; Default<As Welded>=08A04-HBW-02,Description; Material; Weight; Finish
+08A04-HBW-03.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08A04-HBW-03; Default<As Welded>=08A04-HBW-03,Description; Material; Weight; Finish
+08A04-HBW-04.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08A04-HBW-02; Default<As Welded>=08A04-HBW-02,Description; Material; Weight; Finish
+08A04-HBW-05.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08A04-HBW-06; Default<As Welded>=08A04-HBW-06,Description; Material; Weight; Finish
+08A04-HBW-06.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+08A04-HBW-06.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08A04-HBW-06; Default<As Welded>=08A04-HBW-06,Description; Material; Weight; Finish
+08A04-KB-SKEL.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,1,Default,,,
+08A04-KBA-01.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-KBA-01,Description
+08A04-KBA-02.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-KBA-02,
+08A04-KBA-03.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-KBA-03,
+08A04-KBA-04.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-KBA-04,
+08A04-KBA-05.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-KBA-05,
+08A04-KBA-06.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-KBA-06,
+08A04-KBA-07.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-KBA-07,
+08A04-KBP-01.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,4,Assembly_Model<As Machined>,,Assembly_Model<As Machined>=08A04-KBP-01,
+08A04-KBP-02.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,4,ASSY_MODEL<As Machined>,,ASSY_MODEL<As Machined>=08A04-KBP-02,
+08A04-KBP-03.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08A04-KBP-03,
+08A04-KBP-04.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08A04-KBP-04,
+08A04-KBP-05.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08A04-KBP-05,
+08A04-KBP-06.SLDPRT,ShaftA,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08A04-KBP-06,
+08A04-SFA-01.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-SFA-01,Description; Finish; Weight
+08A04-SFA-01.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-2B.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-SFA-2B,Description; Finish; Weight
+08A04-SFA-2B.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-2T.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-SFA-2T,Description; Finish; Weight
+08A04-SFA-2T.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-3B.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-SFA-3B,Description; Finish; Weight
+08A04-SFA-3B.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-3T.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-SFA-3T,Description; Finish; Weight
+08A04-SFA-3T.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-41.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-44.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-45.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-46.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-47.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-48.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-49.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA-5B.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-SFA-5B,Description; Finish; Weight
+08A04-SFA-5T.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08A04-SFA-5T,Description; Finish; Weight
+08A04-SFA-5T.SLDDRW,ShaftA,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-SFA.SLDASM,ShaftA,assembly,yes,NotAToolboxPart,19000,7,LS-08A-04_LCMM40x40-02,,LCMM40X40-04=08A04-SFA-44; LCMM40X40-05=08A04-SFA-45; LCMM40X40-06=08A04-SFA-46; LCMM40X40-07=08A04-SFA-47; LCMM40X40-08=08A04-SFA-48; LS-08A-04_LCMM40x40-02=08A04-SFA-49; LS-08A-04_LCMM40X40-03=08A04-SFA-41,Finish
+08B04-BKP-01.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-BKP-01,Finish
+08B04-BKP-02.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08B04-BKP-02; Default<As Welded>=08B04-BKP-02,Finish
+08B04-BKP-03.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,57DEG<As Machined>,,57DEG<As Machined>=08B04-BKP-03; Default<As Welded>=08B04-BKP-03,Finish
+08B04-BRW-01.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,TIE-145-ENDCAP<As Machined>,,TIE-145-ENDCAP<As Machined>=08B04-BRW-01; TIE-152-ENDCAP<As Machined><As Machined><As Welded>=08B04-BRW-01,Weight; Material; Finish
+08B04-BRW-02.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,TIE-474-WELDED_WITH_END_CAPS<As Machined>,,TIE-474-WELDED_WITH_END_CAPS<As Machined>=08B04-BRW-02; TIE-474-WELDED<As Welded>=08B04-BRW-02,Weight; Material; Finish
+08B04-KB-SKEL.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,1,Default,,,
+08B04-KBA-01.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-KBA-01,
+08B04-KBA-02.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-KBA-02,
+08B04-KBA-03.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-KBA-03,
+08B04-KBA-04.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-KBA-04,
+08B04-KBA-05.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-KBA-05,
+08B04-KBA-06.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-KBA-06,
+08B04-KBA-07.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-KBA-07,
+08B04-KBP-01.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08B04-KBP-01,
+08B04-KBP-02.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08B04-KBP-02,
+08B04-KBP-03.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08B04-KBP-03,
+08B04-KBP-04.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08B04-KBP-04,
+08B04-KBP-05.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08B04-KBP-05; Default<As Welded>=08B04-KBP-05,
+08B04-KBP-06.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08B04-KBP-06; Default<As Welded>=08B04-KBP-06,
+08B04-SFA-2B.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-SFA-2B,Finish
+08B04-SFA-2T.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-SFA-2T,Finish
+08B04-SFA-3B.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-SFA-3B,Finish
+08B04-SFA-3T.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-SFA-3T,Finish
+08B04-SFA-5B.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-SFA-5B,Finish
+08B04-SFA-5T.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08B04-SFA-5T,Finish
+08B04-SFA.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,7,LCMM40X40-05,,LCMM40X40-05=08B04-SFA-45; LCMM40X40-06=08B04-SFA-46; LCMM40X40-07=08B04-SFA-47; LCMM40X40-11=08B04-SFA-4A; LCMM40x40-12=08B04-SFA-4B; LCMM40X40-13=08B04-SFA-4C; LCMM40X40-14=08B04-SFA-4D,Finish
+08B04-SFP-01.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+08B04-SFP-01.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08B04-SFP-01,Finish
+08B04-SFP-02.SLDASM,ShaftB,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+08B04-SFP-02.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08B04-SFP-02,Finish
+08B04-SFP-03.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08B04-SFP-03,Finish
+08B04-SFP-04.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08B04-SFP-01,Finish
+08B04-SFP-05.SLDPRT,ShaftB,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08B04-SFP-02,Finish
+08C04-HBP-01.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08C04-HBP-01,Weight; Material; Finish
+08C04-HBP-02.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08C04-HBP-02,Weight; Material; Finish
+08C04-HBW-01.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08C04-HBW-01,Weight; Material; Finish
+08C04-KB-SKEL.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,1,Default,,,
+08C04-KBA-01.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-KBA-01,
+08C04-KBA-02.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-KBA-02,
+08C04-KBA-03.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-KBA-03,
+08C04-KBA-04.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-KBA-04,
+08C04-KBA-05.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-KBA-05,
+08C04-KBA-06.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-KBA-06,
+08C04-KBA-07.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-KBA-07,
+08C04-KBP-01.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08C04-KBP-01,
+08C04-KBP-02.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08C04-KBP-02,
+08C04-KBP-03.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08C04-KBP-03,
+08C04-KBP-04.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08C04-KBP-04,
+08C04-KBP-05.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08C04-KBP-05,
+08C04-KBP-06.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,4,ASSY<As Machined>,,ASSY<As Machined>=08C04-KBP-06,
+08C04-SFA-01.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-SFA-01,Finish
+08C04-SFA-2B.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-SFA-2B,Finish
+08C04-SFA-2T.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-SFA-2T,Finish
+08C04-SFA-3B.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-SFA-3B,Finish
+08C04-SFA-3T.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-SFA-3T,Finish
+08C04-SFA-5B.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-SFA-5B,Finish
+08C04-SFA-5T.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08C04-SFA-5T,Finish
+08C04-SFA.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,7,LCMM40X40-07,,LCMM40X40-03=08C04-SFA-41; LCMM40X40-05=08C04-SFA-45; LCMM40X40-06=08C04-SFA-46; LCMM40X40-07=08C04-SFA-47; LCMM40X40-11=08C04-SFA-4A; LCMM40x40-13=08C04-SFA-4C; LCMM40X40-14=08C04-SFA-4D,Finish
+08C04-SFP-02.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+08C04-SFP-02.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08C04-SFP-02,Finish
+08C04-SFP-03.SLDASM,ShaftC,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+08C04-SFP-03.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08C04-SFP-03,Finish
+08C04-SFP-04.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08C04-SFP-04,Finish
+08C04-SFP-05.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08C04-SFP-02,Finish
+08C04-SFP-06.SLDPRT,ShaftC,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08C04-SFP-03,Finish
+08A04-LMW-02.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08A04-LMW-03.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08C04-LMW-05.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08C04-LMW-09.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-BKA.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,4,150x140_SLOTS_SHORT_AXIS,,150x140_SLOTS_LONG_AXIS=08X04-BKA-01; 180x140_SLOTS_LONG_AXIS=08X04-BKA-03; 180x140_SLOTS_SHORT_AXIS=08X04-BKA-04; 150x140_SLOTS_SHORT_AXIS=08X04-BKA-02,Finish
+08X04-BKP-01.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08X04-BKP-01; Default<As Welded>=08X04-BKP-01,Finish
+08X04-BKP-06.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,57DEG<As Machined>,,57DEG<As Machined>=08X04-BKP-06; Default<As Welded>=08X04-BKP-06,Finish
+08X04-BKP-07.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,90DEG<As Machined>,,90DEG<As Machined>=08X04-BKP-07; Default<As Welded>=08X04-BKP-07,Finish
+08X04-BKP.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,8,68MM_SPACE_80X40RHS_150X140PLATE_SLOTS_SHOT_AXIS<As Machined>,,68MM_SPACE_80X40RHS_150X140PLATE_SLOTS_SHOT_AXIS<As Machined>=08X04-BKP-03; 68MM_SPACE_80X40RHS_140X120PLATE<As Welded>=08X04-BKP-03; 68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_SHORT_AXIS<As Machined>=08X04-BKP-05; Default<As Welded>=08X04-BKP-05; 68MM_SPACE_80X40RHS_150x140PLATE_SLOTS_LONG_AXIS<As Machined>=08X04-BKP-02; 68MM_SPACE_80X40RHS_140X120PLATE_SLOTS_LONG_AXIS<As Welded>=08X04-BKP-02; 68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_LONG_AXIS<As Machined>=08X04-BKP-04; 68MM_SPACE_80X40RHS_180X120PLATE_SLOTS_LONG_AXIS<As Welded>=08X04-BKP-04,Finish
+08X04-BRP-01.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08X04-BRP-01; Default<As Welded>=08X04-BRP-01,Description; Material; Weight; Finish
+08X04-BRP-02.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,460-WELDED<As Machined>,,460-WELDED<As Machined>=08X04-BRP-02; Default<As Welded>=08X04-BRP-02,Finish
+08X04-DBP-01.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-HBW-02.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-HBW-02.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08X04-HBW-02; Default<As Welded>=08X04-HBW-02,Description; Material; Weight; Finish
+08X04-HBW-04.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-HBW-04.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08X04-HBW-04; Default<As Welded>=08X04-HBW-04,Description; Material; Weight; Finish
+08X04-HBW-05.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08X04-HBW-05,
+08X04-HBW-05.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-HBW-06.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-HBW-06.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,RHS&ENDPLATES_ONLY<As Machined>,,RHS&ENDPLATES_ONLY<As Machined>=08X04-HBW-06; RHS&ENDPLATES_ONLY<As Welded>=08X04-HBW-06,Description; Material; Weight; Finish
+08X04-HBW-07.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-HBW-07.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08X04-HBW-07; Default<As Welded>=08X04-HBW-07,Description; Material; Weight; Finish
+08X04-LMW-01.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-02.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-03.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-04.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-05.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-06.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-07.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-08.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-09.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-10.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-11.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-12.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-13.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-14.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-15.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-16.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-17.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-18.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-19.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-20.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-21.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-22.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-23.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-24.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-25.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-26.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-27.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-28.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-29.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1
+08X04-LMW-40X40.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,13,LS-08-04-LCMM40X40-09,,LS-08-04-LCMM40X40-01=08X04-LMW-21; LS-08-04-LCMM40X40-02=08X04-LMW-22; LS-08-04-LCMM40X40-04=08X04-LMW-23; LS-08-04-LCMM40X40-05=08X04-LMW-24; LS-08-04-LCMM40X40-06=08X04-LMW-25; LS-08-04-LCMM40X40-07=08X04-LMW-26; LS-08-04-LCMM40X40-08=08X04-LMW-27; LS-08-04-LCMM40X40-09=08X04-LMW-28; LS-08-04-LCMM40X40-10=08X04-LMW-29; LS-08A-04-LCMM40X40-02=08A04-LMW-02; LS-08A-04-LCMM40X40-03=08A04-LMW-03; LS-08C-04-LCMM40X40-09=08C04-LMW-09; LS-08C-04-LCMM40X40-05=08C04-LMW-05,Description; Finish
+08X04-LMW.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,20,LS-08X-04-LCMM40X80-05B,,LS-08X-04-LCMM40X80-01A=08X04-LMW-02; LS-08X-04-LCMM40X80-01B.1=08X04-LMW-03; LS-08X-04-LCMM40X80-02B.2=08X04-LMW-06; LS-08X-04-LCMM40X80-02A=08X04-LMW-04; LS-08X-04-LCMM40X80-02B.1=08X04-LMW-05; LS-08X-04-LCMM40X80-03A=08X04-LMW-08; LS-08X-04-LCMM40X80-04A=08X04-LMW-09; LS-08X-04-LCMM40X80-04B.1=08X04-LMW-10; LS-08X-04-LCMM40X80-04B.2=08X04-LMW-11; LS-08X-04-LCMM40X80-04B.3=08X04-LMW-12; LS-08X-04-LCMM40X80-04B.4=08X04-LMW-13; LS-08X-04-LCMM40X80-05A=08X04-LMW-14; LS-08X-04-LCMM40X80-05B=08X04-LMW-16; LS-08X-04-LCMM40X80-06A=08X04-LMW-17; LS-08X-04-LCMM40X80-06B=08X04-LMW-18; LS-08X-04-LCMM40X80-02B.3=08X04-LMW-07; LS-08X-04-LCMM40X80-07=08X04-LMW-19; LS-08X-04-LCMM40X80-08=08X04-LMW-20; LS-08X-04-LCMM40X80-010=08X04-LMW-01; LS-08X-04-LCMM40X80-05B.2=08X04-LMW-15,Description; Finish
+08X04-MSA-01.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,1,Default,,Default=08X04-MSA-01,Description; Weight; Finish
+08X04-PLP-01.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,1,Default,,Default=08X04-PLP-01,Finish
+08X04-PLP-02.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,1,Default,,Default=08X04-PLP-02,Finish
+08X04-PLP-03.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,Default,,PLATE ONLY=08X04-PLP-03,Finish
+08X04-PLP-05.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08X04-PLP-05; Default<As Welded>=08X04-PLP-05,Finish
+08X04-PLP-06.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08X04-PLP-06; Default<As Welded>=08X04-PLP-06,Finish
+08X04-PLP-30.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1; Revision-Sheet2; Revision-Sheet3; Revision-Sheet5; Revision-Sheet6; Revision-Sheet7; Revision-Sheet10; Revision-Sheet9; Revision-Sheet11; Description
+08X04-PLP-31.SLDDRW,_Shared,drawing,yes,NotAToolboxPart,19000,0,,,,SWFormatSize; Revision; DWG_Date; Revision-Sheet1; Revision-Sheet2; Revision-Sheet3; Revision-Sheet5; Revision-Sheet6; Revision-Sheet7; Revision-Sheet10; Revision-Sheet9; Revision-Sheet11; Description
+08X04-PLP.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,4,150x140x10_SLOTS_LONG_AXIS,,150x140x10_SLOTS_LONG_AXIS=08X04-PLP-30; 150x140x10_SLOTS_SHORT_AXIS=08X04-PLP-31; 180x140x10_SLOTS_SHORT_AXIS=08X04-PLP-31; 180x140x10_SLOTS_LONG_AXIS=08X04-PLP-30,Material; Finish
+08X04-SFP-04.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08X04-SFP-04,Finish
+08Z04-SFP-01.SLDPRT,_Shared,part,yes,NotAToolboxPart,19000,2,Default<As Machined>,,Default<As Machined>=08Z04-SFP-01,Finish
+MDL-LS-08B-04-SF02-EXP-BRACKET-BOLT-08X04.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+MDL-LS-08X-04-K-BEAM-INTERFACE-BOLTS-08X04.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,2,130X90,,,
+MDL-LS-08X-04-K-BEAM-SPLICE-BOLTS-08X04.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+MDL-LS-08X-04-KBEAM-EA-THERMAL-EXP-BOLT-08X04.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,1,Default,,,
+MDL-LS-08X-04-KBEAM-PACKERS-BOLTS-08X04.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,2,180x140,,180x140=.; 150x140=.,
+MDL-LS-08X-04-KBEAM-SHS-THERMAL-EXP-BOLT-08X04.SLDASM,_Shared,assembly,yes,NotAToolboxPart,19000,1,Default,,,

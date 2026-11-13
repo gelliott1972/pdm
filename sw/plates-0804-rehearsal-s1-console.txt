@@ -1,0 +1,63 @@
+﻿made read-only for this stage: 779 file(s)
+lock : exit 0, 0 s; Locked SOLIDWORKS for sw: plates-0804 run (C:\PDM-work\plates-0804\rehearsal)
+close-all : exit 0, 0 s; Closed 0 documents without saving (0 had unsaved changes, now discarded).
+add-config PLP-32 : exit 0, 49 s; OK
+add-config PLP-33 : exit 0, 43 s; OK
+close-all plp : exit 0, 1 s; Closed 1 documents without saving (0 had unsaved changes, now discarded).
+save-as 08A04-HBW-04 : exit 0, 2 s; OK
+delete-feature 08A04-HBW-04 : exit 0, 75 s; OK
+close-all a 08A04-HBW-04 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08A04-HBW-02 : exit 0, 6 s; OK
+place 08A04-HBW-02 1 : exit 0, 34 s; OK
+place 08A04-HBW-02 2 : exit 0, 41 s; OK
+place 08A04-HBW-02 3 : exit 0, 35 s; OK
+close-all b 08A04-HBW-02 : exit 0, 1 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+save-as 08A04-HBW-05 : exit 0, 2 s; OK
+delete-feature 08A04-HBW-05 : exit 0, 56 s; OK
+close-all a 08A04-HBW-05 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08A04-HBW-06 : exit 0, 5 s; OK
+place 08A04-HBW-06 1 : exit 0, 40 s; OK
+place 08A04-HBW-06 2 : exit 0, 40 s; OK
+close-all b 08A04-HBW-06 : exit 0, 1 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+save-as 08B04-SFP-04 : exit 0, 2 s; OK
+delete-feature 08B04-SFP-04 : exit 0, 54 s; OK
+close-all a 08B04-SFP-04 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08B04-SFP-01 : exit 0, 6 s; OK
+place 08B04-SFP-01 1 : exit 0, 35 s; OK
+place 08B04-SFP-01 2 : exit 0, 35 s; OK
+close-all b 08B04-SFP-01 : exit 0, 1 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+save-as 08B04-SFP-05 : exit 0, 2 s; OK
+delete-feature 08B04-SFP-05 : exit 0, 66 s; OK
+close-all a 08B04-SFP-05 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08B04-SFP-02 : exit 0, 5 s; OK
+place 08B04-SFP-02 1 : exit 0, 13 s; OK
+close-all b 08B04-SFP-02 : exit 0, 1 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+save-as 08C04-SFP-05 : exit 0, 2 s; OK
+delete-feature 08C04-SFP-05 : exit 0, 79 s; OK
+close-all a 08C04-SFP-05 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08C04-SFP-02 : exit 0, 5 s; OK
+place 08C04-SFP-02 1 : exit 0, 42 s; OK
+place 08C04-SFP-02 2 : exit 0, 36 s; OK
+place 08C04-SFP-02 3 : exit 0, 42 s; OK
+close-all b 08C04-SFP-02 : exit 0, 1 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+save-as 08C04-SFP-06 : exit 0, 2 s; OK
+delete-feature 08C04-SFP-06 : exit 0, 54 s; OK
+close-all a 08C04-SFP-06 : exit 0, 1 s; Closed 2 documents without saving (0 had unsaved changes, now discarded).
+new-asm 08C04-SFP-03 : exit 0, 6 s; OK
+place 08C04-SFP-03 1 : exit 0, 11 s; OK
+place 08C04-SFP-03 2 : exit 0, 36 s; OK
+close-all b 08C04-SFP-03 : exit 0, 1 s; Closed 3 documents without saving (2 had unsaved changes, now discarded).
+swap-asm 08A04-SFA-2T : exit 0, 294 s; OK
+close-all c 08A04-SFA-2T : exit 0, 1 s; Closed 4 documents without saving (1 had unsaved changes, now discarded).
+swap-asm 08A04-SFA-3T : exit 0, 228 s; OK
+close-all c 08A04-SFA-3T : exit 0, 1 s; Closed 4 documents without saving (1 had unsaved changes, now discarded).
+swap-asm 08B04-SFA-3T : exit 0, 222 s; OK
+close-all c 08B04-SFA-3T : exit 0, 1 s; Closed 6 documents without saving (3 had unsaved changes, now discarded).
+swap-asm 08B04-SFA-2T : exit 0, 439 s; OK
+close-all c 08B04-SFA-2T : exit 0, 1 s; Closed 6 documents without saving (3 had unsaved changes, now discarded).
+swap-asm 08C04-SFA-2T : exit 0, 434 s; OK
+close-all c 08C04-SFA-2T : exit 0, 1 s; Closed 6 documents without saving (3 had unsaved changes, now discarded).
+swap-asm 08C04-SFA-3T : exit 0, 103 s; OK
+close-all c 08C04-SFA-3T : exit 0, 1 s; Closed 6 documents without saving (3 had unsaved changes, now discarded).
+made writable again: 779 file(s)
+stage 1 done: all 19 planned files written, nothing else

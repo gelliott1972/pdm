@@ -110,7 +110,8 @@ switch ($Stage) {
         $pf = "$Log\s2-probe-before-props"; Remove-Item -Recurse -Force $pf -ErrorAction SilentlyContinue
         Step 'probe' @($L, $pf) @(0) "$T\DmProbe\bin\DmProbe.exe" | Out-Null
         $tsv = "$Log\s2-props.tsv"
-        Step 'props list' @('-I', "$repo\scratch\import\plates-0804\sw\make_props.py", $pf, "$repo\scratch\inventory\plates-0804-before", $tsv, '08X04-PLP-33') @(0) python | Out-Null
+        $mode = if ($Real) { 'no-asm-partno' } else { 'all' }   # P:\: the assemblies' PartNo after the old parts are removed (stage 4)
+        Step 'props list' @('-I', "$repo\scratch\import\plates-0804\sw\make_props.py", $pf, "$repo\scratch\inventory\plates-0804-before", $tsv, '08X04-PLP-33', $mode) @(0) python | Out-Null
         $dm = @('batch', $tsv, $V); if ($Real) { $dm += '--checked-out' }
         Step 'props' $dm @(0) "$T\DmEdit\bin\DmEdit.exe" | Out-Null
         $pa = "$Log\s2-probe-after"; Remove-Item -Recurse -Force $pa -ErrorAction SilentlyContinue
@@ -125,9 +126,39 @@ switch ($Stage) {
     }
     4 {
         if (-not $Real) { "Stage 4 is the vault run only"; exit 2 }
-        $olds = @(foreach ($j in $jobs) { "$L\$($j.sh)\$($j.old).SLDPRT" })
-        Step 'pdm unlock old parts' (@('unlock') + $olds) @(0) $Pdm | Out-Null
-        Step 'pdm load dry' @('load', '--dry', '--note', 'plates-0804: plates out of six 0804 weldments (Grant 13 Nov)') @(0) $Pdm | Out-Null
-        "stage 4a: read the load dry run; then run the load and the removals by hand (see sw\plates-0804.md)"
+        # The load refuses one PartNo on two files, and the remove refuses a file still used: so the old parts are
+        # unlocked (unchanged), the rest loaded (new assemblies without PartNo yet), the old parts removed, then the six
+        # assemblies checked out again, given their PartNo and loaded.
+        $note = 'plates-0804: plates out of six 0804 weldments into assemblies (Grant 13 Nov)'
+        $olds = @(foreach ($j in $jobs) { "$L\$($j.sh)\$($j.old).SLDPRT" }); $asms = @(foreach ($j in $jobs) { "$L\$($j.sh)\$($j.old).SLDASM" })
+        function PdmStep($name, [string[]] $a, $expect) {
+            $f = Step $name $a @(0) $Pdm
+            $v = (Get-Content $f | Where-Object { $_ -like 'Vault:*' } | Select-Object -First 1)
+            if (-not $v -or $v -like '*test*') { throw "STOPPED at ${name}: vault line '$v'" }
+            $bad = @(Get-Content $f | Where-Object { $_ -cmatch '^\s*(CHECK|Stopped|NOT OK|Not removed|Not in the vault)\b' -or $_ -match 'more than one file' })
+            if ($bad.Count) { throw "STOPPED at ${name}: $($bad[0]) (see $f)" }
+            if ($expect) { $n = @(Get-Content $f | Where-Object { $_ -match $expect }).Count; Write-Host "  $n line(s) matching '$expect'" }
+            return $f
+        }
+        PdmStep 'pdm unlock old parts dry' (@('unlock') + $olds + @('--dry')) $null | Out-Null
+        PdmStep 'pdm unlock old parts' (@('unlock') + $olds) $null | Out-Null
+        $f = PdmStep 'pdm load dry' @('load', '--dry', '--note', $note) '^\s+(new|changed)\s'
+        $up = @(Get-Content $f | Where-Object { $_ -match '^\s+(new|changed)\s' })
+        if ($up.Count -ne 19) { $up; throw "STOPPED: the load would upload $($up.Count) files, 19 planned (12 new, 6 SFAs, 08X04-PLP)" }
+        PdmStep 'pdm load' @('load', '--note', $note) $null | Out-Null
+        $rm = "plates moved to assembly"
+        foreach ($j in $jobs) { PdmStep "pdm remove dry $($j.old)" @('remove', "$L\$($j.sh)\$($j.old).SLDPRT", '--note', "$rm $($j.old).SLDASM", '--dry') 'Would remove' | Out-Null }
+        foreach ($j in $jobs) { PdmStep "pdm remove $($j.old)" @('remove', "$L\$($j.sh)\$($j.old).SLDPRT", '--note', "$rm $($j.old).SLDASM") 'Removed' | Out-Null }
+        PdmStep 'pdm checkout asms' (@('checkout') + $asms) 'Checked out' | Out-Null
+        $pf = "$Log\s4-probe"; Remove-Item -Recurse -Force $pf -ErrorAction SilentlyContinue
+        Step 'probe s4' @($L, $pf) @(0) "$T\DmProbe\bin\DmProbe.exe" | Out-Null
+        $tsv = "$Log\s4-asm-partno.tsv"
+        Step 'asm partno list' @('-I', "$repo\scratch\import\plates-0804\sw\make_props.py", $pf, "$repo\scratch\inventory\plates-0804-before", $tsv, '08X04-PLP-33', 'asm-partno-only') @(0) python | Out-Null
+        Step 'asm partno' @('batch', $tsv, $V, '--checked-out') @(0) "$T\DmEdit\bin\DmEdit.exe" | Out-Null
+        $f = PdmStep 'pdm load 2 dry' @('load', '--dry', '--note', $note) '^\s+(new|changed)\s'
+        $up = @(Get-Content $f | Where-Object { $_ -match '^\s+(new|changed)\s' })
+        if ($up.Count -ne 6) { $up; throw "STOPPED: the second load would upload $($up.Count) files, 6 planned (the assemblies)" }
+        PdmStep 'pdm load 2' @('load', '--note', "$note (PartNo)") $null | Out-Null
+        "stage 4 done"
     }
 }

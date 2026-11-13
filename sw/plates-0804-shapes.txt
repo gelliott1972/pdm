@@ -1,0 +1,75 @@
+FILE	08A04-HBW-02.SLDPRT	Default<As Machined>
+BODY	M12 Clearance Slot1	180 x 140 x 10	faces 22	cyl 8
+  CYL	r7.5 (-65, -40); r7.5 (-65, -50); r7.5 (-65, 40); r7.5 (-65, 50); r7.5 (65, -40); r7.5 (65, -50); r7.5 (65, 40); r7.5 (65, 50)
+  SIG	r7.5@65,40 r7.5@65,50
+BODY	LPattern1	180 x 140 x 10	faces 22	cyl 8
+  CYL	r7.5 (-65, -40); r7.5 (-65, -50); r7.5 (-65, 40); r7.5 (-65, 50); r7.5 (65, -40); r7.5 (65, -50); r7.5 (65, 40); r7.5 (65, 50)
+  SIG	r7.5@65,40 r7.5@65,50
+BODY	M12 Clearance Slot2	180 x 140 x 10	faces 22	cyl 8
+  CYL	r6.75 (-60, -45); r6.75 (-60, 45); r6.75 (-70, -45); r6.75 (-70, 45); r6.75 (60, -45); r6.75 (60, 45); r6.75 (70, -45); r6.75 (70, 45)
+  SIG	r6.75@60,45 r6.75@70,45
+BODY	O10.0 (10) Diameter Hole2	72 x 32 x 5	faces 11	cyl 5
+  CYL	r5 (0, 0); r8 (-28, -8); r8 (-28, 8); r8 (28, -8); r8 (28, 8)
+  SIG	r5@0,0 r8@28,8
+FILE	08A04-HBW-06.SLDPRT	Default<As Machined>
+BODY	O10.0 (10) Diameter Hole1	72 x 32 x 5	faces 11	cyl 5
+  CYL	r5 (0, 0); r8 (-28, -8); r8 (-28, 8); r8 (28, -8); r8 (28, 8)
+  SIG	r5@0,0 r8@28,8
+BODY	M12 Clearance Slot1	180 x 140 x 10	faces 22	cyl 8
+  CYL	r7.5 (-65, -40); r7.5 (-65, -50); r7.5 (-65, 40); r7.5 (-65, 50); r7.5 (65, -40); r7.5 (65, -50); r7.5 (65, 40); r7.5 (65, 50)
+  SIG	r7.5@65,40 r7.5@65,50
+BODY	M12 Clearance Slot2	180 x 140 x 10	faces 22	cyl 8
+  CYL	r7.5 (-65, -40); r7.5 (-65, -50); r7.5 (-65, 40); r7.5 (-65, 50); r7.5 (65, -40); r7.5 (65, -50); r7.5 (65, 40); r7.5 (65, 50)
+  SIG	r7.5@65,40 r7.5@65,50
+BODY	O10.0 (10) Diameter Hole2	72 x 32 x 5	faces 11	cyl 5
+  CYL	r5 (0, 0); r8 (-28, -8); r8 (-28, 8); r8 (28, -8); r8 (28, 8)
+  SIG	r5@0,0 r8@28,8
+FILE	08B04-SFP-01.SLDPRT	Default<As Machined>
+BODY	M12 Clearance Slot2	180 x 140 x 10	faces 22	cyl 8
+  CYL	r7.5 (-65, -40); r7.5 (-65, -50); r7.5 (-65, 40); r7.5 (-65, 50); r7.5 (65, -40); r7.5 (65, -50); r7.5 (65, 40); r7.5 (65, 50)
+  SIG	r7.5@65,40 r7.5@65,50
+BODY	End cap1	72 x 32 x 5	faces 10	cyl 4
+  CYL	r8 (-28, -8); r8 (-28, 8); r8 (28, -8); r8 (28, 8)
+  SIG	r8@28,8
+BODY	End cap2	72 x 32 x 5	faces 10	cyl 4
+  CYL	r8 (-28, -8); r8 (-28, 8); r8 (28, -8); r8 (28, 8)
+  SIG	r8@28,8
+BODY	M12 Clearance Slot1	180 x 140 x 10	faces 22	cyl 8
+  CYL	r7.5 (-65, -40); r7.5 (-65, -50); r7.5 (-65, 40); r7.5 (-65, 50); r7.5 (65, -40); r7.5 (65, -50); r7.5 (65, 40); r7.5 (65, 50)
+  SIG	r7.5@65,40 r7.5@65,50
+FILE	08C04-SFP-02.SLDPRT	Default<As Machined>
+BODY	End cap2[1]	72 x 32 x 5	faces 10	cyl 4
+  CYL	r8 (-28, -8); r8 (-28, 8); r8 (28, -8); r8 (28, 8)
+  SIG	r8@28,8
+BODY	M12 Clearance Slot1	180 x 140 x 10	faces 22	cyl 8
+  CYL	r7.5 (-65, -40); r7.5 (-65, -50); r7.5 (-65, 40); r7.5 (-65, 50); r7.5 (65, -40); r7.5 (65, -50); r7.5 (65, 40); r7.5 (65, 50)
+  SIG	r7.5@65,40 r7.5@65,50
+BODY	LPattern1	180 x 140 x 10	faces 22	cyl 8
+  CYL	r7.5 (-65, -40); r7.5 (-65, -50); r7.5 (-65, 40); r7.5 (-65, 50); r7.5 (65, -40); r7.5 (65, -50); r7.5 (65, 40); r7.5 (65, 50)
+  SIG	r7.5@65,40 r7.5@65,50
+BODY	M12 Clearance Slot2	180 x 140 x 10	faces 22	cyl 8
+  CYL	r6.75 (-60, -45); r6.75 (-60, 45); r6.75 (-70, -45); r6.75 (-70, 45); r6.75 (60, -45); r6.75 (60, 45); r6.75 (70, -45); r6.75 (70, 45)
+  SIG	r6.75@60,45 r6.75@70,45
+FILE	08C04-SFP-03.SLDPRT	Default<As Machined>
+BODY	M12 Clearance Slot1	180 x 140 x 10	faces 22	cyl 8
+  CYL	r7.5 (-65, -40); r7.5 (-65, -50); r7.5 (-65, 40); r7.5 (-65, 50); r7.5 (65, -40); r7.5 (65, -50); r7.5 (65, 40); r7.5 (65, 50)
+  SIG	r7.5@65,40 r7.5@65,50
+BODY	M12 Clearance Slot2	180 x 140 x 10	faces 22	cyl 8
+  CYL	r7.5 (-65, -40); r7.5 (-65, -50); r7.5 (-65, 40); r7.5 (-65, 50); r7.5 (65, -40); r7.5 (65, -50); r7.5 (65, 40); r7.5 (65, 50)
+  SIG	r7.5@65,40 r7.5@65,50
+BODY	End cap1	72 x 32 x 5	faces 10	cyl 4
+  CYL	r8 (-28, -8); r8 (-28, 8); r8 (28, -8); r8 (28, 8)
+  SIG	r8@28,8
+BODY	End cap2	72 x 32 x 5	faces 10	cyl 4
+  CYL	r8 (-28, -8); r8 (-28, 8); r8 (28, -8); r8 (28, 8)
+  SIG	r8@28,8
+FILE	08X04-PLP.SLDPRT	150x140x10_SLOTS_LONG_AXIS
+BODY	O10.0 (10) Diameter Hole1	150 x 140 x 10	faces 23	cyl 9
+  CYL	r5 (0, 0); r6.75 (-45, -45); r6.75 (-45, 45); r6.75 (-55, -45); r6.75 (-55, 45); r6.75 (45, -45); r6.75 (45, 45); r6.75 (55, -45); r6.75 (55, 45)
+  SIG	r5@0,0 r6.75@45,45 r6.75@55,45
+FILE	08X04-PLP.SLDPRT	150x140x10_SLOTS_SHORT_AXIS
+
+Unhandled Exception: System.Runtime.InteropServices.COMException: The object invoked has disconnected from its clients. (Exception from HRESULT: 0x80010108 (RPC_E_DISCONNECTED))
+   at SolidWorks.Interop.sldworks.ICurve.IsLine()
+   at SwPlateShape.Frame(Body2 b, Double[]& O, Double[]& U, Double[]& V, Double[]& W, Double& lu, Double& lv, Double& lw)
+   at SwPlateShape.Main(String[] args)

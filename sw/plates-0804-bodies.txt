@@ -1,0 +1,123 @@
+=== ShaftA/08A04-HBW-02
+Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-02.SLDPRT
+CONFIG	Default<As Machined>	7 solid bodies
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 240874.45 mm3	centre (0, 364, 25)	frame O (0, 364, 25) u (1, 0, 0) w (0, 0, -1)	faces 22	features PLATE_2, M12 Clearance Slot2
+BODY	O10.0 (10) Diameter Hole2	72 x 32 x 5 mm	vol 10852.61 mm3	centre (0, 431.5, 0)	frame O (0, 431.5, 0) u (1, 0, 0) w (0, -1, 0)	faces 11	features End cap2, O10.0 (10) Diameter Hole2
+BODY	M12 Clearance Slot1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (1539, 0, 25)	frame O (1539, 0, 25) u (0, 1, 0) w (0, 0, -1)	faces 22	features PLATE_1, M12 Clearance Slot1
+BODY	Rhs RHS80X40X8(1)[2]	469 x 80 x 40 mm	vol 678503.8 mm3	centre (-1.567, 213.716, 0)	frame O (0, 194.5, 0) u (0, 1, 0) w (0, 0, 1)	faces 18	features Rhs RHS80X40X8(1), End cap2
+BODY	Rhs RHS80X40X8(1)[1]	1644 x 80 x 40 mm	vol 2536937.45 mm3	centre (801.79, -0.419, 0)	frame O (782, 0, 0) u (-1, 0, 0) w (0, 0, 1)	faces 18	features Rhs RHS80X40X8(1), End cap1
+BODY	O10.0 (10) Diameter Hole1	72 x 32 x 5 mm	vol 10852.61 mm3	centre (1606.5, 0, 0)	frame O (1606.5, 0, 0) u (0, -1, 0) w (-1, 0, 0)	faces 11	features End cap1, O10.0 (10) Diameter Hole1
+BODY	LPattern1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (289, 0, 25)	frame O (289, 0, 25) u (0, 1, 0) w (0, 0, -1)	faces 22	features LPattern1
+CONFIG	Default<As Welded>	7 solid bodies
+BODY	Rhs RHS80X40X8(1)[2]	469 x 80 x 40 mm	vol 678503.8 mm3	centre (-1.567, 213.716, 0)	frame O (0, 194.5, 0) u (0, 1, 0) w (0, 0, 1)	faces 18	features Rhs RHS80X40X8(1), End cap2
+BODY	Rhs RHS80X40X8(1)[1]	1644 x 80 x 40 mm	vol 2536937.45 mm3	centre (801.79, -0.419, 0)	frame O (782, 0, 0) u (-1, 0, 0) w (0, 0, 1)	faces 18	features Rhs RHS80X40X8(1), End cap1
+BODY	O10.0 (10) Diameter Hole1	72 x 32 x 5 mm	vol 10852.61 mm3	centre (1606.5, 0, 0)	frame O (1606.5, 0, 0) u (0, -1, 0) w (-1, 0, 0)	faces 11	features End cap1, O10.0 (10) Diameter Hole1
+BODY	LPattern1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (289, 0, 25)	frame O (289, 0, 25) u (0, 1, 0) w (0, 0, -1)	faces 22	features LPattern1
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 240874.45 mm3	centre (0, 364, 25)	frame O (0, 364, 25) u (1, 0, 0) w (0, 0, -1)	faces 22	features PLATE_2, M12 Clearance Slot2
+BODY	O10.0 (10) Diameter Hole2	72 x 32 x 5 mm	vol 10852.61 mm3	centre (0, 431.5, 0)	frame O (0, 431.5, 0) u (1, 0, 0) w (0, -1, 0)	faces 11	features End cap2, O10.0 (10) Diameter Hole2
+BODY	M12 Clearance Slot1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (1539, 0, 25)	frame O (1539, 0, 25) u (0, 1, 0) w (0, 0, -1)	faces 22	features PLATE_1, M12 Clearance Slot1
+Closed it again without saving.
+OK
+=== ShaftA/08A04-HBW-06
+Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftA\08A04-HBW-06.SLDPRT
+CONFIG	Default<As Machined>	5 solid bodies
+BODY	M12 Clearance Slot1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (-885, 25, 0)	frame O (-885, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude1, M12 Clearance Slot1
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 238931.42 mm3	centre (885, 25, 0)	frame O (885, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude2, M12 Clearance Slot2
+BODY	O10.0 (10) Diameter Hole2	72 x 32 x 5 mm	vol 10852.61 mm3	centre (-952.5, 0, 0)	frame O (-952.5, 0, 0) u (0, 0, -1) w (1, 0, 0)	faces 11	features End cap1, O10.0 (10) Diameter Hole2
+BODY	O10.0 (10) Diameter Hole1	72 x 32 x 5 mm	vol 10852.61 mm3	centre (952.5, 0, 0)	frame O (952.5, 0, 0) u (0, 0, 1) w (-1, 0, 0)	faces 11	features End cap2, O10.0 (10) Diameter Hole1
+BODY	Rhs RHS80X40X8(1)	1900 x 80 x 40 mm	vol 3005026.5 mm3	centre (0, 0, 0)	frame O (0, 0, 0) u (-1, 0, 0) w (0, 1, 0)	faces 18	features Rhs RHS80X40X8(1)
+CONFIG	Default<As Welded>	5 solid bodies
+BODY	Rhs RHS80X40X8(1)	1900 x 80 x 40 mm	vol 3005026.5 mm3	centre (0, 0, 0)	frame O (0, 0, 0) u (-1, 0, 0) w (0, 1, 0)	faces 18	features Rhs RHS80X40X8(1)
+BODY	M12 Clearance Slot1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (-885, 25, 0)	frame O (-885, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude1, M12 Clearance Slot1
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 238931.42 mm3	centre (885, 25, 0)	frame O (885, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude2, M12 Clearance Slot2
+BODY	O10.0 (10) Diameter Hole2	72 x 32 x 5 mm	vol 10852.61 mm3	centre (-952.5, 0, 0)	frame O (-952.5, 0, 0) u (0, 0, -1) w (1, 0, 0)	faces 11	features End cap1, O10.0 (10) Diameter Hole2
+BODY	O10.0 (10) Diameter Hole1	72 x 32 x 5 mm	vol 10852.61 mm3	centre (952.5, 0, 0)	frame O (952.5, 0, 0) u (0, 0, 1) w (-1, 0, 0)	faces 11	features End cap2, O10.0 (10) Diameter Hole1
+Closed it again without saving.
+OK
+=== ShaftB/08B04-SFP-01
+Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-01.SLDPRT
+CONFIG	Default<As Machined>	5 solid bodies
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 238931.42 mm3	centre (885, 25, 0)	frame O (885, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude2, M12 Clearance Slot2
+BODY	End cap1	72 x 32 x 5 mm	vol 11245.31 mm3	centre (-952.5, 0, 0)	frame O (-952.5, 0, 0) u (0, 0, -1) w (1, 0, 0)	faces 10	features End cap1
+BODY	End cap2	72 x 32 x 5 mm	vol 11245.31 mm3	centre (952.5, 0, 0)	frame O (952.5, 0, 0) u (0, 0, 1) w (-1, 0, 0)	faces 10	features End cap2
+BODY	Rhs RHS80X40X8(1)	1900 x 80 x 40 mm	vol 3005026.5 mm3	centre (0, 0, 0)	frame O (0, 0, 0) u (-1, 0, 0) w (0, 1, 0)	faces 18	features Rhs RHS80X40X8(1)
+BODY	M12 Clearance Slot1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (-885, 25, 0)	frame O (-885, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude1, M12 Clearance Slot1
+CONFIG	Default<As Welded>	5 solid bodies
+BODY	M12 Clearance Slot1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (-885, 25, 0)	frame O (-885, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude1, M12 Clearance Slot1
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 238931.42 mm3	centre (885, 25, 0)	frame O (885, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude2, M12 Clearance Slot2
+BODY	End cap1	72 x 32 x 5 mm	vol 11245.31 mm3	centre (-952.5, 0, 0)	frame O (-952.5, 0, 0) u (0, 0, -1) w (1, 0, 0)	faces 10	features End cap1
+BODY	End cap2	72 x 32 x 5 mm	vol 11245.31 mm3	centre (952.5, 0, 0)	frame O (952.5, 0, 0) u (0, 0, 1) w (-1, 0, 0)	faces 10	features End cap2
+BODY	Rhs RHS80X40X8(1)	1900 x 80 x 40 mm	vol 3005026.5 mm3	centre (0, 0, 0)	frame O (0, 0, 0) u (-1, 0, 0) w (0, 1, 0)	faces 18	features Rhs RHS80X40X8(1)
+Closed it again without saving.
+OK
+=== ShaftB/08B04-SFP-02
+Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftB\08B04-SFP-02.SLDPRT
+CONFIG	Default<As Machined>	4 solid bodies
+BODY	Shs SHS40X40X4(1)[2]	131 x 40 x 40 mm	vol 59363.35 mm3	centre (0, 191.866, 54.567)	frame O (0, 190, 45.5) u (0, 0, -1) w (0, -1, 0)	faces 18	features Shs SHS40X40X4(1), End cap1, Plain Carbon Steel
+BODY	Shs SHS40X40X4(1)[1]	210 x 40 x 40 mm	vol 101611.42 mm3	centre (0, 95.545, -1.09)	frame O (0, 105, 0) u (0, -1, 0) w (0, 0, 1)	faces 18	features Shs SHS40X40X4(1), Plain Carbon Steel
+BODY	End cap1[1]	36 x 36 x 5 mm	vol 6325.49 mm3	centre (0, 190, 113.5)	frame O (0, 190, 113.5) u (0, 1, 0) w (0, 0, -1)	faces 10	features End cap1
+BODY	<GNRIC-LPP>-<DOUBLE_BOTTOM>	100 x 50 x 6 mm	vol 29613.96 mm3	centre (0, 167, 90.837)	frame O (0, 167, 91) u (-1, 0, 0) w (0, 1, 0)	faces 8	features GNRIC-LPP1
+CONFIG	Default<As Welded>	4 solid bodies
+BODY	Shs SHS40X40X4(1)[2]	131 x 40 x 40 mm	vol 59363.35 mm3	centre (0, 191.866, 54.567)	frame O (0, 190, 45.5) u (0, 0, -1) w (0, -1, 0)	faces 18	features Shs SHS40X40X4(1), End cap1, Plain Carbon Steel
+BODY	Shs SHS40X40X4(1)[1]	210 x 40 x 40 mm	vol 101611.42 mm3	centre (0, 95.545, -1.09)	frame O (0, 105, 0) u (0, -1, 0) w (0, 0, 1)	faces 18	features Shs SHS40X40X4(1), Plain Carbon Steel
+BODY	End cap1[1]	36 x 36 x 5 mm	vol 6325.49 mm3	centre (0, 190, 113.5)	frame O (0, 190, 113.5) u (0, 1, 0) w (0, 0, -1)	faces 10	features End cap1
+BODY	<GNRIC-LPP>-<DOUBLE_BOTTOM>	100 x 50 x 6 mm	vol 29613.96 mm3	centre (0, 167, 90.837)	frame O (0, 167, 91) u (-1, 0, 0) w (0, 1, 0)	faces 8	features GNRIC-LPP1
+Closed it again without saving.
+OK
+=== ShaftC/08C04-SFP-02
+Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-02.SLDPRT
+CONFIG	Default<As Machined>	7 solid bodies
+BODY	End cap2[1]	72 x 32 x 5 mm	vol 11245.31 mm3	centre (0, -431.5, 0)	frame O (0, -431.5, 0) u (-1, 0, 0) w (0, 1, 0)	faces 10	features End cap2
+BODY	M12 Clearance Slot1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (1539, 0, 25)	frame O (1539, 0, 25) u (0, 1, 0) w (0, 0, -1)	faces 22	features PLATE_1, M12 Clearance Slot1
+BODY	 C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[2]	469 x 80 x 40 mm	vol 678503.8 mm3	centre (-1.567, -213.716, 0)	frame O (0, -194.5, 0) u (0, -1, 0) w (0, 0, 1)	faces 18	features  C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1), End cap2
+BODY	 C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]	1644 x 80 x 40 mm	vol 2536937.45 mm3	centre (801.79, 0.419, 0)	frame O (782, 0, 0) u (-1, 0, 0) w (0, 0, 1)	faces 18	features  C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1), End cap1
+BODY	End cap1[1]	72 x 32 x 5 mm	vol 11245.31 mm3	centre (1606.5, 0, 0)	frame O (1606.5, 0, 0) u (0, -1, 0) w (-1, 0, 0)	faces 10	features End cap1
+BODY	LPattern1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (289, 0, 25)	frame O (289, 0, 25) u (0, 1, 0) w (0, 0, -1)	faces 22	features LPattern1
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 240874.45 mm3	centre (0, -364, 25)	frame O (0, -364, 25) u (1, 0, 0) w (0, 0, -1)	faces 22	features PLATE_2, M12 Clearance Slot2
+CONFIG	Default<As Welded>	7 solid bodies
+BODY	 C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[2]	469 x 80 x 40 mm	vol 678503.8 mm3	centre (-1.567, -213.716, 0)	frame O (0, -194.5, 0) u (0, -1, 0) w (0, 0, 1)	faces 18	features  C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1), End cap2
+BODY	 C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1)[1]	1644 x 80 x 40 mm	vol 2536937.45 mm3	centre (801.79, 0.419, 0)	frame O (782, 0, 0) u (-1, 0, 0) w (0, 0, 1)	faces 18	features  C:\USERS\GRANT\DROPBOX\UNILUMIN-PRIVATE\PROJECTS\DL APEX\MODELS\SCREEN MODELS\DLAPEX_MEMBERS\DLAPEX\RHS - IS MISSING(1), End cap1
+BODY	End cap1[1]	72 x 32 x 5 mm	vol 11245.31 mm3	centre (1606.5, 0, 0)	frame O (1606.5, 0, 0) u (0, -1, 0) w (-1, 0, 0)	faces 10	features End cap1
+BODY	LPattern1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (289, 0, 25)	frame O (289, 0, 25) u (0, 1, 0) w (0, 0, -1)	faces 22	features LPattern1
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 240874.45 mm3	centre (0, -364, 25)	frame O (0, -364, 25) u (1, 0, 0) w (0, 0, -1)	faces 22	features PLATE_2, M12 Clearance Slot2
+BODY	End cap2[1]	72 x 32 x 5 mm	vol 11245.31 mm3	centre (0, -431.5, 0)	frame O (0, -431.5, 0) u (-1, 0, 0) w (0, 1, 0)	faces 10	features End cap2
+BODY	M12 Clearance Slot1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (1539, 0, 25)	frame O (1539, 0, 25) u (0, 1, 0) w (0, 0, -1)	faces 22	features PLATE_1, M12 Clearance Slot1
+Closed it again without saving.
+OK
+=== ShaftC/08C04-SFP-03
+Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\ShaftC\08C04-SFP-03.SLDPRT
+CONFIG	Default<As Machined>	5 solid bodies
+BODY	Rhs RHS80X40X8(1)	1900 x 80 x 40 mm	vol 3005026.5 mm3	centre (0, 0, 0)	frame O (0, 0, 0) u (-1, 0, 0) w (0, 1, 0)	faces 18	features Rhs RHS80X40X8(1)
+BODY	M12 Clearance Slot1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (-885, 25, 0)	frame O (-885, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude1, M12 Clearance Slot1
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 238931.42 mm3	centre (774.83, 25, 0)	frame O (774.83, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude2, M12 Clearance Slot2
+BODY	End cap1	72 x 32 x 5 mm	vol 11245.31 mm3	centre (-952.5, 0, 0)	frame O (-952.5, 0, 0) u (0, 0, -1) w (1, 0, 0)	faces 10	features End cap1
+BODY	End cap2	72 x 32 x 5 mm	vol 11245.31 mm3	centre (952.5, 0, 0)	frame O (952.5, 0, 0) u (0, 0, 1) w (-1, 0, 0)	faces 10	features End cap2
+CONFIG	Default<As Welded>	5 solid bodies
+BODY	End cap1	72 x 32 x 5 mm	vol 11245.31 mm3	centre (-952.5, 0, 0)	frame O (-952.5, 0, 0) u (0, 0, -1) w (1, 0, 0)	faces 10	features End cap1
+BODY	End cap2	72 x 32 x 5 mm	vol 11245.31 mm3	centre (952.5, 0, 0)	frame O (952.5, 0, 0) u (0, 0, 1) w (-1, 0, 0)	faces 10	features End cap2
+BODY	Rhs RHS80X40X8(1)	1900 x 80 x 40 mm	vol 3005026.5 mm3	centre (0, 0, 0)	frame O (0, 0, 0) u (-1, 0, 0) w (0, 1, 0)	faces 18	features Rhs RHS80X40X8(1)
+BODY	M12 Clearance Slot1	180 x 140 x 10 mm	vol 238931.42 mm3	centre (-885, 25, 0)	frame O (-885, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude1, M12 Clearance Slot1
+BODY	M12 Clearance Slot2	180 x 140 x 10 mm	vol 238931.42 mm3	centre (774.83, 25, 0)	frame O (774.83, 25, 0) u (0, 0, 1) w (0, -1, 0)	faces 22	features Boss-Extrude2, M12 Clearance Slot2
+Closed it again without saving.
+OK
+=== _Shared/08X04-PLP
+Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT
+CONFIG	150x140x10_SLOTS_LONG_AXIS	1 solid bodies
+BODY	O10.0 (10) Diameter Hole1	150 x 140 x 10 mm	vol 198089.05 mm3	centre (0, -5, 0)	frame O (0, -5, 0) u (1, 0, 0) w (0, -1, 0)	faces 23	features PLATE, M12 Clearance Slot1, O10.0 (10) Diameter Hole1
+CONFIG	150x140x10_SLOTS_SHORT_AXIS	1 solid bodies
+BODY	O10.0 (10) Diameter Hole1	150 x 140 x 10 mm	vol 198089.05 mm3	centre (0, -5, 0)	frame O (0, -5, 0) u (1, 0, 0) w (0, -1, 0)	faces 23	features PLATE, M12 Clearance Slot2, O10.0 (10) Diameter Hole1
+Closed it again without saving.
+OK
+Attached to the running SOLIDWORKS (process 25632).
+Opened C:\PDM-work\plates-0804\vault\APEX\GNRIC\GNRIC-LPP.SLDPRT
+CONFIG	DOUBLE_BOTTOM	1 solid bodies
+BODY	DOUBLE_BOTTOM	100 x 50 x 6 mm	vol 29613.96 mm3	centre (0, 24.837, 3)	frame O (0, 25, 3) u (-1, 0, 0) w (0, 0, -1)	faces 8	features 100x100x6_PLATE, M6 Clearance Hole1, DOUBLE_BOTTOM
+Closed it again without saving.
+OK

@@ -1,6 +1,6 @@
 # SW status
 
-## plates-0804 (brief `docsriefs\plates-0804.md`, 13 Nov 2026): done in the vault, apart from 08X04-HBW-05.SLDASM
+## plates-0804 (brief `docs\briefs\plates-0804.md`, 13 Nov 2026): done in the vault, apart from 08X04-HBW-05.SLDASM
 
 Details and logs: `sw\plates-0804.md`, `sw\plates-0804-run.ps1`, `sw\plates-0804-real`. Six weldments split into assembly (today's number) + weldment-only part (new number) + plates fixed (08X04-PLP-32 x10, -PLP-33 x2, GNRIC-LPP DOUBLE_BOTTOM x1). Rehearsed on a full copy, then run on P:\: masses equal, 45/45 SFA mates put back, six old parts removed, PartNos as P4. Open: 08X04-HBW-05.SLDASM Weight/Material (James has it checked out); Grant's check of the six SFAs.
 

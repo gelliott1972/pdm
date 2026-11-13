@@ -1,0 +1,7 @@
+Batch: 2 changes in 1 files under P:\ (--checked-out)
+LOG APEX\SC08\LS-08X-04\_Shared\MDL-LS-08X-04-KBEAM-PACKERS-BOLTS-08X04.SLDASM [180x140] PartNo: . -> (deleted)
+Deleted PartNo at 180x140
+LOG APEX\SC08\LS-08X-04\_Shared\MDL-LS-08X-04-KBEAM-PACKERS-BOLTS-08X04.SLDASM [150x140] PartNo: . -> (deleted)
+Deleted PartNo at 150x140
+OK APEX\SC08\LS-08X-04\_Shared\MDL-LS-08X-04-KBEAM-PACKERS-BOLTS-08X04.SLDASM: 2 change(s), read back, nothing else changed
+RESULT: 1 files, 2 changes, all read back

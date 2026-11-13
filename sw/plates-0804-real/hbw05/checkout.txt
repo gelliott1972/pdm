@@ -1,0 +1,2 @@
+Vault: pdm-apex, pdm-files; local root P:\
+Checked out APEX/SC08/LS-08X-04/_Shared/08X04-HBW-05.SLDASM

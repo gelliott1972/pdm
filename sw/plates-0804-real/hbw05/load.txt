@@ -1,0 +1,301 @@
+Vault: pdm-apex, pdm-files; local root P:\
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/SC08_Drawing_Register.xlsx
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-HBA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-HBA-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-HBA-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-HBW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-HBW-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-HBW-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-SFA-1B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-SFA-1T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-SFA-2T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-SFA-3T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-SFA-4B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-SFA-4T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-SFA-5B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-SFW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08A06-STA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-HBA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-HBA-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-HBA-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-HBW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-HBW-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-HBW-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-SFA-1B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-SFA-1T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-SFA-2T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-SFA-3T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-SFA-4B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-SFA-4T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-SFA-5B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-SFW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08B06-STA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08BXX-MSP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08BXX-PLP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-HBA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-HBA-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-HBA-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-HBW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-HBW-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-HBW-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-SFA-1B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-SFA-1T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-SFA-2T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-SFA-3T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-SFA-4B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-SFA-4T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-SFA-5B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-SFW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08C06-STA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-DBP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-DBP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-LMW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-LMW-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-LMW-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-LMW-04_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-LMW-05_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-LMW-06_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-LMW-07_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-LMW-08_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-LMW-09_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-LPP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-SFW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08X06-SFW-04_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08XXX-HBA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08XXX-HBW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08XXX-PLP-20_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08XXX-PLP-30_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08XXX-PLP-31_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08XXX-PLP-32_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/08XXX-PLP-33_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-BRA-10_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-BRA-11_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-BRA-12_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-BRP-10_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-BRP-11_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-BRP-12_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-BRP-13_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-BRP-14_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-BRP-15_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-BRW-16_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-04_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-05_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-06_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-07_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-08_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-09_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-10_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-11_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-12_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-13_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-14_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-15_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-16_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-17_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-18_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LMP-19_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LPP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LPP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LPP-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LPP-04_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LPP-05_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LPP-06_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LPP-07_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LWP-20_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LWP-21_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LWP-22_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LWP-23_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-LWP-24_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-MSP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-MSP-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-MSP-11_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-MSP-14_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-MSW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PKP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PKP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PKP-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PKP-04_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PLP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PLP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PLP-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PLP-04_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PLP-05_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PLP-06_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PLP-07_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PLP-08_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/GNRIC-PLP-09_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/LS-08X-06_0A_2026-11-09.zip
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-06_0A/LS-08X-06_0A_drawing-list.xlsx
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-HBA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-HBA-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-HBA-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-HBP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-HBW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-HBW-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-SFA-1A_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-SFA-1B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-SFA-1T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-SFA-2B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-SFA-2T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-SFA-3B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-SFA-3T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08A11-STA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-DBP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-HBA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-HBA-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-HBA-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-HBP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-HBW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-HBW-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-LMW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-MSA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-SFA-1T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08B11-STA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08BXX-HBW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08BXX-MSA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08BXX-MSP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08BXX-PLP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08C11-HBA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08C11-HBA-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08C11-HBA-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08C11-HBP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08C11-HBW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08C11-HBW-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08C11-SFA-1T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08C11-STA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08X11-DBP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08X11-LMW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08X11-LMW-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08X11-LMW-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08XXX-HBA-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08XXX-HBW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08XXX-PLP-20_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08XXX-PLP-30_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08XXX-PLP-31_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08XXX-PLP-32_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08XXX-PLP-33_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08Z11-SFA-1A_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08Z11-SFA-1B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08Z11-SFA-2B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08Z11-SFA-2T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08Z11-SFA-3B_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/08Z11-SFA-3T_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-BRA-10_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-BRA-11_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-BRA-12_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-BRP-10_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-BRP-11_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-BRP-12_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-BRP-13_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-BRP-14_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-BRP-15_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-BRW-16_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-04_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-05_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-06_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-07_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-08_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-09_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-10_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-11_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-12_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-13_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-14_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-15_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-16_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-17_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-18_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LMP-19_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LPP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LPP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LPP-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LPP-04_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LPP-05_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LPP-06_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LPP-07_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LWP-20_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LWP-21_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LWP-22_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LWP-23_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-LWP-24_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-MSP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-MSP-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-MSP-11_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-MSP-14_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-MSW-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PKP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PKP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PKP-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PKP-04_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PLP-01_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PLP-02_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PLP-03_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PLP-04_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PLP-05_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PLP-06_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PLP-07_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PLP-08_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/GNRIC-PLP-09_0A.pdf
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/LS-08X-11_0A_2026-11-09.zip
+  skipped (not a SOLIDWORKS file, and nothing refers to it): APEX/SC08/_Review/LS-08X-11_0A/LS-08X-11_0A_drawing-list.xlsx
+  skipped (not a SOLIDWORKS file, and nothing refers to it): Claude outputs/2026-11-11_DL_APEX_ENGINEERING_CALCS_REQUIRED_SUMMARY_WITH_DATES.xlsx
+547 files to load from P:\ (246 skipped); 1 new or changed (0.1 MB to upload), 546 already in the vault.
+  changed  APEX/SC08/LS-08X-04/_Shared/08X04-HBW-05.SLDASM
+1 files checked out to you here are checked in by the load (changed or not).
+48 PartNo(s) on more than one configuration of the same file; the register points at the parent:
+  GNRIC-BRP-12: APEX/GNRIC/GNRIC-BRP.SLDPRT / TIE-385-WELDED<As Machined> (also on Default<As Welded>)
+  GNRIC-BRP-13: APEX/GNRIC/GNRIC-BRP.SLDPRT / TIE-460-WELDED<As Machined> (also on 460<As Welded>)
+  GNRIC-BRP-11: APEX/GNRIC/GNRIC-BRP.SLDPRT / TIE-210-WELDED<As Machined> (also on 210<As Welded>)
+  GNRIC-BRP-10: APEX/GNRIC/GNRIC-BRP.SLDPRT / TIE-104-WELDED<As Machined> (also on 104<As Welded>)
+  GNRIC-BRP-15: APEX/GNRIC/GNRIC-BRP.SLDPRT / TIE-960-WELDED<As Machined> (also on TIE-960-WELDED<As Welded>)
+  GNRIC-BRP-14: APEX/GNRIC/GNRIC-BRP.SLDPRT / TIE-710-WELDED<As Machined> (also on TIE-710-WELDED<As Welded>)
+  GNRIC-BRW-16: APEX/GNRIC/GNRIC-BRP.SLDPRT / TIE-184-1XEC<As Machined> (also on TIE-184-1XEC<As Welded>)
+  GNRIC-LMP-04: APEX/GNRIC/GNRIC-LM.SLDPRT / OPEN-296+8M+250-SPL<As Machined> (also on 250+2000+250<As Welded>)
+  GNRIC-LMW-11: APEX/GNRIC/GNRIC-LMW.SLDPRT / EC-50+7M+46-OPEN<As Machined> (also on EC-0+8M+46-OPEN<As Welded>)
+  GNRIC-LMW-12: APEX/GNRIC/GNRIC-LMW.SLDPRT / OPEN-46+0M+50-EC (STUB)<As Machined> (also on OPEN-46+1M+0-EC<As Machined><As Welded>)
+  GNRIC-LMW-06: APEX/GNRIC/GNRIC-LMW.SLDPRT / EC-0+6M+46-OPEN<As Machined> (also on EC-0+6M+46-OPEN<As Welded>)
+  GNRIC-LMW-05: APEX/GNRIC/GNRIC-LMW.SLDPRT / EC-0+5M+46-EC<As Machined> (also on EC-0+5M+46-OPEN<As Machined><As Welded>)
+  GNRIC-LMW-03: APEX/GNRIC/GNRIC-LMW.SLDPRT / EC-0+4M+46-OPEN<As Machined> (also on EC-0+4M+46-OPEN<As Welded>)
+  GNRIC-LMW-01: APEX/GNRIC/GNRIC-LMW.SLDPRT / EC-0+2M+46-OPEN<As Machined> (also on EC-0+2M+46-OPEN<As Welded>)
+  GNRIC-LMW-02: APEX/GNRIC/GNRIC-LMW.SLDPRT / EC-0+3M+46-OPEN<As Machined> (also on EC-0+3M+46-OPEN<As Welded>)
+  GNRIC-LMW-04: APEX/GNRIC/GNRIC-LMW.SLDPRT / EC-0+5M+0-EC<As Machined> (also on EC-0+5M+0-EC<As Welded>)
+  GNRIC-LMW-10: APEX/GNRIC/GNRIC-LMW.SLDPRT / EC-50+5M+46-OPEN<As Machined> (also on EC-50+5M+46-OPEN<As Welded>)
+  GNRIC-LMW-09: APEX/GNRIC/GNRIC-LMW.SLDPRT / EC-50+4M+46-OPEN<As Machined> (also on EC-50+4M+46-OPEN<As Welded>)
+  08A04-HBW-03: APEX/SC08/LS-08X-04/ShaftA/08A04-HBW-03.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08A04-HBW-04: APEX/SC08/LS-08X-04/ShaftA/08A04-HBW-04.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08A04-HBW-05: APEX/SC08/LS-08X-04/ShaftA/08A04-HBW-05.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08B04-BKP-02: APEX/SC08/LS-08X-04/ShaftB/08B04-BKP-02.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08B04-BKP-03: APEX/SC08/LS-08X-04/ShaftB/08B04-BKP-03.SLDPRT / 57DEG<As Machined> (also on Default<As Welded>)
+  08B04-BRW-01: APEX/SC08/LS-08X-04/ShaftB/08B04-BRW-01.SLDPRT / TIE-145-ENDCAP<As Machined> (also on TIE-152-ENDCAP<As Machined><As Machined><As Welded>)
+  08B04-BRW-02: APEX/SC08/LS-08X-04/ShaftB/08B04-BRW-02.SLDPRT / TIE-474-WELDED_WITH_END_CAPS<As Machined> (also on TIE-474-WELDED<As Welded>)
+  08B04-KBP-05: APEX/SC08/LS-08X-04/ShaftB/08B04-KBP-05.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08B04-KBP-06: APEX/SC08/LS-08X-04/ShaftB/08B04-KBP-06.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08B04-SFP-04: APEX/SC08/LS-08X-04/ShaftB/08B04-SFP-04.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08B04-SFP-05: APEX/SC08/LS-08X-04/ShaftB/08B04-SFP-05.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08C04-SFP-05: APEX/SC08/LS-08X-04/ShaftC/08C04-SFP-05.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08C04-SFP-06: APEX/SC08/LS-08X-04/ShaftC/08C04-SFP-06.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08X04-BKP-01: APEX/SC08/LS-08X-04/_Shared/08X04-BKP-01.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08X04-BKP-06: APEX/SC08/LS-08X-04/_Shared/08X04-BKP-06.SLDPRT / 57DEG<As Machined> (also on Default<As Welded>)
+  08X04-BKP-07: APEX/SC08/LS-08X-04/_Shared/08X04-BKP-07.SLDPRT / 90DEG<As Machined> (also on Default<As Welded>)
+  08X04-BKP-03: APEX/SC08/LS-08X-04/_Shared/08X04-BKP.SLDPRT / 68MM_SPACE_80X40RHS_150X140PLATE_SLOTS_SHOT_AXIS<As Machined> (also on 68MM_SPACE_80X40RHS_140X120PLATE<As Welded>)
+  08X04-BKP-05: APEX/SC08/LS-08X-04/_Shared/08X04-BKP.SLDPRT / 68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_SHORT_AXIS<As Machined> (also on Default<As Welded>)
+  08X04-BKP-02: APEX/SC08/LS-08X-04/_Shared/08X04-BKP.SLDPRT / 68MM_SPACE_80X40RHS_150x140PLATE_SLOTS_LONG_AXIS<As Machined> (also on 68MM_SPACE_80X40RHS_140X120PLATE_SLOTS_LONG_AXIS<As Welded>)
+  08X04-BKP-04: APEX/SC08/LS-08X-04/_Shared/08X04-BKP.SLDPRT / 68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_LONG_AXIS<As Machined> (also on 68MM_SPACE_80X40RHS_180X120PLATE_SLOTS_LONG_AXIS<As Welded>)
+  08X04-BRP-01: APEX/SC08/LS-08X-04/_Shared/08X04-BRP-01.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08X04-BRP-02: APEX/SC08/LS-08X-04/_Shared/08X04-BRP-02.SLDPRT / 460-WELDED<As Machined> (also on Default<As Welded>)
+  08X04-HBW-02: APEX/SC08/LS-08X-04/_Shared/08X04-HBW-02.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08X04-HBW-04: APEX/SC08/LS-08X-04/_Shared/08X04-HBW-04.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08X04-HBW-06: APEX/SC08/LS-08X-04/_Shared/08X04-HBW-06.SLDPRT / RHS&ENDPLATES_ONLY<As Machined> (also on RHS&ENDPLATES_ONLY<As Welded>)
+  08X04-HBW-07: APEX/SC08/LS-08X-04/_Shared/08X04-HBW-07.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08X04-PLP-05: APEX/SC08/LS-08X-04/_Shared/08X04-PLP-05.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  08X04-PLP-06: APEX/SC08/LS-08X-04/_Shared/08X04-PLP-06.SLDPRT / Default<As Machined> (also on Default<As Welded>)
+  .: APEX/SC08/LS-08X-04/_Shared/MDL-LS-08X-04-KBEAM-PACKERS-BOLTS-08X04.SLDASM / 180x140 (also on 150x140)  CHECK: not one parent with As Welded children
+  08X06-SFW-04: APEX/SC08/LS-08X-06/_Shared/08X06-SFW-04.SLDPRT / Default<As Machined> (also on Updated<As Machined>, Complete<As Welded>)  CHECK: not one parent with As Welded children
+477 PartNo values, 1154 references inside the vault, 0 outside it.
+Load done: 1 uploaded, 547 index records written. This PC's copy is recorded as current.

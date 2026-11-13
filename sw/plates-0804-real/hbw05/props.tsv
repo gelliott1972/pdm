@@ -1,0 +1,3 @@
+file	level	name	op	value	old
+APEX\SC08\LS-08X-04\_Shared\08X04-HBW-05.SLDASM	Default	Weight	set	"SW-Mass@@Default@08X04-HBW-05.SLDASM"	"SW-Mass@@Default<As Machined>@08X04-HBW-05.SLDPRT"
+APEX\SC08\LS-08X-04\_Shared\08X04-HBW-05.SLDASM	Default	Material	del		"SW-Material@08X04-HBW-05.SLDPRT"

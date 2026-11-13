@@ -1,8 +1,12 @@
 # SW status
 
-## plates-0804 (brief `docs\briefs\plates-0804.md`, 13 Nov 2026): done in the vault, apart from 08X04-HBW-05.SLDASM
+## plates-0804 (brief `docs\briefs\plates-0804.md`, 13 Nov 2026): done in the vault
 
-Details and logs: `sw\plates-0804.md`, `sw\plates-0804-run.ps1`, `sw\plates-0804-real`. Six weldments split into assembly (today's number) + weldment-only part (new number) + plates fixed (08X04-PLP-32 x10, -PLP-33 x2, GNRIC-LPP DOUBLE_BOTTOM x1). Rehearsed on a full copy, then run on P:\: masses equal, 45/45 SFA mates put back, six old parts removed, PartNos as P4. Open: 08X04-HBW-05.SLDASM Weight/Material (James has it checked out); Grant's check of the six SFAs.
+Details and logs: `sw\plates-0804.md`, `sw\plates-0804-run.ps1`, `sw\plates-0804-real`. Six weldments split into assembly (today's number) + weldment-only part (new number) + plates fixed (08X04-PLP-32 x10, -PLP-33 x2, GNRIC-LPP DOUBLE_BOTTOM x1). Rehearsed on a full copy, then run on P:\: masses equal, 45/45 SFA mates put back, six old parts removed, PartNos as P4. 08X04-HBW-05.SLDASM fixed after (Weight reads the assembly, Material removed; checked in 15:33). Open: Grant's check of the six SFAs.
+
+## K-beam packer kit PartNo (13 Nov 2026, Admin's job): done
+
+`MDL-LS-08X-04-KBEAM-PACKERS-BOLTS-08X04.SLDASM` had PartNo "." on 180x140 and 150x140 (the load CHECK). None of the 13 MDL- kit assemblies in the vault carry a PartNo (one has it empty), so both deleted and checked in (15:39); the load CHECK for it is gone. Logs `sw\kbeam-packers`. Load still lists one older CHECK: `08X06-SFW-04.SLDPRT` (not this job).
 
 ## 0A white re-issue (10 Nov 2026, Grant's go, overnight): done and checked
 

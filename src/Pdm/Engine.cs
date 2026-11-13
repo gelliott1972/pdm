@@ -377,6 +377,13 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
                 say($"No changes in {existing.Path}; released.");
                 return;
             }
+            // A check-out fetches the latest, so this shouldn't happen; if this PC's record says it has an older
+            // version, uploading could put an old copy back over someone's work.
+            if (state.Files.TryGetValue(existing.Path, out var had) && had.ETag != "" && !had.ETag.Equals(existing.ETag, StringComparison.OrdinalIgnoreCase)) // content: a move makes a new version id
+            {
+                say($"Not checked in: the vault has a newer version of {existing.Path} than this PC last got (checked in by {existing.UpdatedBy}, {Local(existing.UpdatedAt)}). Tell Grant; nothing was uploaded.");
+                return;
+            }
         }
         if (Paths.IsReleaseFile(key) && !Paths.IsPdf(key) && !release)
         {
@@ -499,7 +506,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
     string PrefixOf(string? folder) =>
         string.IsNullOrWhiteSpace(folder) ? "" : Paths.KeyOf(root, folder).TrimEnd('/') + "/";
 
-    static string Local(string? utc) =>
+    internal static string Local(string? utc) =>
         DateTime.TryParse(utc, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var t)
             ? t.ToLocalTime().ToString("d MMM HH:mm") : utc ?? "";
 }

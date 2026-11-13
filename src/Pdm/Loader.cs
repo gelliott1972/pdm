@@ -20,8 +20,10 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
             .ToList();
 
         // Pass 1: every file gets its id (kept if already in the index) and goes to S3 if new or changed.
+        var state = LocalState.Load(root);
         var records = new List<(FileRecord Record, string Local, bool Upload)>();
         var removedHere = new List<string>();
+        var refused = new List<(string Path, string Why)>();
         int releasedHere = 0;
         foreach (var (local, key) in files)
         {
@@ -45,6 +47,7 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
                 record.LockedBy = record.LockedByName = record.LockedAt = record.LockMachine = null;
                 releasedHere++;
             }
+            if (upload && old != null && Refuse(old, state) is { } why) refused.Add((old.Path, why));
             records.Add((record, local, upload));
         }
 
@@ -59,15 +62,18 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
         foreach (var r in skipped) say($"  skipped (not a SOLIDWORKS file, and nothing refers to it): {r.Record.Path}");
         var all = records.Select(r => r.Record).ToList();
 
-        int toUpload = records.Count(r => r.Upload);
-        var uploadMb = records.Where(r => r.Upload).Sum(r => r.Record.Size) / 1048576.0;
-        say($"{records.Count} files to load from {root} ({skipped.Count} skipped); {toUpload} new or changed ({uploadMb:0.0} MB to upload), {records.Count - toUpload} already in the vault.");
-        foreach (var r in records.Where(r => r.Upload)) say($"  {(r.Record.VersionId == "" ? "new" : "changed")}  {r.Record.Path}");
+        refused.RemoveAll(x => skipped.Any(r => r.Record.Path.Equals(x.Path, StringComparison.OrdinalIgnoreCase)));
+        var refusedPaths = refused.Select(x => x.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        int toUpload = records.Count(r => r.Upload && !refusedPaths.Contains(r.Record.Path));
+        var uploadMb = records.Where(r => r.Upload && !refusedPaths.Contains(r.Record.Path)).Sum(r => r.Record.Size) / 1048576.0;
+        say($"{records.Count} files to load from {root} ({skipped.Count} skipped); {toUpload} new or changed ({uploadMb:0.0} MB to upload), {records.Count - toUpload - refused.Count} already in the vault"
+            + (refused.Count > 0 ? $", {refused.Count} refused." : "."));
+        foreach (var r in records.Where(r => r.Upload && !refusedPaths.Contains(r.Record.Path))) say($"  {(r.Record.VersionId == "" ? "new" : "changed")}  {r.Record.Path}");
         if (releasedHere > 0) say($"{releasedHere} files checked out to you here are checked in by the load (changed or not).");
         foreach (var k in removedHere) say($"  skipped (removed from the vault; Restore it first if it should come back): {k}");
-        // A changed file someone has checked out is theirs to check in: the load never uploads over a check-out.
-        var held = records.Where(r => r.Upload && r.Record.LockedBy != null).ToList();
-        foreach (var r in held) say($"CHECK: {r.Record.Path} is changed here but checked out by {r.Record.LockedByName} on {r.Record.LockMachine}");
+        // A file already in the vault goes up as changed only if this login holds its check-out on this PC and this PC
+        // has the vault's latest; otherwise the load could put an old copy back over someone's work (plates-0804, 13 Nov).
+        foreach (var (path, why) in refused) say($"REFUSED: {path}: {why}");
 
         var dupes = all.SelectMany(r => r.PartNos.Select(p => (p.PartNo, r.Path)))
             .GroupBy(x => x.PartNo, StringComparer.OrdinalIgnoreCase).Where(g => g.Select(x => x.Path).Distinct().Count() > 1).ToList();
@@ -89,9 +95,8 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
 
         if (dryRun) { say("Dry run: nothing uploaded or written."); return; }
         if (dupes.Count > 0) { say("Stopped: fix the duplicate PartNos first."); return; }
-        if (held.Count > 0) { say("Stopped: changed files are checked out (CHECK lines above). Nothing was uploaded."); return; }
+        if (refused.Count > 0) { say($"Stopped: {refused.Count} file(s) refused (REFUSED lines above). Nothing was uploaded."); return; }
 
-        var state = LocalState.Load(root);
         int n = 0;
         foreach (var (record, local, upload) in records)
         {
@@ -111,5 +116,19 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
         }
         state.Save(root);
         say($"Load done: {n} uploaded, {records.Count} index records written. This PC's copy is recorded as current.");
+    }
+
+    // Why a file that differs from the vault mustn't go up as changed, or null if it may.
+    string? Refuse(FileRecord old, LocalState state)
+    {
+        bool mine = engine.Mine(old);
+        if (old.LockedBy != null && !mine) return $"changed here but checked out by {old.LockedByName} on {old.LockMachine}. It's theirs to check in.";
+        state.Files.TryGetValue(old.Path, out var had);
+        var by = $"{old.UpdatedBy}, {Engine.Local(old.UpdatedAt)}";
+        if (had != null && had.ETag != "" && !had.ETag.Equals(old.ETag, StringComparison.OrdinalIgnoreCase)) // content, not version id: a move makes a new version of the same content
+            return $"the vault has a newer version than this PC last got (checked in by {by}). Get it first (pdm get); uploading would put the old copy back over it.";
+        if (!mine && had == null) return $"this PC never got the vault's version (checked in by {by}). Get it first (pdm get), or check it out.";
+        if (!mine) return "changed here but not checked out to you on this PC. Check it out first (pdm checkout), or get the vault's copy back (pdm get).";
+        return null;
     }
 }

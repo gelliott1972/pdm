@@ -1,8 +1,19 @@
 # Dev status
 
-Updated 8 Nov 2026, on Grant's laptop.
+Updated 13 Nov 2026, on Grant's laptop.
 
-## Now: 0804 restructure and vault moves (brief `docs\briefs\restructure-0804.md`, S1-S5)
+## Now: idle, waiting for Admin's next brief
+
+Nothing open for Dev: no Dev Desk tickets open, no brief after `restructure-0804.md`.
+
+| Done since 8 Nov | Result |
+| --- | --- |
+| GNRIC-LM.SLDPRT PartNos (9 Nov) | 10 PartNos LMW-20..24(B) -> LWP-20..24(B) written; App confirms the version is checked in, latest, not checked out. The backup copy in an old session scratchpad is no longer needed (S3 keeps the previous version). |
+| SwCmd export-pdf white recolour (10 Nov, 6a60bb0) | White annotations recoloured to their layer colour in memory only (drawing closed unsaved); refuses a drawing already open. App filed the 0A white re-issue with it (63 PDFs, 35 drawings), SW checked it clean. |
+
+Open elsewhere, not Dev's: the 6 STA-01 drawings (James's 10 Nov model check-ins; Grant decides on a re-issue via Admin/App).
+
+## Earlier: 0804 restructure and vault moves (brief `docs\briefs\restructure-0804.md`, S1-S5)
 
 Round list: `scratch\import\restructure-0804\round.csv` (action, old_path, new_path, who, why; paths below the vault root).
 App's `pdm checkout / move / load / remove / unlock` read it as it is.

@@ -15,7 +15,7 @@ part, and old part -> the new assembly).
 | `add-config` | 08X04-PLP from SHORT_AXIS, D2@Sketch1=180, Thru Hole Dia.@Sketch5=15, hole suppressed = 238931.42 mm3, the Type 1 plate exactly; from configuration unchanged. Two bugs found and fixed on the way (value went into the wrong configuration) |
 | `save-as --copy`, `delete-feature` | HBW-02 -> HBW-04, plates deleted, 2 RHS + 2 end caps left in both configurations |
 | `new-asm`, `place` | 08A04-HBW-02.SLDASM: HBW-04 fixed at origin; 3 plates fixed; Type 1 overlap 100 %; wrong-way slots refused; mass 30.8559 -> 30.8498 kg (test plate's 10 mm hole) |
-| `swap-asm` (SFA) | 08A04-SFA-2T: 9 of 10 mates added again on the weldment-only part (found by face ID), 160 others unmoved, saved, reopens clean. Distance2 and pattern "LocalLPattern1 - STUBS" direction were on a plate: dropped/listed for Grant (`--accept-gone`). Changing a mate in place crashed SOLIDWORKS once (my copy) |
+| `swap-asm` (SFA) | First version failed in SW's dry run (new instance's parts stay lightweight in the SFA, IDs useless; faces went stale after each mate). Fixed: faces matched by position in the instance's children, found again before each mate; pattern directions put back, reversed if anything moves (C-2T). Look pass on SW's copy, nothing saved: A-2T 10/10, A-3T 5/5, B-3T 6/6, B-2T 9/9 (5 instances), C-2T 10/10, C-3T 5/5, 0 moved; for Grant: pattern warning in B-3T and C-3T |
 
 Handed to SW (command lines for the six SFAs) and reported to Admin. Next: SW's dry run of swap-asm; 08B04-SFA-2T (5 instances) is the first multi-instance run. Open: P2 (two plate types) with Admin via SW.
 

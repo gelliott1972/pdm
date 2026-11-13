@@ -368,7 +368,28 @@ static partial class SwCmd
 
     static List<string> patternNotes = new List<string>();
 
-    class PatternFix { public string Feature, OldInst; public int Axis; public object Pid; public double[] Xf; }
+    static HashSet<string> WrongNames(ModelDoc2 doc)
+    {
+        var r = new HashSet<string>();
+        if (doc.Extension.GetWhatsWrongCount() == 0) return r;
+        object feats, codes, warns;
+        doc.Extension.GetWhatsWrong(out feats, out codes, out warns);
+        foreach (var f in (feats as object[] ?? new object[0]).OfType<Feature>()) r.Add(f.Name + "	" + f.GetTypeName2());
+        return r;
+    }
+
+    class PatternFix { public string Feature, OldInst; public int Axis; public object Pid; public double[] Xf, Geo; }
+
+    // An edge's end points (sorted) moved by xf if given; null for a closed edge.
+    static double[] EdgeGeo(Edge ed, MathUtility mu, MathTransform xf)
+    {
+        var sv = ed.GetStartVertex() as Vertex; var ev = ed.GetEndVertex() as Vertex;
+        if (sv == null || ev == null) return null;
+        var a = (double[])sv.GetPoint(); var b = (double[])ev.GetPoint();
+        if (xf != null) { a = Apply(mu, xf, a); b = Apply(mu, xf, b); }
+        bool swap = a[0] > b[0] + 1e-12 || (Math.Abs(a[0] - b[0]) <= 1e-12 && (a[1] > b[1] + 1e-12 || (Math.Abs(a[1] - b[1]) <= 1e-12 && a[2] > b[2])));
+        return swap ? b.Concat(a).ToArray() : a.Concat(b).ToArray();
+    }
 
     static object PartEntityOf(ISldWorks sw, Component2 rc, object ent, Dictionary<string, List<KeyValuePair<object, object>>> cache)
     {
@@ -471,6 +492,7 @@ static partial class SwCmd
         Console.WriteLine("Instances of " + Path.GetFileName(oldPart) + ": " + string.Join(", ", insts.Select(c => c.Name2 + (c.IsFixed() ? " (fixed)" : " (floating)"))));
         doc.ForceRebuild3(false);
         int errorsBefore = doc.Extension.GetWhatsWrongCount();
+        var wrongBefore = WrongNames(doc);
         if (errorsBefore > 0) { Console.WriteLine("Before the swap:"); ReportWhatsWrong(doc); problems.Clear(); Console.WriteLine("  (" + errorsBefore + " items wrong already; compared after)"); }
 
         // 1. Every mate entity on an instance: its persistent ID in the part.
@@ -559,16 +581,22 @@ static partial class SwCmd
                     {
                         axn++;
                         var en = ax as Entity; var oc = en == null ? null : en.GetComponent() as Component2;
-                        if (ax != null) refs.Add("direction on " + (oc != null ? oc.Name2 : "the assembly"));
+                        if (ax != null && oc == null)
+                            // no owner given (B-3T, 13 Nov): it may still be an edge of the old part; ask each old instance
+                            foreach (var oi in insts) if (PartEntityOf(sw, oi, ax, cache) != null) { oc = oi; break; }
+                        if (ax != null) refs.Add("direction on " + (oc != null ? oc.Name2 : "the assembly") + " (" + (ax is Edge ? "edge" : ax is Face2 ? "face" : ax is Feature ? "feature " + ((Feature)ax).Name : Microsoft.VisualBasic.Information.TypeName(ax)) + ")");
                         if (oc != null && instByName.ContainsKey(oc.Name2))
                         {
                             var pe = PartEntityOf(sw, oc, ax, cache);
                             var od = oc.GetModelDoc2() as ModelDoc2;
                             var peb = pe is Face2 ? ((Face2)pe).GetBody() as Body2 : pe is Edge ? ((Edge)pe).GetBody() as Body2 : null;
                             Console.WriteLine("    direction " + axn + " is " + (pe == null ? "not found in the part" : pe.GetType().Name + (peb != null ? " of body \"" + peb.Name + "\"" : "")));
-                            if (pe != null && od != null) patternFixes.Add(new PatternFix { Feature = pf.Name, OldInst = oc.Name2, Axis = axn, Pid = od.Extension.GetPersistReference3(pe), Xf = (double[])oc.Transform2.ArrayData });
+                            if (pe != null && od != null) patternFixes.Add(new PatternFix { Feature = pf.Name, OldInst = oc.Name2, Axis = axn, Pid = od.Extension.GetPersistReference3(pe), Xf = (double[])oc.Transform2.ArrayData, Geo = Geo(pe) });
                         }
                     }
+                    var seeds = (ld.SeedComponentArray as object[] ?? new object[0]).OfType<Component2>().Select(c => c.Name2).ToList();
+                    refs.Add("seeds " + string.Join(", ", seeds));
+                    if (seeds.Any(n => instByName.ContainsKey(n))) refs.Add("A SEED IS THE OLD PART");
                     ld.ReleaseSelectionAccess();
                 }
                 else if (cd != null && cd.AccessSelections(doc, null))
@@ -595,97 +623,113 @@ static partial class SwCmd
             .Where(c => string.Equals(c.GetPathName(), newAsm, StringComparison.OrdinalIgnoreCase)).ToList();
         if (news.Count != insts.Count) problems.Add(news.Count + " instances of the new assembly, " + insts.Count + " before");
         Diff(before, Snapshot(asm));
-        foreach (var ni in news)
-        {   // The replaced instances come in lightweight: no model to look in (13 Nov test). Resolve them.
-            int st = ni.GetSuppression2();
-            if (st != (int)swComponentSuppressionState_e.swComponentFullyResolved && st != (int)swComponentSuppressionState_e.swComponentResolved)
-                ni.SetSuppression2((int)swComponentSuppressionState_e.swComponentFullyResolved);
-        }
-        // Nested parts stay lightweight even after SetSuppression2 on them (13 Nov test: the plates): resolve all.
-        int lw = asm.ResolveAllLightWeightComponents(false);
-        Console.WriteLine("Resolved lightweight components (" + FlagName(typeof(swComponentResolveStatus_e), lw) + ")");
         var mu = (MathUtility)sw.GetMathUtility();
 
-        // 3. The same entity in each new instance (matched to the old one by position): on the weldment-only part by its
-        // ID, else (a plate face) the face of a plate component in the same place.
+        // 3. The same entity in each new instance (matched to the old one by position). Inside the SFA the parts of the
+        // new instance stay lightweight and SOLIDWORKS refuses to resolve them (SW's dry run, 13 Nov: swResolveError),
+        // so each entity is found in the new assembly's own document and taken up one level: part -> new assembly
+        // (that document's component) -> SFA (the new instance). Nothing here changes a configuration or saves a part.
+        var naDoc = FindOpen(sw, newAsm) ?? (news.Count > 0 ? news[0].GetModelDoc2() as ModelDoc2 : null);
+        if (naDoc == null) { problems.Add("the new assembly is not loaded: " + newAsm); return Finish(); }
+        int lw = ((AssemblyDoc)naDoc).ResolveAllLightWeightComponents(false);
+        var naComps = ((((AssemblyDoc)naDoc).GetComponents(true) as object[]) ?? new object[0]).Cast<Component2>().ToList();
+        Console.WriteLine("In " + Path.GetFileName(newAsm) + " (" + FlagName(typeof(swComponentResolveStatus_e), lw) + "): "
+            + string.Join(", ", naComps.Select(c => c.Name2 + " <" + c.ReferencedConfiguration + "> " + FlagName(typeof(swComponentSuppressionState_e), c.GetSuppression2()).Replace("swComponent", ""))));
+        var naInner = naComps.Where(c => string.Equals(c.GetPathName(), innerPart, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (naInner.Count != 1) { problems.Add(Path.GetFileName(newAsm) + " has " + naInner.Count + " instances of " + Path.GetFileName(innerPart) + ", not 1"); return Finish(); }
+        var innerTop = naInner[0];
+        var innerDoc = FindOpen(sw, innerPart) ?? innerTop.GetModelDoc2() as ModelDoc2;
+        if (innerDoc == null) { problems.Add(Path.GetFileName(innerPart) + " is not loaded"); return Finish(); }
+        int aerr2 = 0;
+        sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref aerr2);
+
         Func<double[], Component2> newAt = xf => news.FirstOrDefault(n =>
         {
             var d = (double[])n.Transform2.ArrayData;
             return Enumerable.Range(0, 12).All(i => Math.Abs(d[i] - xf[i]) < 1e-9);
         });
-        foreach (var fx in fixes)
+        // part entity (by ID) -> SFA entity in instance ni
+        Func<Component2, object, object> upFromInner = (ni, pid) =>
+        {
+            int err = 0;
+            var pe = innerDoc.Extension.GetObjectByPersistReference3(pid, out err);
+            if (pe == null) return null;
+            var e1 = innerTop.GetCorrespondingEntity(pe);
+            return e1 == null ? null : ni.GetCorrespondingEntity(e1);
+        };
+        // Looked up twice: once here to report, and again just before its mate is added, because adding a mate rebuilds
+        // the SFA and the face objects found before go stale (SW's copy, 13 Nov: "object disconnected" in B-3T, C-2T, C-3T).
+        Func<MateFix, bool, object> locate = (fx, say) =>
         {
             var ni = newAt(fx.Xf);
-            if (ni == null) { problems.Add(fx.Mate + ": no new instance where " + fx.OldInst + " was"); continue; }
-            var kids = ((ni.GetChildren() as object[]) ?? new object[0]).Cast<Component2>().ToList();
-            foreach (var k in kids.Where(k => k.GetModelDoc2() == null))
-            {   // A plate stays lightweight (resolve error) until its file is open (13 Nov test): open it.
-                bool wo; var kd = OpenPartIn(sw, k.GetPathName(), k.ReferencedConfiguration, false, out wo);
-                if (kd != null && !wo) Console.WriteLine("    (opened " + Path.GetFileName(k.GetPathName()) + " to resolve " + k.Name2 + ")");
-            }
-            int aerr2 = 0;
-            sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref aerr2);
-            foreach (var k in kids)
-            {   // the parts inside come in lightweight too: GetModelDoc2 is null until resolved (13 Nov test)
-                int ks = k.GetSuppression2();
-                if (ks != (int)swComponentSuppressionState_e.swComponentFullyResolved && ks != (int)swComponentSuppressionState_e.swComponentResolved)
-                    k.SetSuppression2((int)swComponentSuppressionState_e.swComponentFullyResolved);
-            }
-            var inner = kids.FirstOrDefault(c => string.Equals(c.GetPathName(), innerPart, StringComparison.OrdinalIgnoreCase));
-            if (inner == null) { problems.Add(ni.Name2 + " has no " + Path.GetFileName(innerPart)); continue; }
+            if (ni == null) { if (say) problems.Add(fx.Mate + ": no new instance where " + fx.OldInst + " was"); return null; }
             object ne = null; string how = "";
-            if (fx.FeatName != null) { ne = inner.FeatureByName(fx.FeatName); how = "by name"; }
+            if (fx.FeatName != null)
+            {
+                var f1 = innerTop.FeatureByName(fx.FeatName);
+                ne = f1 == null ? null : ni.GetCorresponding(f1);
+                how = "by name";
+            }
             else
             {
-                var innerDoc = inner.GetModelDoc2() as ModelDoc2;
-                int err = 0;
-                var pe = innerDoc == null ? null : innerDoc.Extension.GetObjectByPersistReference3(fx.Pid, out err);
-                if (pe != null) { ne = inner.GetCorrespondingEntity(pe); how = "by ID in " + Path.GetFileName(innerPart); }
-                else if (fx.Geo != null && fx.Geo.Length == 7)
+                ne = upFromInner(ni, fx.Pid);
+                how = "by ID in " + Path.GetFileName(innerPart);
+                if (ne == null && fx.Geo != null && fx.Geo.Length == 7)
                 {
-                    // A plate face: the face of a plate component (in the new assembly's coordinates = the old part's)
-                    // with the same box and area.
-                    var niInv = (MathTransform)((MathTransform)ni.Transform2).Inverse();
+                    // A plate face: the face of a plate component of the new assembly in the same place (its coordinates
+                    // are the old part's), same corner box and area. Faces from the component's own bodies (its
+                    // configuration); their points are read as they come and moved by the component's transform: a face
+                    // counts only if exactly one fits.
                     var hits = new List<KeyValuePair<Component2, object>>();
                     double nearD = double.MaxValue; string near = "none";
-                    // The child's Transform2 may be relative to the top or to its parent: both are tried (a face is
-                    // matched only if exactly one face fits).
-                    foreach (var k in kids.Where(c => c != inner))
-                    foreach (var rel in new[] { (MathTransform)((MathTransform)k.Transform2).Multiply(niInv), (MathTransform)k.Transform2 })
+                    // The faces come from the new instance's children in the SFA (selectable there, even lightweight);
+                    // their points are part coordinates, moved by the same component's transform in the new assembly.
+                    foreach (var kid in ((ni.GetChildren() as object[]) ?? new object[0]).Cast<Component2>())
                     {
-                        var kdoc = k.GetModelDoc2() as ModelDoc2;
-                        if (kdoc == null) continue;
-                        // the plate's faces in its own part, in the configuration the component uses
-                        var cfgWas = ((Configuration)kdoc.GetActiveConfiguration()).Name;
-                        if (cfgWas != k.ReferencedConfiguration) kdoc.ShowConfiguration2(k.ReferencedConfiguration);
-                        foreach (var b in SolidBodies((PartDoc)kdoc))
+                        var pc = naComps.FirstOrDefault(c => kid.Name2.EndsWith("/" + c.Name2, StringComparison.OrdinalIgnoreCase));
+                        if (pc == null) { if (say) Console.WriteLine("    (" + kid.Name2 + ": not matched in " + Path.GetFileName(newAsm) + ")"); continue; }
+                        object info;
+                        var bodies = (kid.GetBodies3((int)swBodyType_e.swSolidBody, out info) as object[] ?? new object[0]).Cast<Body2>().ToList();
+                        foreach (var b in bodies)
                             foreach (var f in (b.GetFaces() as object[] ?? new object[0]).Cast<Face2>())
                             {
                                 double da = Math.Abs(f.GetArea() - fx.Geo[6]);
-                                var g = FaceGeo(f, mu, rel);
-                                if (g == null) continue;
-                                double dg = Enumerable.Range(0, 6).Max(a => Math.Abs(g[a] - fx.Geo[a]));
-                                if (da + dg < nearD) { nearD = da + dg; near = k.Name2 + " area " + (f.GetArea() * 1e6).ToString("0.###", Inv) + " box " + P3(g.Take(3).ToArray()) + "-" + P3(g.Skip(3).Take(3).ToArray()); }
-                                if (da > 1e-10) continue;
-                                if (Enumerable.Range(0, 6).All(a => Math.Abs(g[a] - fx.Geo[a]) < 1e-8)) hits.Add(new KeyValuePair<Component2, object>(k, f));
+                                if (da > 1e-9) continue;   // area first: the positions take many SOLIDWORKS calls (13 Nov: ~1 min a mate)
+                                bool fits = false;
+                                foreach (var rel in new MathTransform[] { null, (MathTransform)pc.Transform2 })   // each face counted once
+                                {
+                                    var g = FaceGeo(f, mu, rel);
+                                    if (g == null) continue;
+                                    double dg = Enumerable.Range(0, 6).Max(a => Math.Abs(g[a] - fx.Geo[a]));
+                                    if (da + dg < nearD) { nearD = da + dg; near = pc.Name2 + (rel == null ? " (as read)" : " (moved)") + " area " + (f.GetArea() * 1e6).ToString("0.###", Inv) + " box " + P3(g.Take(3).ToArray()) + "-" + P3(g.Skip(3).Take(3).ToArray()); }
+                                    if (da <= 1e-10 && dg < 1e-8) fits = true;
+                                }
+                                if (fits) hits.Add(new KeyValuePair<Component2, object>(kid, f));
                             }
                     }
-                    how = "by position on a plate (" + hits.Count + " match" + (hits.Count == 1 ? ": " + hits[0].Key.Name2 : "") + ")";
-                    if (hits.Count == 1) ne = hits[0].Key.GetCorrespondingEntity(hits[0].Value);
-                    if (hits.Count != 1) Console.WriteLine("    children: " + string.Join(", ", kids.Select(k => k.Name2 + " <" + k.ReferencedConfiguration + "> "
-                        + FlagName(typeof(swComponentSuppressionState_e), k.GetSuppression2()) + (k.GetModelDoc2() == null ? " NO MODEL" : ""))));
-                    if (hits.Count != 1) Console.WriteLine("    looked for area " + (fx.Geo[6] * 1e6).ToString("0.###", Inv) + " mm2 box " + P3(fx.Geo.Take(3).ToArray()) + "-" + P3(fx.Geo.Skip(3).Take(3).ToArray()) + "; nearest: " + near);
+                    how = "by position (" + hits.Count + " match" + (hits.Count == 1 ? ": " + hits[0].Key.Name2 : "") + ")";
+                    if (hits.Count == 1)
+                    {
+                        var f = hits[0].Value;
+                        var en = f as Entity;
+                        var owner = en == null ? null : en.GetComponent() as Component2;
+                        ne = owner != null ? f : hits[0].Key.GetCorrespondingEntity(f);
+                        how += owner != null ? "; face of " + owner.Name2 : "";
+                        if (ne == null) how += "; no entity in the SFA";
+                    }
+                    else if (say) Console.WriteLine("    looked for area " + (fx.Geo[6] * 1e6).ToString("0.###", Inv) + " mm2 box " + P3(fx.Geo.Take(3).ToArray()) + "-" + P3(fx.Geo.Skip(3).Take(3).ToArray()) + "; nearest: " + near);
                 }
             }
+            if (!say) return ne;
             Console.WriteLine("  " + fx.Mate + " [" + fx.Index + "]: " + fx.What + " -> " + (ne != null ? "found " + how : "NOT FOUND " + how));
             if (ne == null)
             {
                 if (acceptGone.Contains(fx.Mate, StringComparer.OrdinalIgnoreCase)) Console.WriteLine("  " + fx.Mate + ": not put back; --accept-gone, so it is dropped below");
                 else problems.Add(fx.Mate + " [" + fx.Index + "]: " + fx.What + " not found in the new assembly: not put back (--accept-gone " + fx.Mate + " to drop it)");
-                continue;
             }
-            fx.New = ne;
-        }
+            return ne;
+        };
+        foreach (var fx in fixes) fx.New = locate(fx, true);
 
         // 4. Each mate again with the new entity: same type, alignment, flip and distance; the broken one deleted and the
         // new one given its name. (Changing the mate's entities in place crashed SOLIDWORKS, 13 Nov test.)
@@ -699,7 +743,19 @@ static partial class SwCmd
             int type = (int)info[0], align = (int)info[1]; bool flip = (bool)info[2]; double dist = (double)info[3];
             var ents = ((object[])info[4]).ToArray();
             if (!simple.Contains(type) || ents.Length != 2) { problems.Add(grp.Key + ": " + FlagName(typeof(swMateType_e), type) + " with " + ents.Length + " entities: put back by hand"); continue; }
-            foreach (var fx in grp) ents[fx.Index] = fx.New;
+            // The other entity from the mate as it is now, and the new one found again (see locate).
+            var cur = ((AssemblyDoc)doc).FeatureByName(grp.Key) as Feature;
+            var curMate = cur == null ? null : cur.GetSpecificFeature2() as Mate2;
+            if (curMate != null && curMate.GetMateEntityCount() == ents.Length)
+                for (int j = 0; j < ents.Length; j++)
+                {
+                    if (grp.Any(f => f.Index == j)) continue;
+                    var r = curMate.MateEntity(j).Reference;
+                    if (r != null) ents[j] = r;
+                }
+            bool fresh = true;
+            foreach (var fx in grp) { var nf = locate(fx, false); if (nf == null) fresh = false; else ents[fx.Index] = nf; }
+            if (!fresh) { problems.Add(grp.Key + ": its new entity could not be found again just before adding the mate"); continue; }
             var namesBefore = new HashSet<string>(TopMates(doc).Select(m => m.Name));
             doc.ClearSelection2(true);
             bool selOk = true;
@@ -729,19 +785,62 @@ static partial class SwCmd
         foreach (var px in patternFixes)
         {
             var ni = newAt(px.Xf);
-            var inner = ni == null ? null : ((ni.GetChildren() as object[]) ?? new object[0]).Cast<Component2>()
-                .FirstOrDefault(c => string.Equals(c.GetPathName(), innerPart, StringComparison.OrdinalIgnoreCase));
-            var innerDoc = inner == null ? null : inner.GetModelDoc2() as ModelDoc2;
             int perr = 0;
-            var pe = innerDoc == null ? null : innerDoc.Extension.GetObjectByPersistReference3(px.Pid, out perr);
-            var ne = pe == null ? null : inner.GetCorrespondingEntity(pe);
+            var pe = innerDoc.Extension.GetObjectByPersistReference3(px.Pid, out perr);
+            var ne = ni == null ? null : upFromInner(ni, px.Pid);
+            if (ne == null && ni != null && px.Geo != null && px.Geo.Length == 6)
+            {   // an edge (of a plate): the one edge of the new instance's children in the same place
+                var eh = new List<object>();
+                foreach (var kid in ((ni.GetChildren() as object[]) ?? new object[0]).Cast<Component2>())
+                {
+                    var pc = naComps.FirstOrDefault(c => kid.Name2.EndsWith("/" + c.Name2, StringComparison.OrdinalIgnoreCase));
+                    if (pc == null) continue;
+                    object info;
+                    foreach (var b in (kid.GetBodies3((int)swBodyType_e.swSolidBody, out info) as object[] ?? new object[0]).Cast<Body2>())
+                        foreach (var ed in (b.GetEdges() as object[] ?? new object[0]).Cast<Edge>())
+                            if (new MathTransform[] { null, (MathTransform)pc.Transform2 }.Any(rel =>
+                                { var g = EdgeGeo(ed, mu, rel); return g != null && Enumerable.Range(0, 6).All(k => Math.Abs(g[k] - px.Geo[k]) < 1e-8); }))
+                                eh.Add(ed);
+                }
+                Console.WriteLine("  pattern " + px.Feature + ": direction edge by position: " + eh.Count + " match");
+                if (eh.Count == 1) ne = eh[0];
+            }
             var pf = ((AssemblyDoc)doc).FeatureByName(px.Feature) as Feature;
             var ld = pf == null ? null : pf.GetDefinition() as LocalLinearPatternFeatureData;
             if (ne == null || ld == null || !ld.AccessSelections(doc, null)) { Console.WriteLine("  pattern " + px.Feature + ": direction not found again (" + (pe == null ? "not in " + Path.GetFileName(innerPart) + ", ID " + FlagName(typeof(swPersistReferencedObjectStates_e), perr) + ": on a plate?" : ne == null ? "no assembly entity" : "pattern not readable") + "), left for Grant's check"); continue; }
             if (px.Axis == 1) ld.D1Axis = ne; else ld.D2Axis = ne;
             bool pok = pf.ModifyDefinition(ld, doc, null);
             if (!pok) ld.ReleaseSelectionAccess();
-            Console.WriteLine("  pattern " + px.Feature + ": direction " + px.Axis + (pok ? " put back on " + Path.GetFileName(innerPart) : " NOT put back (SOLIDWORKS refused), left for Grant's check"));
+            // The same edge can point the other way (C-2T, 13 Nov: the two stub copies jumped across, 30 components).
+            // If anything moved, reverse that direction once; if still moved, the check below stops the save.
+            Func<int> movedNow = () =>
+            {
+                doc.ForceRebuild3(false);
+                return (asm.GetComponents(false) as object[] ?? new object[0]).Cast<Component2>().Count(c =>
+                {
+                    double[] was;
+                    if (!positions.TryGetValue(c.Name2, out was)) return false;
+                    var d = (double[])c.Transform2.ArrayData;
+                    return Enumerable.Range(0, 12).Any(i => Math.Abs(d[i] - was[i]) > 1e-8);
+                });
+            };
+            if (pok)
+            {
+                int mv = movedNow();
+                if (mv > 0)
+                {
+                    var ld2 = pf.GetDefinition() as LocalLinearPatternFeatureData;
+                    if (ld2 != null && ld2.AccessSelections(doc, null))
+                    {
+                        if (px.Axis == 1) ld2.D1ReverseDirection = !ld2.D1ReverseDirection; else ld2.D2ReverseDirection = !ld2.D2ReverseDirection;
+                        bool rok = pf.ModifyDefinition(ld2, doc, null);
+                        if (!rok) ld2.ReleaseSelectionAccess();
+                        int mv2 = movedNow();
+                        Console.WriteLine("  pattern " + px.Feature + ": " + mv + " components moved, direction reversed: " + (rok ? mv2 + " moved now" : "SOLIDWORKS refused"));
+                    }
+                }
+            }
+            Console.WriteLine("  pattern " + px.Feature + ": direction " + px.Axis + (pok ? " put back on the new assembly" : " NOT put back (SOLIDWORKS refused), left for Grant's check"));
             if (pok) patternNotes.RemoveAll(n => n.StartsWith(px.Feature + " ("));
         }
 
@@ -775,6 +874,13 @@ static partial class SwCmd
         Console.WriteLine("Mates put back: " + fixes.Select(f => f.Mate).Distinct().Count(m => fixes.Where(f => f.Mate == m).All(f => f.Done)) + " of "
             + fixes.Select(f => f.Mate).Distinct().Count() + "; dropped: " + (dropped.Count == 0 ? "none" : string.Join(", ", dropped)) + "; items wrong: " + errorsBefore + " before, " + wrong + " now");
         ReportWhatsWrong(doc);
+        // Any pattern with a new warning after the swap is listed too (B-3T, 13 Nov: a direction SOLIDWORKS gives no
+        // owner or type for; the pattern's instances did not move).
+        foreach (var w in WrongNames(doc).Where(w => !wrongBefore.Contains(w) && w.Contains("Pattern")))
+        {
+            string pn = w.Split('	')[0];
+            if (!patternNotes.Any(n => n.StartsWith(pn + " ("))) patternNotes.Add(pn + " (new warning after the swap; its instances did not move)");
+        }
         foreach (var pn in patternNotes) Console.WriteLine("FOR GRANT'S CHECK: pattern " + pn);
         foreach (var dn in dropped) Console.WriteLine("FOR GRANT'S CHECK: mate dropped " + dn);
         if (save && problems.Count > 0) { Console.Error.WriteLine("Not saved: problems above."); return Finish(); }

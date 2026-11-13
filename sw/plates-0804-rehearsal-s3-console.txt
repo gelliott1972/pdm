@@ -1,0 +1,10 @@
+﻿swcheck 08A04-SFA-2T : exit 0, 29 s; RESULT: all loaded from inside the root, nothing missing
+swcheck 08A04-SFA-3T : exit 0, 20 s; RESULT: all loaded from inside the root, nothing missing
+swcheck 08B04-SFA-3T : exit 0, 22 s; RESULT: all loaded from inside the root, nothing missing
+swcheck 08B04-SFA-2T : exit 0, 24 s; RESULT: all loaded from inside the root, nothing missing
+swcheck 08C04-SFA-2T : exit 0, 21 s; RESULT: all loaded from inside the root, nothing missing
+swcheck 08C04-SFA-3T : exit 0, 21 s; RESULT: all loaded from inside the root, nothing missing
+swcheck 08A04-STA-01 : exit 1, 70 s; RESULT: 1 problem(s)
+swcheck 08B04-STA-01 : exit 1, 168 s; RESULT: 9 problem(s)
+swcheck 08C04-STA-01 : exit 1, 249 s; RESULT: 8 problem(s)
+stage 3 done: read the SwCheck logs

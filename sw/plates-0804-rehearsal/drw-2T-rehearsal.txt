@@ -1,0 +1,10 @@
+DRAWING	C:\PDM-work\plates-0804\rehearsal\APEX\SC08\LS-08X-04\ShaftA\08A04-SFA-2T.SLDDRW	sheets=1
+PROP	Revision	?
+PROP	Revision-Sheet1	0A
+NOTE	1	format	link=$PRP:"Revision-Sheet1"	shows=0A
+NOTE	1	sheet	link=$PRP:"Revision-Sheet1"	shows=0A
+SHEET	1	Sheet1	REV=0A	Revision-Sheet1=0A	table=
+ROW	1	0	0A | 9/11/2026 | ORIGINAL DESIGN |  | J MCKILLOP | G ELLIOTT | 
+ROW	1	1	REV. | DATE | DESCRIPTION | ZONE | DRAWN | CHECKED | APPROVED
+MODEL	1	C:\PDM-work\plates-0804\rehearsal\APEX\SC08\LS-08X-04\ShaftA\08A04-SFA-2T.SLDASM	Default
+OK

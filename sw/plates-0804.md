@@ -51,3 +51,18 @@ Slip (01:56-01:58Z): my plate-comparison run didn't stop on a refused lock and s
 ## SFA swap, look pass (13 Nov ~02:40Z; `sw\plates-0804-dry\swap-look-*.txt`)
 
 swap-asm (Dev, 03e0eb3) without --save on all six copies: no mate put back in any SFA (every face "not found", "Resolved lightweight components (swResolveError)"); other components unmoved; nothing saved. Dev's own test had 9 of 10. Sent to Dev; waiting. Patterns whose direction was on the old part: A-2T and C-2T "LocalLPattern1 - STUBS", A-3T "LocalLPattern1 - VERTICALS + STUBS". Mates on plate faces: Distance2 in A-2T and C-2T (946 mm).
+
+## Rehearsal on a fresh full copy (13 Nov, `C:\PDM-work\plates-0804\rehearsal`, script `sw\plates-0804-run.ps1`, logs `sw\plates-0804-rehearsal`)
+
+| Gate item | Result |
+| --- | --- |
+| Only planned files written | 19 of 19, nothing else |
+| Plates placed | 13, each 0 % missing |
+| SFA mates | 45 of 45 put back, none dropped, 0 components moved. Patterns: A-2T/C-2T STUBS and A-3T VERTICALS + STUBS directions put back; B-3T and C-3T "LocalLPattern1- VERTICALS + STUBS" new warning, instances unmoved (Grant's check) |
+| Masses | old part = new assembly to the last digit, all six |
+| Properties | 46 changes read back; no PartNo on two files apart from old part / new assembly (until the removal) |
+| SwCheck | six SFAs: all inside, nothing missing. STA-01s: only stored part links to P:\ (K-beam skeletons etc., a copy artefact, not these files) |
+| 08A04-SFA-2T/-3T drawings | open with nothing wrong; drawing-info same as before the swap |
+
+Found: `pdm load` stops on one PartNo on two files, and `pdm remove` refuses a file still used. So on P:\ the new assemblies' PartNo goes in by a second check-out and load after the removals (script stage 4).
+Real run started on P:\ (stage 1) after the gate passed and Admin's "network OK, go".

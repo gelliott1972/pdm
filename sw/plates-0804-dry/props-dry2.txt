@@ -1,0 +1,2 @@
+Batch: 4 changes in 2 files under C:\PDM-work\plates-0804\vault\
+STOPPED: could not open APEX\SC08\LS-08X-04\_Shared\08X04-PLP.SLDPRT for writing: swDmDocumentOpenErrorFileReadOnly

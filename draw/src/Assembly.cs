@@ -111,6 +111,47 @@ static partial class Draw
         return 0;
     }
 
+    // What weld information the model carries: weld features (beads, weld folders, fillet beads) in the assembly
+    // and in every part/subassembly, by feature type.
+    static int WeldProbe(string asmFile)
+    {
+        var asm = OpenDoc(asmFile, null, true);
+        ((AssemblyDoc)asm).ResolveAllLightWeightComponents(false);
+        var counts = new Dictionary<string, int>();
+        var where = new Dictionary<string, HashSet<string>>();
+        Action<ModelDoc2, string> scan = (m, label) =>
+        {
+            for (var f = (Feature)m.FirstFeature(); f != null; f = (Feature)f.GetNextFeature())
+            {
+                string t = f.GetTypeName2();
+                Action<Feature> add = ff =>
+                {
+                    string tt = ff.GetTypeName2();
+                    if (tt.IndexOf("weld", StringComparison.OrdinalIgnoreCase) < 0 && tt.IndexOf("bead", StringComparison.OrdinalIgnoreCase) < 0 && tt.IndexOf("Fillet", StringComparison.OrdinalIgnoreCase) < 0) return;
+                    counts[tt] = (counts.ContainsKey(tt) ? counts[tt] : 0) + 1;
+                    if (!where.ContainsKey(tt)) where[tt] = new HashSet<string>();
+                    where[tt].Add(label);
+                };
+                add(f);
+                for (var sf = (Feature)f.GetFirstSubFeature(); sf != null; sf = (Feature)sf.GetNextSubFeature()) add(sf);
+            }
+        };
+        scan(asm, Path.GetFileName(asmFile));
+        var seen = new HashSet<string>();
+        foreach (Component2 c in ((object[])((AssemblyDoc)asm).GetComponents(false)) ?? new object[0])
+        {
+            if (c.IsSuppressed()) continue;
+            var m = c.GetModelDoc2() as ModelDoc2;
+            if (m == null || !seen.Add(m.GetPathName())) continue;
+            scan(m, Path.GetFileName(m.GetPathName()));
+        }
+        Console.WriteLine("Weld-related features (type: count, in):");
+        foreach (var kv in counts.OrderByDescending(k => k.Value)) Console.WriteLine("  " + kv.Key + ": " + kv.Value + "  in " + string.Join(", ", where[kv.Key].Take(6)) + (where[kv.Key].Count > 6 ? " ..." : ""));
+        if (counts.Count == 0) Console.WriteLine("  none");
+        Console.WriteLine("Files scanned: " + (seen.Count + 1));
+        return 0;
+    }
+
     // ---------- the drawing ----------
     static int MakeAssembly(string asmFile, string config, string output, string template)
     {
@@ -274,11 +315,12 @@ static partial class Draw
         var dimsOk = new List<string>();
         var want = new[] { ext[0] * 1000, ext[1] * 1000, ext[2] * 1000 };
         var mem = MemberOrdinates(drwDoc, drw, main, dimsOk);
+        if (top != null) MemberOrdinates(drwDoc, drw, top, dimsOk);   // Grant 14 Nov: the top view as well
         Console.WriteLine("[" + stamp() + "] member positions");
         if (!mem[0] || !mem[1]) OverallByClick(drwDoc, drw, main, !mem[1], !mem[0], want, dimsOk);   // plain overall size where members failed
         if (left != null) OverallByClick(drwDoc, drw, left, true, false, want, dimsOk);
         Console.WriteLine("[" + stamp() + "] overall dimensions");
-        var flags = new List<string> { "CHECK: MEMBER POSITIONS ARE TO THE UNDERSIDE / LEFT SIDE OF EACH MEMBER", "CHECK: WELD SYMBOLS NOT ADDED" };
+        var flags = new List<string> { MemberCentres ? "CHECK: MEMBER POSITIONS ARE TO MEMBER CENTRELINES" + (centreFallbacks.Count > 0 ? " (EXCEPT " + string.Join(", ", centreFallbacks).ToUpper().Replace("DRAWING VIEW", "VIEW ") + ": UNDERSIDE / LEFT SIDE)" : "") : "CHECK: MEMBER POSITIONS ARE TO THE UNDERSIDE / LEFT SIDE OF EACH MEMBER", "CHECK: WELD SYMBOLS NOT ADDED (NO WELD BEADS IN THE MODEL)" };
         drw.ActivateSheet(sheet.GetName());
         drw.EditSheet();
         var flagNote = drwDoc.InsertNote(string.Join("\n", flags)) as Note;
@@ -601,6 +643,8 @@ static partial class Draw
     // Every value is checked against the geometry; a group that doesn't check is removed (the caller then puts the
     // plain overall size instead). Returns which directions were placed.
     const double MinMemberFrac = 0.30, MemberGapMm = 100;
+    static bool MemberCentres;
+    static List<string> centreFallbacks = new List<string>();   // --centrelines: dimension to each member's centreline instead of its underside / left side (Grant 14 Nov)
     static bool[] MemberOrdinates(ModelDoc2 doc, DrawingDoc drw, View v, List<string> report)
     {
         var mu = (MathUtility)sw.GetMathUtility();
@@ -608,8 +652,12 @@ static partial class Draw
         var o = OutlineOf(v);
         double sc = v.ScaleDecimal;
         var placed = new[] { false, false };
+        bool wantCentres = MemberCentres;
         for (int dir = 0; dir < 2; dir++)   // 0: heights of horizontal members (vertical ordinates), 1: positions of uprights
-        {
+          for (int attempt = 0; attempt < (wantCentres ? 2 : 1); attempt++)
+          {
+            MemberCentres = wantCentres && attempt == 0;   // a centreline group that fails falls back to edges
+            if (placed[dir]) break;
             bool horiz = dir == 0;
             double span = horiz ? W(o) : H(o);
             Func<Tuple<Edge, double[], double[]>, double> pos = l => horiz ? l.Item2[1] : l.Item2[0];
@@ -623,30 +671,77 @@ static partial class Draw
             // datum: the outermost edge at the bottom / left; the far end: the outermost at the top / right
             var datum = all.OrderBy(pos).First(); var far = all.OrderBy(pos).Last();
             // members: clusters of long edges; each member's underside / left side
-            var members = new List<Tuple<Edge, double[], double[]>>();
+            // members: clusters of long edges (both faces of a member are within MemberGapMm)
+            var clusters = new List<List<Tuple<Edge, double[], double[]>>>();
             double gap = MemberGapMm / 1000 * sc;
             foreach (var l in longL)
-                if (members.Count == 0 || pos(l) - pos(members.Last()) > gap) members.Add(l);
-            members = members.Where(mm => pos(mm) - pos(datum) > 1e-5 && pos(far) - pos(mm) > 1e-5).ToList();
-            var items = new List<Tuple<Edge, double[], double[]>> { datum }; items.AddRange(members); items.Add(far);
-            var expect = items.Select(l => Math.Round((pos(l) - pos(datum)) / sc * 1000, 1)).ToList();
+                if (clusters.Count == 0 || pos(l) - pos(clusters.Last().Last()) > gap) clusters.Add(new List<Tuple<Edge, double[], double[]>> { l }); else clusters.Last().Add(l);
+            clusters = clusters.Where(c => pos(c[0]) - pos(datum) > 1e-5 && pos(far) - pos(c[0]) > 1e-5).ToList();
+            // what each ordinate attaches to: the underside / left edge, or (--centrelines) a centreline drawn between
+            // the member's two faces, which stays tied to them
+            var items = new List<object> { datum.Item1 };
+            var expect = new List<double> { 0 };
+            if (MemberCentres) { drw.ActivateView(v.GetName2()); }
+            int centred = 0;
+            foreach (var c in clusters)
+            {
+                var lo = c.First(); var hi = c.Last();
+                if (MemberCentres && c.Count >= 2 && pos(hi) - pos(lo) > 1e-5)
+                {
+                    doc.ClearSelection2(true);
+                    var sdc = (SelectData)((SelectionMgr)doc.SelectionManager).CreateSelectData(); sdc.View = v;
+                    ((Entity)lo.Item1).Select4(false, sdc); ((Entity)hi.Item1).Select4(true, sdc);
+                    var cl = drw.InsertCenterLine2();
+                    doc.ClearSelection2(true);
+                    if (cl != null)
+                    {
+                        var an = (Annotation)cl.GetAnnotation();
+                        an.Layer = DraftLayer;
+                        // a centreline is picked by clicking on it (like the slot centre marks): points along it
+                        double mid = (pos(lo) + pos(hi)) / 2;
+                        var pts = new[] { 0.3, 0.5, 0.7, 0.15, 0.85 }.Select(f => horiz
+                            ? new[] { lo.Item2[0] + (lo.Item3[0] - lo.Item2[0]) * f, mid }
+                            : new[] { mid, lo.Item2[1] + (lo.Item3[1] - lo.Item2[1]) * f }).ToList();
+                        items.Add(pts); expect.Add(Math.Round((mid - pos(datum)) / sc * 1000, 1)); centred++;
+                        continue;
+                    }
+                }
+                items.Add(lo.Item1); expect.Add(Math.Round((pos(lo) - pos(datum)) / sc * 1000, 1));
+            }
+            items.Add(far.Item1); expect.Add(Math.Round((pos(far) - pos(datum)) / sc * 1000, 1));
+            if (MemberCentres) Console.WriteLine("  " + v.GetName2() + " " + (horiz ? "heights" : "positions") + ": " + centred + " of " + clusters.Count + " members by centreline");
             // select and place
             drw.ActivateView(v.GetName2());
             doc.ClearSelection2(true);
             var smg = (SelectionMgr)doc.SelectionManager;
             var sd = (SelectData)smg.CreateSelectData(); sd.View = v;
             int sel = 0;
-            for (int i = 0; i < items.Count; i++) if (((Entity)items[i].Item1).Select4(i > 0, sd)) sel++;
+            for (int i = 0; i < items.Count; i++)
+            {
+                bool ok1 = false;
+                if (items[i] is List<double[]>)
+                {
+                    foreach (var q in (List<double[]>)items[i])
+                    {
+                        int nBefore = smg.GetSelectedObjectCount2(-1);
+                        if (doc.Extension.SelectByID2("", "CENTERLINES", q[0], q[1], 0, i > 0, 0, null, 0) && smg.GetSelectedObjectCount2(-1) > nBefore) { ok1 = true; break; }
+                    }
+                }
+                else ok1 = ((Entity)items[i]).Select4(i > 0, sd);
+                if (ok1) sel++;
+            }
             int kind = horiz ? (int)swAddOrdinateDims_e.swVerticalOrdinate : (int)swAddOrdinateDims_e.swHorizontalOrdinate;
             double x = horiz ? o[2] + 0.010 : pos(datum), y = horiz ? pos(datum) : o[3] + 0.008;
             var before = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(a => a.GetName()));
-            int r = doc.Extension.AddOrdinateDimension(kind, x, y, 0);
+            int r;
+            try { r = doc.Extension.AddOrdinateDimension(kind, x, y, 0); }
+            catch (System.Runtime.InteropServices.COMException ex) { r = -99; Console.WriteLine("    SOLIDWORKS refused the ordinates (" + ex.Message + ")"); }   // 14 Nov: RPC_E_SERVERFAULT on a busy top view
             doc.ClearSelection2(true);
             var made = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>()
                 .Where(a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension && !before.Contains(a.GetName())).ToList();
             var got = made.Select(a => Math.Round(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 1)).OrderBy(z => z).ToList();
             bool ok = sel == items.Count && r == 0 && string.Join(",", got) == string.Join(",", expect.OrderBy(z => z));
-            string what = v.GetName2() + " member " + (horiz ? "heights" : "positions") + " " + string.Join(" / ", expect);
+            string what = v.GetName2() + " member " + (horiz ? "heights" : "positions") + (MemberCentres ? " (centrelines)" : "") + " " + string.Join(" / ", expect);
             if (ok)
             {
                 // the far end is the overall size: in brackets (reference), as James
@@ -660,12 +755,15 @@ static partial class Draw
             }
             else
             {
-                report.Add(what + ": REMOVED (selected " + sel + "/" + items.Count + ", result " + r + ", got " + string.Join("/", got) + ")");
+                report.Add(what + ": REMOVED (selected " + sel + "/" + items.Count + ", result " + r + ", got " + string.Join("/", got) + ")"
+                    + (MemberCentres ? "; trying member edges instead" : ""));
                 doc.ClearSelection2(true);
                 foreach (var a in made) a.Select3(true, null);
                 doc.Extension.DeleteSelection2(0);
+                if (MemberCentres) centreFallbacks.Add(v.GetName2() + " " + (horiz ? "heights" : "positions"));
             }
-        }
+          }
+        MemberCentres = wantCentres;
         return placed;
     }
 

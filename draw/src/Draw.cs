@@ -205,6 +205,17 @@ static partial class Draw
                     + " text [" + Flat(dd.GetText((int)swDimensionTextParts_e.swDimensionTextPrefix)) + "|" + Flat(dd.GetText((int)swDimensionTextParts_e.swDimensionTextCalloutAbove)) + "|"
                     + Flat(dd.GetText((int)swDimensionTextParts_e.swDimensionTextSuffix)) + "] font " + FontOf(a));
                 break;
+            case (int)swAnnotationType_e.swCenterMarkSym:
+                var cm = (CenterMark)a.GetSpecificAnnotation();
+                Console.WriteLine(head + ": size " + Mm(cm.Size) + " gap " + Mm(cm.Gap) + " lines " + cm.ShowLines + " docDefaults " + cm.UseDocDisplaySettings
+                    + " style " + cm.Style + " centreline font " + cm.CenterLineFont + " extended " + string.Join("/", Enumerable.Range(0, 4).Select(i => Mm(cm.GetExtendedLength(0, i)))));
+                break;
+            case (int)swAnnotationType_e.swTableAnnotation:
+                var ta = (TableAnnotation)a.GetSpecificAnnotation();
+                Console.WriteLine(head + ": table type " + ta.Type + ", " + ta.RowCount + " x " + ta.ColumnCount);
+                for (int r = 0; r < ta.RowCount; r++)
+                    Console.WriteLine("      row " + r + ": " + string.Join(" | ", Enumerable.Range(0, ta.ColumnCount).Select(c => Flat(ta.Text[r, c]))));
+                break;
             default:
                 Console.WriteLine(head);
                 break;

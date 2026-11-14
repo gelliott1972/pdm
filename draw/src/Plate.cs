@@ -112,8 +112,10 @@ static partial class Draw
     // James's scales (13 Nov survey): the largest that fits the main view in the box below.
     static readonly int[] PlateScales = { 1, 2, 5, 10, 20, 25, 50 };
     const double FitW = 0.190, FitH = 0.110;          // sheet metres for the plate face view
+    const double MinSide = 0.060;                       // below this at 1:5 the plate is drawn bigger
     const int Magenta = 0xFF00FF;                       // COLORREF (R | G<<8 | B<<16)
     const string DraftLayer = "DRAFT";
+    const double CentreMarkSize = 0.0125, CentreMarkGap = 0.0025;   // James's (PLP-06): 12.5 mm, gap 2.5, centreline font
 
     class Hole { public double[] C; public double D; public bool Thru; }
 
@@ -168,7 +170,12 @@ static partial class Draw
         foreach (var g in groups) Console.WriteLine("  holes: " + g.Count() + " x Ø" + g.Key + (g.All(h => h.Thru) ? " THRU" : " (not all through)"));
 
         // 2. Scale and new sheet.
-        int den = PlateScales.FirstOrDefault(d => face[0] / d <= FitW && face[1] / d <= FitH);
+        // Grant 14 Nov: 1:5 by default for consistency; bigger (1:2, 1:1) only when the plate would be too small to
+        // read at 1:5 (longest side under MinSide on the sheet), smaller (1:10 ...) only when it doesn't fit.
+        Func<int, bool> fits = d => face[0] / d <= FitW && face[1] / d <= FitH;
+        int den = 5;
+        if (!fits(den)) den = PlateScales.Where(d => d > 5).FirstOrDefault(fits);
+        else while (face.Max() / den < MinSide && den > 1 && fits(den == 5 ? 2 : 1)) den = den == 5 ? 2 : 1;
         if (den == 0) den = PlateScales.Last();
         var drwDoc = (ModelDoc2)sw.NewDocument(template, (int)swDwgPaperSizes_e.swDwgPaperA3size, 0.42, 0.297);
         if (drwDoc == null) { Console.Error.WriteLine("could not start a drawing from " + template); return 3; }
@@ -210,7 +217,7 @@ static partial class Draw
             var io = (double[])iso.GetOutline();
             double w1 = (io[2] - io[0]) / iso.ScaleDecimal, h1 = (io[3] - io[1]) / iso.ScaleDecimal;   // at 1:1
             double boxW = IsoBoxR - IsoBoxL, boxH = mo[1] - Gap - IsoBoxB;
-            int isoDen = PlateScales.FirstOrDefault(d => w1 / d <= boxW && h1 / d <= boxH);
+            int isoDen = PlateScales.Where(d => d >= den).FirstOrDefault(d => w1 / d <= boxW && h1 / d <= boxH);
             if (isoDen == 0) isoDen = PlateScales.Last();
             if (isoDen == den) iso.UseSheetScale = 1;
             else { iso.UseSheetScale = 0; iso.ScaleRatio = new double[] { 1, isoDen }; }
@@ -241,16 +248,12 @@ static partial class Draw
         if (lm.GetLayer(DraftLayer) == null) lm.AddLayer(DraftLayer, "Placed by the machine, not yet checked", Magenta, (int)swLineStyles_e.swLineCONTINUOUS, (int)swLineWeights_e.swLW_NORMAL);
         lm.SetCurrentLayer(DraftLayer);
 
-        // 5. Centre marks on the holes of the face view.
-        drw.ActivateView(main.GetName2());
-        if (!main.AutoInsertCenterMarks2((int)swAutoInsertCenterMarkTypes_e.swAutoInsertCenterMarkType_Hole, 0, true, true, true, 0, 0, false, false, 0))
-            problems.Add("centre marks not inserted");
-
         // 6. Ordinate dimensions from the top-left corner, as James: across the top from the left edge (left edge, each
         //    distinct hole column, right edge) and down the right side from the top edge (top edge, each hole row, bottom).
         var mu = (MathUtility)sw.GetMathUtility();
         var selMgr = (SelectionMgr)drwDoc.SelectionManager;
         mo = (double[])main.GetOutline();
+        var expectedOrd = new List<double>();   // mm, from the model's geometry, for the self-check
         var hLines = new List<Tuple<Edge, double>>(); var vLines = new List<Tuple<Edge, double>>();
         var circles = new List<Tuple<Edge, double[], double>>();   // edge, sheet centre, diameter (m)
         foreach (Edge e in (main.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
@@ -280,6 +283,9 @@ static partial class Draw
             var rows = circles.GroupBy(c => Math.Round(c.Item2[1] * 1e5)).Select(g => g.First()).OrderByDescending(c => c.Item2[1]).ToList();
             var hSel = new List<Edge> { leftE.Item1 }; hSel.AddRange(cols.Select(c => c.Item1)); hSel.Add(rightE.Item1);
             var vSel = new List<Edge> { topE.Item1 }; vSel.AddRange(rows.Select(c => c.Item1)); vSel.Add(botE.Item1);
+            double vs = main.ScaleDecimal;
+            expectedOrd.Add(0); expectedOrd.AddRange(cols.Select(c => (c.Item2[0] - leftE.Item2) / vs * 1000)); expectedOrd.Add((rightE.Item2 - leftE.Item2) / vs * 1000);
+            expectedOrd.Add(0); expectedOrd.AddRange(rows.Select(c => (topE.Item2 - c.Item2[1]) / vs * 1000)); expectedOrd.Add((topE.Item2 - botE.Item2) / vs * 1000);
             Ordinate(drwDoc, selMgr, main, hSel, (int)swAddOrdinateDims_e.swHorizontalOrdinate, leftE.Item2, topE.Item2 + 0.012, "across the top");
             Ordinate(drwDoc, selMgr, main, vSel, (int)swAddOrdinateDims_e.swVerticalOrdinate, rightE.Item2 + 0.012, topE.Item2, "down the right");
         }
@@ -335,6 +341,14 @@ static partial class Draw
             drwDoc.ClearSelection2(true);
         }
 
+        // 5. Centre marks on the holes of the face view, James's style. Placed AFTER the dimensions: with the marks'
+        //    extension lines already there, selecting a hole for an ordinate measured to its edge, not its centre
+        //    (14 Nov: 41.3 instead of 48).
+        drw.ActivateView(main.GetName2());
+        if (!main.AutoInsertCenterMarks2((int)swAutoInsertCenterMarkTypes_e.swAutoInsertCenterMarkType_Hole, 0, true, true, false, CentreMarkSize, CentreMarkGap, true, true, 0))
+            problems.Add("centre marks not inserted");
+        drwDoc.ClearSelection2(true);
+
         // 9. Note block on the isometric, as James's (text from _Templates\note-block.txt, Weight/Finish version).
         if (iso != null)
         {
@@ -357,9 +371,61 @@ static partial class Draw
         }
         lm.SetCurrentLayer("");
         drwDoc.ClearSelection2(true);
+
+        // 9b. Revision row "0A*" (Grant 14 Nov, to discuss): the * says work in progress; at release it becomes 0A
+        //     unless a formal one is made. DRAWN/CHECKED/APPROVED left empty.
+        var ra = sheet.RevisionTable;
+        if (ra == null) problems.Add("no revision table on the sheet");
+        else
+        {
+            int id = ra.AddRevision("0A*");
+            int row = ra.GetRowNumberForId(id);
+            var ta = (TableAnnotation)ra;
+            if (id <= 0 || row < 0) problems.Add("revision row not added");
+            else
+            {
+                ta.Text[row, 1] = DateTime.Now.ToString("d/MM/yyyy");
+                ta.Text[row, 2] = "ORIGINAL DESIGN";
+                // The title block's REV box reads Revision-Sheet1; the table doesn't refresh it here, so set it.
+                drwDoc.Extension.CustomPropertyManager[""].Set2("Revision-Sheet1", "0A*");
+                Console.WriteLine("Revision row: " + string.Join(" | ", Enumerable.Range(0, ta.ColumnCount).Select(c => ta.Text[row, c])));
+            }
+        }
         drwDoc.ForceRebuild3(false);
 
-        // 10. Self-check: count what's placed, nothing dangling, everything placed is on DRAFT.
+        // 9c. Layout (Grant 14 Nov): the face view with the side view beside it, the isometric and note block below,
+        //     each row centred, and the whole group moved so its centre of area sits in the middle of the free sheet
+        //     (inside the border, above the title block).
+        Layout(drwDoc, main, side, iso);
+
+        // 10. Self-check: every ordinate value equals the model's geometry; callouts and thickness likewise.
+        var gotOrd = new List<double>(); var gotDia = new List<double>(); var gotThk = new List<double>();
+        foreach (var vw in new[] { main, side })
+            if (vw != null) foreach (Annotation a in (vw.GetAnnotations() as object[]) ?? new object[0])
+                {
+                    if (a.GetType() != (int)swAnnotationType_e.swDisplayDimension) continue;
+                    var dd = (DisplayDimension)a.GetSpecificAnnotation();
+                    double val = ((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000;
+                    int dt = dd.GetType();
+                    if (dt == 1 || dt == 7 || dt == 8) gotOrd.Add(val);
+                    else if (dt == 5 || dt == 6) gotDia.Add(val);
+                    else gotThk.Add(val);
+                }
+        Func<IEnumerable<double>, string> fmt = l => string.Join(",", l.Select(x => Math.Round(x, 2)).OrderBy(x => x));
+        var checks = new[] {
+            Tuple.Create("ordinates", fmt(expectedOrd), fmt(gotOrd)),
+            Tuple.Create("hole sizes", fmt(groups.Select(g => g.Key)), fmt(gotDia)),
+            Tuple.Create("thickness", fmt(new[] { ext[thin] * 1000 }), fmt(gotThk)) };
+        bool valuesOk = true;
+        foreach (var c in checks)
+        {
+            bool same = c.Item2 == c.Item3;
+            Console.WriteLine("Check " + c.Item1 + ": model " + c.Item2 + " / drawing " + c.Item3 + (same ? " OK" : " MISMATCH"));
+            if (!same) { valuesOk = false; problems.Add(c.Item1 + " on the drawing don't match the model: NOT saved"); }
+        }
+        if (!valuesOk) return 1;
+
+        // 10b. Count what's placed, nothing dangling, everything placed is on DRAFT.
         int dims = 0, notes = 0, marks = 0, offDraft = 0, dangling = 0;
         for (var v = (View)((View)drw.GetFirstView()).GetNextView(); v != null; v = (View)v.GetNextView())
             foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
@@ -383,6 +449,91 @@ static partial class Draw
         Console.WriteLine(ok ? "PDF " + pdfOut : "PDF failed: error " + err);
         Console.WriteLine("Time: " + (DateTime.Now - t0).TotalSeconds.ToString("0") + " s. The drawing is left open in SOLIDWORKS.");
         return 0;
+    }
+
+    // Free sheet area for views: inside the border, above the title block (sheet metres; Unilumin A3 format).
+    const double AreaX0 = 0.020, AreaX1 = 0.400, AreaY0 = 0.070, AreaY1 = 0.280, RowGap = 0.015, ColGap = 0.020;
+
+    static void Layout(ModelDoc2 doc, View main, View side, View iso)
+    {
+        doc.ForceRebuild3(false);
+        var a = Extent(main); var b = side != null ? Extent(side) : null; var c = iso != null ? Extent(iso) : null;
+        // Top row: face block then side block, ColGap apart, side level with the face view. Bottom row: isometric
+        // block. Rows RowGap apart, each centred on x = 0; composition origin y = 0 at the top.
+        double topW = W(a) + (b != null ? ColGap + W(b) : 0);
+        var ta = new[] { -topW / 2, -H(a), -topW / 2 + W(a), 0.0 };
+        double[] tb = null;
+        if (b != null)
+        {
+            // keep the side view's own centre level with the face view's centre (projected views stay aligned)
+            var ao = (double[])main.GetOutline(); var bo = (double[])side.GetOutline();
+            double faceCy = ta[1] + ((ao[1] + ao[3]) / 2 - a[1]);           // face view centre in target coordinates
+            double bLow = (bo[1] + bo[3]) / 2 - b[1];                        // side block bottom -> side view centre
+            tb = new[] { ta[2] + ColGap, faceCy - bLow, ta[2] + ColGap + W(b), faceCy - bLow + H(b) };
+        }
+        double topLow = Math.Min(ta[1], tb != null ? tb[1] : 0);
+        var tc = c == null ? null : new[] { -W(c) / 2, topLow - RowGap - H(c), W(c) / 2, topLow - RowGap };
+        // Centre of area of the blocks -> middle of the free area; then keep everything inside it.
+        var boxes = new List<double[]> { ta }; if (tb != null) boxes.Add(tb); if (tc != null) boxes.Add(tc);
+        double area = boxes.Sum(x => W(x) * H(x));
+        double gx = boxes.Sum(x => W(x) * H(x) * (x[0] + x[2]) / 2) / area, gy = boxes.Sum(x => W(x) * H(x) * (x[1] + x[3]) / 2) / area;
+        double dx = (AreaX0 + AreaX1) / 2 - gx, dy = (AreaY0 + AreaY1) / 2 - gy;
+        double minX = boxes.Min(x => x[0]) + dx, maxX = boxes.Max(x => x[2]) + dx, minY = boxes.Min(x => x[1]) + dy, maxY = boxes.Max(x => x[3]) + dy;
+        if (maxX > AreaX1) dx -= maxX - AreaX1; else if (minX < AreaX0) dx += AreaX0 - minX;
+        if (maxY > AreaY1) dy -= maxY - AreaY1; else if (minY < AreaY0) dy += AreaY0 - minY;
+        Console.WriteLine("Layout: centre of area moved to " + Mm(gx + dx) + "," + Mm(gy + dy) + " (middle of free area " + Mm((AreaX0 + AreaX1) / 2) + "," + Mm((AreaY0 + AreaY1) / 2) + ")");
+        MoveTo(doc, main, ta, dx, dy);
+        if (side != null) MoveTo(doc, side, tb, dx, dy);
+        if (iso != null) MoveTo(doc, iso, tc, dx, dy);
+        var fa = Extent(main); var fb = side != null ? Extent(side) : null; var fc = iso != null ? Extent(iso) : null;
+        Console.WriteLine("  face block " + Box(fa) + (fb != null ? ", side " + Box(fb) : "") + (fc != null ? ", isometric " + Box(fc) : ""));
+        foreach (var x in new[] { fa, fb, fc })
+            if (x != null && (x[0] < AreaX0 - 1e-3 || x[2] > AreaX1 + 1e-3 || x[1] < AreaY0 - 1e-3 || x[3] > AreaY1 + 1e-3)) problems.Add("layout: a view runs outside the free area " + Box(x));
+    }
+
+    static double W(double[] b) { return b[2] - b[0]; }
+    static double H(double[] b) { return b[3] - b[1]; }
+    static string Box(double[] b) { return Mm(b[0]) + "," + Mm(b[1]) + " - " + Mm(b[2]) + "," + Mm(b[3]); }
+
+    static void MoveTo(ModelDoc2 doc, View v, double[] target, double dx, double dy)
+    {
+        doc.ForceRebuild3(false);
+        var e = Extent(v);
+        var p = (double[])v.Position;
+        v.Position = new[] { p[0] + target[0] + dx - e[0], p[1] + target[1] + dy - e[1] };
+        doc.ForceRebuild3(false);
+    }
+
+    // A view's box including its annotations: the view outline, every line of every annotation, and each
+    // annotation's text (estimated from its text length and height around its position).
+    static double[] Extent(View v)
+    {
+        var o = (double[])v.GetOutline();
+        double x0 = o[0], y0 = o[1], x1 = o[2], y1 = o[3];
+        foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+        {
+            var dd = a.GetDisplayData() as DisplayData;
+            if (dd == null) continue;
+            for (int i = 0; i < dd.GetLineCount(); i++)
+            {
+                var l = dd.GetLineAtIndex3(i) as double[];
+                if (l == null || l.Length < 10) continue;
+                x0 = Math.Min(x0, Math.Min(l[4], l[7])); x1 = Math.Max(x1, Math.Max(l[4], l[7]));
+                y0 = Math.Min(y0, Math.Min(l[5], l[8])); y1 = Math.Max(y1, Math.Max(l[5], l[8]));
+            }
+            var pos = a.GetPosition() as double[];
+            if (pos == null) continue;
+            for (int i = 0; i < dd.GetTextCount(); i++)
+            {
+                string t = dd.GetTextAtIndex(i) ?? "";
+                double h = dd.GetTextHeightAtIndex(i), w = t.Length * h * 0.6, ang = dd.GetTextAngleAtIndex(i);
+                bool vert = Math.Abs(Math.Sin(ang)) > 0.7;
+                double ex = vert ? h : w, ey = vert ? w : h;
+                x0 = Math.Min(x0, pos[0] - ex); x1 = Math.Max(x1, pos[0] + ex);
+                y0 = Math.Min(y0, pos[1] - ey); y1 = Math.Max(y1, pos[1] + ey);
+            }
+        }
+        return new[] { x0, y0, x1, y1 };
     }
 
     static void Ordinate(ModelDoc2 doc, SelectionMgr selMgr, View v, List<Edge> edges, int kind, double x, double y, string what)

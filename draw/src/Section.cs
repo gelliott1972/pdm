@@ -432,7 +432,8 @@ static partial class Draw
             var c = (Curve)e.GetCurve();
             if (!c.IsLine()) continue;
             var cpd = e.GetCurveParams3();
-            r.Add(Tuple.Create(e, ToSheet(mu, v, InAsm(mu, ce.Item1, (double[])cpd.StartPoint)), ToSheet(mu, v, InAsm(mu, ce.Item1, (double[])cpd.EndPoint))));
+            var own = ce.Item1 == null ? null : (((Entity)e).GetComponent() as Component2 ?? ce.Item1);   // the part the edge belongs to
+            r.Add(Tuple.Create(e, ToSheet(mu, v, InAsm(mu, own, (double[])cpd.StartPoint)), ToSheet(mu, v, InAsm(mu, own, (double[])cpd.EndPoint))));
         }
         return r;
     }

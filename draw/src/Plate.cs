@@ -487,7 +487,7 @@ static partial class Draw
     // annotation's text (estimated from its text length and height around its position).
     static double[] Extent(View v)
     {
-        var o = (double[])v.GetOutline();
+        var o = OutlineOf(v);   // what the view draws (an assembly view's outline also counts suppressed parts)
         double x0 = o[0], y0 = o[1], x1 = o[2], y1 = o[3];
         foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
         {

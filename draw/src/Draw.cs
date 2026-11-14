@@ -73,6 +73,7 @@ static partial class Draw
                 case "copy-switch": if (pos.Count != 3) return Usage(); rc = CopySwitch(pos[0], pos[1], pos[2]); break;
                 case "make-assembly": if (pos.Count != 4) return Usage(); rc = MakeAssembly(pos[0], pos[1], pos[2], pos[3]); break;
                 case "bom-test": if (pos.Count != 2) return Usage(); rc = BomTest(pos[0], pos[1]); break;
+                case "view-geom": if (pos.Count != 1) return Usage(); rc = ViewGeom(pos[0]); break;
                 case "pdf": if (pos.Count != 2) return Usage(); rc = Pdf(pos[0], pos[1]); break;
                 case "close-all": sw.CloseAllDocuments(true); Console.WriteLine("Closed all documents (not saved)."); rc = 0; break;
                 default: return Usage();

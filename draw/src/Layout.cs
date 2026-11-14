@@ -252,7 +252,21 @@ static partial class Draw
             if (!taken.Any(t => t != null && sp[0] < t[2] && sp[2] > t[0] && sp[1] < t[3] && sp[3] > t[1]))
             { note.SetPosition2(sp[0], sp[3], 0); Console.WriteLine("Flags placed " + k); return; }
         }
+        // no free corner: the clear spot nearest the preferred corner, searched over the sheet in 5 mm steps
+        var pref = corners.ContainsKey(st.Flags) ? corners[st.Flags] : corners["TL"];
+        var title = new[] { TitleLeft, BorderY0, BorderX1, TitleTop };
+        var rev = new[] { BorderX0, BorderY0, TitleLeft, RevTop };
+        double[] best = null; double bestD = double.MaxValue;
+        for (double x = BorderX0 + m; x + w <= BorderX1 - m; x += 0.005)
+            for (double y = RevTop + m; y + h <= BorderY1 - m; y += 0.005)
+            {
+                var sp = new[] { x, y, x + w, y + h };
+                if (taken.Concat(new[] { title, rev }).Any(t => t != null && sp[0] < t[2] && sp[2] > t[0] && sp[1] < t[3] && sp[3] > t[1])) continue;
+                double d = Math.Abs(x - pref[0]) + Math.Abs(y - pref[1]);
+                if (d < bestD) { bestD = d; best = sp; }
+            }
+        if (best != null) { note.SetPosition2(best[0], best[3], 0); Console.WriteLine("Flags placed in the clear spot nearest " + st.Flags + " at " + Mm(best[0]) + "," + Mm(best[3])); return; }
         note.SetPosition2(corners["TL"][0], corners["TL"][3], 0);
-        problems.Add("no free corner for the CHECK flags; they may overlap a view");
+        problems.Add("no clear space for the CHECK flags; they may overlap a view");
     }
 }

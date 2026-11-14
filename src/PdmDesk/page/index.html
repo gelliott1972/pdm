@@ -208,8 +208,8 @@ aside { min-width: 0; }
   </aside>
 </div>
 <script>
-const SESSIONS = ['admin', 'dev', 'sw', 'app'];
-const NAMES = { admin: 'Admin', dev: 'Dev', sw: 'SW', app: 'App' };
+const SESSIONS = ['admin', 'dev', 'sw', 'app', 'draw'];
+const NAMES = { admin: 'Admin', dev: 'Dev', sw: 'SW', app: 'App', draw: 'Draw' };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Plain text with **bold** and `code`; everything else is shown as typed.

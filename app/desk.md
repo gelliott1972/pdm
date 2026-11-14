@@ -25,7 +25,7 @@ Brief: `docs\briefs\desk.md`. Code: `src\PdmDesk\`. Owner: App.
 
 | Field | Values | Notes |
 | --- | --- | --- |
-| `id` | `"D16"` | Same as the file name |
+| `id` | `"D16"` | Same as the file name. Letters then a number; each session keeps its own prefix (Admin `A`, SW `SW`, Draw `DR`) |
 | `type` | `decision`, `info`, `sw-job` | `sw-job` is phase 2 (the page shows it read-only for now) |
 | `ref` | `"D16"` | Optional chip before the title |
 | `title` | text | One line |
@@ -33,7 +33,7 @@ Brief: `docs\briefs\desk.md`. Code: `src\PdmDesk\`. Owner: App.
 | `options` | `[{ "key": "A", "label": "…", "note": "…" }]` | `decision` only. Leave it out (or empty) for a free-text answer |
 | `recommended` | an option `key` | Marks it and shows **Accept recommendation** |
 | `priority` | `blocking`, `later` | Blocking tickets are listed first, then oldest first |
-| `owner` | `admin`, `dev`, `sw`, `app` | The session that acts on the answer |
+| `owner` | `admin`, `dev`, `sw`, `app`, `draw` | The session that acts on the answer |
 | `createdAt` | UTC ISO | |
 | `status` | `open` → `answered` → `done`; `open` → `discuss` → `answered`; `info`: `open` → `dismissed` | The page sets `answered`, `discuss` or `dismissed`. The owner sets `done` after acting |
 | `answer` | `{ "choice": "A", "note": "…" }` | Set by the page. `choice` is `""` when Grant only typed a note |
@@ -68,7 +68,7 @@ Example:
 
 ## `status\<session>.json`
 
-`{ "name": "dev", "state": "working", "doing": "…", "waitingOn": "…", "updatedAt": "…" }`, where `state` is `working`, `waiting`, `blocked` or `idle`. Each session writes only its own file, at each stage change. The page always shows Admin, Dev, SW and App cards ("No status yet" until a file exists).
+`{ "name": "dev", "state": "working", "doing": "…", "waitingOn": "…", "updatedAt": "…" }`, where `state` is `working`, `waiting`, `blocked` or `idle`. Each session writes only its own file, at each stage change. The page always shows Admin, Dev, SW, App and Draw cards ("No status yet" until a file exists).
 
 ## `inbox\<id>.json` (written by the page)
 

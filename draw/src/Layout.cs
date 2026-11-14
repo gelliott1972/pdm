@@ -18,7 +18,7 @@ static partial class Draw
 {
     // Unilumin A3 sheet format (measured from the format in _Templates: zone letters at 10/410, border inside them,
     // title block bottom right, revision table bottom left).
-    const double BorderX0 = 0.015, BorderX1 = 0.405, BorderY0 = 0.015, BorderY1 = 0.282;
+    const double BorderX0 = 0.0125, BorderX1 = 0.4075, BorderY0 = 0.0125, BorderY1 = 0.2845;   // James's revision table and BOM sit on these corners
     const double TitleLeft = 0.205, TitleTop = 0.065, RevTop = 0.022;
 
     static string LayoutFile { get { return @"C:\code\pdm\draw\.claude\skills\drawing-standards\layout-examples.json"; } }
@@ -133,6 +133,8 @@ static partial class Draw
     static string J(string s) { return "\"" + (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"") + "\""; }
 
     // ---------- applying ----------
+    static bool columnMode;
+
     static void Layout(ModelDoc2 doc, View main, View side, View iso)
     {
         var st = Style();
@@ -152,6 +154,31 @@ static partial class Draw
         else if (botExt < TitleTop) dyMid += TitleTop - botExt;
         double leftExt = me[0] + (x0 - mo[0]), rightExt = (se != null ? se[2] - so[0] + x0 + W(mo) + gap : me[2] + x0 - mo[0]);
         if (leftExt < BorderX0 + 0.003) x0 += BorderX0 + 0.003 - leftExt; else if (rightExt > BorderX1 - 0.003) x0 -= rightExt - (BorderX1 - 0.003);
+        // the row's outer edges (with dimensions) for a given x0
+        Func<double, double> rowLeftAt = xx => xx - (mo[0] - me[0]);
+        Func<double, double> rowRightAt = xx => xx + W(mo) + (side != null ? gap + (se[2] - so[0]) : me[2] - mo[2]);
+        double rowTopNow = Math.Max(me[3], se != null ? se[3] : me[3]) + dyMid;
+        // Will the isometric (with its note) fit under the views? If not, James's arrangement for big assemblies:
+        // the views over to the right, the isometric down the left (under the BOM if there is one).
+        columnMode = false;
+        if (iso != null)
+        {
+            var ie0 = Extent(iso);
+            double viewsBottom = Math.Min(me[1], se != null ? se[1] : me[1]) + dyMid;
+            if (H(ie0) > viewsBottom - RowGap - RevTop)
+            {
+                columnMode = true;
+                x0 += (BorderX1 - 0.003) - rowRightAt(x0);
+                Console.WriteLine("Layout: the isometric is too tall to go under the views; views to the right, isometric down the left");
+            }
+        }
+        // keep the row clear of the BOM: to its right if there's room, else below it
+        if (LayoutBlocked != null && rowTopNow > LayoutBlocked[1] && rowLeftAt(x0) < LayoutBlocked[2] + 0.010)
+        {
+            double want = LayoutBlocked[2] + 0.010 + (mo[0] - me[0]);
+            if (rowRightAt(want) <= BorderX1 - 0.003) x0 = want;
+            else dyMid -= rowTopNow - (LayoutBlocked[1] - 0.010);
+        }
         MoveOutline(doc, main, x0, (mo[1] + mo[3]) / 2 + dyMid);
         if (side != null) MoveOutline(doc, side, x0 + W(mo) + gap, double.NaN);   // a projected view stays level by itself
         var fa = Extent(main); var fb = side != null ? Extent(side) : null;
@@ -163,16 +190,24 @@ static partial class Draw
                 if (a.GetType() == (int)swAnnotationType_e.swNote)
                 {
                     var p0 = (double[])a.GetPosition();
-                    a.SetPosition2(io0[2] + st.NoteGapMm / 1000, p0[1], 0);
+                    a.SetPosition2(io0[2] + st.NoteGapMm / 1000, (io0[1] + io0[3]) / 2 + 0.012, 0);
                 }
             doc.ForceRebuild3(false);
             var ie = Extent(iso);
             double top = Math.Min(fa[1], fb != null ? fb[1] : fa[1]) - RowGap;
-            double tcx = BorderX0 + st.IsoX * (TitleLeft - BorderX0), tcy = RevTop + st.IsoY * (top - RevTop);
+            double rightLimit = TitleLeft;
+            if (columnMode)
+            {
+                top = BorderY1 - 0.003;                               // the whole left column ...
+                rightLimit = Math.Min(TitleLeft, Math.Min(fa[0], fb != null ? fb[0] : fa[0]) - RowGap);   // ... left of the views
+            }
+            if (LayoutBlocked != null && LayoutBlocked[0] < TitleLeft) top = Math.Min(top, LayoutBlocked[1] - RowGap);   // below the BOM
+            if (top < RevTop + 0.030) top = Math.Max(fa[1], BorderY1 - 0.003);   // no room under the views: the whole left side
+            double tcx = BorderX0 + st.IsoX * (rightLimit - BorderX0), tcy = RevTop + st.IsoY * (top - RevTop);
             double dx = tcx - (ie[0] + ie[2]) / 2, dy = tcy - (ie[1] + ie[3]) / 2;
             // keep it in its corner
             if (ie[0] + dx < BorderX0 + 0.003) dx = BorderX0 + 0.003 - ie[0];
-            if (ie[2] + dx > TitleLeft - 0.003) dx = TitleLeft - 0.003 - ie[2];
+            if (ie[2] + dx > rightLimit - 0.003) dx = rightLimit - 0.003 - ie[2];
             if (ie[1] + dy < RevTop + 0.003) dy = RevTop + 0.003 - ie[1];
             if (ie[3] + dy > top) dy = top - ie[3];
             var p = (double[])iso.Position;
@@ -185,8 +220,9 @@ static partial class Draw
             if (x != null && (x[0] < BorderX0 - 1e-3 || x[2] > BorderX1 + 1e-3 || x[1] < BorderY0 || x[3] > BorderY1 + 1e-3))
                 problems.Add("layout: a view runs off the drawing area " + Box(x));
         if (fc != null && fc[2] > TitleLeft && fc[1] < TitleTop) problems.Add("layout: the isometric or its note block runs into the title block " + Box(fc));
-        if (fc != null && fc[3] > Math.Min(fa[1], fb != null ? fb[1] : fa[1]) && fc[2] > Math.Min(fa[0], fb != null ? fb[0] : fa[0]))
-            problems.Add("layout: the isometric block overlaps the views above it");
+        Func<double[], double[], bool> hit = (p, q) => p != null && q != null && p[0] < q[2] && p[2] > q[0] && p[1] < q[3] && p[3] > q[1];
+        if (hit(fc, fa) || hit(fc, fb)) problems.Add("layout: the isometric block overlaps the views");
+        if (hit(LayoutBlocked, fa) || hit(LayoutBlocked, fb) || hit(LayoutBlocked, fc)) problems.Add("layout: a view overlaps the BOM");
     }
 
     // Move a view so its outline's left edge is at x (and its centre at y, unless y is NaN).

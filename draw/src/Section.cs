@@ -426,14 +426,38 @@ static partial class Draw
     static List<Tuple<Edge, double[], double[]>> ViewLines(MathUtility mu, View v)
     {
         var r = new List<Tuple<Edge, double[], double[]>>();
-        foreach (Edge e in (v.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+        foreach (var ce in ViewEdges(v))
         {
+            var e = ce.Item2;
             var c = (Curve)e.GetCurve();
             if (!c.IsLine()) continue;
             var cpd = e.GetCurveParams3();
-            r.Add(Tuple.Create(e, ToSheet(mu, v, (double[])cpd.StartPoint), ToSheet(mu, v, (double[])cpd.EndPoint)));
+            r.Add(Tuple.Create(e, ToSheet(mu, v, InAsm(mu, ce.Item1, (double[])cpd.StartPoint)), ToSheet(mu, v, InAsm(mu, ce.Item1, (double[])cpd.EndPoint))));
         }
         return r;
+    }
+
+    // Visible edges of a view with the component each belongs to (null for a part view).
+    static List<Tuple<Component2, Edge>> ViewEdges(View v)
+    {
+        var r = new List<Tuple<Component2, Edge>>();
+        var comps = v.GetVisibleComponents() as object[];
+        if (comps == null || comps.Length == 0)
+        {
+            foreach (Edge e in (v.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0]) r.Add(Tuple.Create((Component2)null, e));
+            return r;
+        }
+        foreach (Component2 c in comps)
+            foreach (Edge e in (v.GetVisibleEntities2(c, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0]) r.Add(Tuple.Create(c, e));
+        return r;
+    }
+
+    // A point in a component's own coordinates -> the assembly's.
+    static double[] InAsm(MathUtility mu, Component2 c, double[] p)
+    {
+        if (c == null || c.Transform2 == null) return p;
+        var mp = (MathPoint)mu.CreatePoint(p);
+        return (double[])((MathPoint)mp.MultiplyTransform(c.Transform2)).ArrayData;
     }
 
     static List<Tuple<Edge, double[], double>> ViewCircles(MathUtility mu, View v)

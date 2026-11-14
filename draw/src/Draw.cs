@@ -15,6 +15,8 @@
 //                                             with holes/slots: face view, end view, isometric (DRAFT, magenta)
 //   learn-layout <drawing> ...                learn the layout's feel from drawings laid out by hand (Layout.cs)
 //   copy-switch <drawing> <newModel> <out.SLDDRW>  copy a drawing, switch it to a twin model, report what survives
+//   make-assembly <asm> <config> <out.SLDDRW> <template.drwdot>  assembly nuts and bolts: views, BOM, balloons,
+//                                             overall sizes, note block, flags (DRAFT, magenta)
 //   pdf <drawing> <out.pdf>                   export a PDF
 //   close-all                                 close every document without saving
 //
@@ -43,7 +45,7 @@ static partial class Draw
         // Every path must be inside the test folder: never P:\, M:\, C:\PDM-work or Dropbox.
         for (int i = 0; i < pos.Count; i++)
         {
-            if ((cmd == "make-plate" || cmd == "make-section" || cmd == "views") && i == 1) continue;   // configuration name
+            if ((cmd == "make-plate" || cmd == "make-section" || cmd == "make-assembly" || cmd == "views") && i == 1) continue;   // configuration name
             string full;
             try { full = Path.GetFullPath(pos[i]); } catch (Exception ex) { Console.Error.WriteLine("Bad path: " + ex.Message); return 2; }
             if (!full.StartsWith(TestRoot + "\\", StringComparison.OrdinalIgnoreCase))
@@ -69,6 +71,8 @@ static partial class Draw
                 case "make-section": if (pos.Count != 4) return Usage(); rc = MakeSection(pos[0], pos[1], pos[2], pos[3]); break;
                 case "learn-layout": if (pos.Count < 1) return Usage(); rc = LearnLayout(pos); break;
                 case "copy-switch": if (pos.Count != 3) return Usage(); rc = CopySwitch(pos[0], pos[1], pos[2]); break;
+                case "make-assembly": if (pos.Count != 4) return Usage(); rc = MakeAssembly(pos[0], pos[1], pos[2], pos[3]); break;
+                case "bom-test": if (pos.Count != 2) return Usage(); rc = BomTest(pos[0], pos[1]); break;
                 case "pdf": if (pos.Count != 2) return Usage(); rc = Pdf(pos[0], pos[1]); break;
                 case "close-all": sw.CloseAllDocuments(true); Console.WriteLine("Closed all documents (not saved)."); rc = 0; break;
                 default: return Usage();

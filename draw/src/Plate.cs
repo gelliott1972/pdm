@@ -104,9 +104,32 @@ static partial class Draw
         return 0;
     }
 
+    // Every BOM / cut-list table on a COPY of one of James's drawings saved as a table template (his columns, fonts,
+    // widths). The copy is not saved.
     static int SaveTableTemplates(string file, string outDir)
     {
-        Console.Error.WriteLine("not built yet"); return 2;
+        Directory.CreateDirectory(outDir);
+        var doc = OpenDoc(file, null, true);
+        var sheetView = (View)((DrawingDoc)doc).GetFirstView();
+        int n = 0;
+        foreach (Annotation a in (sheetView.GetAnnotations() as object[]) ?? new object[0])
+        {
+            if (a.GetType() != (int)swAnnotationType_e.swTableAnnotation) continue;
+            var ta = (TableAnnotation)a.GetSpecificAnnotation();
+            string name = ta.Type == (int)swTableAnnotationType_e.swTableAnnotation_BillOfMaterials ? "Unilumin-BOM.sldbomtbt"
+                        : ta.Type == (int)swTableAnnotationType_e.swTableAnnotation_WeldmentCutList ? "Unilumin-cutlist.sldwldtbt" : null;
+            if (name == null) continue;
+            string path = Path.Combine(outDir, name);
+            if (File.Exists(path)) { Console.WriteLine("  exists, not overwritten: " + path); continue; }
+            var p = (double[])a.GetPosition();
+            bool ok = ta.SaveAsTemplate(path);
+            Console.WriteLine((ok ? "Saved " : "NOT saved ") + path + " (" + ta.RowCount + " x " + ta.ColumnCount + ", at " + Mm(p[0]) + "," + Mm(p[1]) + ", columns: "
+                + string.Join(" | ", Enumerable.Range(0, ta.ColumnCount).Select(c => Flat(ta.Text[0, c]))) + ")");
+            if (ok) n++;
+        }
+        sw.CloseDoc(doc.GetTitle());
+        Console.WriteLine(n + " table template(s) saved");
+        return 0;
     }
 
     // James's scales (13 Nov survey): the largest that fits the main view in the box below.

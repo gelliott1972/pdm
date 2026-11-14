@@ -566,6 +566,52 @@ static partial class Draw
         return "";
     }
 
+    // Accept the machine's work: move annotations off layer DRAFT onto no layer (James's annotations have none), so
+    // they show in the document's normal colours. Without --all: only what is selected in SOLIDWORKS right now.
+    // Works on the drawing as it is open in SOLIDWORKS; does not save (Grant / James saves with Ctrl+S).
+    static int Accept(string file, bool all)
+    {
+        var doc = (ModelDoc2)sw.GetOpenDocumentByName(file) ?? OpenDoc(file, null, false);
+        if (doc.IsOpenedReadOnly()) { Console.Error.WriteLine("REFUSED: the drawing is open read-only: " + file); return 2; }
+        var anns = new List<Annotation>();
+        if (all)
+        {
+            var drw = (DrawingDoc)doc;
+            for (var v = (View)drw.GetFirstView(); v != null; v = (View)v.GetNextView())
+                foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0]) anns.Add(a);
+        }
+        else
+        {
+            var sm = (SelectionMgr)doc.SelectionManager;
+            int n = sm.GetSelectedObjectCount2(-1);
+            for (int i = 1; i <= n; i++)
+            {
+                object o = sm.GetSelectedObject6(i, -1);
+                Annotation a = o as Annotation;
+                if (a == null && o is DisplayDimension) a = (Annotation)((DisplayDimension)o).GetAnnotation();
+                if (a == null && o is Note) a = (Annotation)((Note)o).GetAnnotation();
+                if (a == null && o is CenterMark) a = (Annotation)((CenterMark)o).GetAnnotation();
+                if (a == null) { Console.WriteLine("  selection " + i + " is not a dimension, note or centre mark (type " + sm.GetSelectedObjectType3(i, -1) + "); skipped"); continue; }
+                anns.Add(a);
+            }
+            if (n == 0) { Console.Error.WriteLine("Nothing is selected in SOLIDWORKS. Select the items to accept first, or use --all."); return 2; }
+        }
+        int moved = 0;
+        foreach (var a in anns)
+        {
+            if (a.Layer != DraftLayer) continue;
+            a.Layer = "";
+            if (a.Layer == DraftLayer) problems.Add("could not move " + a.GetName());
+            else { moved++; Console.WriteLine("  accepted " + TypeName(a.GetType()) + " " + a.GetName()); }
+        }
+        doc.GraphicsRedraw2();
+        int left = 0;
+        for (var v = (View)((DrawingDoc)doc).GetFirstView(); v != null; v = (View)v.GetNextView())
+            foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0]) if (a.Layer == DraftLayer) left++;
+        Console.WriteLine("Accepted " + moved + "; still on DRAFT (magenta): " + left + ". Not saved: save in SOLIDWORKS (Ctrl+S) to keep it.");
+        return 0;
+    }
+
     static int Pdf(string file, string output)
     {
         if (File.Exists(output)) { Console.Error.WriteLine("REFUSED: already exists: " + output); return 2; }

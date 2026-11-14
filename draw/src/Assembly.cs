@@ -283,19 +283,32 @@ static partial class Draw
         }
         if (longMember && right != null)
         {
-            int den2 = BreakLongMember(drwDoc, drw, sheet, main, right, top, den, pzY1 - pzY0 - (top != null ? OutlineOf(top)[3] - OutlineOf(top)[1] : 0) - 2 * dimRoom - 0.012);
-            if (den2 != den)
+            // Grant 14 Nov "make the views bigger": the member gets the full height of the space (the end view goes
+            // beside it, not above), the largest scale at which it fits broken, and breaks only as long as needed
+            const double labelRoom = 0.008;   // the 0 and last ordinate labels above / below the member
+            double memberH = pzY1 - pzY0 - 2 * labelRoom;
+            Func<int, bool> widthFits = d => (xA + zC + (top != null ? xA : 0)) / 1000.0 / d * 1000 / 1000 + 3 * dimRoom + 0.010 <= pzX1 - pzX0;
+            den = BreakLongMember(drwDoc, drw, sheet, main, right, den, memberH, widthFits);
+            geomCache.Clear(); geomScale.Clear();
+            // re-place, side by side and centred: face | side (plate dims on its right) | end view
+            if (top != null) top.RemoveAlignment();
+            double wM = W(OutlineOf(main)), wS = W(OutlineOf(right)), wT = top != null ? W(OutlineOf(top)) : 0;
+            // packed to the right (the note block sits top left, beside the BOM): face, a small gap (no dims between
+            // them), side with the plate dims on its right, end view with its height dim on its right
+            const double gapFS = 0.012, gapSE = 0.024, endDims = 0.016;
+            double rowW = wM + gapFS + wS + (top != null ? gapSE + wT : 0);
+            double x0 = pzX1 - endDims - rowW, yMid = (pzY0 + pzY1) / 2;
+
+            CentreAt(drwDoc, main, x0 + wM / 2, yMid);
+            drwDoc.ForceRebuild3(false);
+            CentreAt(drwDoc, right, x0 + wM + gapFS + wS / 2, double.NaN);
+            if (top != null)
             {
-                den = den2;
-                geomCache.Clear(); geomScale.Clear();
-                // re-place: face and side view centred in the space, the end view above them
-                var mo2 = OutlineOf(main);
-                double h2 = H(mo2) + (top != null ? dimRoom + H(OutlineOf(top)) : 0);
-                double y0 = pzY0 + (pzY1 - pzY0 - h2) / 2;
-                CentreAt(drwDoc, main, double.NaN, y0 + H(mo2) / 2);
-                if (top != null) { mo2 = OutlineOf(main); CentreAt(drwDoc, top, double.NaN, mo2[3] + dimRoom + H(OutlineOf(top)) / 2); }
-                drwDoc.ForceRebuild3(false);
+                var so = OutlineOf(right);
+                CentreAt(drwDoc, top, so[2] + gapSE + wT / 2, so[3] - H(OutlineOf(top)) / 2);   // end view beside the side view, level with its top
             }
+            drwDoc.ForceRebuild3(false);
+            geomCache.Clear(); geomScale.Clear();
         }
         Console.WriteLine("[" + stamp() + "] views drawn: face, left " + (left != null) + ", right " + (right != null) + ", top " + (top != null) + ", bottom " + (bottom != null) + ", isometric " + (isoF != null));
 
@@ -316,7 +329,8 @@ static partial class Draw
             {
                 noteAnn = (Annotation)note.GetAnnotation();
                 var tf = (TextFormat)noteAnn.GetTextFormat(0); tf.TypeFaceName = "Century Gothic"; tf.CharHeight = 0.00212; noteAnn.SetTextFormat(0, false, tf);
-                noteAnn.SetPosition2((bomBox != null ? bomBox[2] : BorderX0) + 0.008, BorderY1 - m, 0);
+                if (longMember) noteAnn.SetPosition2(isoZoneRight - 0.045, TitleTop + 0.040, 0);   // long member: low down between the isometric and the views (as James), clear of the tall views
+                else noteAnn.SetPosition2((bomBox != null ? bomBox[2] : BorderX0) + 0.008, BorderY1 - m, 0);
             }
         }
 
@@ -363,7 +377,7 @@ static partial class Draw
         Console.WriteLine("[" + stamp() + "] member positions");
         if (!mem[0] || !mem[1]) OverallByClick(drwDoc, drw, main, !mem[1], !mem[0], want, dimsOk);   // plain overall size where members failed
         if (left != null) OverallByClick(drwDoc, drw, left, true, false, want, dimsOk);
-        else if (right != null) OverallByClick(drwDoc, drw, right, true, false, want, dimsOk);
+        else if (right != null && !longMember) OverallByClick(drwDoc, drw, right, true, false, want, dimsOk);
         Console.WriteLine("[" + stamp() + "] overall dimensions");
         var flags = new List<string> { missingGroups.Count > 0 ? "CHECK: NOT DIMENSIONED: " + string.Join(", ", missingGroups).ToUpper().Replace("DRAWING VIEW", "VIEW ") : null, longMember ? null : MemberCentres ? "CHECK: MEMBER DIMS TO CENTRELINES" + (centreFallbacks.Count > 0 ? " (EXCEPT " + string.Join(", ", centreFallbacks).ToUpper().Replace("DRAWING VIEW", "VIEW ") + ": EDGES)" : "") : "CHECK: MEMBER DIMS TO UNDERSIDE / LEFT EDGE", "CHECK: WELDS NOT ADDED" };
         flags = flags.Where(f => f != null).ToList();
@@ -921,7 +935,7 @@ static partial class Draw
     // largest of James's scales at which the shortened views fit the space. The face view and the side view get the
     // same breaks (they're aligned). Returns the scale used (unchanged if breaking didn't work).
     const double BreakMinMm = 150, BreakKeepMm = 40, BreakGapSheet = 0.003;   // 3 mm between break lines on paper
-    static int BreakLongMember(ModelDoc2 doc, DrawingDoc drw, Sheet sheet, View main, View side, View top, int den, double spaceH)
+    static int BreakLongMember(ModelDoc2 doc, DrawingDoc drw, Sheet sheet, View main, View side, int den, double spaceH, Func<int, bool> widthFits)
     {
         var mu = (MathUtility)sw.GetMathUtility();
         var pv = ViewCirclesAsm(side).Count > ViewCirclesAsm(main).Count ? side : main;
@@ -944,9 +958,19 @@ static partial class Draw
         var gaps = new List<double[]>();
         for (int i = 1; i < keep.Count; i++) if (keep[i][0] - keep[i - 1][1] >= BreakMinMm) gaps.Add(new[] { keep[i - 1][1], keep[i][0] });
         if (gaps.Count == 0) { Console.WriteLine("Breaks: no empty length long enough"); return den; }
+        double keptMin = L - gaps.Sum(g => g[1] - g[0]);
+        int den2 = AsmScales.FirstOrDefault(d => keptMin / 1000 / d + gaps.Count * BreakGapSheet <= spaceH && widthFits(d));
+        if (den2 == 0) den2 = AsmScales.Last();
+        // at that scale, take out only what's needed to fill the height: each break shares the cut by its gap's length,
+        // centred in its gap
+        double need = L - (spaceH - gaps.Count * BreakGapSheet) * den2 * 1000;   // model mm to remove
+        if (need <= 0) { Console.WriteLine("Breaks: none needed at 1:" + den2); gaps.Clear(); }
+        else
+        {
+            double total = gaps.Sum(g => g[1] - g[0]);
+            gaps = gaps.Select(g => { double c = (g[0] + g[1]) / 2, r = (g[1] - g[0]) * Math.Min(1, need / total); return new[] { c - r / 2, c + r / 2 }; }).ToList();
+        }
         double keptMm = L - gaps.Sum(g => g[1] - g[0]);
-        int den2 = AsmScales.Where(d => d <= den).FirstOrDefault(d => keptMm / 1000 / d + gaps.Count * BreakGapSheet <= spaceH);
-        if (den2 == 0) den2 = den;
         Console.WriteLine("Breaks: " + gaps.Count + " (" + string.Join(", ", gaps.Select(g => g[0].ToString("0") + "-" + g[1].ToString("0"))) + " mm from the top); kept length " + keptMm.ToString("0") + " of " + L.ToString("0") + " mm; scale 1:" + den + " -> 1:" + den2);
         // tight breaks (Grant 14 Nov: "too wide"): the gap between each pair of break lines, a drawing setting
         double gap0 = doc.Extension.GetUserPreferenceDouble((int)swUserPreferenceDoubleValue_e.swDetailingBreakLineGap, 0);
@@ -958,7 +982,7 @@ static partial class Draw
         main.UseSheetScale = 1;
         doc.ForceRebuild3(false);
         double k = pv.ScaleDecimal / sc0;
-        foreach (var v in new[] { main, side })
+        foreach (var v in gaps.Count == 0 ? new View[0] : new[] { main, side })
         {
             geomCache.Clear(); geomScale.Clear();
             var trueB = OutlineOf(v); var outB = (double[])v.GetOutline();
@@ -986,8 +1010,8 @@ static partial class Draw
         doc.ForceRebuild3(false);
         var mo = OutlineOf(main);
         double want = keptMm / 1000 * main.ScaleDecimal + gaps.Count * BreakGapSheet;
-        Console.WriteLine("  broken: " + main.IsBroken() + "; face view now " + Mm(H(mo)) + " mm tall (expected about " + Mm(want) + ")");
-        if (!main.IsBroken()) problems.Add("break lines inserted but the view didn't break");
+        if (gaps.Count > 0) Console.WriteLine("  broken: " + main.IsBroken() + "; face view now " + Mm(H(mo)) + " mm tall (expected about " + Mm(want) + ")");
+        if (gaps.Count > 0 && !main.IsBroken()) problems.Add("break lines inserted but the view didn't break");
         return den2;
     }
 

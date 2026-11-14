@@ -378,7 +378,7 @@ static partial class Draw
         // 8. Layout, then the value check against the model, then save.
         Layout(drwDoc, main, side, iso);
         if (flagNote != null)
-            PlaceInFreeCorner((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), new[] { Extent(main), side != null ? Extent(side) : null, iso != null ? Extent(iso) : null });
+            PlaceFlags((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), new[] { Extent(main), side != null ? Extent(side) : null, iso != null ? Extent(iso) : null });
         var got = new List<double>(); var gotSec = new List<double>();
         foreach (Annotation a in (main.GetAnnotations() as object[]) ?? new object[0])
             if (a.GetType() == (int)swAnnotationType_e.swDisplayDimension) got.Add(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000);

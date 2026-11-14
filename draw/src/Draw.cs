@@ -13,6 +13,7 @@
 //   views <part> <config|-> <out.pdf>         a look at a model: three views + isometric to a PDF, faces listed
 //   make-section <part> <config> <out.SLDDRW> <template.drwdot>  first draft of a straight member (angle, RHS)
 //                                             with holes/slots: face view, end view, isometric (DRAFT, magenta)
+//   learn-layout <drawing> ...                learn the layout's feel from drawings laid out by hand (Layout.cs)
 //   pdf <drawing> <out.pdf>                   export a PDF
 //   close-all                                 close every document without saving
 //
@@ -65,6 +66,7 @@ static partial class Draw
                 case "select-draft": if (pos.Count != 1) return Usage(); rc = SelectDraft(pos[0]); break;
                 case "views": if (pos.Count != 3) return Usage(); rc = Views(pos[0], pos[1] == "-" ? null : pos[1], pos[2]); break;
                 case "make-section": if (pos.Count != 4) return Usage(); rc = MakeSection(pos[0], pos[1], pos[2], pos[3]); break;
+                case "learn-layout": if (pos.Count < 1) return Usage(); rc = LearnLayout(pos); break;
                 case "pdf": if (pos.Count != 2) return Usage(); rc = Pdf(pos[0], pos[1]); break;
                 case "close-all": sw.CloseAllDocuments(true); Console.WriteLine("Closed all documents (not saved)."); rc = 0; break;
                 default: return Usage();

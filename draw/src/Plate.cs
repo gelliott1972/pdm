@@ -455,87 +455,10 @@ static partial class Draw
 
     // Free sheet area for views: inside the border, above the title block (sheet metres; Unilumin A3 format).
     const double AreaX0 = 0.020, AreaX1 = 0.400, AreaY0 = 0.070, AreaY1 = 0.280, RowGap = 0.015, ColGap = 0.020;
-    const double IsoInset = 0.020;   // isometric block's distance in from the left of the free area
-
-    // Grant's layout (08X04-BKP-01-grant.SLDDRW, 14 Nov): the face view and the end/side view, as drawn (outlines,
-    // not their dimensions), centred on the sheet at (SheetMidX, SheetMidY), with GapViews of clear paper between the
-    // face view's dimensions and the side view's; the isometric in the bottom-left corner (IsoLeft, IsoBottom: the
-    // paper left of the title block is free down to the revision table) with its note block to its right.
-    const double SheetMidX = 0.210, SheetMidY = 0.175, GapViews = 0.035, IsoLeft = 0.030, IsoBottom = 0.030, TitleLeft = 0.205, TitleTop = 0.065;
-
-    static void Layout(ModelDoc2 doc, View main, View side, View iso)
-    {
-        doc.ForceRebuild3(false);
-        var mo = (double[])main.GetOutline(); var me = Extent(main);
-        double[] so = side != null ? (double[])side.GetOutline() : null, se = side != null ? Extent(side) : null;
-        // gap between the two outlines: what the face view's dimensions take on its right, what the side view's take
-        // on its left, plus clear paper
-        double gap = side == null ? 0 : (me[2] - mo[2]) + (so[0] - se[0]) + GapViews;
-        double rowW = W(mo) + (side != null ? gap + W(so) : 0);
-        double rowH = Math.Max(H(mo), side != null ? H(so) : 0);
-        double x0 = SheetMidX - rowW / 2;                                          // face view outline, left
-        double dyMid = SheetMidY - (mo[1] + mo[3]) / 2;
-        // keep the dimensions on the sheet: nudge down/up if they'd run past the border
-        double topExt = Math.Max(me[3], se != null ? se[3] : me[3]) + dyMid, botExt = Math.Min(me[1], se != null ? se[1] : me[1]) + dyMid;
-        if (topExt > AreaY1) dyMid -= topExt - AreaY1; else if (botExt < IsoBottom) dyMid += IsoBottom - botExt;
-        MoveOutline(doc, main, x0, (mo[1] + mo[3]) / 2 + dyMid);
-        if (side != null) MoveOutline(doc, side, x0 + W(mo) + gap, double.NaN);   // a projected view stays level by itself
-        if (iso != null)
-        {
-            var io = (double[])iso.GetOutline();
-            var p = (double[])iso.Position;
-            iso.Position = new[] { p[0] + IsoLeft - io[0], p[1] + IsoBottom - io[1] };
-            doc.ForceRebuild3(false);
-        }
-        var fa = Extent(main); var fb = side != null ? Extent(side) : null; var fc = iso != null ? Extent(iso) : null;
-        Console.WriteLine("Layout: face block " + Box(fa) + (fb != null ? ", side " + Box(fb) : "") + (fc != null ? ", isometric " + Box(fc) : ""));
-        foreach (var x in new[] { fa, fb, fc })
-            if (x != null && (x[0] < AreaX0 - 1e-3 || x[2] > AreaX1 + 1e-3 || x[1] < IsoBottom - 0.005 || x[3] > AreaY1 + 1e-3))
-                problems.Add("layout: a view runs off the drawing area " + Box(x));
-        if (fc != null && fc[2] > TitleLeft && fc[1] < TitleTop) problems.Add("layout: the isometric or its note block runs into the title block " + Box(fc));
-        if (fc != null && fc[3] > Math.Min(fa[1], fb != null ? fb[1] : fa[1]) && fc[2] > Math.Min(fa[0], fb != null ? fb[0] : fa[0]))
-            problems.Add("layout: the isometric block overlaps the views above it");
-    }
-
-    // Move a view so its outline's left edge is at x (and its centre at y, unless y is NaN).
-    static void MoveOutline(ModelDoc2 doc, View v, double x, double y)
-    {
-        doc.ForceRebuild3(false);
-        var o = (double[])v.GetOutline(); var p = (double[])v.Position;
-        v.Position = new[] { p[0] + x - o[0], double.IsNaN(y) ? p[1] : p[1] + y - (o[1] + o[3]) / 2 };
-        doc.ForceRebuild3(false);
-    }
-
-    // Put a sheet note (the CHECK flags) in the first free corner of the sheet area: top left, top right, bottom
-    // right above the title block, bottom left above the revision table. Text size is estimated.
-    static void PlaceInFreeCorner(Annotation note, string text, IEnumerable<double[]> taken)
-    {
-        var lines = text.Split('\n');
-        double w = lines.Max(l => l.Length) * 0.0025 * 0.85 + 0.004, h = lines.Length * 0.0045 + 0.003;
-        var spots = new[] {
-            new[] { AreaX0, AreaY1 - h, AreaX0 + w, AreaY1 },
-            new[] { AreaX1 - w, AreaY1 - h, AreaX1, AreaY1 },
-            new[] { AreaX1 - w, AreaY0, AreaX1, AreaY0 + h },
-            new[] { AreaX0, AreaY0, AreaX0 + w, AreaY0 + h } };
-        foreach (var sp in spots)
-            if (!taken.Any(t => t != null && sp[0] < t[2] && sp[2] > t[0] && sp[1] < t[3] && sp[3] > t[1]))
-            { note.SetPosition2(sp[0], sp[3], 0); Console.WriteLine("Flags placed at " + Mm(sp[0]) + "," + Mm(sp[3])); return; }
-        note.SetPosition2(spots[0][0], spots[0][3], 0);
-        problems.Add("no free corner for the CHECK flags; they may overlap a view");
-    }
 
     static double W(double[] b) { return b[2] - b[0]; }
     static double H(double[] b) { return b[3] - b[1]; }
     static string Box(double[] b) { return Mm(b[0]) + "," + Mm(b[1]) + " - " + Mm(b[2]) + "," + Mm(b[3]); }
-
-    static void MoveTo(ModelDoc2 doc, View v, double[] target, double dx, double dy)
-    {
-        doc.ForceRebuild3(false);
-        var e = Extent(v);
-        var p = (double[])v.Position;
-        v.Position = new[] { p[0] + target[0] + dx - e[0], p[1] + target[1] + dy - e[1] };
-        doc.ForceRebuild3(false);
-    }
 
     // A view's box including its annotations: the view outline, every line of every annotation, and each
     // annotation's text (estimated from its text length and height around its position).

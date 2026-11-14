@@ -172,7 +172,7 @@ static partial class Draw
         if (thin == 2) { xA = ext[0]; yB = ext[1]; zC = ext[2]; }
         else if (thin == 1) { xA = ext[0]; yB = ext[2]; zC = ext[1]; }
         else { xA = ext[2]; yB = ext[1]; zC = ext[0]; }
-        const double m = 0.004, dimRoom = 0.018, padL = 0.018, padR = 0.016, padT = 0.014, isoZoneRight = 0.185;
+        const double m = 0.004, dimRoom = 0.024, padL = 0.018, padR = 0.016, padT = 0.014, isoZoneRight = 0.185;
         double isoW = 0.7071 * (ext[0] + ext[2]), isoH = 0.8165 * ext[1] + 0.4082 * (ext[0] + ext[2]);   // standard isometric of the model's box
         double izX0 = BorderX0 + m, izX1 = isoZoneRight, izY0 = RevTop + 0.012, izY1 = (bomBox != null ? bomBox[1] : BorderY1) - 0.010;
         double pzX0 = isoZoneRight + 0.005, pzX1 = BorderX1 - m, pzY0 = TitleTop + m, pzY1 = BorderY1 - m;
@@ -273,10 +273,12 @@ static partial class Draw
         lm.SetCurrentLayer(DraftLayer);
         var dimsOk = new List<string>();
         var want = new[] { ext[0] * 1000, ext[1] * 1000, ext[2] * 1000 };
-        OverallByClick(drwDoc, drw, main, true, true, want, dimsOk);
+        var mem = MemberOrdinates(drwDoc, drw, main, dimsOk);
+        Console.WriteLine("[" + stamp() + "] member positions");
+        if (!mem[0] || !mem[1]) OverallByClick(drwDoc, drw, main, !mem[1], !mem[0], want, dimsOk);   // plain overall size where members failed
         if (left != null) OverallByClick(drwDoc, drw, left, true, false, want, dimsOk);
         Console.WriteLine("[" + stamp() + "] overall dimensions");
-        var flags = new List<string> { "CHECK: OVERALL SIZES ONLY; MEMBER POSITIONS TO ADD", "CHECK: WELD SYMBOLS NOT ADDED" };
+        var flags = new List<string> { "CHECK: MEMBER POSITIONS ARE TO THE UNDERSIDE / LEFT SIDE OF EACH MEMBER", "CHECK: WELD SYMBOLS NOT ADDED" };
         drw.ActivateSheet(sheet.GetName());
         drw.EditSheet();
         var flagNote = drwDoc.InsertNote(string.Join("\n", flags)) as Note;
@@ -590,6 +592,81 @@ static partial class Draw
             var l0 = hor.OrderBy(l => l.Item2[1]).First(); var l1 = hor.OrderBy(l => l.Item2[1]).Last();
             dim(l0, l1, o[2] + 0.012, (o[1] + o[3]) / 2, "overall height", (l1.Item2[1] - l0.Item2[1]) / v.ScaleDecimal * 1000);
         }
+    }
+
+    // Member positions on an assembly face view (Grant 14 Nov, James's 08A04-SFA-2T style): ordinates up the right
+    // side to the underside of each horizontal member, and across the top to the left side of each upright, from
+    // the bottom-left; the last of each in brackets (the overall size, reference). Members are the view's long
+    // straight edges (at least MinMemberFrac of the view); edges closer than MemberGapMm belong to one member.
+    // Every value is checked against the geometry; a group that doesn't check is removed (the caller then puts the
+    // plain overall size instead). Returns which directions were placed.
+    const double MinMemberFrac = 0.30, MemberGapMm = 100;
+    static bool[] MemberOrdinates(ModelDoc2 doc, DrawingDoc drw, View v, List<string> report)
+    {
+        var mu = (MathUtility)sw.GetMathUtility();
+        var ls = ViewLines(mu, v);
+        var o = OutlineOf(v);
+        double sc = v.ScaleDecimal;
+        var placed = new[] { false, false };
+        for (int dir = 0; dir < 2; dir++)   // 0: heights of horizontal members (vertical ordinates), 1: positions of uprights
+        {
+            bool horiz = dir == 0;
+            double span = horiz ? W(o) : H(o);
+            Func<Tuple<Edge, double[], double[]>, double> pos = l => horiz ? l.Item2[1] : l.Item2[0];
+            Func<Tuple<Edge, double[], double[]>, double> len = l => horiz ? Math.Abs(l.Item3[0] - l.Item2[0]) : Math.Abs(l.Item3[1] - l.Item2[1]);
+            var all = ls.Where(l => horiz ? Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7 : Math.Abs(l.Item2[0] - l.Item3[0]) < 1e-7).ToList();
+            // a member passing behind others is drawn in pieces: add up the pieces at the same position (14 Nov)
+            var longL = all.GroupBy(l => Math.Round(pos(l) * 1e5))
+                .Where(g => g.Sum(len) >= MinMemberFrac * span)
+                .Select(g => g.OrderByDescending(len).First()).OrderBy(pos).ToList();
+            if (all.Count < 2 || longL.Count == 0) { report.Add(v.GetName2() + " member " + (horiz ? "heights" : "positions") + ": no members found"); continue; }
+            // datum: the outermost edge at the bottom / left; the far end: the outermost at the top / right
+            var datum = all.OrderBy(pos).First(); var far = all.OrderBy(pos).Last();
+            // members: clusters of long edges; each member's underside / left side
+            var members = new List<Tuple<Edge, double[], double[]>>();
+            double gap = MemberGapMm / 1000 * sc;
+            foreach (var l in longL)
+                if (members.Count == 0 || pos(l) - pos(members.Last()) > gap) members.Add(l);
+            members = members.Where(mm => pos(mm) - pos(datum) > 1e-5 && pos(far) - pos(mm) > 1e-5).ToList();
+            var items = new List<Tuple<Edge, double[], double[]>> { datum }; items.AddRange(members); items.Add(far);
+            var expect = items.Select(l => Math.Round((pos(l) - pos(datum)) / sc * 1000, 1)).ToList();
+            // select and place
+            drw.ActivateView(v.GetName2());
+            doc.ClearSelection2(true);
+            var smg = (SelectionMgr)doc.SelectionManager;
+            var sd = (SelectData)smg.CreateSelectData(); sd.View = v;
+            int sel = 0;
+            for (int i = 0; i < items.Count; i++) if (((Entity)items[i].Item1).Select4(i > 0, sd)) sel++;
+            int kind = horiz ? (int)swAddOrdinateDims_e.swVerticalOrdinate : (int)swAddOrdinateDims_e.swHorizontalOrdinate;
+            double x = horiz ? o[2] + 0.010 : pos(datum), y = horiz ? pos(datum) : o[3] + 0.008;
+            var before = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(a => a.GetName()));
+            int r = doc.Extension.AddOrdinateDimension(kind, x, y, 0);
+            doc.ClearSelection2(true);
+            var made = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>()
+                .Where(a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension && !before.Contains(a.GetName())).ToList();
+            var got = made.Select(a => Math.Round(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 1)).OrderBy(z => z).ToList();
+            bool ok = sel == items.Count && r == 0 && string.Join(",", got) == string.Join(",", expect.OrderBy(z => z));
+            string what = v.GetName2() + " member " + (horiz ? "heights" : "positions") + " " + string.Join(" / ", expect);
+            if (ok)
+            {
+                // the far end is the overall size: in brackets (reference), as James
+                foreach (var a in made)
+                {
+                    var dd = (DisplayDimension)a.GetSpecificAnnotation();
+                    if (Math.Abs(((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000 - expect.Last()) < 0.05) dd.ShowParenthesis = true;
+                }
+                report.Add(what + " OK");
+                placed[dir] = true;
+            }
+            else
+            {
+                report.Add(what + ": REMOVED (selected " + sel + "/" + items.Count + ", result " + r + ", got " + string.Join("/", got) + ")");
+                doc.ClearSelection2(true);
+                foreach (var a in made) a.Select3(true, null);
+                doc.Extension.DeleteSelection2(0);
+            }
+        }
+        return placed;
     }
 
     static string DraftLayerEnsure(ModelDoc2 drwDoc)

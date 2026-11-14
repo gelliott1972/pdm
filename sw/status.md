@@ -2,7 +2,7 @@
 
 ## 08X04-BKP-01 bracket (14 Nov 2026, Admin's job from Draw's DR1): waiting
 
-Model is right at 100 long; Description says L=150 (to fix on both configurations). No SOLIDWORKS material: 0.147 kg at 1000 kg/m3, about 1.15 kg in steel. Read with the new read-only `tools\sw-macros\SwMaterial.exe` (log `swkp01\materials.txt`): Plain Carbon Steel on 08X04-BKP-06/-07, 08B04-BKP-01/-03; none on 08X04-BKP-01, 08B04-BKP-02 and all of 08X04-BKP.SLDPRT. Waiting: Desk SW8 (which material, which brackets), Grant's vault login (SSO expired), Dev's SwCmd set-material.
+Model is right at 100 long; Description says L=150 (to fix on both configurations). No SOLIDWORKS material: 0.147 kg at 1000 kg/m3, about 1.15 kg in steel. Read with the new read-only `tools\sw-macros\SwMaterial.exe` (log `sw\bkp01\materials.txt`): Plain Carbon Steel on 08X04-BKP-06/-07, 08B04-BKP-01/-03; none on 08X04-BKP-01, 08B04-BKP-02 and all of 08X04-BKP.SLDPRT. Waiting: Desk SW8 (which material, which brackets), Grant's vault login (SSO expired), Dev's SwCmd set-material.
 
 ## plates-0804 (brief `docs\briefs\plates-0804.md`, 13 Nov 2026): done in the vault
 

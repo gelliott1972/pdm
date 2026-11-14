@@ -474,7 +474,8 @@ static partial class Draw
             tb = new[] { ta[2] + ColGap, faceCy - bLow, ta[2] + ColGap + W(b), faceCy - bLow + H(b) };
         }
         double topLow = Math.Min(ta[1], tb != null ? tb[1] : 0);
-        var tc = c == null ? null : new[] { -W(c) / 2, topLow - RowGap - H(c), W(c) / 2, topLow - RowGap };
+        // isometric block: bottom left, lined up with the left of the views above (Grant 14 Nov)
+        var tc = c == null ? null : new[] { ta[0], topLow - RowGap - H(c), ta[0] + W(c), topLow - RowGap };
         // Centre of area of the blocks -> middle of the free area; then keep everything inside it.
         var boxes = new List<double[]> { ta }; if (tb != null) boxes.Add(tb); if (tc != null) boxes.Add(tc);
         double area = boxes.Sum(x => W(x) * H(x));
@@ -491,6 +492,24 @@ static partial class Draw
         Console.WriteLine("  face block " + Box(fa) + (fb != null ? ", side " + Box(fb) : "") + (fc != null ? ", isometric " + Box(fc) : ""));
         foreach (var x in new[] { fa, fb, fc })
             if (x != null && (x[0] < AreaX0 - 1e-3 || x[2] > AreaX1 + 1e-3 || x[1] < AreaY0 - 1e-3 || x[3] > AreaY1 + 1e-3)) problems.Add("layout: a view runs outside the free area " + Box(x));
+    }
+
+    // Put a sheet note (the CHECK flags) in the first free corner of the sheet area: top left, top right, bottom
+    // right above the title block, bottom left above the revision table. Text size is estimated.
+    static void PlaceInFreeCorner(Annotation note, string text, IEnumerable<double[]> taken)
+    {
+        var lines = text.Split('\n');
+        double w = lines.Max(l => l.Length) * 0.0025 * 0.85 + 0.004, h = lines.Length * 0.0045 + 0.003;
+        var spots = new[] {
+            new[] { AreaX0, AreaY1 - h, AreaX0 + w, AreaY1 },
+            new[] { AreaX1 - w, AreaY1 - h, AreaX1, AreaY1 },
+            new[] { AreaX1 - w, AreaY0, AreaX1, AreaY0 + h },
+            new[] { AreaX0, AreaY0, AreaX0 + w, AreaY0 + h } };
+        foreach (var sp in spots)
+            if (!taken.Any(t => t != null && sp[0] < t[2] && sp[2] > t[0] && sp[1] < t[3] && sp[3] > t[1]))
+            { note.SetPosition2(sp[0], sp[3], 0); Console.WriteLine("Flags placed at " + Mm(sp[0]) + "," + Mm(sp[3])); return; }
+        note.SetPosition2(spots[0][0], spots[0][3], 0);
+        problems.Add("no free corner for the CHECK flags; they may overlap a view");
     }
 
     static double W(double[] b) { return b[2] - b[0]; }
@@ -643,6 +662,57 @@ static partial class Draw
             }
         Console.WriteLine("Selected " + n + " of " + total + " items on DRAFT (SOLIDWORKS says " + ((SelectionMgr)doc.SelectionManager).GetSelectedObjectCount2(-1) + " selected).");
         return 0;
+    }
+
+    // A look at a model: front/top/right (third angle) and an isometric on James's sheet, exported to a PDF, then
+    // closed without saving. Also lists the planar faces (normal, area) and cylinders, to plan a drawing.
+    static int Views(string partFile, string config, string pdfOut)
+    {
+        if (File.Exists(pdfOut)) { Console.Error.WriteLine("REFUSED: already exists: " + pdfOut); return 2; }
+        string template = Path.Combine(TestRoot, @"_Templates\Unilumin-A3.DRWDOT");
+        var part = OpenDoc(partFile, config, true);
+        if (config != null && part.ConfigurationManager.ActiveConfiguration.Name != config) part.ShowConfiguration2(config);
+        Console.WriteLine("Configuration: " + part.ConfigurationManager.ActiveConfiguration.Name);
+        foreach (Body2 b in (object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true))
+        {
+            var box = (double[])b.GetBodyBox();
+            Console.WriteLine("Body " + b.Name + ": box " + Mm(box[0]) + "," + Mm(box[1]) + "," + Mm(box[2]) + " - " + Mm(box[3]) + "," + Mm(box[4]) + "," + Mm(box[5]));
+            foreach (Face2 f in (object[])b.GetFaces())
+            {
+                var s = (Surface)f.GetSurface();
+                var fb = (double[])f.GetBox();
+                string where = Mm(fb[0]) + "," + Mm(fb[1]) + "," + Mm(fb[2]) + " - " + Mm(fb[3]) + "," + Mm(fb[4]) + "," + Mm(fb[5]);
+                var feat = f.GetFeature() as Feature;
+                string fn = feat != null ? feat.Name : "?";
+                if (s.IsPlane())
+                {
+                    var pp = (double[])s.PlaneParams;
+                    var n = (double[])f.Normal;
+                    Console.WriteLine("  plane n(" + n[0].ToString("0.##") + "," + n[1].ToString("0.##") + "," + n[2].ToString("0.##") + ") area " + (f.GetArea() * 1e6).ToString("0") + " mm2, loops " + f.GetLoopCount() + ", box " + where + " [" + fn + "]");
+                }
+                else if (s.IsCylinder())
+                {
+                    var cp = (double[])s.CylinderParams;
+                    Console.WriteLine("  cylinder r " + Mm(cp[6]) + " axis (" + cp[3].ToString("0.##") + "," + cp[4].ToString("0.##") + "," + cp[5].ToString("0.##") + ") at " + Mm(cp[0]) + "," + Mm(cp[1]) + "," + Mm(cp[2]) + ", box " + where + " [" + fn + "]");
+                }
+                else Console.WriteLine("  other surface, box " + where + " [" + fn + "]");
+            }
+        }
+        var drwDoc = (ModelDoc2)sw.NewDocument(template, (int)swDwgPaperSizes_e.swDwgPaperA3size, 0.42, 0.297);
+        var drw = (DrawingDoc)drwDoc;
+        bool ok3 = drw.Create3rdAngleViews2(partFile);
+        drw.CreateDrawViewFromModelView3(partFile, "*Isometric", 0.300, 0.120, 0);
+        for (var v = (View)((View)drw.GetFirstView()).GetNextView(); v != null; v = (View)v.GetNextView())
+        {
+            if (config != null) v.ReferencedConfiguration = config;
+            Console.WriteLine("  view " + v.GetName2() + " '" + v.GetOrientationName() + "' 1:" + (1 / v.ScaleDecimal).ToString("0.#"));
+        }
+        drwDoc.ForceRebuild3(false);
+        int err = 0, warn = 0;
+        bool ok = drwDoc.Extension.SaveAs3(pdfOut, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)(swSaveAsOptions_e.swSaveAsOptions_Silent | swSaveAsOptions_e.swSaveAsOptions_Copy), null, null, ref err, ref warn);
+        Console.WriteLine((ok3 ? "" : "3 views not created; ") + (ok ? "PDF " + pdfOut : "PDF failed " + err));
+        sw.CloseDoc(drwDoc.GetTitle());
+        return ok ? 0 : 3;
     }
 
     static int Pdf(string file, string output)

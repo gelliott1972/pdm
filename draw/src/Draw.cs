@@ -10,6 +10,9 @@
 //   make-plate <part> <config> <out.SLDDRW> <template.drwdot>   first draft of a plate drawing (DRAFT layer, magenta)
 //   accept <drawing> [--all]                  move what is selected in SOLIDWORKS (or everything) off layer DRAFT
 //   select-draft <drawing>                    select every item still on layer DRAFT in the open drawing
+//   views <part> <config|-> <out.pdf>         a look at a model: three views + isometric to a PDF, faces listed
+//   make-section <part> <config> <out.SLDDRW> <template.drwdot>  first draft of a straight member (angle, RHS)
+//                                             with holes/slots: face view, end view, isometric (DRAFT, magenta)
 //   pdf <drawing> <out.pdf>                   export a PDF
 //   close-all                                 close every document without saving
 //
@@ -38,7 +41,7 @@ static partial class Draw
         // Every path must be inside the test folder: never P:\, M:\, C:\PDM-work or Dropbox.
         for (int i = 0; i < pos.Count; i++)
         {
-            if (cmd == "make-plate" && i == 1) continue;   // configuration name
+            if ((cmd == "make-plate" || cmd == "make-section" || cmd == "views") && i == 1) continue;   // configuration name
             string full;
             try { full = Path.GetFullPath(pos[i]); } catch (Exception ex) { Console.Error.WriteLine("Bad path: " + ex.Message); return 2; }
             if (!full.StartsWith(TestRoot + "\\", StringComparison.OrdinalIgnoreCase))
@@ -60,6 +63,8 @@ static partial class Draw
                 case "make-plate": if (pos.Count != 4) return Usage(); rc = MakePlate(pos[0], pos[1], pos[2], pos[3], flags); break;
                 case "accept": if (pos.Count != 1) return Usage(); rc = Accept(pos[0], flags.Contains("all")); break;
                 case "select-draft": if (pos.Count != 1) return Usage(); rc = SelectDraft(pos[0]); break;
+                case "views": if (pos.Count != 3) return Usage(); rc = Views(pos[0], pos[1] == "-" ? null : pos[1], pos[2]); break;
+                case "make-section": if (pos.Count != 4) return Usage(); rc = MakeSection(pos[0], pos[1], pos[2], pos[3]); break;
                 case "pdf": if (pos.Count != 2) return Usage(); rc = Pdf(pos[0], pos[1]); break;
                 case "close-all": sw.CloseAllDocuments(true); Console.WriteLine("Closed all documents (not saved)."); rc = 0; break;
                 default: return Usage();

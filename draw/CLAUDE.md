@@ -37,7 +37,7 @@ Read, in this order: `docs\research\drawing-workflows.md`, `docs\research\autoca
 
 ## Rules
 
-- **Never draw into the vault until Grant agrees a pilot.** Work on copies in a test folder outside `P:\` and `C:\PDM-work` (proposed: `C:\PDM-draw-test`, to be confirmed in the brief). `P:\` is read-only to you: read with `tools\DmProbe`, copy files out, never write, never touch `P:\.pdm`.
+- **Never draw into the vault until Grant agrees a pilot.** Work on copies in a test folder outside `P:\` and `C:\PDM-work` (`C:\code\pdm\scratch\draw-test`; Grant: nothing new in the root of `C:\`). `P:\` is read-only to you: read with `tools\DmProbe`, copy files out, never write, never touch `P:\.pdm`.
 - **SOLIDWORKS 2026 only.** The PC also has 2024. Scripts use `SldWorks.Application.34` or Dev's `tools\SwCmd`, never the generic name.
 - **Share SOLIDWORKS through SwCmd's lock.** Run every SOLIDWORKS job with `--as draw`. For a multi-step round, `lock --as draw --purpose "<what>"`, then `unlock --as draw` when done. If another role holds the lock, wait or ask; never take it. Batch your work, and use Close All between sets, not Exit.
 - **You write only in:** `draw\` (your notes, code and skills, e.g. `draw\src\`, `draw\.claude\skills\`), the test folder, and `C:\code\pdm\desk\` (your Desk status file and tickets). Read anything else. Changes to SwCmd or other tools go to Dev by message. Don't edit `docs\`, `SPEC.md`, any `CLAUDE.md` or `.claude\settings.json`.

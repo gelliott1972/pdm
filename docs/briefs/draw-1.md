@@ -24,11 +24,11 @@ Load a model, and the machine makes the drawing and does the heavy, repetitive w
 
 ## Steps
 
-All work on copies in **`C:\PDM-draw-test`**. Copy files out of `P:\` (read-only to you); never write to `P:\` or `C:\PDM-work`. SOLIDWORKS 2026 only, through `tools\SwCmd` with `--as draw` and its lock.
+All work on copies in **`C:\code\pdm\scratch\draw-test`** (Grant 14 Nov: nothing new in the root of `C:\`). Copy files out of `P:\` (read-only to you); never write to `P:\` or `C:\PDM-work`. SOLIDWORKS 2026 only, through `tools\SwCmd` with `--as draw` and its lock.
 
 | # | Step | Done when |
 | --- | --- | --- |
-| 0 | **Extract James's templates from his own drawings** (copies): sheet format (`.slddrt`), a drawing template (`.drwdot`), BOM and cut-list table templates, and the note block. Keep them in `C:\PDM-draw-test\_Templates`. Don't put anything in `P:\_Shared` (James's call later). | A blank drawing from the extracted template looks like James's sheet |
+| 0 | **Extract James's templates from his own drawings** (copies): sheet format (`.slddrt`), a drawing template (`.drwdot`), BOM and cut-list table templates, and the note block. Keep them in `C:\code\pdm\scratch\draw-test\_Templates`. Don't put anything in `P:\_Shared` (James's call later). | A blank drawing from the extracted template looks like James's sheet |
 | 1 | **One plate James has already drawn** (you pick it; tell Grant which). Make the drawing without looking at James's dimensions: views, scale, title block, note block, dimensions, hole callouts, all magenta on DRAFT. Export a PDF and compare it with James's PDF yourself first. | Grant has reviewed it in SOLIDWORKS and given feedback |
 | 2 | Act on Grant's feedback; start the rules file (`draw\.claude\skills\drawing-standards\`) from his feedback and the survey of James's 230 drawings. Then one plate nobody has drawn (e.g. 08X04-PLP-01) and one bracket. | Grant says the drafts are a good start |
 | 3 | **Copy-then-repair** on one shaft B or C twin of a drawn shaft A subframe: count the dimensions that survive, repair the rest (D1), magenta for anything added. | A report: survived / repaired / flagged, and Grant's view of the result |

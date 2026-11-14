@@ -192,6 +192,9 @@ static partial class Draw
         Console.WriteLine("Visible parts measured: " + leafBoxes.Count);
         Func<double[], double> boxLen = b => Math.Max(b[3] - b[0], Math.Max(b[4] - b[1], b[5] - b[2]));
         memberBox = leafBoxes.OrderByDescending(boxLen).FirstOrDefault();
+        var leafList = Leaves(((object[])((AssemblyDoc)asm).GetComponents(true) ?? new object[0]).Cast<Component2>()).Where(c => c.GetBox(false, false) != null).ToList();
+        var memberComp = leafList.OrderByDescending(c => boxLen((double[])c.GetBox(false, false))).FirstOrDefault();
+        memberName = memberComp != null ? memberComp.Name2 : null;
         var ext = new[] { box[3] - box[0], box[4] - box[1], box[5] - box[2] };
         int thin = Array.IndexOf(ext, ext.Min());
         string faceView = thin == 0 ? "*Right" : thin == 1 ? "*Top" : "*Front";
@@ -373,6 +376,7 @@ static partial class Draw
             RhsDims(drwDoc, drw, main, true, dimsOk);
             if (right != null) RhsDims(drwDoc, drw, right, false, dimsOk);
             if (top != null) HdgCallout(drwDoc, drw, top, dimsOk);
+            foreach (var hv in new[] { main, right }.Where(x => x != null && x != plateView)) MemberHoles(drwDoc, drw, hv, dimsOk);   // Grant 14 Nov: holes in the RHS
         }
         else mem = MemberOrdinates(drwDoc, drw, main, dimsOk);
         if (top != null)
@@ -962,7 +966,7 @@ static partial class Draw
             var plateUnder = hor.Where(l => l.Item2[1] < yTop - 1e-6 && Math.Abs(l.Item2[0] - l.Item3[0]) > (l1.Item2[0] - l0.Item2[0]) * 1.2)
                                 .OrderByDescending(l => l.Item2[1]).FirstOrDefault();
             if (plateUnder != null && plateUnder.Item2[1] >= topE.Item2[1] - 1e-6) topE = plateUnder;
-            add(topE, botE, l0.Item2[0] - 0.012, (topE.Item2[1] + botE.Item2[1]) / 2, "length", Math.Round((topE.Item2[1] - botE.Item2[1]) / sc * 1000, 1));
+            add(topE, botE, l0.Item2[0] - 0.026, (topE.Item2[1] + botE.Item2[1]) / 2, "length", Math.Round((topE.Item2[1] - botE.Item2[1]) / sc * 1000, 1));
         }
     }
 
@@ -1020,6 +1024,109 @@ static partial class Draw
         }
     }
 
+    // Holes in the member itself (Grant 14 Nov: "like on the RHS down the bottom") on a view that isn't the plate view:
+    // ordinates down the left side from the top (0), and a callout per size "n x Ø d THRU ALL" (both walls) or
+    // "THRU ONE WALL", worked out from the member's own edges (the far wall's holes are hidden in the view).
+    static void MemberHoles(ModelDoc2 doc, DrawingDoc drw, View v, List<string> report)
+    {
+        if (memberName == null) return;
+        var mu = (MathUtility)sw.GetMathUtility();
+        var vt = (double[])((MathTransform)v.ModelToViewTransform).ArrayData;
+        var compT = new Dictionary<object, double[]>();
+        var holes = new List<Tuple<Edge, double[], double[], Component2>>();   // edge, sheet centre, circle params (component space), owner
+        foreach (var ce in ViewEdges(v))
+        {
+            var c = (Curve)ce.Item2.GetCurve();
+            if (!c.IsCircle()) continue;
+            var cp = (double[])c.CircleParams;
+            var own = ce.Item1 == null ? null : (((Entity)ce.Item2).GetComponent() as Component2 ?? ce.Item1);
+            double[] ct = null;
+            if (own != null && !compT.TryGetValue(own, out ct)) { var t2 = own.Transform2; ct = t2 == null ? null : (double[])t2.ArrayData; compT[own] = ct; }
+            var a = Xf(ct, new[] { cp[0], cp[1], cp[2] });
+            // a hole in the member part itself, facing the viewer (the rounded corners at the member's end are circles too)
+            var a2 = Xf(vt, Xf(ct, new[] { cp[0] + cp[3], cp[1] + cp[4], cp[2] + cp[5] })); var a1 = Xf(vt, a);
+            double axZ = Math.Abs(a2[2] - a1[2]) / Math.Sqrt(Math.Pow(a2[0] - a1[0], 2) + Math.Pow(a2[1] - a1[1], 2) + Math.Pow(a2[2] - a1[2], 2) + 1e-30);
+            if (own != null && own.Name2 == memberName && axZ > 0.99)
+                holes.Add(Tuple.Create(ce.Item2, a1, cp, own));
+        }
+        var dist = holes.GroupBy(h => Math.Round(h.Item2[0] * 1e5) + "," + Math.Round(h.Item2[1] * 1e5)).Select(g => g.First()).ToList();
+        if (dist.Count == 0) return;
+        var ls = ViewLines(mu, v);
+        var hor = ls.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7 && Math.Abs(l.Item2[0] - l.Item3[0]) > 0.0002).ToList();
+        if (hor.Count == 0) return;
+        var datum = hor.OrderByDescending(l => l.Item2[1]).First();
+        double sc = v.ScaleDecimal;
+        var o = OutlineOf(v);
+        // ordinates: the top, then one hole per height
+        var rows = dist.GroupBy(h => Math.Round(h.Item2[1] * 1e5)).Select(g => g.First()).OrderByDescending(h => h.Item2[1]).ToList();
+        var expect = new List<double> { 0 };
+        expect.AddRange(rows.Select(h => Math.Round((datum.Item2[1] - h.Item2[1]) / sc * 1000, 1)));
+        drw.ActivateView(v.GetName2());
+        doc.ClearSelection2(true);
+        var smg = (SelectionMgr)doc.SelectionManager;
+        var sd = (SelectData)smg.CreateSelectData(); sd.View = v;
+        int sel = ((Entity)datum.Item1).Select4(false, sd) ? 1 : 0;
+        foreach (var h in rows) if (((Entity)h.Item1).Select4(true, sd)) sel++;
+        var before = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(a => a.GetName()));
+        int r;
+        try { r = doc.Extension.AddOrdinateDimension((int)swAddOrdinateDims_e.swVerticalOrdinate, o[0] - 0.010, datum.Item2[1], 0); }
+        catch (System.Runtime.InteropServices.COMException) { r = -99; }
+        doc.ClearSelection2(true);
+        var made = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>()
+            .Where(a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension && !before.Contains(a.GetName())).ToList();
+        var got = made.Select(a => Math.Round(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 1)).OrderBy(z => z).ToList();
+        string what = v.GetName2() + " holes in the member " + string.Join(" / ", expect);
+        if (sel == rows.Count + 1 && r == 0 && string.Join(",", got) == string.Join(",", expect.OrderBy(z => z))) report.Add(what + " OK");
+        else
+        {
+            report.Add(what + ": REMOVED (selected " + sel + "/" + (rows.Count + 1) + ", result " + r + ", got " + string.Join("/", got) + ")");
+            doc.ClearSelection2(true); foreach (var a in made) a.Select3(true, null); doc.Extension.DeleteSelection2(0);
+            missingGroups.Add(v.GetName2() + " member holes");
+        }
+        // callout per size; both walls or one, from the member part's own circular edges on the same axis
+        int k = 0;
+        foreach (var g in dist.GroupBy(h => Math.Round(h.Item3[6] * 2000, 1)))
+        {
+            var h = g.OrderBy(x => x.Item2[1]).First();   // the lowest
+            int onAxis = 0;
+            var body = h.Item4 == null ? null : h.Item4.GetBody() as Body2;
+            if (body != null)
+                foreach (Edge e in (object[])body.GetEdges() ?? new object[0])
+                {
+                    var c2 = (Curve)e.GetCurve();
+                    if (!c2.IsCircle()) continue;
+                    var q = (double[])c2.CircleParams;
+                    if (Math.Abs(q[6] - h.Item3[6]) > 1e-6) continue;
+                    double dx = q[0] - h.Item3[0], dy = q[1] - h.Item3[1], dz = q[2] - h.Item3[2];
+                    double ax = h.Item3[3], ay = h.Item3[4], az = h.Item3[5];
+                    double cx = dy * az - dz * ay, cy = dz * ax - dx * az, cz = dx * ay - dy * ax;   // offset x axis: zero when on the axis
+                    if (Math.Sqrt(cx * cx + cy * cy + cz * cz) < 1e-5) { onAxis++; Console.WriteLine("    Ø" + g.Key + " edge on the axis at " + ((dx * ax + dy * ay + dz * az) * 1000).ToString("0.0") + " mm along it"); }
+                }
+            string thru = onAxis >= 4 ? " THRU ALL" : onAxis >= 2 ? " THRU ONE WALL" : "";
+            if (thru == "") problems.Add(v.GetName2() + ": couldn't tell how far the Ø" + g.Key + " holes go");
+            doc.ClearSelection2(true);
+            DisplayDimension dd = null;
+            if (((Entity)h.Item1).Select4(false, sd))
+                try { dd = doc.AddDiameterDimension2(o[0] - 0.050, h.Item2[1] + 0.016 + 0.009 * k, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }
+            doc.ClearSelection2(true);
+            double dg = dd == null ? double.NaN : Math.Round(((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000, 1);
+            if (dd != null && Math.Abs(dg - g.Key) < 0.05)
+            {
+                dd.SetBrokenLeader2(false, (int)swDisplayDimensionLeaderText_e.swBrokenLeaderHorizontalText);
+                int n = g.Count();
+                dd.SetText((int)swDimensionTextParts_e.swDimensionTextPrefix, (n > 1 ? n + " x " : "") + "<MOD-DIAM>");
+                dd.SetText((int)swDimensionTextParts_e.swDimensionTextSuffix, thru);
+                report.Add(v.GetName2() + " member hole callout " + (n > 1 ? n + " x " : "") + "Ø" + dg + thru + " OK (" + onAxis + " edges on its axis)");
+            }
+            else
+            {
+                report.Add(v.GetName2() + " member hole callout: REMOVED (got " + dg + ", want Ø" + g.Key + ")");
+                if (dd != null) { ((Annotation)dd.GetAnnotation()).Select3(false, null); doc.Extension.DeleteSelection2(0); }
+            }
+            k++;
+        }
+    }
+
     // Circles in a view (holes), with their centres on the sheet, transformed as ViewLines does.
     static List<Tuple<Edge, double[]>> ViewCirclesAsm(View v)
     {
@@ -1045,7 +1152,8 @@ static partial class Draw
     // largest of James's scales at which the shortened views fit the space. The face view and the side view get the
     // same breaks (they're aligned). Returns the scale used (unchanged if breaking didn't work).
     static int ForcedDen;
-    static double[] memberBox;   // assembly box of the longest visible part (the RHS/SHS of a long member)   // --scale=N: the scale for a long member's views (Grant 14 Nov: "what does it look like at 1:10")
+    static double[] memberBox;
+    static string memberName;    // that part's component name   // assembly box of the longest visible part (the RHS/SHS of a long member)   // --scale=N: the scale for a long member's views (Grant 14 Nov: "what does it look like at 1:10")
     const double MaxBreakFrac = 1.0 / 3;   // the breaks may cut out at most this much of the member's length
     const double BreakMinMm = 150, BreakKeepMm = 40, BreakGapSheet = 0.003;   // 3 mm between break lines on paper
     static int BreakLongMember(ModelDoc2 doc, DrawingDoc drw, Sheet sheet, View main, View side, int den, double spaceH, Func<int, bool> widthFits)

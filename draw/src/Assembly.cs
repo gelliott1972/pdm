@@ -210,21 +210,25 @@ static partial class Draw
         Console.WriteLine("BOM: " + (bom != null ? ((TableAnnotation)bom).RowCount - 1 : 0) + " items" + (bomBox != null ? ", " + Box(bomBox) : ""));
 
         // 4. Scale: James's scales from the largest; the isometrics may go up to two steps smaller. First that lays out.
-        int den = 0, isoDen = 0;
+        int den = 0, isoDen = 0; bool keepBack = false;
         foreach (int d in AsmScales)
         {
             main.UseSheetScale = 0; main.ScaleRatio = new double[] { 1, d };
+            foreach (var iv in new[] { isoF, isoB }) if (iv != null) { iv.UseSheetScale = 0; iv.ScaleRatio = new double[] { 1, d }; }
             drwDoc.ForceRebuild3(false);
-            string why = null;
-            foreach (int di in AsmScales.Where(x => x >= d).Take(3))
-            {
-                foreach (var iv in new[] { isoF, isoB }) if (iv != null) { iv.UseSheetScale = 0; iv.ScaleRatio = new double[] { 1, di }; }
-                drwDoc.ForceRebuild3(false);
-                why = LayoutAsm(drwDoc, main, side, top, bottom, isoF, isoB, bomBox, noteAnn);
-                if (why == null) { den = d; isoDen = di; break; }
-            }
-            if (den > 0) break;
-            Console.WriteLine("  1:" + d + " doesn't fit: " + why);
+            string why = isoB != null ? LayoutAsm(drwDoc, main, side, top, bottom, isoF, isoB, bomBox, noteAnn) : "no back isometric";
+            if (why == null) { den = d; isoDen = d; keepBack = true; break; }
+            string why2 = LayoutAsm(drwDoc, main, side, top, bottom, isoF, null, bomBox, noteAnn);
+            if (why2 == null) { den = d; isoDen = d; keepBack = false; break; }
+            Console.WriteLine("  1:" + d + " doesn't fit: " + why2);
+        }
+        if (isoB != null && !keepBack)
+        {
+            drwDoc.ClearSelection2(true);
+            drwDoc.Extension.SelectByID2(isoB.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
+            drwDoc.Extension.DeleteSelection2(0);
+            Console.WriteLine("Back isometric left out: it doesn't fit at the sheet scale");
+            isoB = null;
         }
         if (den == 0) { den = AsmScales.Last(); isoDen = den; problems.Add("nothing fits even at 1:" + den); }
         var sp = (double[])sheet.GetProperties2();
@@ -258,7 +262,7 @@ static partial class Draw
         if (balloonNotes.Count < items) problems.Add((items - balloonNotes.Count) + " BOM items without a balloon");
 
         // 6. Flags, revision row, final layout, balloons spread, flags placed.
-        var flags = new List<string> { "CHECK: NO DIMENSIONS YET", "CHECK: WELD SYMBOLS NOT ADDED" };
+        var flags = new List<string> { "CHECK: OVERALL SIZES ONLY; MEMBER POSITIONS TO ADD", "CHECK: WELD SYMBOLS NOT ADDED" };
         drw.ActivateSheet(sheet.GetName());
         drw.EditSheet();
         lm.SetCurrentLayer(DraftLayer);
@@ -270,16 +274,24 @@ static partial class Draw
         string final = LayoutAsm(drwDoc, main, side, top, bottom, isoF, isoB, bomBox, noteAnn);
         if (final != null) problems.Add("layout: " + final);
         if (isoF != null) SpreadBalloons(drwDoc, isoF, balloonNotes, noteAnn);
+        lm.SetCurrentLayer(DraftLayer);
+        var dimsOk = new List<string>();
+        var want = new[] { ext[0] * 1000, ext[1] * 1000, ext[2] * 1000 };
+        OverallByClick(drwDoc, drw, main, true, true, want, dimsOk);
+        if (side != null) OverallByClick(drwDoc, drw, side, true, false, want, dimsOk);
+        lm.SetCurrentLayer("");
         var taken = new List<double[]> { bomBox };
         foreach (var vw in new[] { main, side, top, bottom, isoF, isoB }) if (vw != null) taken.Add(ExtentTrue(vw));
         if (flagNote != null) PlaceFlags((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), taken);
 
         // 7. Check and save.
-        bool ok = items > 0;
-        Console.WriteLine("Check BOM: " + items + " items" + (ok ? " OK" : " EMPTY"));
+        foreach (var d in dimsOk) Console.WriteLine("  " + d);
+        bool ok = items > 0 && !dimsOk.Any(d => d.Contains("MISMATCH"));
+        Console.WriteLine("Check BOM: " + items + " items" + (items > 0 ? " OK" : " EMPTY"));
+        foreach (var d in dimsOk.Where(d => d.Contains("NOT PLACED"))) problems.Add(d);
         if (!ok)
         {
-            problems.Add("empty BOM: NOT saved");
+            problems.Add((items == 0 ? "empty BOM" : "a dimension doesn't match the model") + ": NOT saved");
             int e2 = 0, w2 = 0; string fail = Path.ChangeExtension(output, ".FAILED.pdf");
             if (!File.Exists(fail)) drwDoc.Extension.SaveAs3(fail, 0, (int)(swSaveAsOptions_e.swSaveAsOptions_Silent | swSaveAsOptions_e.swSaveAsOptions_Copy), null, null, ref e2, ref w2);
             return 1;
@@ -331,33 +343,36 @@ static partial class Draw
     // James's assembly arrangement. Returns null when it all fits, else the reason.
     static string LayoutAsm(ModelDoc2 doc, View main, View side, View top, View bottom, View isoF, View isoB, double[] bomBox, Annotation noteAnn)
     {
-        const double g = 0.015, m = 0.004;
+        const double g = 0.015, m = 0.004, dimRoom = 0.018;   // dimRoom: space for dimensions between and beside the profiles (Grant 14 Nov)
         doc.ForceRebuild3(false);
         var mo = OutlineOf(main);
         double[] so = side != null ? OutlineOf(side) : null, to = top != null ? OutlineOf(top) : null, bo = bottom != null ? OutlineOf(bottom) : null;
         // right block: top / face / bottom stacked, side to the right of the face
         double blockW = W(mo) + (so != null ? g + W(so) : 0);
-        double blockH = H(mo) + (to != null ? g + H(to) : 0) + (bo != null ? g + H(bo) : 0);
+        double blockH = H(mo) + (to != null ? dimRoom + H(to) : 0) + (bo != null ? dimRoom + H(bo) : 0);
         double regionB = TitleTop + m, regionT = BorderY1 - m;
         if (blockH > regionT - regionB) return "views too tall (" + Mm(blockH) + " mm)";
-        double faceL = BorderX1 - m - W(mo);                             // side view goes to the left of the face view (Grant)
+        double faceL = BorderX1 - m - dimRoom - W(mo);                   // side view goes to the left of the face view (Grant); room for the height dimension on the right
         double baseY = regionB + (regionT - regionB - blockH) / 2;      // block centred up and down
-        double faceCy = baseY + (bo != null ? H(bo) + g : 0) + H(mo) / 2;
+        double faceCy = baseY + (bo != null ? H(bo) + dimRoom : 0) + H(mo) / 2;
         CentreAt(doc, main, faceL + W(mo) / 2, faceCy);
         mo = OutlineOf(main);
-        if (side != null) CentreAt(doc, side, mo[0] - g - W(so) / 2, double.NaN);
-        if (top != null) CentreAt(doc, top, double.NaN, mo[3] + g + H(to) / 2);
-        if (bottom != null) CentreAt(doc, bottom, double.NaN, mo[1] - g - H(bo) / 2);
+        if (side != null) CentreAt(doc, side, mo[0] - dimRoom - W(so) / 2, double.NaN);
+        if (top != null) CentreAt(doc, top, double.NaN, mo[3] + dimRoom + H(to) / 2);
+        if (bottom != null) CentreAt(doc, bottom, double.NaN, mo[1] - dimRoom - H(bo) / 2);
         double blockL = side != null ? OutlineOf(side)[0] : mo[0];
         if (bomBox != null && bomBox[2] + g > blockL && regionT > bomBox[1]) return "views run into the BOM";
         // left region: under the BOM, left of the views
         double lx0 = BorderX0 + m, lx1 = Math.Min(blockL - g, TitleLeft - m), ly1 = (bomBox != null ? bomBox[1] : BorderY1) - g, ly0 = RevTop + 0.012;   // left of the title block, clear of the revision table
         if (noteAnn != null)
         {
-            noteAnn.SetPosition2(lx0 + 0.005, ly1, 0);
+            // beside the BOM if there is room before the views, else under it
+            double nx = (bomBox != null ? bomBox[2] : lx0) + 0.008, ny = BorderY1 - m;
+            var sideTop = side != null ? OutlineOf(side)[3] : 0;
+            if (nx + 0.065 > blockL - 0.005 && !(nx + 0.065 < TitleLeft && ny - 0.022 > Math.Max(sideTop, OutlineOf(main)[3]) + 0.005))
+            { nx = lx0 + 0.005; ny = ly1; ly1 = ly1 - 0.022 - g; }
+            noteAnn.SetPosition2(nx, ny, 0);
             doc.ForceRebuild3(false);
-            var nb = Extent1(noteAnn);
-            ly1 = ly1 - 0.022 - g;                                      // the note block is about 4 lines
         }
         if (lx1 - lx0 < 0.05) return "no room left of the views";
         var isos = new[] { isoF, isoB }.Where(x => x != null).ToList();
@@ -493,6 +508,69 @@ static partial class Draw
         double w = Enumerable.Range(0, ta.ColumnCount).Sum(c => ta.GetColumnWidth(c)), h = Enumerable.Range(0, ta.RowCount).Sum(r => ta.GetRowHeight(r));
         var p = (double[])ann.GetPosition();
         return new[] { p[0], p[1] - h, p[0] + w, p[1] };
+    }
+
+    // Overall width (and height) of a view: the outermost straight edges, picked by clicking the middle of each as a
+    // person would (selecting a part's edge object picked the wrong instance, 14 Nov). The value must equal one of
+    // the model's overall sizes, or the draft isn't saved.
+    static void OverallByClick(ModelDoc2 doc, DrawingDoc drw, View v, bool width, bool height, double[] modelMm, List<string> report)
+    {
+        var mu = (MathUtility)sw.GetMathUtility();
+        var ls = ViewLines(mu, v);
+        var o = OutlineOf(v);
+        Func<Tuple<Edge, double[], double[]>, double[]> mid = l => new[] { (l.Item2[0] + l.Item3[0]) / 2, (l.Item2[1] + l.Item3[1]) / 2 };
+        // Click each edge at several points along it (a crossing member can be under any one point); keep the first
+        // pair that gives a straight dimension equal to the size measured from the model's edges.
+        Action<Tuple<Edge, double[], double[]>, Tuple<Edge, double[], double[]>, double, double, string, double> dim = (l0, l1, x, y, what, expect) =>
+        {
+            drw.ActivateView(v.GetName2());
+            var fr = new[] { 0.12, 0.3, 0.45, 0.62, 0.8, 0.93 };
+            Func<Tuple<Edge, double[], double[]>, double, double[]> at = (l, f) => new[] { l.Item2[0] + (l.Item3[0] - l.Item2[0]) * f, l.Item2[1] + (l.Item3[1] - l.Item2[1]) * f };
+            var smg = (SelectionMgr)doc.SelectionManager;
+            for (int i = -1; i < fr.Length; i++)
+            {
+                doc.ClearSelection2(true);
+                if (i < 0)
+                {   // first: the edge objects themselves, in this view
+                    var sd = (SelectData)smg.CreateSelectData(); sd.View = v;
+                    if (!((Entity)l0.Item1).Select4(false, sd) || !((Entity)l1.Item1).Select4(true, sd)) { Console.WriteLine("    " + what + ": direct select failed"); continue; }
+                }
+                else
+                {
+                    var p0 = at(l0, fr[i]); var p1 = at(l1, fr[(i + 2) % fr.Length]);
+                    if (!doc.Extension.SelectByID2("", "EDGE", p0[0], p0[1], 0, false, 0, null, 0)) continue;
+                    if (!doc.Extension.SelectByID2("", "EDGE", p1[0], p1[1], 0, true, 0, null, 0)) continue;
+                }
+                var dd = doc.AddDimension2(x, y, 0) as DisplayDimension;
+                doc.ClearSelection2(true);
+                if (dd == null) continue;
+                double val = ((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000;
+                int ty = dd.GetType();
+                bool straight = ty == (int)swDimensionType_e.swLinearDimension || ty == (int)swDimensionType_e.swHorLinearDimension || ty == (int)swDimensionType_e.swVertLinearDimension;
+                Console.WriteLine("    " + what + " try " + (i < 0 ? "direct" : fr[i].ToString("0.00")) + ": type " + ty + " value " + val.ToString("0.#") + " (want " + expect.ToString("0.#") + ")");
+                if (straight && Math.Abs(val - expect) < 0.5)
+                {
+                    bool inModel = modelMm.Any(mm => Math.Abs(mm - val) < 0.5);
+                    report.Add(v.GetName2() + " " + what + " " + val.ToString("0.#") + " OK" + (inModel ? " (= model overall size)" : " (outermost edges; model box " + string.Join("/", modelMm.Select(mm => mm.ToString("0"))) + ")"));
+                    return;
+                }
+                ((Annotation)dd.GetAnnotation()).Select3(false, null);
+                doc.Extension.DeleteSelection2(0);
+            }
+            report.Add(v.GetName2() + " " + what + ": NOT PLACED (no clean pick; " + expect.ToString("0.#") + " wanted)");
+        };
+        var vert = ls.Where(l => Math.Abs(l.Item2[0] - l.Item3[0]) < 1e-7 && Math.Abs(l.Item2[1] - l.Item3[1]) > 0.0002).ToList();   // short edges count too: a 40 mm stub top is 1.3 mm at 1:30 (14 Nov)
+        var hor = ls.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7 && Math.Abs(l.Item2[0] - l.Item3[0]) > 0.0002).ToList();
+        if (width && vert.Count >= 2)
+        {
+            var l0 = vert.OrderBy(l => l.Item2[0]).First(); var l1 = vert.OrderBy(l => l.Item2[0]).Last();
+            dim(l0, l1, (o[0] + o[2]) / 2, o[3] + 0.010, "overall width", (l1.Item2[0] - l0.Item2[0]) / v.ScaleDecimal * 1000);
+        }
+        if (height && hor.Count >= 2)
+        {
+            var l0 = hor.OrderBy(l => l.Item2[1]).First(); var l1 = hor.OrderBy(l => l.Item2[1]).Last();
+            dim(l0, l1, o[2] + 0.012, (o[1] + o[3]) / 2, "overall height", (l1.Item2[1] - l0.Item2[1]) / v.ScaleDecimal * 1000);
+        }
     }
 
     static string DraftLayerEnsure(ModelDoc2 drwDoc)

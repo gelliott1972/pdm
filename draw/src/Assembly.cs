@@ -218,13 +218,21 @@ static partial class Draw
         double izX0 = BorderX0 + m, izX1 = isoZoneRight, izY0 = RevTop + 0.012, izY1 = (bomBox != null ? bomBox[1] : BorderY1) - 0.010;
         double pzX0 = isoZoneRight + 0.005, pzX1 = BorderX1 - m, pzY0 = TitleTop + m, pzY1 = BorderY1 - m;
         int isoDen = AsmScales.FirstOrDefault(d => isoW / d + padL + padR <= izX1 - izX0 && isoH / d + padT <= izY1 - izY0);
-        int den = AsmScales.FirstOrDefault(d => (2 * zC + xA) / d + 3 * dimRoom <= pzX1 - pzX0 && (2 * zC + yB) / d + 2 * dimRoom <= pzY1 - pzY0);
+        // A long member (LED member: one size at least LongRatio times the next): front, right side and end (top)
+        // views only, as James draws them (08X06-LMW-02); the plates and holes are dimensioned down its length.
+        var sorted = ext.OrderByDescending(e => e).ToArray();
+        bool longMember = sorted[0] >= LongRatio * sorted[1];
+        if (longMember) Console.WriteLine("Long member (" + (sorted[0] / sorted[1]).ToString("0.0") + " x): front, side and end views; plates and holes dimensioned down its length");
+        Func<int, bool> projFits = d => longMember
+            ? (zC + xA) / d + 3 * dimRoom <= pzX1 - pzX0 && (zC + yB) / d + 2 * dimRoom <= pzY1 - pzY0
+            : (2 * zC + xA) / d + 3 * dimRoom <= pzX1 - pzX0 && (2 * zC + yB) / d + 2 * dimRoom <= pzY1 - pzY0;
+        int den = AsmScales.FirstOrDefault(projFits);
         if (isoDen == 0) { isoDen = AsmScales.Last(); problems.Add("isometric too big for the space under the BOM even at 1:" + isoDen); }
         if (den == 0) { den = AsmScales.Last(); problems.Add("projections too big even at 1:" + den); }
         double sA = xA / den, sB = yB / den, sC = zC / den;
-        double blockW = 2 * sC + sA + 3 * dimRoom, blockH = 2 * sC + sB + 2 * dimRoom;
-        double fx = pzX0 + (pzX1 - pzX0 - blockW) / 2 + sC + dimRoom + sA / 2;     // face view centre
-        double fy = pzY0 + (pzY1 - pzY0 - blockH) / 2 + sC + dimRoom + sB / 2;
+        double blockW = (longMember ? 1 : 2) * sC + sA + 3 * dimRoom, blockH = (longMember ? 1 : 2) * sC + sB + 2 * dimRoom + (longMember ? 0.012 : 0);   // long: room above the end view for its dimensions
+        double fx = pzX0 + (pzX1 - pzX0 - blockW) / 2 + (longMember ? 0 : sC + dimRoom) + sA / 2;     // face view centre
+        double fy = pzY0 + (pzY1 - pzY0 - blockH) / 2 + (longMember ? 0 : sC + dimRoom) + sB / 2;
         double ix = (izX0 + izX1) / 2 + (padL - padR) / 2, iy = (izY0 + izY1) / 2 - padT / 2;
         Console.WriteLine("[" + stamp() + "] plan: projections 1:" + den + " (block " + Mm(blockW) + " x " + Mm(blockH) + " mm in " + Mm(pzX1 - pzX0) + " x " + Mm(pzY1 - pzY0)
             + "), isometric 1:" + isoDen + " (" + Mm(isoW / isoDen) + " x " + Mm(isoH / isoDen) + " mm in " + Mm(izX1 - izX0) + " x " + Mm(izY1 - izY0) + ")");
@@ -243,10 +251,10 @@ static partial class Draw
             drwDoc.ClearSelection2(true);
             return pv;
         };
-        var left = project(fx - sA / 2 - dimRoom - sC / 2, fy);
+        var left = longMember ? null : project(fx - sA / 2 - dimRoom - sC / 2, fy);
         var right = project(fx + sA / 2 + dimRoom + sC / 2, fy);
         var top = project(fx, fy + sB / 2 + dimRoom + sC / 2);
-        var bottom = project(fx, fy - sB / 2 - dimRoom - sC / 2);
+        var bottom = longMember ? null : project(fx, fy - sB / 2 - dimRoom - sC / 2);
         main.UseSheetScale = 1;
         drwDoc.ForceRebuild3(false);
         geomCache.Clear(); geomScale.Clear();
@@ -314,13 +322,27 @@ static partial class Draw
         lm.SetCurrentLayer(DraftLayer);
         var dimsOk = new List<string>();
         var want = new[] { ext[0] * 1000, ext[1] * 1000, ext[2] * 1000 };
-        var mem = MemberOrdinates(drwDoc, drw, main, dimsOk);
-        if (top != null) MemberOrdinates(drwDoc, drw, top, dimsOk);   // Grant 14 Nov: the top view as well
+        bool[] mem;
+        if (longMember)
+        {
+            // James's front view of an LED member looks at the plates' faces (holes visible): use whichever of the
+            // face view and the side view shows more holes
+            var plateView = right != null && ViewCirclesAsm(right).Count > ViewCirclesAsm(main).Count ? right : main;
+            Console.WriteLine("  plates dimensioned on " + plateView.GetName2() + (plateView == right ? " (the side view shows the plates' holes)" : ""));
+            mem = new[] { PlateOrdinates(drwDoc, drw, plateView, dimsOk), true };
+        }
+        else mem = MemberOrdinates(drwDoc, drw, main, dimsOk);
+        if (top != null)
+        {
+            var tm = MemberOrdinates(drwDoc, drw, top, dimsOk);   // Grant 14 Nov: the top view as well
+            if (!tm[0] || !tm[1]) { OverallByClick(drwDoc, drw, top, !tm[1], !tm[0], want, dimsOk); missingGroups.RemoveAll(g => g.StartsWith(top.GetName2())); }   // plain overall size where members failed
+        }
         Console.WriteLine("[" + stamp() + "] member positions");
         if (!mem[0] || !mem[1]) OverallByClick(drwDoc, drw, main, !mem[1], !mem[0], want, dimsOk);   // plain overall size where members failed
         if (left != null) OverallByClick(drwDoc, drw, left, true, false, want, dimsOk);
+        else if (right != null) OverallByClick(drwDoc, drw, right, true, false, want, dimsOk);
         Console.WriteLine("[" + stamp() + "] overall dimensions");
-        var flags = new List<string> { missingGroups.Count > 0 ? "CHECK: NOT DIMENSIONED: " + string.Join(", ", missingGroups).ToUpper().Replace("DRAWING VIEW", "VIEW ") : null, MemberCentres ? "CHECK: MEMBER POSITIONS ARE TO MEMBER CENTRELINES" + (centreFallbacks.Count > 0 ? " (EXCEPT " + string.Join(", ", centreFallbacks).ToUpper().Replace("DRAWING VIEW", "VIEW ") + ": UNDERSIDE / LEFT SIDE)" : "") : "CHECK: MEMBER POSITIONS ARE TO THE UNDERSIDE / LEFT SIDE OF EACH MEMBER", "CHECK: WELD SYMBOLS NOT ADDED (NO WELD BEADS IN THE MODEL)" };
+        var flags = new List<string> { missingGroups.Count > 0 ? "CHECK: NOT DIMENSIONED: " + string.Join(", ", missingGroups).ToUpper().Replace("DRAWING VIEW", "VIEW ") : null, longMember ? null : MemberCentres ? "CHECK: MEMBER DIMS TO CENTRELINES" + (centreFallbacks.Count > 0 ? " (EXCEPT " + string.Join(", ", centreFallbacks).ToUpper().Replace("DRAWING VIEW", "VIEW ") + ": EDGES)" : "") : "CHECK: MEMBER DIMS TO UNDERSIDE / LEFT EDGE", "CHECK: WELDS NOT ADDED" };
         flags = flags.Where(f => f != null).ToList();
         foreach (var g in missingGroups) problems.Add("not dimensioned: " + g);
         drw.ActivateSheet(sheet.GetName());
@@ -331,7 +353,7 @@ static partial class Draw
         AddDraftRevision(drwDoc, sheet);
         drwDoc.ForceRebuild3(false);
         var taken = new List<double[]> { bomBox };
-        if (noteAnn != null) taken.Add(Extent1(noteAnn));
+        if (noteAnn != null) { var np = (double[])noteAnn.GetPosition(); taken.Add(new[] { np[0] - 0.002, np[1] - 0.030, np[0] + 0.110, np[1] + 0.002 }); }   // generous: the text estimate ran short (08X06-LMW-02)
         foreach (var vw in new[] { main, left, right, top, bottom, isoF }) if (vw != null) taken.Add(ExtentTrue(vw));
         if (flagNote != null) PlaceFlags((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), taken);
         // nothing may overlap: views with each other, the BOM, the title block
@@ -734,6 +756,7 @@ static partial class Draw
             }
             int kind = horiz ? (int)swAddOrdinateDims_e.swVerticalOrdinate : (int)swAddOrdinateDims_e.swHorizontalOrdinate;
             double x = horiz ? o[2] + 0.010 : pos(datum), y = horiz ? pos(datum) : o[3] + 0.008;
+            if (!horiz && y + 0.012 > BorderY1) y = o[1] - 0.008;   // no room above: below the view (08X06-LMW-02 end view)
             var before = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(a => a.GetName()));
             int r;
             try { r = doc.Extension.AddOrdinateDimension(kind, x, y, 0); }
@@ -768,6 +791,106 @@ static partial class Draw
           }
         MemberCentres = wantCentres;
         return placed;
+    }
+
+    const double LongRatio = 5, PlateClusterMm = 150;   // LED mount plates are about 100 long (08X06-LMW-02)
+
+    // Down a long member, as James (08X06-LMW-02): 0 at the far end of the top, then for each plate along it the
+    // plate's near edge in brackets (reference) and the holes in it, then the far end in brackets. The member runs
+    // up and down the face view. Every value is checked against the geometry; if they don't match, nothing is kept.
+    static bool PlateOrdinates(ModelDoc2 doc, DrawingDoc drw, View v, List<string> report)
+    {
+        var mu = (MathUtility)sw.GetMathUtility();
+        var ls = ViewLines(mu, v);
+        var circ = ViewCirclesAsm(v);
+        var o = OutlineOf(v);
+        double sc = v.ScaleDecimal;
+        var hor = ls.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7 && Math.Abs(l.Item2[0] - l.Item3[0]) > 0.0002).ToList();
+        if (hor.Count < 2) { report.Add(v.GetName2() + " plate positions: no edges found"); return false; }
+        var datum = hor.OrderByDescending(l => l.Item2[1]).First();      // the top
+        var far = hor.OrderBy(l => l.Item2[1]).First();                   // the bottom end
+        // clusters of horizontal edges (one per plate) between the ends, by height
+        var mid = hor.Where(l => datum.Item2[1] - l.Item2[1] > 1e-5 && l.Item2[1] - far.Item2[1] > 1e-5).OrderByDescending(l => l.Item2[1]).ToList();
+        var clusters = new List<List<Tuple<Edge, double[], double[]>>>();
+        foreach (var l in mid)
+            if (clusters.Count == 0 || clusters.Last().Last().Item2[1] - l.Item2[1] > PlateClusterMm / 1000 * sc) clusters.Add(new List<Tuple<Edge, double[], double[]>> { l }); else clusters.Last().Add(l);
+        var items = new List<object> { datum.Item1 };
+        var expect = new List<double> { 0 };
+        var refVals = new HashSet<double>();
+        Func<double, double> val = y => Math.Round((datum.Item2[1] - y) / sc * 1000, 1);
+        // a cluster touching the top datum is the top plate: its underside (plate thickness) counts, not in brackets
+        foreach (var c in clusters)
+        {
+            var edge = c.First();                                   // the plate's top (near) edge
+            double v0 = val(edge.Item2[1]);
+            if (!expect.Contains(v0)) { items.Add(edge.Item1); expect.Add(v0); if (v0 > PlateClusterMm) refVals.Add(v0); }
+            double yTop = c.First().Item2[1], yBot = c.Last().Item2[1];
+            foreach (var h in circ.Where(ci => ci.Item2[1] <= yTop + 1e-6 && ci.Item2[1] >= yBot - 1e-6).GroupBy(ci => Math.Round(ci.Item2[1] * 1e5)).Select(g => g.First()))
+            {
+                double hv = val(h.Item2[1]);
+                if (!expect.Contains(hv)) { items.Add(h.Item1); expect.Add(hv); }
+            }
+        }
+        // holes outside any plate (in the member itself)
+        foreach (var h in circ.GroupBy(ci => Math.Round(ci.Item2[1] * 1e5)).Select(g => g.First()))
+        {
+            double hv = val(h.Item2[1]);
+            if (!expect.Contains(hv) && h.Item2[1] < datum.Item2[1] && h.Item2[1] > far.Item2[1]) { items.Add(h.Item1); expect.Add(hv); }
+        }
+        double fv = val(far.Item2[1]);
+        items.Add(far.Item1); expect.Add(fv); refVals.Add(fv);
+        drw.ActivateView(v.GetName2());
+        doc.ClearSelection2(true);
+        var smg = (SelectionMgr)doc.SelectionManager;
+        var sd = (SelectData)smg.CreateSelectData(); sd.View = v;
+        int sel = 0;
+        for (int i = 0; i < items.Count; i++) if (((Entity)items[i]).Select4(i > 0, sd)) sel++;
+        var before = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(a => a.GetName()));
+        int r;
+        try { r = doc.Extension.AddOrdinateDimension((int)swAddOrdinateDims_e.swVerticalOrdinate, o[2] + 0.010, datum.Item2[1], 0); }
+        catch (System.Runtime.InteropServices.COMException) { r = -99; }
+        doc.ClearSelection2(true);
+        var made = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>()
+            .Where(a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension && !before.Contains(a.GetName())).ToList();
+        var got = made.Select(a => Math.Round(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 1)).OrderBy(z => z).ToList();
+        string what = v.GetName2() + " plates and holes down the member " + string.Join(" / ", expect.OrderBy(z => z).Select(z => refVals.Contains(z) ? "(" + z + ")" : z.ToString()));
+        if (sel == items.Count && r == 0 && string.Join(",", got) == string.Join(",", expect.OrderBy(z => z)))
+        {
+            foreach (var a in made)
+            {
+                var dd = (DisplayDimension)a.GetSpecificAnnotation();
+                double gv = Math.Round(((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000, 1);
+                if (refVals.Contains(gv)) dd.ShowParenthesis = true;
+            }
+            report.Add(what + " OK");
+            return true;
+        }
+        report.Add(what + ": REMOVED (selected " + sel + "/" + items.Count + ", result " + r + ", got " + string.Join("/", got) + ")");
+        doc.ClearSelection2(true);
+        foreach (var a in made) a.Select3(true, null);
+        doc.Extension.DeleteSelection2(0);
+        missingGroups.Add(v.GetName2() + " plates");
+        return false;
+    }
+
+    // Circles in a view (holes), with their centres on the sheet, transformed as ViewLines does.
+    static List<Tuple<Edge, double[]>> ViewCirclesAsm(View v)
+    {
+        var r = new List<Tuple<Edge, double[]>>();
+        var vt = (double[])((MathTransform)v.ModelToViewTransform).ArrayData;
+        var compT = new Dictionary<object, double[]>();
+        foreach (var ce in ViewEdges(v))
+        {
+            var e = ce.Item2;
+            var c = (Curve)e.GetCurve();
+            if (!c.IsCircle()) continue;
+            var cp = (double[])c.CircleParams;
+            var own = ce.Item1 == null ? null : (((Entity)e).GetComponent() as Component2 ?? ce.Item1);
+            double[] ct = null;
+            if (own != null && !compT.TryGetValue(own, out ct)) { var t2 = own.Transform2; ct = t2 == null ? null : (double[])t2.ArrayData; compT[own] = ct; }
+            r.Add(Tuple.Create(e, Xf(vt, Xf(ct, new[] { cp[0], cp[1], cp[2] }))));
+        }
+        return r;
     }
 
     static string DraftLayerEnsure(ModelDoc2 drwDoc)

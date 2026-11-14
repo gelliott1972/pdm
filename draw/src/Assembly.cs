@@ -146,18 +146,54 @@ static partial class Draw
         int thin = Array.IndexOf(ext, ext.Min());
         string faceView = thin == 0 ? "*Right" : thin == 1 ? "*Top" : "*Front";
         Console.WriteLine("Assembly " + Mm(ext[0]) + " x " + Mm(ext[1]) + " x " + Mm(ext[2]) + "; face view " + faceView);
-        string backIso = MakeBackIsoView(asm);
+        Func<string> stamp = () => ((DateTime.Now - t0).TotalSeconds.ToString("0") + " s");
+        Console.WriteLine("[" + stamp() + "] model read");
 
-        // 2. Views: face, then top above / bottom below / side to the right (projected, linked); front and back isos.
+        // 2. Face view and BOM first (the BOM's size decides the space under it).
         var drwDoc = (ModelDoc2)sw.NewDocument(template, (int)swDwgPaperSizes_e.swDwgPaperA3size, 0.42, 0.297);
         var drw = (DrawingDoc)drwDoc;
         var sheet = (Sheet)drw.GetCurrentSheet();
-        var main = drw.CreateDrawViewFromModelView3(asmFile, faceView, 0.250, 0.150, 0);
+        var main = drw.CreateDrawViewFromModelView3(asmFile, faceView, 0.300, 0.170, 0);
         if (main == null) { Console.Error.WriteLine("face view not created"); return 3; }
         main.ReferencedConfiguration = config;
-        main.UseSheetScale = 0; main.ScaleRatio = new double[] { 1, 25 };
+        var bom = main.InsertBomTable4(false, BorderX0, BorderY1, (int)swBOMConfigurationAnchorType_e.swBOMConfigurationAnchor_TopLeft,
+            (int)swBomType_e.swBomType_TopLevelOnly, config, bomTpl, false, 0, false);
+        if (bom == null) problems.Add("BOM not inserted");
+        else ((Annotation)((TableAnnotation)bom).GetAnnotation()).Layer = DraftLayerEnsure(drwDoc);
+        drwDoc.ForceRebuild3(true);
+        var bomBox = BomBox(bom);
+        int items = bom != null ? ((TableAnnotation)bom).RowCount - 1 : 0;
+
+        // 3. The plan, worked out from the model's size (Grant 14 Nov): the isometric centred under the BOM, from the
+        //    left border to about grid line 5.5, with room for balloon columns and a top row; the projections (front,
+        //    top above, bottom below, left and right sides) in the rest, with room for dimensions between them.
+        //    Each gets the largest of James's scales that fits; the projection block is centred in its space.
+        double xA, yB, zC;                        // face width, face height, depth (model mm along the face view)
+        if (thin == 2) { xA = ext[0]; yB = ext[1]; zC = ext[2]; }
+        else if (thin == 1) { xA = ext[0]; yB = ext[2]; zC = ext[1]; }
+        else { xA = ext[2]; yB = ext[1]; zC = ext[0]; }
+        const double m = 0.004, dimRoom = 0.018, padL = 0.018, padR = 0.016, padT = 0.014, isoZoneRight = 0.185;
+        double isoW = 0.7071 * (ext[0] + ext[2]), isoH = 0.8165 * ext[1] + 0.4082 * (ext[0] + ext[2]);   // standard isometric of the model's box
+        double izX0 = BorderX0 + m, izX1 = isoZoneRight, izY0 = RevTop + 0.012, izY1 = (bomBox != null ? bomBox[1] : BorderY1) - 0.010;
+        double pzX0 = isoZoneRight + 0.005, pzX1 = BorderX1 - m, pzY0 = TitleTop + m, pzY1 = BorderY1 - m;
+        int isoDen = AsmScales.FirstOrDefault(d => isoW / d + padL + padR <= izX1 - izX0 && isoH / d + padT <= izY1 - izY0);
+        int den = AsmScales.FirstOrDefault(d => (2 * zC + xA) / d + 3 * dimRoom <= pzX1 - pzX0 && (2 * zC + yB) / d + 2 * dimRoom <= pzY1 - pzY0);
+        if (isoDen == 0) { isoDen = AsmScales.Last(); problems.Add("isometric too big for the space under the BOM even at 1:" + isoDen); }
+        if (den == 0) { den = AsmScales.Last(); problems.Add("projections too big even at 1:" + den); }
+        double sA = xA / den, sB = yB / den, sC = zC / den;
+        double blockW = 2 * sC + sA + 3 * dimRoom, blockH = 2 * sC + sB + 2 * dimRoom;
+        double fx = pzX0 + (pzX1 - pzX0 - blockW) / 2 + sC + dimRoom + sA / 2;     // face view centre
+        double fy = pzY0 + (pzY1 - pzY0 - blockH) / 2 + sC + dimRoom + sB / 2;
+        double ix = (izX0 + izX1) / 2 + (padL - padR) / 2, iy = (izY0 + izY1) / 2 - padT / 2;
+        Console.WriteLine("[" + stamp() + "] plan: projections 1:" + den + " (block " + Mm(blockW) + " x " + Mm(blockH) + " mm in " + Mm(pzX1 - pzX0) + " x " + Mm(pzY1 - pzY0)
+            + "), isometric 1:" + isoDen + " (" + Mm(isoW / isoDen) + " x " + Mm(isoH / isoDen) + " mm in " + Mm(izX1 - izX0) + " x " + Mm(izY1 - izY0) + ")");
+
+        // 4. Draw it: scale, face view in place, the four projections, the isometric.
+        var sp = (double[])sheet.GetProperties2();
+        sheet.SetProperties2((int)sp[0], (int)sp[1], 1, den, sp[4] != 0, sp[5], sp[6], sp[7] != 0);
+        main.UseSheetScale = 0; main.ScaleRatio = new double[] { 1, den };
         drwDoc.ForceRebuild3(false);
-        var mo = (double[])main.GetOutline();
+        CentreAt(drwDoc, main, fx, fy);
         Func<double, double, View> project = (x, y) =>
         {
             drwDoc.ClearSelection2(true);
@@ -166,82 +202,51 @@ static partial class Draw
             drwDoc.ClearSelection2(true);
             return pv;
         };
-        double mcx = (mo[0] + mo[2]) / 2, mcy = (mo[1] + mo[3]) / 2;
-        var side = project(mo[2] + 0.05, mcy);
-        var top = project(mcx, mo[3] + 0.05);
-        var bottom = project(mcx, mo[1] - 0.05);
-        var isoF = drw.CreateDrawViewFromModelView3(asmFile, "*Isometric", 0.080, 0.120, 0);
-        if (isoF != null) isoF.ReferencedConfiguration = config;
-        View isoB = null;
-        if (backIso != null)
+        var left = project(fx - sA / 2 - dimRoom - sC / 2, fy);
+        var right = project(fx + sA / 2 + dimRoom + sC / 2, fy);
+        var top = project(fx, fy + sB / 2 + dimRoom + sC / 2);
+        var bottom = project(fx, fy - sB / 2 - dimRoom - sC / 2);
+        main.UseSheetScale = 1;
+        drwDoc.ForceRebuild3(false);
+        geomCache.Clear(); geomScale.Clear();
+        // put each projection exactly in its planned place (a view's position isn't the middle of what it draws)
+        CentreAt(drwDoc, main, fx, fy);
+        if (left != null) CentreAt(drwDoc, left, fx - sA / 2 - dimRoom - sC / 2, double.NaN);
+        if (right != null) CentreAt(drwDoc, right, fx + sA / 2 + dimRoom + sC / 2, double.NaN);
+        if (top != null) CentreAt(drwDoc, top, double.NaN, fy + sB / 2 + dimRoom + sC / 2);
+        if (bottom != null) CentreAt(drwDoc, bottom, double.NaN, fy - sB / 2 - dimRoom - sC / 2);
+        var isoF = drw.CreateDrawViewFromModelView3(asmFile, "*Isometric", ix, iy, 0);
+        if (isoF != null)
         {
-            isoB = drw.CreateDrawViewFromModelView3(asmFile, backIso, 0.080, 0.060, 0);
-            if (isoB != null) isoB.ReferencedConfiguration = config;
+            isoF.ReferencedConfiguration = config;
+            if (isoDen == den) isoF.UseSheetScale = 1; else { isoF.UseSheetScale = 0; isoF.ScaleRatio = new double[] { 1, isoDen }; }
+            drwDoc.ForceRebuild3(false);
+            CentreAt(drwDoc, isoF, ix, iy);
         }
-        if (isoB == null) problems.Add("back isometric not made");
-        Console.WriteLine("Views: face, side " + (side != null) + ", top " + (top != null) + ", bottom " + (bottom != null) + ", isometric front " + (isoF != null) + ", back " + (isoB != null));
+        Console.WriteLine("[" + stamp() + "] views drawn: face, left " + (left != null) + ", right " + (right != null) + ", top " + (top != null) + ", bottom " + (bottom != null) + ", isometric " + (isoF != null));
 
-        // 3. BOM (James's template; the configuration must be named, or it stays empty) at the top-left corner.
-        var bom = main.InsertBomTable4(false, BorderX0, BorderY1, (int)swBOMConfigurationAnchorType_e.swBOMConfigurationAnchor_TopLeft,
-            (int)swBomType_e.swBomType_TopLevelOnly, config, bomTpl, false, 0, false);
-        if (bom == null) problems.Add("BOM not inserted");
-        else ((Annotation)((TableAnnotation)bom).GetAnnotation()).Layer = DraftLayerEnsure(drwDoc);
-
-        // Note block (in the front isometric, so its links read that view's model); placed by the layout.
+        // Note block (in the isometric, so its links read that view's model): beside the BOM, else at the bottom left.
+        var lm = (LayerMgr)drwDoc.GetLayerManager();
         Annotation noteAnn = null;
         if (isoF != null)
         {
             drw.ActivateView(isoF.GetName2());
-            var lmN = (LayerMgr)drwDoc.GetLayerManager(); lmN.SetCurrentLayer(DraftLayerEnsure(drwDoc));
+            lm.SetCurrentLayer(DraftLayerEnsure(drwDoc));
             var note = drwDoc.InsertNote("<FONT size=8PTS>Filename:         <FONT size=3.5>$PRPVIEW:\"SW-File Name(File Name)\"\n"
                 + "<FONT size=8PTS>Config name:  <FONT size=3.5>$PRPVIEW:\"SW-Configuration Name(Configuration Name)\"\n"
                 + "<FONT size=8PTS>Weight (kg):     <FONT size=12PTS>$PRPVIEW:\"Weight\"<FONT size=8PTS>\n"
-                + "Finish:                 <FONT size=12PTS>$PRPVIEW:\"Finish\"") as Note;
-            lmN.SetCurrentLayer("");
+                + "Finish:                 <FONT size=12PTS>$PRPVIEW:\"Finish\"" + (isoDen != den ? "\n<FONT size=8PTS>Isometric scale: <FONT size=3.5>1:" + isoDen : "")) as Note;
+            lm.SetCurrentLayer("");
             if (note == null) problems.Add("note block not placed");
             else
             {
                 noteAnn = (Annotation)note.GetAnnotation();
                 var tf = (TextFormat)noteAnn.GetTextFormat(0); tf.TypeFaceName = "Century Gothic"; tf.CharHeight = 0.00212; noteAnn.SetTextFormat(0, false, tf);
+                noteAnn.SetPosition2((bomBox != null ? bomBox[2] : BorderX0) + 0.008, BorderY1 - m, 0);
             }
         }
-        drwDoc.ForceRebuild3(true);
-        var bomBox = BomBox(bom);
-        Console.WriteLine("BOM: " + (bom != null ? ((TableAnnotation)bom).RowCount - 1 : 0) + " items" + (bomBox != null ? ", " + Box(bomBox) : ""));
 
-        // 4. Scale: James's scales from the largest; the isometrics may go up to two steps smaller. First that lays out.
-        int den = 0, isoDen = 0; bool keepBack = false;
-        foreach (int d in AsmScales)
-        {
-            main.UseSheetScale = 0; main.ScaleRatio = new double[] { 1, d };
-            foreach (var iv in new[] { isoF, isoB }) if (iv != null) { iv.UseSheetScale = 0; iv.ScaleRatio = new double[] { 1, d }; }
-            drwDoc.ForceRebuild3(false);
-            string why = isoB != null ? LayoutAsm(drwDoc, main, side, top, bottom, isoF, isoB, bomBox, noteAnn) : "no back isometric";
-            if (why == null) { den = d; isoDen = d; keepBack = true; break; }
-            string why2 = LayoutAsm(drwDoc, main, side, top, bottom, isoF, null, bomBox, noteAnn);
-            if (why2 == null) { den = d; isoDen = d; keepBack = false; break; }
-            Console.WriteLine("  1:" + d + " doesn't fit: " + why2);
-        }
-        if (isoB != null && !keepBack)
-        {
-            drwDoc.ClearSelection2(true);
-            drwDoc.Extension.SelectByID2(isoB.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
-            drwDoc.Extension.DeleteSelection2(0);
-            Console.WriteLine("Back isometric left out: it doesn't fit at the sheet scale");
-            isoB = null;
-        }
-        if (den == 0) { den = AsmScales.Last(); isoDen = den; problems.Add("nothing fits even at 1:" + den); }
-        var sp = (double[])sheet.GetProperties2();
-        sheet.SetProperties2((int)sp[0], (int)sp[1], 1, den, sp[4] != 0, sp[5], sp[6], sp[7] != 0);
-        main.UseSheetScale = 1;
-        foreach (var iv in new[] { isoF, isoB }) if (iv != null) { if (isoDen == den) iv.UseSheetScale = 1; else { iv.UseSheetScale = 0; iv.ScaleRatio = new double[] { 1, isoDen }; } }
-        drwDoc.ForceRebuild3(false);
-        geomCache.Clear(); geomScale.Clear();   // measure again at the final scale
-        Console.WriteLine("Scale 1:" + den + (isoDen != den ? ", isometrics 1:" + isoDen : ""));
-
-        // 5. Balloons on the front isometric, then spread so they don't cross.
-        var lm = (LayerMgr)drwDoc.GetLayerManager();
-        int items = bom != null ? ((TableAnnotation)bom).RowCount - 1 : 0;
+        // 5. Balloons on the isometric, in columns round it.
         balloonNotes = new List<Note>();
         if (isoF != null && items > 0)
         {
@@ -257,32 +262,44 @@ static partial class Draw
             bo.Layername = DraftLayer;
             balloonNotes = ((drw.AutoBalloon5(bo) as object[]) ?? new object[0]).Cast<Note>().ToList();
             drwDoc.ClearSelection2(true);
+            SpreadBalloons(drwDoc, isoF, balloonNotes, noteAnn);
         }
-        Console.WriteLine("Balloons: " + balloonNotes.Count + " for " + items + " BOM items");
+        Console.WriteLine("[" + stamp() + "] balloons: " + balloonNotes.Count + " for " + items + " BOM items");
         if (balloonNotes.Count < items) problems.Add((items - balloonNotes.Count) + " BOM items without a balloon");
 
-        // 6. Flags, revision row, final layout, balloons spread, flags placed.
+        // 6. Overall sizes (face view: width and height; left view: depth), flags, revision row.
+        lm.SetCurrentLayer(DraftLayer);
+        var dimsOk = new List<string>();
+        var want = new[] { ext[0] * 1000, ext[1] * 1000, ext[2] * 1000 };
+        OverallByClick(drwDoc, drw, main, true, true, want, dimsOk);
+        if (left != null) OverallByClick(drwDoc, drw, left, true, false, want, dimsOk);
+        Console.WriteLine("[" + stamp() + "] overall dimensions");
         var flags = new List<string> { "CHECK: OVERALL SIZES ONLY; MEMBER POSITIONS TO ADD", "CHECK: WELD SYMBOLS NOT ADDED" };
         drw.ActivateSheet(sheet.GetName());
         drw.EditSheet();
-        lm.SetCurrentLayer(DraftLayer);
         var flagNote = drwDoc.InsertNote(string.Join("\n", flags)) as Note;
         lm.SetCurrentLayer("");
         drwDoc.ClearSelection2(true);
         AddDraftRevision(drwDoc, sheet);
         drwDoc.ForceRebuild3(false);
-        string final = LayoutAsm(drwDoc, main, side, top, bottom, isoF, isoB, bomBox, noteAnn);
-        if (final != null) problems.Add("layout: " + final);
-        if (isoF != null) SpreadBalloons(drwDoc, isoF, balloonNotes, noteAnn);
-        lm.SetCurrentLayer(DraftLayer);
-        var dimsOk = new List<string>();
-        var want = new[] { ext[0] * 1000, ext[1] * 1000, ext[2] * 1000 };
-        OverallByClick(drwDoc, drw, main, true, true, want, dimsOk);
-        if (side != null) OverallByClick(drwDoc, drw, side, true, false, want, dimsOk);
-        lm.SetCurrentLayer("");
         var taken = new List<double[]> { bomBox };
-        foreach (var vw in new[] { main, side, top, bottom, isoF, isoB }) if (vw != null) taken.Add(ExtentTrue(vw));
+        if (noteAnn != null) taken.Add(Extent1(noteAnn));
+        foreach (var vw in new[] { main, left, right, top, bottom, isoF }) if (vw != null) taken.Add(ExtentTrue(vw));
         if (flagNote != null) PlaceFlags((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), taken);
+        // nothing may overlap: views with each other, the BOM, the title block
+        var boxes = new[] { main, left, right, top, bottom, isoF }.Where(v => v != null).Select(v => Tuple.Create(v.GetName2(), OutlineOf(v))).ToList();
+        for (int i = 0; i < boxes.Count; i++)
+        {
+            var bx = boxes[i].Item2;
+            if (bomBox != null && bx[0] < bomBox[2] && bx[2] > bomBox[0] && bx[1] < bomBox[3] && bx[3] > bomBox[1]) problems.Add("layout: " + boxes[i].Item1 + " overlaps the BOM");
+            if (bx[2] > TitleLeft && bx[1] < TitleTop) problems.Add("layout: " + boxes[i].Item1 + " runs into the title block");
+            if (bx[0] < BorderX0 || bx[2] > BorderX1 || bx[1] < BorderY0 || bx[3] > BorderY1) problems.Add("layout: " + boxes[i].Item1 + " runs off the sheet");
+            for (int j = i + 1; j < boxes.Count; j++)
+            {
+                var by = boxes[j].Item2;
+                if (bx[0] < by[2] && bx[2] > by[0] && bx[1] < by[3] && bx[3] > by[1]) problems.Add("layout: " + boxes[i].Item1 + " overlaps " + boxes[j].Item1);
+            }
+        }
 
         // 7. Check and save.
         foreach (var d in dimsOk) Console.WriteLine("  " + d);

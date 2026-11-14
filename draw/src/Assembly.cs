@@ -367,6 +367,9 @@ static partial class Draw
             var plateView = right != null && ViewCirclesAsm(right).Count > ViewCirclesAsm(main).Count ? right : main;
             Console.WriteLine("  plates dimensioned on " + plateView.GetName2() + (plateView == right ? " (the side view shows the plates' holes)" : ""));
             mem = new[] { PlateOrdinates(drwDoc, drw, plateView, dimsOk), true };
+            // the RHS itself (Grant 14 Nov): its width in both views, its length on the face view
+            RhsDims(drwDoc, drw, main, true, dimsOk);
+            if (right != null) RhsDims(drwDoc, drw, right, false, dimsOk);
         }
         else mem = MemberOrdinates(drwDoc, drw, main, dimsOk);
         if (top != null)
@@ -910,6 +913,56 @@ static partial class Draw
         return false;
     }
 
+    // The member (RHS/SHS) of a long member: its width across (between its two long edges, below the view) and, if
+    // asked, its length (from the top plate's underside, or its own top, to its bottom end, left of the view).
+    // Positions are given in the view's unbroken edge coordinates (a broken view maps them; sheet coordinates put a
+    // dimension inside the view, 14 Nov). Each value is checked against the edges; a mismatch is removed.
+    static void RhsDims(ModelDoc2 doc, DrawingDoc drw, View v, bool length, List<string> report)
+    {
+        var mu = (MathUtility)sw.GetMathUtility();
+        var ls = ViewLines(mu, v);
+        double sc = v.ScaleDecimal;
+        var vert = ls.Where(l => Math.Abs(l.Item2[0] - l.Item3[0]) < 1e-7).ToList();
+        var hor = ls.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7 && Math.Abs(l.Item2[0] - l.Item3[0]) > 0.0002).ToList();
+        if (vert.Count < 2 || hor.Count < 2) { report.Add(v.GetName2() + " RHS: no edges"); return; }
+        Func<Tuple<Edge, double[], double[]>, double> vlen = l => Math.Abs(l.Item2[1] - l.Item3[1]);
+        double maxLen = vert.Max(vlen);
+        var longV = vert.Where(l => vlen(l) >= 0.5 * maxLen).OrderBy(l => l.Item2[0]).ToList();   // the member's long faces
+        double yBot = hor.Min(l => l.Item2[1]);
+        Action<Tuple<Edge, double[], double[]>, Tuple<Edge, double[], double[]>, double, double, string, double> add = (a, b, x, y, what, expect) =>
+        {
+            drw.ActivateView(v.GetName2());
+            doc.ClearSelection2(true);
+            var sd = (SelectData)((SelectionMgr)doc.SelectionManager).CreateSelectData(); sd.View = v;
+            DisplayDimension dd = null;
+            if (((Entity)a.Item1).Select4(false, sd) && ((Entity)b.Item1).Select4(true, sd))
+                try { dd = doc.AddDimension2(x, y, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }
+            doc.ClearSelection2(true);
+            double got = dd == null ? double.NaN : Math.Round(((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000, 1);
+            if (dd != null && Math.Abs(got - expect) < 0.05) { report.Add(v.GetName2() + " RHS " + what + " " + got + " OK"); return; }
+            report.Add(v.GetName2() + " RHS " + what + ": REMOVED (got " + got + ", want " + expect + ")");
+            if (dd != null) { ((Annotation)dd.GetAnnotation()).Select3(false, null); doc.Extension.DeleteSelection2(0); }
+            missingGroups.Add(v.GetName2() + " RHS " + what);
+        };
+        var l0 = longV.First(); var l1 = longV.Last();
+        if (l1.Item2[0] - l0.Item2[0] > 1e-5)
+            add(l0, l1, (l0.Item2[0] + l1.Item2[0]) / 2, yBot - 0.010, "width", Math.Round((l1.Item2[0] - l0.Item2[0]) / sc * 1000, 1));
+        if (length)
+        {
+            // the member's top: the highest horizontal edge between its long faces that is below the very top (the plate)
+            double yTop = hor.Max(l => l.Item2[1]);
+            var inside = hor.Where(l => Math.Min(l.Item2[0], l.Item3[0]) >= l0.Item2[0] - 1e-6 && Math.Max(l.Item2[0], l.Item3[0]) <= l1.Item2[0] + 1e-6).ToList();
+            var topE = inside.Where(l => l.Item2[1] < yTop - 1e-6).OrderByDescending(l => l.Item2[1]).FirstOrDefault()
+                       ?? hor.OrderByDescending(l => l.Item2[1]).First();
+            var botE = hor.OrderBy(l => l.Item2[1]).First();
+            // the top plate's underside: a full-width edge just under the top; if the member reaches the top, use the top
+            var plateUnder = hor.Where(l => l.Item2[1] < yTop - 1e-6 && Math.Abs(l.Item2[0] - l.Item3[0]) > (l1.Item2[0] - l0.Item2[0]) * 1.2)
+                                .OrderByDescending(l => l.Item2[1]).FirstOrDefault();
+            if (plateUnder != null && plateUnder.Item2[1] >= topE.Item2[1] - 1e-6) topE = plateUnder;
+            add(topE, botE, l0.Item2[0] - 0.012, (topE.Item2[1] + botE.Item2[1]) / 2, "length", Math.Round((topE.Item2[1] - botE.Item2[1]) / sc * 1000, 1));
+        }
+    }
+
     // Circles in a view (holes), with their centres on the sheet, transformed as ViewLines does.
     static List<Tuple<Edge, double[]>> ViewCirclesAsm(View v)
     {
@@ -934,6 +987,7 @@ static partial class Draw
     // every plate and hole and both ends, break out the empty lengths between them (at least BreakMinMm), then use the
     // largest of James's scales at which the shortened views fit the space. The face view and the side view get the
     // same breaks (they're aligned). Returns the scale used (unchanged if breaking didn't work).
+    static int ForcedDen;   // --scale=N: the scale for a long member's views (Grant 14 Nov: "what does it look like at 1:10")
     const double BreakMinMm = 150, BreakKeepMm = 40, BreakGapSheet = 0.003;   // 3 mm between break lines on paper
     static int BreakLongMember(ModelDoc2 doc, DrawingDoc drw, Sheet sheet, View main, View side, int den, double spaceH, Func<int, bool> widthFits)
     {
@@ -959,7 +1013,8 @@ static partial class Draw
         for (int i = 1; i < keep.Count; i++) if (keep[i][0] - keep[i - 1][1] >= BreakMinMm) gaps.Add(new[] { keep[i - 1][1], keep[i][0] });
         if (gaps.Count == 0) { Console.WriteLine("Breaks: no empty length long enough"); return den; }
         double keptMin = L - gaps.Sum(g => g[1] - g[0]);
-        int den2 = AsmScales.FirstOrDefault(d => keptMin / 1000 / d + gaps.Count * BreakGapSheet <= spaceH && widthFits(d));
+        int den2 = ForcedDen > 0 ? ForcedDen : AsmScales.FirstOrDefault(d => keptMin / 1000 / d + gaps.Count * BreakGapSheet <= spaceH && widthFits(d));
+        if (ForcedDen > 0 && keptMin / 1000 / ForcedDen + gaps.Count * BreakGapSheet > spaceH) problems.Add("1:" + ForcedDen + " (asked for) is too big even with every break");
         if (den2 == 0) den2 = AsmScales.Last();
         // at that scale, take out only what's needed to fill the height: each break shares the cut by its gap's length,
         // centred in its gap

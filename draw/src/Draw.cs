@@ -72,7 +72,7 @@ static partial class Draw
                 case "make-section": if (pos.Count != 4) return Usage(); rc = MakeSection(pos[0], pos[1], pos[2], pos[3]); break;
                 case "learn-layout": if (pos.Count < 1) return Usage(); rc = LearnLayout(pos); break;
                 case "copy-switch": if (pos.Count != 3) return Usage(); rc = CopySwitch(pos[0], pos[1], pos[2]); break;
-                case "make-assembly": if (pos.Count != 4) return Usage(); MemberCentres = flags.Contains("centrelines"); rc = MakeAssembly(pos[0], pos[1], pos[2], pos[3]); break;
+                case "make-assembly": if (pos.Count != 4) return Usage(); MemberCentres = flags.Contains("centrelines"); { var sf = flags.FirstOrDefault(f => f.StartsWith("scale=")); if (sf != null) ForcedDen = int.Parse(sf.Substring(6)); } rc = MakeAssembly(pos[0], pos[1], pos[2], pos[3]); break;
                 case "bom-test": if (pos.Count != 2) return Usage(); rc = BomTest(pos[0], pos[1]); break;
                 case "view-geom": if (pos.Count != 1) return Usage(); rc = ViewGeom(pos[0]); break;
                 case "view-boxes": if (pos.Count != 1) return Usage(); rc = ViewBoxes(pos[0]); break;

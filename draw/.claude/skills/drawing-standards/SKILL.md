@@ -57,3 +57,17 @@ Built up from feedback, one line per rule, with where it came from. A rule about
 | Description length (L=nnn) differs from the model | 08X04-BKP-01: L=150 vs 100 |
 | No Material property | 08X04-BKP-01 |
 | Weight property far from the part's weight in steel | 08X04-BKP-01: 0.15 kg vs 1.2 kg |
+
+## Assemblies (Grant 14 Nov, 08B04-SFA-2T)
+
+| Rule | Source |
+| --- | --- |
+| Plan the sheet from the model's size before drawing; draw each view once | Grant ("algorithmic, repeatable") |
+| Isometric (front, upright, never on its side) centred under the BOM, from the left border to about grid 5.5, at the largest scale that fits with balloon room | Grant |
+| Balloons in columns either side of the isometric and a row on top, level with their parts, in order (no crossing, not over the part) | Grant's hand layout |
+| Front with top above, bottom below, left and right sides; largest scale that fits the rest with room for dimensions; block centred | Grant |
+| Back isometric only if it fits (option B) | Grant |
+| BOM: James's template, top left; the configuration must be named or it comes out empty | James; 14 Nov bug |
+| Dimensions: ordinates to each horizontal member (up the side) and each upright (across the top) from the bottom-left, overall in brackets; checked against the model | Grant / James's 08A04-SFA-2T |
+| Member dims to the underside / left side for now: CHECK flag until James says (centreline?) | open |
+| Measure assembly views from the model's visible parts, not the view outline (counts suppressed parts) | 14 Nov |

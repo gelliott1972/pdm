@@ -1,13 +1,13 @@
 # Draw: status
 
-Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\PDM-draw-test`. Tool: `draw\src\` (Draw.exe; build with `build.ps1`).
+Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\code\pdm\scratch\draw-test`. Tool: `draw\src\` (Draw.exe; build with `build.ps1`).
 
 ## Done
 
 | Step | Result | Checked? |
 | --- | --- | --- |
-| 0 Templates | From a copy of James's GNRIC-PLP-06.SLDDRW into `C:\PDM-draw-test\_Templates`: `Unilumin-A3.slddrt` (sheet format), `Unilumin-A3.drwdot` (drawing template: his document settings, revision table emptied, old revision and date cleared), `Unilumin-revision.sldrevtbt`, `note-block.txt` | A new drawing from the template matches James's sheet (PDF looked at). BOM and cut-list table templates **not yet**: the plate drawing has neither; to take from an assembly and a weldment drawing before step 4 |
-| 1 One plate | **GNRIC-PLP-06** (floor plate 350x200, 6 holes). Draft `C:\PDM-draw-test\PLP-06\GNRIC-PLP-06.SLDDRW` + `.pdf`; James's copy and PDF in `PLP-06\james\`. 8 s to make | Dimension values match James's exactly (my own PDF comparison). Waiting for Grant's review |
+| 0 Templates | From a copy of James's GNRIC-PLP-06.SLDDRW into `C:\code\pdm\scratch\draw-test\_Templates`: `Unilumin-A3.slddrt` (sheet format), `Unilumin-A3.drwdot` (drawing template: his document settings, revision table emptied, old revision and date cleared), `Unilumin-revision.sldrevtbt`, `note-block.txt` | A new drawing from the template matches James's sheet (PDF looked at). BOM and cut-list table templates **not yet**: the plate drawing has neither; to take from an assembly and a weldment drawing before step 4 |
+| 1 One plate | **GNRIC-PLP-06** (floor plate 350x200, 6 holes). Draft `C:\code\pdm\scratch\draw-test\PLP-06\GNRIC-PLP-06.SLDDRW` + `.pdf`; James's copy and PDF in `PLP-06\james\`. 8 s to make | Dimension values match James's exactly (my own PDF comparison). Waiting for Grant's review |
 
 ## Draft vs James (GNRIC-PLP-06)
 

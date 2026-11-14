@@ -1,5 +1,5 @@
 // Draw: Draw session's SOLIDWORKS drawing tool (brief docs\briefs\draw-1.md, 14 Nov 2026).
-// Works only on copies in C:\PDM-draw-test. Runs only while Draw holds the SwCmd round lock
+// Works only on copies in C:\code\pdm\scratch\draw-test. Runs only while Draw holds the SwCmd round lock
 // (tools\SwCmd\bin\SwCmd.exe lock --as draw --purpose "...") and Grant has not paused SOLIDWORKS.
 // SOLIDWORKS 2026 only (SldWorks.Application.34).
 //
@@ -22,7 +22,7 @@ using SolidWorks.Interop.swconst;
 
 static partial class Draw
 {
-    const string TestRoot = @"C:\PDM-draw-test";
+    const string TestRoot = @"C:\code\pdm\scratch\draw-test";
     static ISldWorks sw;
     static List<string> problems = new List<string>();
 

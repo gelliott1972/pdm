@@ -320,7 +320,9 @@ static partial class Draw
         if (!mem[0] || !mem[1]) OverallByClick(drwDoc, drw, main, !mem[1], !mem[0], want, dimsOk);   // plain overall size where members failed
         if (left != null) OverallByClick(drwDoc, drw, left, true, false, want, dimsOk);
         Console.WriteLine("[" + stamp() + "] overall dimensions");
-        var flags = new List<string> { MemberCentres ? "CHECK: MEMBER POSITIONS ARE TO MEMBER CENTRELINES" + (centreFallbacks.Count > 0 ? " (EXCEPT " + string.Join(", ", centreFallbacks).ToUpper().Replace("DRAWING VIEW", "VIEW ") + ": UNDERSIDE / LEFT SIDE)" : "") : "CHECK: MEMBER POSITIONS ARE TO THE UNDERSIDE / LEFT SIDE OF EACH MEMBER", "CHECK: WELD SYMBOLS NOT ADDED (NO WELD BEADS IN THE MODEL)" };
+        var flags = new List<string> { missingGroups.Count > 0 ? "CHECK: NOT DIMENSIONED: " + string.Join(", ", missingGroups).ToUpper().Replace("DRAWING VIEW", "VIEW ") : null, MemberCentres ? "CHECK: MEMBER POSITIONS ARE TO MEMBER CENTRELINES" + (centreFallbacks.Count > 0 ? " (EXCEPT " + string.Join(", ", centreFallbacks).ToUpper().Replace("DRAWING VIEW", "VIEW ") + ": UNDERSIDE / LEFT SIDE)" : "") : "CHECK: MEMBER POSITIONS ARE TO THE UNDERSIDE / LEFT SIDE OF EACH MEMBER", "CHECK: WELD SYMBOLS NOT ADDED (NO WELD BEADS IN THE MODEL)" };
+        flags = flags.Where(f => f != null).ToList();
+        foreach (var g in missingGroups) problems.Add("not dimensioned: " + g);
         drw.ActivateSheet(sheet.GetName());
         drw.EditSheet();
         var flagNote = drwDoc.InsertNote(string.Join("\n", flags)) as Note;
@@ -644,7 +646,7 @@ static partial class Draw
     // plain overall size instead). Returns which directions were placed.
     const double MinMemberFrac = 0.30, MemberGapMm = 100;
     static bool MemberCentres;
-    static List<string> centreFallbacks = new List<string>();   // --centrelines: dimension to each member's centreline instead of its underside / left side (Grant 14 Nov)
+    static List<string> centreFallbacks = new List<string>(), missingGroups = new List<string>();   // --centrelines: dimension to each member's centreline instead of its underside / left side (Grant 14 Nov)
     static bool[] MemberOrdinates(ModelDoc2 doc, DrawingDoc drw, View v, List<string> report)
     {
         var mu = (MathUtility)sw.GetMathUtility();
@@ -752,6 +754,7 @@ static partial class Draw
                 }
                 report.Add(what + " OK");
                 placed[dir] = true;
+                if (wantCentres && !MemberCentres) centreFallbacks.Add(v.GetName2() + " " + (horiz ? "heights" : "positions"));   // placed, but to edges
             }
             else
             {
@@ -760,7 +763,7 @@ static partial class Draw
                 doc.ClearSelection2(true);
                 foreach (var a in made) a.Select3(true, null);
                 doc.Extension.DeleteSelection2(0);
-                if (MemberCentres) centreFallbacks.Add(v.GetName2() + " " + (horiz ? "heights" : "positions"));
+                if (!MemberCentres || !wantCentres) missingGroups.Add(v.GetName2() + " " + (horiz ? "heights" : "positions"));   // nothing more to try
             }
           }
         MemberCentres = wantCentres;

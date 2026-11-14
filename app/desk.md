@@ -6,9 +6,9 @@ Brief: `docs\briefs\desk.md`. Code: `src\PdmDesk\`. Owner: App.
 
 | What | Where |
 | --- | --- |
-| Start | Start menu → **PDM Desk** (opens `http://127.0.0.1:5180/`). If it's already running, the shortcut just opens the page. |
+| Start | Start menu → **PDM Sessions** (`C:\code\pdm\start-pdm.cmd` runs `%LOCALAPPDATA%\PDM-Desk\PdmDesk.exe`), or open that exe directly. It opens `http://127.0.0.1:5180/`; if the Desk is already running, it just opens the page. |
 | Program | `%LOCALAPPDATA%\PDM-Desk\PdmDesk.exe` (no window; keeps running until logoff or until it's stopped) |
-| Install / update | `powershell -NoProfile -ExecutionPolicy Bypass -File src\PdmDesk\install.ps1` (stops a running Desk, rebuilds, remakes the shortcut) |
+| Install / update | `powershell -NoProfile -ExecutionPolicy Bypass -File src\PdmDesk\install.ps1` (stops a running Desk, rebuilds; makes no Start menu shortcut) |
 | Data | `C:\code\pdm\desk\` (gitignored): `tickets\`, `status\`, `inbox\` |
 | Safety | Listens on 127.0.0.1 only; answers only requests whose Host is 127.0.0.1/localhost; changes need the `X-Desk: 1` header, so other web pages can't post to it |
 

@@ -1,4 +1,5 @@
-# Installs PDM Desk for this Windows user: builds it into %LOCALAPPDATA%\PDM-Desk and adds a Start menu shortcut "PDM Desk".
+# Installs PDM Desk for this Windows user: builds it into %LOCALAPPDATA%\PDM-Desk. No Start menu shortcut of its own
+# (Grant, 14 Nov): Start menu > PDM Sessions (C:\code\pdm\start-pdm.cmd) starts it.
 # Run again after changes; it stops a running Desk first so the files can be replaced. Needs the .NET 8 SDK.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File src\PdmDesk\install.ps1
 $ErrorActionPreference = 'Stop'
@@ -13,14 +14,5 @@ if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
 
 foreach ($d in 'tickets', 'status', 'inbox') { New-Item -ItemType Directory -Force (Join-Path $data $d) | Out-Null }
 
-$lnk = Join-Path ([Environment]::GetFolderPath('Programs')) 'PDM Desk.lnk'
-$shell = New-Object -ComObject WScript.Shell
-$s = $shell.CreateShortcut($lnk)
-$s.TargetPath = Join-Path $dest 'PdmDesk.exe'
-$s.WorkingDirectory = $dest
-$s.Description = 'PDM Desk: tickets and session status'
-$s.Save()
-
 "Installed to $dest"
-"Start menu: $lnk"
 "Data: $data"

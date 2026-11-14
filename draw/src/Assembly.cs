@@ -920,7 +920,7 @@ static partial class Draw
     // every plate and hole and both ends, break out the empty lengths between them (at least BreakMinMm), then use the
     // largest of James's scales at which the shortened views fit the space. The face view and the side view get the
     // same breaks (they're aligned). Returns the scale used (unchanged if breaking didn't work).
-    const double BreakMinMm = 150, BreakKeepMm = 40, BreakGapSheet = 0.010;
+    const double BreakMinMm = 150, BreakKeepMm = 40, BreakGapSheet = 0.003;   // 3 mm between break lines on paper
     static int BreakLongMember(ModelDoc2 doc, DrawingDoc drw, Sheet sheet, View main, View side, View top, int den, double spaceH)
     {
         var mu = (MathUtility)sw.GetMathUtility();
@@ -948,6 +948,10 @@ static partial class Draw
         int den2 = AsmScales.Where(d => d <= den).FirstOrDefault(d => keptMm / 1000 / d + gaps.Count * BreakGapSheet <= spaceH);
         if (den2 == 0) den2 = den;
         Console.WriteLine("Breaks: " + gaps.Count + " (" + string.Join(", ", gaps.Select(g => g[0].ToString("0") + "-" + g[1].ToString("0"))) + " mm from the top); kept length " + keptMm.ToString("0") + " of " + L.ToString("0") + " mm; scale 1:" + den + " -> 1:" + den2);
+        // tight breaks (Grant 14 Nov: "too wide"): the gap between each pair of break lines, a drawing setting
+        double gap0 = doc.Extension.GetUserPreferenceDouble((int)swUserPreferenceDoubleValue_e.swDetailingBreakLineGap, 0);
+        doc.Extension.SetUserPreferenceDouble((int)swUserPreferenceDoubleValue_e.swDetailingBreakLineGap, 0, BreakGapSheet);
+        Console.WriteLine("  break gap " + Mm(gap0) + " -> " + Mm(doc.Extension.GetUserPreferenceDouble((int)swUserPreferenceDoubleValue_e.swDetailingBreakLineGap, 0)) + " mm");
         // new scale first (the side and end views follow the face view), then the breaks at that scale
         var sp = (double[])sheet.GetProperties2();
         sheet.SetProperties2((int)sp[0], (int)sp[1], 1, den2, sp[4] != 0, sp[5], sp[6], sp[7] != 0);
@@ -972,6 +976,8 @@ static partial class Draw
                 if (bl == null) Console.WriteLine("  break not inserted in " + v.GetName2() + " at " + g[0].ToString("0"));
                 else Console.WriteLine("  break " + v.GetName2() + " asked " + Mm(y1) + "/" + Mm(y2) + ", got " + Mm((double)bl.GetPosition(0)) + "/" + Mm((double)bl.GetPosition(1)));
             }
+            Console.WriteLine("  " + v.GetName2() + " break gap " + Mm(v.BreakLineGap) + " -> " + Mm(BreakGapSheet) + " mm");
+            v.BreakLineGap = BreakGapSheet;   // each view keeps its own gap (the document setting didn't change it)
             doc.ClearSelection2(true);
             doc.Extension.SelectByID2(v.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
             drw.BreakView();

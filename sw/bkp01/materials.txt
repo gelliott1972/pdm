@@ -1,0 +1,25 @@
+CFG	08X04-BKP-01.SLDPRT	Default<As Machined>	material "" ()	mass 0.147 kg, volume 147.269 cm3, density 1000 kg/m3
+CFG	08X04-BKP-01.SLDPRT	Default<As Welded>	material "" ()	mass 0.147 kg, volume 147.269 cm3, density 1000 kg/m3
+CFG	08X04-BKP-06.SLDPRT	57DEG<As Machined>	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 22.325 kg, volume 2862.236 cm3, density 7800 kg/m3
+  BODY	M20 Clearance Hole2 SIDE	material "Plain Carbon Steel" (SOLIDWORKS Materials)
+CFG	08X04-BKP-06.SLDPRT	Default<As Welded>	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 22.325 kg, volume 2862.236 cm3, density 7800 kg/m3
+  BODY	M20 Clearance Hole2 SIDE	material "Plain Carbon Steel" ()
+CFG	08X04-BKP-07.SLDPRT	90DEG<As Machined>	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 22.326 kg, volume 2862.263 cm3, density 7800 kg/m3
+  BODY	M20 Clearance Hole2	material "Plain Carbon Steel" (SOLIDWORKS Materials)
+CFG	08X04-BKP-07.SLDPRT	Default<As Welded>	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 22.326 kg, volume 2862.263 cm3, density 7800 kg/m3
+  BODY	M20 Clearance Hole2	material "Plain Carbon Steel" ()
+CFG	08X04-BKP.SLDPRT	68MM_SPACE_80X40RHS_150X140PLATE_SLOTS_SHOT_AXIS<As Machined>	material "" ()	mass 0.314 kg, volume 313.969 cm3, density 1000 kg/m3
+CFG	08X04-BKP.SLDPRT	68MM_SPACE_80X40RHS_140X120PLATE<As Welded>	material "" ()	mass 0.314 kg, volume 313.969 cm3, density 1000 kg/m3
+CFG	08X04-BKP.SLDPRT	68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_SHORT_AXIS<As Machined>	material "" ()	mass 0.356 kg, volume 355.969 cm3, density 1000 kg/m3
+CFG	08X04-BKP.SLDPRT	Default<As Welded>	material "" ()	mass 0.356 kg, volume 355.969 cm3, density 1000 kg/m3
+CFG	08X04-BKP.SLDPRT	68MM_SPACE_80X40RHS_150x140PLATE_SLOTS_LONG_AXIS<As Machined>	material "" ()	mass 0.316 kg, volume 315.912 cm3, density 1000 kg/m3
+CFG	08X04-BKP.SLDPRT	68MM_SPACE_80X40RHS_140X120PLATE_SLOTS_LONG_AXIS<As Welded>	material "" ()	mass 0.316 kg, volume 315.912 cm3, density 1000 kg/m3
+CFG	08X04-BKP.SLDPRT	68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_LONG_AXIS<As Machined>	material "" ()	mass 0.358 kg, volume 357.912 cm3, density 1000 kg/m3
+CFG	08X04-BKP.SLDPRT	68MM_SPACE_80X40RHS_180X120PLATE_SLOTS_LONG_AXIS<As Welded>	material "" ()	mass 0.358 kg, volume 357.912 cm3, density 1000 kg/m3
+CFG	08B04-BKP-01.SLDPRT	Default	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 17.107 kg, volume 2193.203 cm3, density 7800 kg/m3
+CFG	08B04-BKP-02.SLDPRT	Default<As Machined>	material "" ()	mass 0.38 kg, volume 380.037 cm3, density 1000 kg/m3
+CFG	08B04-BKP-02.SLDPRT	Default<As Welded>	material "" ()	mass 0.38 kg, volume 380.037 cm3, density 1000 kg/m3
+CFG	08B04-BKP-03.SLDPRT	57DEG<As Machined>	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 22.325 kg, volume 2862.232 cm3, density 7800 kg/m3
+  BODY	M20 Clearance Hole2 SIDE	material "Plain Carbon Steel" (SOLIDWORKS Materials)
+CFG	08B04-BKP-03.SLDPRT	Default<As Welded>	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 22.325 kg, volume 2862.232 cm3, density 7800 kg/m3
+  BODY	M20 Clearance Hole2 SIDE	material "Plain Carbon Steel" ()

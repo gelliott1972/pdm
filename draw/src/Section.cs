@@ -129,11 +129,14 @@ static partial class Draw
         bool lenHoriz = Math.Abs(s1[0] - s0[0]) > Math.Abs(s1[1] - s0[1]);
         if (!lenHoriz) problems.Add("member still runs up the sheet after turning the view");
         var mo = (double[])main.GetOutline();
-        // End view: looking along the member, a view of its own (not projected) so the layout can place it freely.
-        string endView = lenAx == 0 ? "*Right" : lenAx == 1 ? "*Top" : "*Front";
-        var side = drw.CreateDrawViewFromModelView3(partFile, endView, mo[2] + 0.080, (mo[1] + mo[3]) / 2, 0);
+        // End view: projected to the right of the (turned) face view, so it is a true projection and stays level with
+        // it (Grant 14 Nov: the two views linked, as James's).
+        drwDoc.ClearSelection2(true);
+        drwDoc.Extension.SelectByID2(main.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
+        var side = drw.CreateUnfoldedViewAt3(mo[2] + 0.080, (mo[1] + mo[3]) / 2, 0, false);
+        drwDoc.ClearSelection2(true);
         if (side == null) problems.Add("end view not created");
-        else { side.ReferencedConfiguration = config; side.UseSheetScale = 0; side.ScaleRatio = new double[] { 1, den }; }
+        else Console.WriteLine("End view projected from the face view: '" + side.GetOrientationName() + "', aligned " + side.GetAlignment());
         drwDoc.ClearSelection2(true);
         var iso = drw.CreateDrawViewFromModelView3(partFile, "*Isometric", 0.100, 0.100, 0);
         if (iso != null) iso.ReferencedConfiguration = config;
@@ -141,7 +144,7 @@ static partial class Draw
         // to a smaller scale until face view + end view (with room for dimensions) and the isometric below them fit.
         foreach (int d in PlateScales.Where(x => x >= den))
         {
-            foreach (var vw in new[] { main, side, iso }) if (vw != null) { vw.UseSheetScale = 0; vw.ScaleRatio = new double[] { 1, d }; }
+            foreach (var vw in new[] { main, iso }) if (vw != null) { vw.UseSheetScale = 0; vw.ScaleRatio = new double[] { 1, d }; }   // the end view follows the face view
             drwDoc.ForceRebuild3(false);
             var o1 = (double[])main.GetOutline(); var o2 = side != null ? (double[])side.GetOutline() : o1; var o3 = iso != null ? (double[])iso.GetOutline() : new double[4];
             double topW = W(o1) + W(o2) + 0.100, topH = Math.Max(H(o1), H(o2)) + 0.030, isoW = W(o3) + 0.070, isoH = H(o3);
@@ -153,7 +156,7 @@ static partial class Draw
         mo = (double[])main.GetOutline();
         var sp = (double[])sheet.GetProperties2();
         sheet.SetProperties2((int)sp[0], (int)sp[1], 1, den, sp[4] != 0, sp[5], sp[6], sp[7] != 0);
-        foreach (var vw in new[] { main, side, iso }) if (vw != null) vw.UseSheetScale = 1;
+        foreach (var vw in new[] { main, iso }) if (vw != null) vw.UseSheetScale = 1;
         drwDoc.ForceRebuild3(false);
         sp = (double[])sheet.GetProperties2();
         Console.WriteLine("Scale 1:" + den + (sp[3] == den && Math.Abs(main.ScaleDecimal - 1.0 / den) < 1e-9 ? "" : " NOT SET"));

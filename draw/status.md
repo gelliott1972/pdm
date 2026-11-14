@@ -11,6 +11,8 @@ Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\code\pdm\scratch\
 
 Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08XXX-PLP-30 uses chain dimensions instead of ordinate, so his style varies.
 
+| 2 Rules, undrawn plate, bracket | Rules: `draw\.claude\skills\drawing-standards\SKILL.md`; layout learned from Grant's hand-laid-out drawings (`learn-layout`, `layout-examples.json`). **08X04-PLP-01** (undrawn plate) worked first time. **08X04-BKP-01** (angle, two slots) with new `make-section`: face view, linked end view, slot callout, section sizes, CHECK flags (L=150 vs 100, no material, weight) | Grant: bracket layout right, plate layout good (14 Nov). Desk DR1 open (100 or 150 long) |
+
 ## Grant's feedback on PLP-06 (14 Nov) and what changed in v3
 
 | Feedback | Done in v3 |
@@ -22,7 +24,7 @@ Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08
 
 ## Next
 
-- Grant's view of v3; then step 2 (rules file from his feedback, an undrawn plate e.g. 08X04-PLP-01, one bracket).
+- Step 3: copy-then-repair on a shaft B/C twin of a drawn shaft A subframe; or step 4 (small assembly) if Grant prefers.
 - BOM / cut-list table templates from copies of an assembly and a weldment drawing.
 
 ## Open questions (with Admin)
@@ -45,3 +47,6 @@ Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08
 | 14 Nov | **Wrong values**: with centre marks (extension lines on) already placed, ordinates to holes measured to the hole edge (41.3 not 48) | Dimension first, centre marks last; the tool now checks every dimension value against the model and refuses to save on any mismatch |
 | 14 Nov | Revision table didn't refresh the title block's REV after `AddRevision` | Set `Revision-Sheet1` too |
 | 14 Nov | Opening a copied drawing without its model next to it can load the vault's model (read-only) | Always copy the model next to a copied drawing |
+| 14 Nov | Ordinate to a slot centre: a centre mark selected by API won't take an ordinate | Pick the centre mark by position (`SelectByID2 "CENTERMARKSYMS"`); only one ordinate group per view can do that, so the other direction uses the slot's end arc |
+| 14 Nov | Value check passed with slot dimensions missing | Expected values now come from the model's holes and slots, not from what was placed |
+| 14 Nov | A free-standing end view came out upside down against the face view | Project it from the (turned) face view: true projection, and linked |

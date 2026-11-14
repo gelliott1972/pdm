@@ -28,10 +28,11 @@ static partial class Draw
     // Measured once per view, relative to the view's position, and scaled with the view. A part view's outline is
     // already right.
     static Dictionary<string, double> geomScale = new Dictionary<string, double>();
+    static List<double[]> leafBoxes;   // visible parts' boxes in assembly coordinates
     static double[] OutlineOf(View v)
     {
         var comps = v.GetVisibleComponents() as object[];
-        if (comps == null || comps.Length == 0) return (double[])v.GetOutline();
+        if (comps == null || comps.Length == 0 || leafBoxes == null) return (double[])v.GetOutline();
         var p = (double[])v.Position;
         string key = v.GetName2();
         double[] rel; double s0;
@@ -39,10 +40,9 @@ static partial class Draw
         {
             var mu = (MathUtility)sw.GetMathUtility();
             double x0 = double.MaxValue, y0 = double.MaxValue, x1 = double.MinValue, y1 = double.MinValue;
-            foreach (Component2 c in comps)
+            // the visible parts' boxes from the (fully loaded) assembly: parts seen through a drawing view give none
+            foreach (var b in leafBoxes)
             {
-                var b = c.GetBox(false, false) as double[];
-                if (b == null) continue;
                 for (int i = 0; i < 8; i++)
                 {
                     var q = ToSheet(mu, v, new[] { (i & 1) == 0 ? b[0] : b[3], (i & 2) == 0 ? b[1] : b[4], (i & 4) == 0 ? b[2] : b[5] });
@@ -58,12 +58,57 @@ static partial class Draw
         return new[] { rel[0] * k + p[0], rel[1] * k + p[1], rel[2] * k + p[0], rel[3] * k + p[1] };
     }
 
+    // The visible parts under some components (a subassembly's own box counts its suppressed parts, 14 Nov).
+    static IEnumerable<Component2> Leaves(IEnumerable<Component2> comps)
+    {
+        foreach (var c in comps)
+        {
+            if (c == null || c.IsSuppressed() || c.IsHidden(true)) continue;
+            var ch = (c.GetChildren() as object[]) ?? new object[0];
+            if (ch.Length == 0) yield return c;
+            else foreach (var l in Leaves(ch.Cast<Component2>())) yield return l;
+        }
+    }
+
     // Move a view so its drawn box's centre is at (x, y); NaN keeps that coordinate (aligned views).
     static void CentreAt(ModelDoc2 doc, View v, double x, double y)
     {
         var o = OutlineOf(v); var p = (double[])v.Position;
         v.Position = new[] { double.IsNaN(x) ? p[0] : p[0] + x - (o[0] + o[2]) / 2, double.IsNaN(y) ? p[1] : p[1] + y - (o[1] + o[3]) / 2 };
         doc.ForceRebuild3(false);
+    }
+
+    // True drawn boxes of every view and the balloons of a drawing (to learn from one laid out by hand).
+    static int ViewBoxes(string file)
+    {
+        var doc = (ModelDoc2)sw.GetOpenDocumentByName(file) ?? OpenDoc(file, null, true);
+        geomCache.Clear(); geomScale.Clear();
+        var fv = (View)((View)((DrawingDoc)doc).GetFirstView()).GetNextView();
+        var model = (ModelDoc2)sw.GetOpenDocumentByName(fv.GetReferencedModelName());
+        if (model is AssemblyDoc)
+        {
+            ((AssemblyDoc)model).ResolveAllLightWeightComponents(false);
+            leafBoxes = Leaves(((object[])((AssemblyDoc)model).GetComponents(true) ?? new object[0]).Cast<Component2>()).Select(c => c.GetBox(false, false) as double[]).Where(b => b != null).ToList();
+        }
+        for (var v = (View)((View)((DrawingDoc)doc).GetFirstView()).GetNextView(); v != null; v = (View)v.GetNextView())
+        {
+            var o = OutlineOf(v);
+            Console.WriteLine(v.GetName2() + " '" + v.GetOrientationName() + "' 1:" + (1 / v.ScaleDecimal).ToString("0") + " part boxes " + Box(o) + " (" + Mm(W(o)) + " x " + Mm(H(o)) + ")");
+            var ls = ViewLines((MathUtility)sw.GetMathUtility(), v);
+            if (ls.Count > 0)
+            {
+                var e = new[] { ls.Min(l => Math.Min(l.Item2[0], l.Item3[0])), ls.Min(l => Math.Min(l.Item2[1], l.Item3[1])), ls.Max(l => Math.Max(l.Item2[0], l.Item3[0])), ls.Max(l => Math.Max(l.Item2[1], l.Item3[1])) };
+                Console.WriteLine("    edges " + Box(e) + " (" + Mm(W(e)) + " x " + Mm(H(e)) + ")");
+            }
+            var bl = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Where(a => a.GetType() == (int)swAnnotationType_e.swNote && ((Note)a.GetSpecificAnnotation()).IsBomBalloon()).ToList();
+            foreach (var a in bl)
+            {
+                var p = (double[])a.GetPosition();
+                var lp = a.GetLeaderCount() > 0 ? a.GetLeaderPointsAtIndex(0) as double[] : null;
+                Console.WriteLine("    balloon " + ((Note)a.GetSpecificAnnotation()).GetText() + " at " + Mm(p[0]) + "," + Mm(p[1]) + (lp != null && lp.Length >= 6 ? " leader " + string.Join(" ", Enumerable.Range(0, lp.Length / 3).Select(i => Mm(lp[3 * i]) + "," + Mm(lp[3 * i + 1]))) : ""));
+            }
+        }
+        return 0;
     }
 
     // ---------- the drawing ----------
@@ -94,6 +139,9 @@ static partial class Draw
             box = box == null ? (double[])cb.Clone() : new[] { Math.Min(box[0], cb[0]), Math.Min(box[1], cb[1]), Math.Min(box[2], cb[2]), Math.Max(box[3], cb[3]), Math.Max(box[4], cb[4]), Math.Max(box[5], cb[5]) };
         }
         if (box == null) { Console.Error.WriteLine("REFUSED: no visible parts"); return 2; }
+        leafBoxes = Leaves(((object[])((AssemblyDoc)asm).GetComponents(true) ?? new object[0]).Cast<Component2>())
+            .Select(c => c.GetBox(false, false) as double[]).Where(b => b != null).ToList();
+        Console.WriteLine("Visible parts measured: " + leafBoxes.Count);
         var ext = new[] { box[3] - box[0], box[4] - box[1], box[5] - box[2] };
         int thin = Array.IndexOf(ext, ext.Min());
         string faceView = thin == 0 ? "*Right" : thin == 1 ? "*Top" : "*Front";
@@ -292,15 +340,15 @@ static partial class Draw
         double blockH = H(mo) + (to != null ? g + H(to) : 0) + (bo != null ? g + H(bo) : 0);
         double regionB = TitleTop + m, regionT = BorderY1 - m;
         if (blockH > regionT - regionB) return "views too tall (" + Mm(blockH) + " mm)";
-        double faceL = BorderX1 - m - blockW;
+        double faceL = BorderX1 - m - W(mo);                             // side view goes to the left of the face view (Grant)
         double baseY = regionB + (regionT - regionB - blockH) / 2;      // block centred up and down
         double faceCy = baseY + (bo != null ? H(bo) + g : 0) + H(mo) / 2;
         CentreAt(doc, main, faceL + W(mo) / 2, faceCy);
         mo = OutlineOf(main);
-        if (side != null) CentreAt(doc, side, mo[2] + g + W(so) / 2, double.NaN);
+        if (side != null) CentreAt(doc, side, mo[0] - g - W(so) / 2, double.NaN);
         if (top != null) CentreAt(doc, top, double.NaN, mo[3] + g + H(to) / 2);
         if (bottom != null) CentreAt(doc, bottom, double.NaN, mo[1] - g - H(bo) / 2);
-        double blockL = mo[0];
+        double blockL = side != null ? OutlineOf(side)[0] : mo[0];
         if (bomBox != null && bomBox[2] + g > blockL && regionT > bomBox[1]) return "views run into the BOM";
         // left region: under the BOM, left of the views
         double lx0 = BorderX0 + m, lx1 = Math.Min(blockL - g, TitleLeft - m), ly1 = (bomBox != null ? bomBox[1] : BorderY1) - g, ly0 = RevTop + 0.012;   // left of the title block, clear of the revision table
@@ -314,19 +362,25 @@ static partial class Draw
         if (lx1 - lx0 < 0.05) return "no room left of the views";
         var isos = new[] { isoF, isoB }.Where(x => x != null).ToList();
         if (isos.Count == 0) return null;
-        var io = isos.Select(OutlineOf).ToList();
+        // the front isometric carries the balloons: keep room for a column each side and a row on top (Grant 14 Nov:
+        // balloons not over the part)
+        const double padL = 0.018, padR = 0.016, padT = 0.014;
+        var real = isos.Select(OutlineOf).ToList();
+        var io = real.Select((b, i) => isos[i] == isoF ? new[] { b[0] - padL, b[1], b[2] + padR, b[3] + padT } : b).ToList();
+        Func<int, double, double, Tuple<double, double>> realCentre = (i, px, py) =>
+            Tuple.Create(px + ((real[i][0] + real[i][2]) - (io[i][0] + io[i][2])) / 2, py + ((real[i][1] + real[i][3]) - (io[i][1] + io[i][3])) / 2);
         double rw = lx1 - lx0, rh = ly1 - ly0;
         double sideW = io.Sum(b => W(b)) + g * (io.Count - 1), sideH = io.Max(b => H(b));
         double stackW = io.Max(b => W(b)), stackH = io.Sum(b => H(b)) + g * (io.Count - 1);
         if (sideW <= rw && sideH <= rh)
         {   // side by side, centred in the region
             double x = lx0 + (rw - sideW) / 2;
-            for (int i = 0; i < isos.Count; i++) { CentreAt(doc, isos[i], x + W(io[i]) / 2, ly0 + rh / 2); x += W(io[i]) + g; }
+            for (int i = 0; i < isos.Count; i++) { var c = realCentre(i, x + W(io[i]) / 2, ly0 + rh / 2); CentreAt(doc, isos[i], c.Item1, c.Item2); x += W(io[i]) + g; }
         }
         else if (stackW <= rw && stackH <= rh)
         {
             double y = ly1 - (rh - stackH) / 2;
-            for (int i = 0; i < isos.Count; i++) { CentreAt(doc, isos[i], lx0 + rw / 2, y - H(io[i]) / 2); y -= H(io[i]) + g; }
+            for (int i = 0; i < isos.Count; i++) { var c = realCentre(i, lx0 + rw / 2, y - H(io[i]) / 2); CentreAt(doc, isos[i], c.Item1, c.Item2); y -= H(io[i]) + g; }
         }
         else return "isometrics don't fit left of the views (" + Mm(rw) + " x " + Mm(rh) + " mm free)";
         // nothing into the title block
@@ -356,31 +410,64 @@ static partial class Draw
             }
             tips.Add(Tuple.Create(a, Math.Atan2((ty - cy) / ry, (tx - cx) / rx)));
         }
-        // sort round the view; then spread to an even minimum spacing, wrapping round, keeping the order
-        var ord = tips.OrderBy(t => t.Item2).ToList();
-        int nB = ord.Count;
-        var ang = ord.Select(t => t.Item2).ToList();
-        double step = 2 * Math.PI / nB, minStep = step * 0.8;
-        for (int pass = 0; pass < 200; pass++)
+        // Grant's arrangement (08B04-SFA-2T, 14 Nov): balloons in tidy columns either side of the isometric, each
+        // level with its part and kept in height order (leaders run nearly flat and never cross); parts near the top
+        // middle get a row along the top, in left-to-right order. About 10 mm between balloons.
+        const double pitch = 0.010;
+        var tipsXY = new List<Tuple<Annotation, double, double>>();
+        foreach (var n in notes)
         {
-            bool changed = false;
-            for (int i = 0; i < nB; i++)
+            var a = (Annotation)n.GetAnnotation();
+            var lp = a.GetLeaderCount() > 0 ? a.GetLeaderPointsAtIndex(0) as double[] : null;
+            var pos = (double[])a.GetPosition();
+            double tx = cx, ty = cy;
+            if (lp != null && lp.Length >= 3)
             {
-                int j = (i + 1) % nB;
-                double gap = ang[j] - ang[i]; if (j == 0) gap += 2 * Math.PI;
-                if (gap < minStep - 1e-9) { double push = (minStep - gap) / 2; ang[i] -= push; ang[j] += push; changed = true; }
+                int best = 0; double bd = -1;
+                for (int i = 0; i + 2 < lp.Length; i += 3) { double d = Math.Abs(lp[i] - pos[0]) + Math.Abs(lp[i + 1] - pos[1]); if (d > bd) { bd = d; best = i; } }
+                tx = lp[best]; ty = lp[best + 1];
             }
-            if (!changed) break;
+            tipsXY.Add(Tuple.Create(a, tx, ty));
+        }
+        double colL = io[0] - 0.010, colR = io[2] + 0.008, rowT = io[3] + 0.008;
+        var left = tipsXY.Where(t => t.Item2 < cx - 0.15 * W(io)).ToList();
+        var right = tipsXY.Where(t => t.Item2 > cx + 0.15 * W(io)).ToList();
+        var topRow = tipsXY.Where(t => !left.Contains(t) && !right.Contains(t)).ToList();
+        // a column holds what fits in the view's height; extras go to the top row
+        int perCol = Math.Max(1, (int)(H(io) / pitch));
+        foreach (var col in new[] { left, right })
+            while (col.Count > perCol) { var lo = col.OrderBy(t => t.Item3).Last(); col.Remove(lo); topRow.Add(lo); }
+        double yMin = Math.Max(RevTop + 0.010, io[1]), yMax = Math.Min(BorderY1 - 0.006, io[3]);
+        Func<List<Tuple<Annotation, double, double>>, double, int> placeColumn = (col, x) =>
+        {
+            var ord = col.OrderBy(t => t.Item3).ToList();
+            var ys = ord.Select(t => Math.Max(yMin, Math.Min(yMax, t.Item3))).ToList();
+            for (int pass = 0; pass < 100; pass++)
+            {
+                bool ch = false;
+                for (int i = 1; i < ys.Count; i++) if (ys[i] - ys[i - 1] < pitch - 1e-9) { double push = (pitch - (ys[i] - ys[i - 1])) / 2; ys[i - 1] -= push; ys[i] += push; ch = true; }
+                if (ys.Count > 0 && ys[0] < yMin) { double d = yMin - ys[0]; for (int i = 0; i < ys.Count; i++) ys[i] += d; ch = true; }
+                if (ys.Count > 0 && ys[ys.Count - 1] > yMax + pitch * 2) { double d = ys[ys.Count - 1] - (yMax + pitch * 2); for (int i = 0; i < ys.Count; i++) ys[i] -= d; ch = true; }
+                if (!ch) break;
+            }
+            int k = 0;
+            for (int i = 0; i < ord.Count; i++) if (ord[i].Item1.SetPosition2(Math.Max(BorderX0 + 0.006, x), ys[i], 0)) k++;
+            return k;
+        };
+        int moved = placeColumn(left, colL) + placeColumn(right, colR);
+        var tordered = topRow.OrderBy(t => t.Item2).ToList();
+        var xs = tordered.Select(t => t.Item2).ToList();
+        for (int pass = 0; pass < 100; pass++)
+        {
+            bool ch = false;
+            for (int i = 1; i < xs.Count; i++) if (xs[i] - xs[i - 1] < pitch - 1e-9) { double push = (pitch - (xs[i] - xs[i - 1])) / 2; xs[i - 1] -= push; xs[i] += push; ch = true; }
+            if (!ch) break;
         }
         double[] nb = noteAnn != null ? Extent1(noteAnn) : null;
-        int moved = 0;
-        for (int i = 0; i < nB; i++)
-        {
-            double x = cx + rx * Math.Cos(ang[i]), y = cy + ry * Math.Sin(ang[i]);
-            x = Math.Max(BorderX0 + 0.006, Math.Min(BorderX1 - 0.006, x)); y = Math.Max(RevTop + 0.010, Math.Min(BorderY1 - 0.006, y));   // above the revision table
-            if (nb != null && x > nb[0] - 0.006 && x < nb[2] + 0.006 && y > nb[1] - 0.006 && y < nb[3] + 0.006) y = nb[1] - 0.008;
-            if (ord[i].Item1.SetPosition2(x, y, 0)) moved++;
-        }
+        double ry0 = rowT;   // the layout keeps room for this row above the isometric
+        for (int i = 0; i < tordered.Count; i++) if (tordered[i].Item1.SetPosition2(xs[i], Math.Min(BorderY1 - 0.006, ry0), 0)) moved++;
+        int nB = tipsXY.Count;
+        Console.WriteLine("Balloons: " + left.Count + " in the left column, " + right.Count + " in the right, " + tordered.Count + " along the top");
         doc.ForceRebuild3(false);
         Console.WriteLine("Balloons placed round the isometric in order: " + moved + " of " + nB);
     }

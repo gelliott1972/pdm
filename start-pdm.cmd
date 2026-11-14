@@ -7,6 +7,10 @@ set "ROOT=%~dp0"
 set "ROOT=%ROOT:~0,-1%"
 set "CC=claude --continue --dangerously-skip-permissions"
 
+rem Start PDM Desk (if it's already running this just opens its page).
+set "DESK=%LOCALAPPDATA%\PDM-Desk\PdmDesk.exe"
+if exist "%DESK%" start "" "%DESK%"
+
 wt -w new ^
   new-tab --title Admin --suppressApplicationTitle -d "%ROOT%" %CC% ; ^
   new-tab --title Dev   --suppressApplicationTitle -d "%ROOT%\dev" %CC% ; ^

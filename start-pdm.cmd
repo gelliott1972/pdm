@@ -1,5 +1,5 @@
 @echo off
-rem Opens one Windows Terminal window with four tabs (Admin, Dev, SW, App),
+rem Opens one Windows Terminal window with five tabs (Admin, Dev, SW, App, Draw),
 rem each continuing its last Claude Code conversation in its own folder.
 rem Works from wherever the repo lives (uses this file's folder).
 
@@ -16,4 +16,5 @@ wt -w new ^
   new-tab --title Dev   --suppressApplicationTitle -d "%ROOT%\dev" %CC% ; ^
   new-tab --title SW    --suppressApplicationTitle -d "%ROOT%\sw" %CC% ; ^
   new-tab --title App   --suppressApplicationTitle -d "%ROOT%\app" %CC% ; ^
+  new-tab --title Draw  --suppressApplicationTitle -d "%ROOT%\draw" %CC% ; ^
   focus-tab -t 0

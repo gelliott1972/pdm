@@ -75,7 +75,7 @@ static partial class Draw
     {
         var o = OutlineOf(v); var p = (double[])v.Position;
         v.Position = new[] { double.IsNaN(x) ? p[0] : p[0] + x - (o[0] + o[2]) / 2, double.IsNaN(y) ? p[1] : p[1] + y - (o[1] + o[3]) / 2 };
-        doc.ForceRebuild3(false);
+        // no rebuild here (14 Nov: a rebuild after every move cost about 15 s each); the caller rebuilds once
     }
 
     // True drawn boxes of every view and the balloons of a drawing (to learn from one laid out by hand).
@@ -215,6 +215,7 @@ static partial class Draw
         if (right != null) CentreAt(drwDoc, right, fx + sA / 2 + dimRoom + sC / 2, double.NaN);
         if (top != null) CentreAt(drwDoc, top, double.NaN, fy + sB / 2 + dimRoom + sC / 2);
         if (bottom != null) CentreAt(drwDoc, bottom, double.NaN, fy - sB / 2 - dimRoom - sC / 2);
+        drwDoc.ForceRebuild3(false);
         var isoF = drw.CreateDrawViewFromModelView3(asmFile, "*Isometric", ix, iy, 0);
         if (isoF != null)
         {
@@ -222,6 +223,7 @@ static partial class Draw
             if (isoDen == den) isoF.UseSheetScale = 1; else { isoF.UseSheetScale = 0; isoF.ScaleRatio = new double[] { 1, isoDen }; }
             drwDoc.ForceRebuild3(false);
             CentreAt(drwDoc, isoF, ix, iy);
+            drwDoc.ForceRebuild3(false);
         }
         Console.WriteLine("[" + stamp() + "] views drawn: face, left " + (left != null) + ", right " + (right != null) + ", top " + (top != null) + ", bottom " + (bottom != null) + ", isometric " + (isoF != null));
 

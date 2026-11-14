@@ -425,17 +425,46 @@ static partial class Draw
 
     static List<Tuple<Edge, double[], double[]>> ViewLines(MathUtility mu, View v)
     {
+        // The transforms are applied here in code, not by SOLIDWORKS (14 Nov: four requests per edge made a large
+        // assembly view take minutes). Checked against SOLIDWORKS on the first edges; if they ever disagree, it
+        // falls back to asking SOLIDWORKS for every point.
         var r = new List<Tuple<Edge, double[], double[]>>();
+        var vt = (double[])((MathTransform)v.ModelToViewTransform).ArrayData;
+        var compT = new Dictionary<object, double[]>();
+        bool local = true; int checkedN = 0;
         foreach (var ce in ViewEdges(v))
         {
             var e = ce.Item2;
-            var c = (Curve)e.GetCurve();
-            if (!c.IsLine()) continue;
             var cpd = e.GetCurveParams3();
+            if (cpd.CurveType != (int)swCurveTypes_e.LINE_TYPE) continue;
             var own = ce.Item1 == null ? null : (((Entity)e).GetComponent() as Component2 ?? ce.Item1);   // the part the edge belongs to
-            r.Add(Tuple.Create(e, ToSheet(mu, v, InAsm(mu, own, (double[])cpd.StartPoint)), ToSheet(mu, v, InAsm(mu, own, (double[])cpd.EndPoint))));
+            var sp = (double[])cpd.StartPoint; var ep = (double[])cpd.EndPoint;
+            double[] a, b;
+            if (local)
+            {
+                double[] ct = null;
+                if (own != null && !compT.TryGetValue(own, out ct)) { var t2 = own.Transform2; ct = t2 == null ? null : (double[])t2.ArrayData; compT[own] = ct; }
+                a = Xf(vt, Xf(ct, sp)); b = Xf(vt, Xf(ct, ep));
+                if (checkedN < 5)
+                {
+                    var a2 = ToSheet(mu, v, InAsm(mu, own, sp));
+                    if (Math.Abs(a2[0] - a[0]) > 1e-7 || Math.Abs(a2[1] - a[1]) > 1e-7) { local = false; Console.WriteLine("  (local transform disagrees; asking SOLIDWORKS per point)"); }
+                    checkedN++;
+                }
+                if (!local) { a = ToSheet(mu, v, InAsm(mu, own, sp)); b = ToSheet(mu, v, InAsm(mu, own, ep)); }
+            }
+            else { a = ToSheet(mu, v, InAsm(mu, own, sp)); b = ToSheet(mu, v, InAsm(mu, own, ep)); }
+            r.Add(Tuple.Create(e, a, b));
         }
         return r;
+    }
+
+    // SOLIDWORKS MathTransform array [rotation 3x3, translation, scale]: p' = scale * (p x R) + t
+    static double[] Xf(double[] t, double[] p)
+    {
+        if (t == null) return p;
+        double s = t[12] == 0 ? 1 : t[12];
+        return new[] { s * (p[0] * t[0] + p[1] * t[3] + p[2] * t[6]) + t[9], s * (p[0] * t[1] + p[1] * t[4] + p[2] * t[7]) + t[10], s * (p[0] * t[2] + p[1] * t[5] + p[2] * t[8]) + t[11] };
     }
 
     // Visible edges of a view with the component each belongs to (null for a part view).

@@ -261,12 +261,25 @@ static partial class Draw
             int n = g.Count();
             string text = (n > 1 ? n + " x " : "") + (c0.Slot ? (c0.Width * 1000).ToString("0.0") + " X " + (c0.Length * 1000).ToString("0") : "<MOD-DIAM>" + (c0.Width * 1000).ToString("0.#")) + " THRU";
             // leader to the slot's end arc / the hole's circle, picked by position on the sheet
-            var arc = circles.Where(e => Math.Abs(e.Item3 - c0.Width) < 1e-6).OrderBy(e => Dist2(e.Item2, cs)).FirstOrDefault();
+            // slot: the leader goes to the top end of the slot (Grant 14 Nov), i.e. its upper end arc
+            var arc = c0.Slot
+                ? circles.Where(e => Math.Abs(e.Item3 - c0.Width) < 1e-6 && Dist2(e.Item2, cs) < c0.Length * main.ScaleDecimal).OrderByDescending(e => e.Item2[1]).FirstOrDefault()
+                : circles.Where(e => Math.Abs(e.Item3 - c0.Width) < 1e-6).OrderBy(e => Dist2(e.Item2, cs)).FirstOrDefault();
             drwDoc.ClearSelection2(true);
-            if (arc != null) { var sd = (SelectData)selMgr.CreateSelectData(); sd.View = main; ((Entity)arc.Item1).Select4(false, sd); }
+            if (arc != null)
+            {
+                var sd = (SelectData)selMgr.CreateSelectData(); sd.View = main; ((Entity)arc.Item1).Select4(false, sd);
+            }
             var note = drwDoc.InsertNote(text) as Note;
             if (note == null) { problems.Add("callout not placed: " + text); continue; }
             var an = (Annotation)note.GetAnnotation();
+            if (arc != null)
+            {
+                // arrow tip to the top of the slot / hole (Grant 14 Nov); still attached to the same arc
+                double r = c0.Width / 2 * main.ScaleDecimal;
+                bool moved = an.SetLeaderAttachmentPointAtIndex(0, arc.Item2[0], arc.Item2[1] + r, 0);
+                Console.WriteLine("  callout arrow moved to the top: " + moved);
+            }
             mo = (double[])main.GetOutline();
             an.SetPosition2(mo[0] - 0.035, mo[3] + 0.015 + 0.008 * k, 0);
             Console.WriteLine("Callout: " + text.Replace("<MOD-DIAM>", "Ø") + (arc == null ? " (no leader: arc not found)" : ""));

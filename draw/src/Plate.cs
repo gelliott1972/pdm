@@ -455,6 +455,7 @@ static partial class Draw
 
     // Free sheet area for views: inside the border, above the title block (sheet metres; Unilumin A3 format).
     const double AreaX0 = 0.020, AreaX1 = 0.400, AreaY0 = 0.070, AreaY1 = 0.280, RowGap = 0.015, ColGap = 0.020;
+    const double IsoInset = 0.020;   // isometric block's distance in from the left of the free area
 
     static void Layout(ModelDoc2 doc, View main, View side, View iso)
     {
@@ -474,20 +475,28 @@ static partial class Draw
             tb = new[] { ta[2] + ColGap, faceCy - bLow, ta[2] + ColGap + W(b), faceCy - bLow + H(b) };
         }
         double topLow = Math.Min(ta[1], tb != null ? tb[1] : 0);
-        // isometric block: bottom left, lined up with the left of the views above (Grant 14 Nov)
-        var tc = c == null ? null : new[] { ta[0], topLow - RowGap - H(c), ta[0] + W(c), topLow - RowGap };
-        // Centre of area of the blocks -> middle of the free area; then keep everything inside it.
-        var boxes = new List<double[]> { ta }; if (tb != null) boxes.Add(tb); if (tc != null) boxes.Add(tc);
-        double area = boxes.Sum(x => W(x) * H(x));
-        double gx = boxes.Sum(x => W(x) * H(x) * (x[0] + x[2]) / 2) / area, gy = boxes.Sum(x => W(x) * H(x) * (x[1] + x[3]) / 2) / area;
-        double dx = (AreaX0 + AreaX1) / 2 - gx, dy = (AreaY0 + AreaY1) / 2 - gy;
-        double minX = boxes.Min(x => x[0]) + dx, maxX = boxes.Max(x => x[2]) + dx, minY = boxes.Min(x => x[1]) + dy, maxY = boxes.Max(x => x[3]) + dy;
-        if (maxX > AreaX1) dx -= maxX - AreaX1; else if (minX < AreaX0) dx += AreaX0 - minX;
-        if (maxY > AreaY1) dy -= maxY - AreaY1; else if (minY < AreaY0) dy += AreaY0 - minY;
-        Console.WriteLine("Layout: centre of area moved to " + Mm(gx + dx) + "," + Mm(gy + dy) + " (middle of free area " + Mm((AreaX0 + AreaX1) / 2) + "," + Mm((AreaY0 + AreaY1) / 2) + ")");
+        // Grant 14 Nov: the face and side views centred across the sheet and near its vertical middle; the isometric
+        // (with its note block) out to the left like James's, below them; the isometric is not part of the centring.
+        double topRight = tb != null ? tb[2] : ta[2], topH = -topLow;
+        double dx = (AreaX0 + AreaX1) / 2 - (ta[0] + topRight) / 2;
+        double topBottom = (AreaY0 + AreaY1) / 2 - topH / 2;                   // top row centred on the middle
+        double[] tcAbs = null;
+        if (c != null)
+        {
+            double isoL = AreaX0 + IsoInset, isoR = isoL + W(c);
+            bool under = isoR > ta[0] + dx - ColGap;                            // would sit under the top row
+            if (under) topBottom = Math.Max(topBottom, AreaY0 + H(c) + RowGap); // make room below
+            double bandTop = under ? topBottom - RowGap : (AreaY0 + AreaY1) / 2;
+            double isoB = Math.Max(AreaY0, (AreaY0 + bandTop) / 2 - H(c) / 2);  // centred in the space below
+            tcAbs = new[] { isoL, isoB, isoR, isoB + H(c) };
+        }
+        if (topBottom + topH > AreaY1) topBottom = AreaY1 - topH;
+        double dy = topBottom - topLow;
+        Console.WriteLine("Layout: face/side views centred across at " + Mm((AreaX0 + AreaX1) / 2) + ", from " + Mm(topBottom) + " to " + Mm(topBottom + topH) + " high"
+            + (tcAbs != null ? "; isometric block at " + Box(tcAbs) : ""));
         MoveTo(doc, main, ta, dx, dy);
         if (side != null) MoveTo(doc, side, tb, dx, dy);
-        if (iso != null) MoveTo(doc, iso, tc, dx, dy);
+        if (iso != null) MoveTo(doc, iso, tcAbs, 0, 0);
         var fa = Extent(main); var fb = side != null ? Extent(side) : null; var fc = iso != null ? Extent(iso) : null;
         Console.WriteLine("  face block " + Box(fa) + (fb != null ? ", side " + Box(fb) : "") + (fc != null ? ", isometric " + Box(fc) : ""));
         foreach (var x in new[] { fa, fb, fc })

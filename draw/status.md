@@ -9,9 +9,9 @@ Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\code\pdm\scratch\
 | 0 Templates | From a copy of James's GNRIC-PLP-06.SLDDRW into `scratch\draw-test\_Templates`: `Unilumin-A3.slddrt` (sheet format), `Unilumin-A3.drwdot` (drawing template: his document settings, revision table emptied, old revision and date cleared), `Unilumin-revision.sldrevtbt`, `note-block.txt` | A new drawing from the template matches James's sheet. BOM and cut-list table templates **not yet** (plate drawing has neither; take from an assembly and a weldment drawing before step 4) |
 | 1 One plate | **GNRIC-PLP-06**. Draft v3 `scratch\draw-test\PLP-06\GNRIC-PLP-06.SLDDRW`; PDFs side by side in `PLP-06\review\` (James, draft v1, draft v3). 11 s to make | Values checked against the model by the tool and against James's PDF by me. Grant reviewed v1 |
 
-Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08XXX-PLP-30 uses chain dimensions instead of ordinate, so his style varies.
-
 | 2 Rules, undrawn plate, bracket | Rules: `draw\.claude\skills\drawing-standards\SKILL.md`; layout learned from Grant's hand-laid-out drawings (`learn-layout`, `layout-examples.json`). **08X04-PLP-01** (undrawn plate) worked first time. **08X04-BKP-01** (angle, two slots) with new `make-section`: face view, linked end view, slot callout, section sizes, CHECK flags (L=150 vs 100, no material, weight) | Grant: bracket layout right, plate layout good (14 Nov). Desk DR1 open (100 or 150 long) |
+
+Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08XXX-PLP-30 uses chain dimensions instead of ordinate, so his style varies.
 
 ## Grant's feedback on PLP-06 (14 Nov) and what changed in v3
 

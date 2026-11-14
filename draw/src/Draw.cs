@@ -9,6 +9,7 @@
 //   save-table-templates <drawing> <outFolder>  every table on the sheet saved as a table template (BOM / cut list)
 //   make-plate <part> <config> <out.SLDDRW> <template.drwdot>   first draft of a plate drawing (DRAFT layer, magenta)
 //   accept <drawing> [--all]                  move what is selected in SOLIDWORKS (or everything) off layer DRAFT
+//   select-draft <drawing>                    select every item still on layer DRAFT in the open drawing
 //   pdf <drawing> <out.pdf>                   export a PDF
 //   close-all                                 close every document without saving
 //
@@ -58,6 +59,7 @@ static partial class Draw
                 case "save-table-templates": if (pos.Count != 2) return Usage(); rc = SaveTableTemplates(pos[0], pos[1]); break;
                 case "make-plate": if (pos.Count != 4) return Usage(); rc = MakePlate(pos[0], pos[1], pos[2], pos[3], flags); break;
                 case "accept": if (pos.Count != 1) return Usage(); rc = Accept(pos[0], flags.Contains("all")); break;
+                case "select-draft": if (pos.Count != 1) return Usage(); rc = SelectDraft(pos[0]); break;
                 case "pdf": if (pos.Count != 2) return Usage(); rc = Pdf(pos[0], pos[1]); break;
                 case "close-all": sw.CloseAllDocuments(true); Console.WriteLine("Closed all documents (not saved)."); rc = 0; break;
                 default: return Usage();

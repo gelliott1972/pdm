@@ -279,8 +279,10 @@ static partial class Draw
         {
             var leftE = vLines.OrderBy(l => l.Item2).First(); var rightE = vLines.OrderBy(l => l.Item2).Last();
             var topE = hLines.OrderBy(l => l.Item2).Last(); var botE = hLines.OrderBy(l => l.Item2).First();
-            var cols = circles.GroupBy(c => Math.Round(c.Item2[0] * 1e5)).Select(g => g.First()).OrderBy(c => c.Item2[0]).ToList();
-            var rows = circles.GroupBy(c => Math.Round(c.Item2[1] * 1e5)).Select(g => g.First()).OrderByDescending(c => c.Item2[1]).ToList();
+            // Each ordinate attaches to the hole nearest its dimension line (as James), so extension lines don't run
+            // across other holes: the top hole of each column, the right-most hole of each row (Grant 14 Nov).
+            var cols = circles.GroupBy(c => Math.Round(c.Item2[0] * 1e5)).Select(g => g.OrderByDescending(c => c.Item2[1]).First()).OrderBy(c => c.Item2[0]).ToList();
+            var rows = circles.GroupBy(c => Math.Round(c.Item2[1] * 1e5)).Select(g => g.OrderByDescending(c => c.Item2[0]).First()).OrderByDescending(c => c.Item2[1]).ToList();
             var hSel = new List<Edge> { leftE.Item1 }; hSel.AddRange(cols.Select(c => c.Item1)); hSel.Add(rightE.Item1);
             var vSel = new List<Edge> { topE.Item1 }; vSel.AddRange(rows.Select(c => c.Item1)); vSel.Add(botE.Item1);
             double vs = main.ScaleDecimal;
@@ -609,6 +611,37 @@ static partial class Draw
         for (var v = (View)((DrawingDoc)doc).GetFirstView(); v != null; v = (View)v.GetNextView())
             foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0]) if (a.Layer == DraftLayer) left++;
         Console.WriteLine("Accepted " + moved + "; still on DRAFT (magenta): " + left + ". Not saved: save in SOLIDWORKS (Ctrl+S) to keep it.");
+        return 0;
+    }
+
+    // Select (in SOLIDWORKS) every annotation still on layer DRAFT, so the person checking can Ctrl+click to drop some
+    // and then accept the rest (Layer list -None-, or Draw.exe accept).
+    static int SelectDraft(string file)
+    {
+        var doc = (ModelDoc2)sw.GetOpenDocumentByName(file);
+        if (doc == null) { Console.Error.WriteLine("Not open in SOLIDWORKS: " + file); return 2; }
+        sw.ActivateDoc3(doc.GetTitle(), false, 0, 0);
+        doc.ClearSelection2(true);
+        int n = 0, total = 0;
+        for (var v = (View)((DrawingDoc)doc).GetFirstView(); v != null; v = (View)v.GetNextView())
+            foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.Layer != DraftLayer) continue;
+                total++;
+                if (a.Select3(true, null)) n++;
+                else
+                {
+                    // Some kinds (ordinate dimensions after the first of a group, centre marks) refuse Select3; try
+                    // selecting the specific object instead.
+                    object o = a.GetSpecificAnnotation();
+                    bool ok = false;
+                    var dd = o as DisplayDimension; var cm = o as CenterMark;
+                    if (cm != null) ok = cm.Select(true, null);
+                    else ok = a.Select2(true, 0);
+                    if (ok) n++; else Console.WriteLine("  could not select " + TypeName(a.GetType()) + " " + a.GetName());
+                }
+            }
+        Console.WriteLine("Selected " + n + " of " + total + " items on DRAFT (SOLIDWORKS says " + ((SelectionMgr)doc.SelectionManager).GetSelectedObjectCount2(-1) + " selected).");
         return 0;
     }
 

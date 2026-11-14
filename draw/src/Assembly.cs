@@ -190,6 +190,8 @@ static partial class Draw
         leafBoxes = Leaves(((object[])((AssemblyDoc)asm).GetComponents(true) ?? new object[0]).Cast<Component2>())
             .Select(c => c.GetBox(false, false) as double[]).Where(b => b != null).ToList();
         Console.WriteLine("Visible parts measured: " + leafBoxes.Count);
+        Func<double[], double> boxLen = b => Math.Max(b[3] - b[0], Math.Max(b[4] - b[1], b[5] - b[2]));
+        memberBox = leafBoxes.OrderByDescending(boxLen).FirstOrDefault();
         var ext = new[] { box[3] - box[0], box[4] - box[1], box[5] - box[2] };
         int thin = Array.IndexOf(ext, ext.Min());
         string faceView = thin == 0 ? "*Right" : thin == 1 ? "*Top" : "*Front";
@@ -370,6 +372,7 @@ static partial class Draw
             // the RHS itself (Grant 14 Nov): its width in both views, its length on the face view
             RhsDims(drwDoc, drw, main, true, dimsOk);
             if (right != null) RhsDims(drwDoc, drw, right, false, dimsOk);
+            if (top != null) HdgCallout(drwDoc, drw, top, dimsOk);
         }
         else mem = MemberOrdinates(drwDoc, drw, main, dimsOk);
         if (top != null)
@@ -963,6 +966,60 @@ static partial class Draw
         }
     }
 
+    // The HDG drainage hole in the top plate (Grant 14 Nov), as James writes it (08A06-HBW-01): "Ø10" over "for HDG
+    // Drainage" on a leader. It's the hole in the end view that lies over the member's section (inside its box across
+    // the length); the bolt holes and slots lie outside it. A diameter dimension, so the size comes from the model.
+    static void HdgCallout(ModelDoc2 doc, DrawingDoc drw, View v, List<string> report)
+    {
+        if (memberBox == null) return;
+        var ext = new[] { memberBox[3] - memberBox[0], memberBox[4] - memberBox[1], memberBox[5] - memberBox[2] };
+        int along = Array.IndexOf(ext, ext.Max());
+        var vt = (double[])((MathTransform)v.ModelToViewTransform).ArrayData;
+        var compT = new Dictionary<object, double[]>();
+        var holes = new List<Tuple<Edge, double[], double>>();
+        foreach (var ce in ViewEdges(v))
+        {
+            var c = (Curve)ce.Item2.GetCurve();
+            if (!c.IsCircle()) continue;
+            var cp = (double[])c.CircleParams;
+            var own = ce.Item1 == null ? null : (((Entity)ce.Item2).GetComponent() as Component2 ?? ce.Item1);
+            double[] ct = null;
+            if (own != null && !compT.TryGetValue(own, out ct)) { var t2 = own.Transform2; ct = t2 == null ? null : (double[])t2.ArrayData; compT[own] = ct; }
+            var a = Xf(ct, new[] { cp[0], cp[1], cp[2] });   // assembly space
+            bool over = Enumerable.Range(0, 3).Where(i => i != along).All(i => a[i] > memberBox[i] + 0.001 && a[i] < memberBox[i + 3] - 0.001);
+            if (over) holes.Add(Tuple.Create(ce.Item2, Xf(vt, a), cp[6]));
+        }
+        var dist = holes.GroupBy(h => Math.Round(h.Item2[0] * 1e5) + "," + Math.Round(h.Item2[1] * 1e5)).Select(g => g.First()).ToList();
+        if (dist.Count == 0) { report.Add(v.GetName2() + " HDG hole: none over the member"); return; }
+        var o = OutlineOf(v);
+        int k = 0;   // each callout goes straight below the end view, under its ordinate row
+        foreach (var h in dist)
+        {
+            drw.ActivateView(v.GetName2());
+            doc.ClearSelection2(true);
+            var sd = (SelectData)((SelectionMgr)doc.SelectionManager).CreateSelectData(); sd.View = v;
+            DisplayDimension dd = null;
+            if (((Entity)h.Item1).Select4(false, sd))
+                try { dd = doc.AddDiameterDimension2(h.Item2[0] + 0.004, o[1] - 0.040 - 0.010 * k, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }
+            doc.ClearSelection2(true);
+            double want = Math.Round(2 * h.Item3 * 1000, 1);
+            double got = dd == null ? double.NaN : Math.Round(((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000, 1);
+            if (dd != null && Math.Abs(got - want) < 0.05)
+            {
+                dd.SetBrokenLeader2(false, (int)swDisplayDimensionLeaderText_e.swBrokenLeaderHorizontalText);
+                dd.SetText((int)swDimensionTextParts_e.swDimensionTextCalloutBelow, "for HDG Drainage");
+                report.Add(v.GetName2() + " HDG hole Ø" + got + " OK");
+            }
+            else
+            {
+                report.Add(v.GetName2() + " HDG hole: REMOVED (got " + got + ", want Ø" + want + ")");
+                if (dd != null) { ((Annotation)dd.GetAnnotation()).Select3(false, null); doc.Extension.DeleteSelection2(0); }
+                missingGroups.Add(v.GetName2() + " HDG hole");
+            }
+            k++;
+        }
+    }
+
     // Circles in a view (holes), with their centres on the sheet, transformed as ViewLines does.
     static List<Tuple<Edge, double[]>> ViewCirclesAsm(View v)
     {
@@ -987,7 +1044,9 @@ static partial class Draw
     // every plate and hole and both ends, break out the empty lengths between them (at least BreakMinMm), then use the
     // largest of James's scales at which the shortened views fit the space. The face view and the side view get the
     // same breaks (they're aligned). Returns the scale used (unchanged if breaking didn't work).
-    static int ForcedDen;   // --scale=N: the scale for a long member's views (Grant 14 Nov: "what does it look like at 1:10")
+    static int ForcedDen;
+    static double[] memberBox;   // assembly box of the longest visible part (the RHS/SHS of a long member)   // --scale=N: the scale for a long member's views (Grant 14 Nov: "what does it look like at 1:10")
+    const double MaxBreakFrac = 1.0 / 3;   // the breaks may cut out at most this much of the member's length
     const double BreakMinMm = 150, BreakKeepMm = 40, BreakGapSheet = 0.003;   // 3 mm between break lines on paper
     static int BreakLongMember(ModelDoc2 doc, DrawingDoc drw, Sheet sheet, View main, View side, int den, double spaceH, Func<int, bool> widthFits)
     {
@@ -1013,7 +1072,12 @@ static partial class Draw
         for (int i = 1; i < keep.Count; i++) if (keep[i][0] - keep[i - 1][1] >= BreakMinMm) gaps.Add(new[] { keep[i - 1][1], keep[i][0] });
         if (gaps.Count == 0) { Console.WriteLine("Breaks: no empty length long enough"); return den; }
         double keptMin = L - gaps.Sum(g => g[1] - g[0]);
-        int den2 = ForcedDen > 0 ? ForcedDen : AsmScales.FirstOrDefault(d => keptMin / 1000 / d + gaps.Count * BreakGapSheet <= spaceH && widthFits(d));
+        Func<int, bool> fitsBroken = d => keptMin / 1000 / d + gaps.Count * BreakGapSheet <= spaceH && widthFits(d);
+        Func<int, double> cutFrac = d => Math.Max(0, L - (spaceH - gaps.Count * BreakGapSheet) * d * 1000) / L;
+        int den2 = ForcedDen > 0 ? ForcedDen
+            : AsmScales.FirstOrDefault(d => fitsBroken(d) && cutFrac(d) <= MaxBreakFrac);   // Grant 14 Nov: 1:5 "a bit big", 1:10 "much better"
+        if (den2 == 0) den2 = AsmScales.FirstOrDefault(fitsBroken);
+        if (den2 != 0) Console.WriteLine("  scale rule: breaks cut out " + (cutFrac(den2) * 100).ToString("0") + "% at 1:" + den2 + " (at most " + (MaxBreakFrac * 100).ToString("0") + "%)");
         if (ForcedDen > 0 && keptMin / 1000 / ForcedDen + gaps.Count * BreakGapSheet > spaceH) problems.Add("1:" + ForcedDen + " (asked for) is too big even with every break");
         if (den2 == 0) den2 = AsmScales.Last();
         // at that scale, take out only what's needed to fill the height: each break shares the cut by its gap's length,

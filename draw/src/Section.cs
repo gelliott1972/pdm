@@ -698,6 +698,25 @@ static partial class Draw
                 a.SetPosition2(up ? fo[0] - 0.0065 : fo[0] - 0.030, up ? fo[3] + 0.0226 : (fo[1] + fo[3]) / 2 + 0.004, 0);
             }
         }
+        // everything inside the border (GNRIC-LMW-06: the end view's label ran past it): if a note on the end views reaches
+        // past the right border, move the views left by that much (their notes and dimensions go with them)
+        if (upright)
+        {
+            double right = 0;
+            foreach (var vw in new[] { side, capView }.Where(x => x != null))
+                foreach (Annotation a in (vw.GetAnnotations() as object[]) ?? new object[0])
+                    if (a.GetType() == (int)swAnnotationType_e.swNote)
+                    {
+                        var ext = ((Note)a.GetSpecificAnnotation()).GetExtent() as double[];
+                        if (ext != null) right = Math.Max(right, Math.Max(ext[0], ext[3]));
+                    }
+            double over = right - (BorderX1 - 0.004);
+            if (over > 0)
+            {
+                foreach (var vw in new[] { main, side, capView }.Where(x => x != null)) { var vo4 = (double[])vw.GetOutline(); MoveOutline(drwDoc, vw, vo4[0] - over, double.NaN); }
+                Console.WriteLine("Views moved " + Mm(over) + " left: an end view's label reached past the border");
+            }
+        }
         if (flagNote != null)
             {   // notes for James: outside the border, bottom left of the sheet, as Grant placed them on GNRIC-LMW-02 (15 Nov, brief draw-3)
                 var fa = (Annotation)flagNote.GetAnnotation();

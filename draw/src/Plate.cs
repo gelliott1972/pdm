@@ -146,6 +146,7 @@ static partial class Draw
     // dimensions from the top-left corner, centre marks, "n x Ø d THRU" callout, thickness. Everything the machine
     // places goes on layer DRAFT (magenta). Nothing is copied from another drawing, so nothing can dangle; it is
     // still checked before saving.
+    static List<string> plateSlotFlags = new List<string>();
     static int MakePlate(string partFile, string config, string output, string template, HashSet<string> flags)
     {
         if (File.Exists(output)) { Console.Error.WriteLine("REFUSED: already exists, not overwritten: " + output); return 2; }
@@ -189,6 +190,35 @@ static partial class Draw
             double depth = fb[3 + thin] - fb[thin];
             holes.Add(new Hole { C = new[] { cp[0], cp[1], cp[2] }, D = 2 * cp[6], Thru = Math.Abs(depth - ext[thin]) < 1e-5 });
         }
+        // slots (Grant 15 Nov: located by their centres only, sized only by their callout): pairs of half-round ends
+        var ends = new List<Tuple<double[], double>>();   // end-arc centre (model), radius
+        foreach (Face2 f in (object[])body.GetFaces())
+        {
+            var sf2 = (Surface)f.GetSurface();
+            if (!sf2.IsCylinder() || !SlotEnd(f)) continue;
+            var cp = (double[])sf2.CylinderParams;
+            if (Math.Abs(Math.Abs(cp[3 + thin]) - 1) > 1e-6) continue;
+            ends.Add(Tuple.Create(new[] { cp[0], cp[1], cp[2] }, cp[6]));
+        }
+        var slots = new List<Tuple<double[], double, double>>();   // centre (model), width, length (m)
+        var usedEnd = new HashSet<int>();
+        for (int i = 0; i < ends.Count; i++)
+        {
+            if (usedEnd.Contains(i)) continue;
+            int best = -1; double bd = double.MaxValue;
+            for (int j = 0; j < ends.Count; j++)
+            {
+                if (j == i || usedEnd.Contains(j) || Math.Abs(ends[i].Item2 - ends[j].Item2) > 1e-7) continue;
+                double d0 = Math.Sqrt(Enumerable.Range(0, 3).Where(a => a != thin).Sum(a => Math.Pow(ends[i].Item1[a] - ends[j].Item1[a], 2)));
+                if (d0 < bd) { bd = d0; best = j; }
+            }
+            if (best < 0) { problems.Add("a slot end without its partner"); continue; }
+            usedEnd.Add(i); usedEnd.Add(best);
+            var c0 = ends[i].Item1; var c1 = ends[best].Item1;
+            slots.Add(Tuple.Create(new[] { (c0[0] + c1[0]) / 2, (c0[1] + c1[1]) / 2, (c0[2] + c1[2]) / 2 }, 2 * ends[i].Item2, bd + 2 * ends[i].Item2));
+        }
+        foreach (var g in slots.GroupBy(x => Math.Round(x.Item2 * 1e5) + "x" + Math.Round(x.Item3 * 1e5)))
+            Console.WriteLine("  slots: " + g.Count() + " x " + Mm(g.First().Item2) + " wide x " + Mm(g.First().Item3) + " long");
         var groups = holes.GroupBy(h => Math.Round(h.D * 1000, 2)).OrderBy(g => g.Key).ToList();
         foreach (var g in groups) Console.WriteLine("  holes: " + g.Count() + " x Ø" + g.Key + (g.All(h => h.Thru) ? " THRU" : " (not all through)"));
 
@@ -285,7 +315,10 @@ static partial class Draw
             if (c.IsCircle())
             {
                 var cp = (double[])c.CircleParams;
-                circles.Add(Tuple.Create(e, ToSheet(mu, main, new[] { cp[0], cp[1], cp[2] }), 2 * cp[6]));
+                var cpc = e.GetCurveParams3();
+                var sp0 = (double[])cpc.StartPoint; var ep0 = (double[])cpc.EndPoint;
+                bool full = Math.Abs(sp0[0] - ep0[0]) + Math.Abs(sp0[1] - ep0[1]) + Math.Abs(sp0[2] - ep0[2]) < 1e-9;
+                if (full) circles.Add(Tuple.Create(e, ToSheet(mu, main, new[] { cp[0], cp[1], cp[2] }), 2 * cp[6]));
             }
             else if (c.IsLine())
             {
@@ -306,13 +339,42 @@ static partial class Draw
             // across other holes: the top hole of each column, the right-most hole of each row (Grant 14 Nov).
             var cols = circles.GroupBy(c => Math.Round(c.Item2[0] * 1e5)).Select(g => g.OrderByDescending(c => c.Item2[1]).First()).OrderBy(c => c.Item2[0]).ToList();
             var rows = circles.GroupBy(c => Math.Round(c.Item2[1] * 1e5)).Select(g => g.OrderByDescending(c => c.Item2[0]).First()).OrderByDescending(c => c.Item2[1]).ToList();
-            var hSel = new List<Edge> { leftE.Item1 }; hSel.AddRange(cols.Select(c => c.Item1)); hSel.Add(rightE.Item1);
-            var vSel = new List<Edge> { topE.Item1 }; vSel.AddRange(rows.Select(c => c.Item1)); vSel.Add(botE.Item1);
             double vs = main.ScaleDecimal;
-            expectedOrd.Add(0); expectedOrd.AddRange(cols.Select(c => (c.Item2[0] - leftE.Item2) / vs * 1000)); expectedOrd.Add((rightE.Item2 - leftE.Item2) / vs * 1000);
-            expectedOrd.Add(0); expectedOrd.AddRange(rows.Select(c => (topE.Item2 - c.Item2[1]) / vs * 1000)); expectedOrd.Add((topE.Item2 - botE.Item2) / vs * 1000);
-            Ordinate(drwDoc, selMgr, main, hSel, (int)swAddOrdinateDims_e.swHorizontalOrdinate, leftE.Item2, topE.Item2 + 0.012, "across the top");
-            Ordinate(drwDoc, selMgr, main, vSel, (int)swAddOrdinateDims_e.swVerticalOrdinate, rightE.Item2 + 0.012, topE.Item2, "down the right");
+            if (slots.Count == 0)
+            {
+                var hSel = new List<Edge> { leftE.Item1 }; hSel.AddRange(cols.Select(c => c.Item1)); hSel.Add(rightE.Item1);
+                var vSel = new List<Edge> { topE.Item1 }; vSel.AddRange(rows.Select(c => c.Item1)); vSel.Add(botE.Item1);
+                expectedOrd.Add(0); expectedOrd.AddRange(cols.Select(c => (c.Item2[0] - leftE.Item2) / vs * 1000)); expectedOrd.Add((rightE.Item2 - leftE.Item2) / vs * 1000);
+                expectedOrd.Add(0); expectedOrd.AddRange(rows.Select(c => (topE.Item2 - c.Item2[1]) / vs * 1000)); expectedOrd.Add((topE.Item2 - botE.Item2) / vs * 1000);
+                Ordinate(drwDoc, selMgr, main, hSel, (int)swAddOrdinateDims_e.swHorizontalOrdinate, leftE.Item2, topE.Item2 + 0.012, "across the top");
+                Ordinate(drwDoc, selMgr, main, vSel, (int)swAddOrdinateDims_e.swVerticalOrdinate, rightE.Item2 + 0.012, topE.Item2, "down the right");
+            }
+            else
+            {
+                // Grant 15 Nov: slots by their centres only, both ways. Slot centre marks first (the rows pick them); a mark
+                // serves one row only, so the row down the right prefers slots the top row didn't use; a slot centre a row
+                // still can't take is left off and flagged (never dimensioned to its end or side)
+                drw.ActivateView(main.GetName2());
+                if (!main.AutoInsertCenterMarks2((int)swAutoInsertCenterMarkTypes_e.swAutoInsertCenterMarkType_Slots, 0, true, true, false, CentreMarkSize, CentreMarkGap, true, true, 0))
+                    problems.Add("slot centre marks not inserted");
+                drwDoc.ClearSelection2(true);
+                var sc = slots.Select(x => ToSheet(mu, main, x.Item1)).ToList();
+                var topSlots = sc.GroupBy(q => Math.Round(q[0] * 1e5)).Select(g => g.OrderByDescending(q => q[1]).First()).ToList();
+                var rightSlots = sc.GroupBy(q => Math.Round(q[1] * 1e5)).Select(g => g.OrderBy(q => topSlots.Contains(q) ? 1 : 0).ThenByDescending(q => q[0]).First()).ToList();
+                var hItems = new List<object> { leftE.Item1 }; var hVals = new List<double> { 0 };
+                foreach (var c in cols) { hItems.Add(c.Item1); hVals.Add((c.Item2[0] - leftE.Item2) / vs * 1000); }
+                foreach (var q in topSlots) if (!hVals.Any(v => Math.Abs(v - (q[0] - leftE.Item2) / vs * 1000) < 0.01)) { hItems.Add(q); hVals.Add((q[0] - leftE.Item2) / vs * 1000); }
+                hItems.Add(rightE.Item1); hVals.Add((rightE.Item2 - leftE.Item2) / vs * 1000);
+                var vItems = new List<object> { topE.Item1 }; var vVals = new List<double> { 0 };
+                foreach (var c in rows) { vItems.Add(c.Item1); vVals.Add((topE.Item2 - c.Item2[1]) / vs * 1000); }
+                foreach (var q in rightSlots) if (!vVals.Any(v => Math.Abs(v - (topE.Item2 - q[1]) / vs * 1000) < 0.01)) { vItems.Add(q); vVals.Add((topE.Item2 - q[1]) / vs * 1000); }
+                vItems.Add(botE.Item1); vVals.Add((topE.Item2 - botE.Item2) / vs * 1000);
+                Ordinate2(drwDoc, selMgr, main, hItems, (int)swAddOrdinateDims_e.swHorizontalOrdinate, leftE.Item2, topE.Item2 + 0.012, "across the top");
+                foreach (var q in lastMissed) { double mv = (q[0] - leftE.Item2) / vs * 1000; int at = hVals.FindIndex(v => Math.Abs(v - mv) < 0.01); if (at >= 0) hVals.RemoveAt(at); plateSlotFlags.Add("CHECK: SLOT CENTRE ACROSS NOT DIMENSIONED (" + Math.Round(mv, 1) + ")"); }
+                Ordinate2(drwDoc, selMgr, main, vItems, (int)swAddOrdinateDims_e.swVerticalOrdinate, rightE.Item2 + 0.012, topE.Item2, "down the right");
+                foreach (var q in lastMissed) { double mv = (topE.Item2 - q[1]) / vs * 1000; int at = vVals.FindIndex(v => Math.Abs(v - mv) < 0.01); if (at >= 0) vVals.RemoveAt(at); plateSlotFlags.Add("CHECK: SLOT CENTRE DOWN NOT DIMENSIONED (" + Math.Round(mv, 1) + ")"); }
+                expectedOrd.AddRange(hVals); expectedOrd.AddRange(vVals);
+            }
         }
         drwDoc.ClearSelection2(true);
 
@@ -336,6 +398,27 @@ static partial class Draw
             dd.SetText((int)swDimensionTextParts_e.swDimensionTextPrefix, (n > 1 ? n + " x " : "") + "<MOD-DIAM>");
             dd.SetText((int)swDimensionTextParts_e.swDimensionTextSuffix, thru ? " THRU" : "");
             if (!thru) problems.Add("Ø" + g.Key + ": not every hole goes through; callout says nothing about depth");
+            k++;
+        }
+        drwDoc.ClearSelection2(true);
+        foreach (var g in slots.GroupBy(x => Math.Round(x.Item2 * 1e5) + "x" + Math.Round(x.Item3 * 1e5)))
+        {
+            var s0 = g.OrderByDescending(x => ToSheet(mu, main, x.Item1)[1]).First();
+            var cs = ToSheet(mu, main, s0.Item1);
+            int n = g.Count();
+            string text = (n > 1 ? n + " x " : "") + (s0.Item2 * 1000).ToString("0.0") + " X " + (s0.Item3 * 1000).ToString("0") + " THRU";
+            var arc = ((main.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0]).Cast<Edge>()
+                .Where(e => ((Curve)e.GetCurve()).IsCircle() && Math.Abs(((double[])((Curve)e.GetCurve()).CircleParams)[6] * 2 - s0.Item2) < 1e-7)
+                .Select(e => Tuple.Create(e, ToSheet(mu, main, ((double[])((Curve)e.GetCurve()).CircleParams).Take(3).ToArray())))
+                .Where(t => Math.Sqrt(Math.Pow(t.Item2[0] - cs[0], 2) + Math.Pow(t.Item2[1] - cs[1], 2)) < s0.Item3 * main.ScaleDecimal)
+                .OrderByDescending(t => t.Item2[1]).FirstOrDefault();
+            drwDoc.ClearSelection2(true);
+            if (arc != null) { var sd = (SelectData)selMgr.CreateSelectData(); sd.View = main; ((Entity)arc.Item1).Select4(false, sd); }
+            var note = drwDoc.InsertNote(text) as Note;
+            if (note == null) { problems.Add("slot callout not placed: " + text); continue; }
+            ((Annotation)note.GetAnnotation()).SetPosition2(mo[0] - 0.030 - 0.008 * k, cs[1] + 0.022 + 0.008 * k, 0);
+            Console.WriteLine("Slot callout: " + text + (arc == null ? " (no leader: end arc not found)" : ""));
+            if (arc == null) problems.Add("slot callout without a leader: " + text);
             k++;
         }
         drwDoc.ClearSelection2(true);
@@ -397,7 +480,7 @@ static partial class Draw
         // Notes for James (08B04-SFA-2T CHECK style), outside the border bottom left as Grant placed them on GNRIC-LMW-02
         // (brief draw-3): a model with no material, or a weight far from the same plate in steel
         {
-            var pflags = new List<string>();
+            var pflags = new List<string>(plateSlotFlags);
             if (props["Material"] == "") pflags.Add("CHECK: MODEL HAS NO MATERIAL PROPERTY");
             double steelKg = ((object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]).Cast<Body2>().Sum(b => ((double[])b.GetMassProperties(7850))[5]);
             double wProp;

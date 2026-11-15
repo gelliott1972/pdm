@@ -1,0 +1,1 @@
+Locked SOLIDWORKS for sw: read 08X04-PLP-01..06 materials, read-only

@@ -1,0 +1,20 @@
+Attached to the running SOLIDWORKS (process 32360).
+Opened P:\APEX\SC08\LS-08X-04\_Shared\08X04-PLP-03.SLDPRT
+Material Plain Carbon Steel [SOLIDWORKS Materials] set in 2 of 2 configuration(s):
+MATERIAL	Default	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.635 kg -> 4.956 kg
+MATERIAL	PLATE ONLY	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.589 kg -> 4.597 kg
+What's wrong: nothing.
+Not saved.
+Closed it again without saving: the file on disk is unchanged.
+OK
+look exit 0
+Attached to the running SOLIDWORKS (process 32360).
+Opened P:\APEX\SC08\LS-08X-04\_Shared\08X04-PLP-06.SLDPRT
+Material Plain Carbon Steel [SOLIDWORKS Materials] set in 2 of 2 configuration(s):
+MATERIAL	Default<As Machined>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.023 kg -> 0.179 kg
+MATERIAL	Default<As Welded>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.023 kg -> 0.179 kg
+What's wrong: nothing.
+Not saved.
+Closed it again without saving: the file on disk is unchanged.
+OK
+look exit 0

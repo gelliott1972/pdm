@@ -1,0 +1,6 @@
+Vault: pdm-apex, pdm-files; local root P:\
+Checked out APEX/SC08/LS-08X-04/_Shared/08X04-PLP-03.SLDPRT
+Checked out APEX/SC08/LS-08X-04/_Shared/08X04-PLP-02.SLDPRT
+Checked out APEX/SC08/LS-08X-04/_Shared/08X04-PLP-01.SLDPRT
+Checked out APEX/SC08/LS-08X-04/_Shared/08X04-PLP-06.SLDPRT
+Checked out APEX/SC08/LS-08X-04/_Shared/08X04-PLP-05.SLDPRT

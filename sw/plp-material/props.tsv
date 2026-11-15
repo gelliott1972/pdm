@@ -1,0 +1,6 @@
+file	level	name	op	value	old
+APEX\SC08\LS-08X-04\_Shared\08X04-PLP-01.SLDPRT	@file	Material	set	"SW-Material@08X04-PLP-01.SLDPRT"	(none)
+APEX\SC08\LS-08X-04\_Shared\08X04-PLP-02.SLDPRT	@file	Material	set	"SW-Material@08X04-PLP-02.SLDPRT"	(none)
+APEX\SC08\LS-08X-04\_Shared\08X04-PLP-03.SLDPRT	@file	Material	set	"SW-Material@08X04-PLP-03.SLDPRT"	(none)
+APEX\SC08\LS-08X-04\_Shared\08X04-PLP-05.SLDPRT	@file	Material	set	"SW-Material@08X04-PLP-05.SLDPRT"	(none)
+APEX\SC08\LS-08X-04\_Shared\08X04-PLP-06.SLDPRT	@file	Material	set	"SW-Material@08X04-PLP-06.SLDPRT"	(none)

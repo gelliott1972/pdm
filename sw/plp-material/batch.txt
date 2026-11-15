@@ -1,0 +1,17 @@
+Batch: 5 changes in 5 files under P:\ (--checked-out)
+LOG APEX\SC08\LS-08X-04\_Shared\08X04-PLP-01.SLDPRT [@file] Material: (none) -> "SW-Material@08X04-PLP-01.SLDPRT"
+Set Material = "SW-Material@08X04-PLP-01.SLDPRT" at @file
+OK APEX\SC08\LS-08X-04\_Shared\08X04-PLP-01.SLDPRT: 1 change(s), read back, nothing else changed
+LOG APEX\SC08\LS-08X-04\_Shared\08X04-PLP-02.SLDPRT [@file] Material: (none) -> "SW-Material@08X04-PLP-02.SLDPRT"
+Set Material = "SW-Material@08X04-PLP-02.SLDPRT" at @file
+OK APEX\SC08\LS-08X-04\_Shared\08X04-PLP-02.SLDPRT: 1 change(s), read back, nothing else changed
+LOG APEX\SC08\LS-08X-04\_Shared\08X04-PLP-03.SLDPRT [@file] Material: (none) -> "SW-Material@08X04-PLP-03.SLDPRT"
+Set Material = "SW-Material@08X04-PLP-03.SLDPRT" at @file
+OK APEX\SC08\LS-08X-04\_Shared\08X04-PLP-03.SLDPRT: 1 change(s), read back, nothing else changed
+LOG APEX\SC08\LS-08X-04\_Shared\08X04-PLP-05.SLDPRT [@file] Material: (none) -> "SW-Material@08X04-PLP-05.SLDPRT"
+Set Material = "SW-Material@08X04-PLP-05.SLDPRT" at @file
+OK APEX\SC08\LS-08X-04\_Shared\08X04-PLP-05.SLDPRT: 1 change(s), read back, nothing else changed
+LOG APEX\SC08\LS-08X-04\_Shared\08X04-PLP-06.SLDPRT [@file] Material: (none) -> "SW-Material@08X04-PLP-06.SLDPRT"
+Set Material = "SW-Material@08X04-PLP-06.SLDPRT" at @file
+OK APEX\SC08\LS-08X-04\_Shared\08X04-PLP-06.SLDPRT: 1 change(s), read back, nothing else changed
+RESULT: 5 files, 5 changes, all read back

@@ -1,0 +1,8 @@
+CFG	08X04-PLP-01.SLDPRT	Default	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 4.403 kg, volume 564.455 cm3, density 7800 kg/m3
+CFG	08X04-PLP-02.SLDPRT	Default	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 11.196 kg, volume 1435.438 cm3, density 7800 kg/m3
+CFG	08X04-PLP-03.SLDPRT	Default	material "" ()	mass 0.635 kg, volume 635.419 cm3, density 1000 kg/m3
+CFG	08X04-PLP-03.SLDPRT	PLATE ONLY	material "" ()	mass 0.589 kg, volume 589.397 cm3, density 1000 kg/m3
+CFG	08X04-PLP-05.SLDPRT	Default<As Machined>	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 13.494 kg, volume 1729.976 cm3, density 7800 kg/m3
+CFG	08X04-PLP-05.SLDPRT	Default<As Welded>	material "Plain Carbon Steel" (SOLIDWORKS Materials)	mass 13.494 kg, volume 1729.976 cm3, density 7800 kg/m3
+CFG	08X04-PLP-06.SLDPRT	Default<As Machined>	material "" ()	mass 0.023 kg, volume 23.011 cm3, density 1000 kg/m3
+CFG	08X04-PLP-06.SLDPRT	Default<As Welded>	material "" ()	mass 0.023 kg, volume 23.011 cm3, density 1000 kg/m3

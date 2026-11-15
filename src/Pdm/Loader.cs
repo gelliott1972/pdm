@@ -97,17 +97,47 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
         if (dupes.Count > 0) { say("Stopped: fix the duplicate PartNos first."); return; }
         if (refused.Count > 0) { say($"Stopped: {refused.Count} file(s) refused (REFUSED lines above). Nothing was uploaded."); return; }
 
-        int n = 0;
+        // A load can take minutes. Each record is written only if it's still as read at the start (Grant's D13, 15 Nov):
+        // a check-out taken meanwhile is kept; a file checked in, moved or removed meanwhile is left as the vault has it.
+        int n = 0, keptLocks = 0;
+        var leftAlone = new List<string>();
         foreach (var (record, local, upload) in records)
         {
+            existing.TryGetValue(record.Path, out var old);
+            if (upload && old != null && await index.GetAsync(record.FileId) is var cur && !SameAsRead(cur, old))
+            {
+                leftAlone.Add($"{record.Path}: {ChangedHow(cur, old)} during the load, so this copy wasn't uploaded");
+                continue;
+            }
             if (upload)
             {
                 Paths.SetReadOnly(local, false);
                 (record.VersionId, record.ETag) = await vault.UploadAsync(local, record.Path, record.FileId);
                 if (++n % 10 == 0) say($"  uploaded {n} of {toUpload}");
             }
-            existing.TryGetValue(record.Path, out var old);
-            await index.PutAsync(record);
+            var was = old;
+            bool written = false, gaveUp = false;
+            for (int tries = 0; tries < 5 && !written && !gaveUp; tries++)
+            {
+                if (await index.PutIfUnchangedAsync(record, was)) { written = true; break; }
+                var now = await index.GetAsync(record.FileId);
+                if (now == null || was == null || now.VersionId != was.VersionId || now.Path != was.Path || now.RemovedAt != null)
+                {
+                    leftAlone.Add($"{record.Path}: {ChangedHow(now, was)} during the load; the vault's record was kept"
+                        + (upload ? $" (this PC's copy did go up as S3 version {record.VersionId}, under the newer one's record: tell App)" : ""));
+                    gaveUp = true; break;
+                }
+                // Only the check-out or release changed: keep the vault's, write the rest.
+                if (now.LockedBy != was.LockedBy || now.LockMachine != was.LockMachine) keptLocks++;
+                (record.LockedBy, record.LockedByName, record.LockedAt, record.LockMachine) = (now.LockedBy, now.LockedByName, now.LockedAt, now.LockMachine);
+                record.ReleaseSet = now.ReleaseSet;
+                was = now;
+            }
+            if (!written)
+            {
+                if (!gaveUp) leftAlone.Add($"{record.Path}: kept changing during the load; not written");
+                continue;
+            }
             if (upload) await Activity.LogAsync(vault, new ActivityEvent(record.UpdatedAt, adminName, Activity.KindOf(record.Path, old == null), record.Path, record.FileId,
                 Email: engine.Email, VersionId: record.VersionId, Note: record.Note), say);
             await index.UpdatePartNosAsync(record, old?.PartNos ?? new());
@@ -115,8 +145,22 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
             if (record.LockedBy == null) Paths.SetReadOnly(local, true);
         }
         state.Save(root);
-        say($"Load done: {n} uploaded, {records.Count} index records written. This PC's copy is recorded as current.");
+        say($"Load done: {n} uploaded, {records.Count - leftAlone.Count} index records written. This PC's copy is recorded as current.");
+        if (keptLocks > 0) say($"{keptLocks} check-out(s) taken during the load were kept.");
+        foreach (var x in leftAlone) say($"LEFT ALONE: {x}");
     }
+
+    static bool SameAsRead(FileRecord? now, FileRecord was) => now != null && now.VersionId == was.VersionId && now.Path == was.Path
+        && now.RemovedAt == null && now.LockedBy == was.LockedBy && now.LockMachine == was.LockMachine && now.ReleaseSet == was.ReleaseSet;
+
+    static string ChangedHow(FileRecord? now, FileRecord? was) =>
+        now == null ? "it left the index"
+        : was == null ? "a record with its id appeared"
+        : now.RemovedAt != null ? $"it was removed by {now.RemovedByName ?? now.RemovedBy ?? "someone"}"
+        : now.Path != was.Path ? $"it was moved to {now.Path}"
+        : now.VersionId != was.VersionId ? $"a newer version was checked in by {now.UpdatedBy}"
+        : now.LockedBy != was.LockedBy || now.LockMachine != was.LockMachine ? (now.LockedBy == null ? "its check-out was ended" : $"it was checked out by {now.LockedByName} on {now.LockMachine}")
+        : "its release changed";
 
     // Why a file that differs from the vault mustn't go up as changed, or null if it may.
     string? Refuse(FileRecord old, LocalState state)

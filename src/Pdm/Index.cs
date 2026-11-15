@@ -66,8 +66,38 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
         return r.Item is { Count: > 0 } ? FromItem(r.Item) : null;
     }
 
-    // Whole-record write, used by the loader.
+    // Whole-record write.
     public Task PutAsync(FileRecord f) => db.PutItemAsync(new PutItemRequest { TableName = s.FilesTable, Item = ToItem(f) });
+
+    // The loader's write (Grant's D13, 15 Nov): only if the record is still as the load read it (same version, path,
+    // check-out and release, not removed; for a new file, still not there). False if it changed meanwhile.
+    public async Task<bool> PutIfUnchangedAsync(FileRecord f, FileRecord? was)
+    {
+        var values = new Dictionary<string, AttributeValue>();
+        var names = new Dictionary<string, string>();
+        string cond;
+        if (was == null) cond = "attribute_not_exists(fileId)";
+        else
+        {
+            names["#p"] = "path"; names["#r"] = "release";
+            values[":v"] = S(was.VersionId); values[":p"] = S(was.Path);
+            cond = "versionId = :v AND #p = :p AND attribute_not_exists(removedAt)";
+            if (was.LockedBy == null) cond += " AND attribute_not_exists(lockedBy)";
+            else { values[":lb"] = S(was.LockedBy); values[":lm"] = S(was.LockMachine ?? ""); cond += " AND lockedBy = :lb AND lockMachine = :lm"; }
+            if (was.ReleaseSet == null) cond += " AND attribute_not_exists(#r)";
+            else { values[":r"] = S(was.ReleaseSet); cond += " AND #r = :r"; }
+        }
+        try
+        {
+            await db.PutItemAsync(new PutItemRequest
+            {
+                TableName = s.FilesTable, Item = ToItem(f), ConditionExpression = cond,
+                ExpressionAttributeNames = names.Count > 0 ? names : null, ExpressionAttributeValues = values.Count > 0 ? values : null
+            });
+            return true;
+        }
+        catch (ConditionalCheckFailedException) { return false; }
+    }
 
     // A new file only: refused if the fileId is already there.
     public Task AddAsync(FileRecord f) => db.PutItemAsync(new PutItemRequest

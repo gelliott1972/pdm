@@ -47,7 +47,7 @@ static partial class Draw
         // Every path must be inside the test folder: never P:\, M:\, C:\PDM-work or Dropbox.
         for (int i = 0; i < pos.Count; i++)
         {
-            if ((cmd == "make-plate" || cmd == "make-section" || cmd == "make-assembly" || cmd == "views" || cmd == "measure-member" || cmd == "remove-note" || cmd == "add-projection" || cmd == "move-view" || cmd == "delete-view" || cmd == "hole-dims") && i >= 1) continue;   // configuration name
+            if ((cmd == "make-plate" || cmd == "make-section" || cmd == "make-assembly" || cmd == "views" || cmd == "measure-member" || cmd == "remove-note" || cmd == "add-projection" || cmd == "move-view" || cmd == "delete-view" || cmd == "hole-dims" || cmd == "copy-layout") && i >= 1) continue;   // configuration name
             string full;
             try { full = Path.GetFullPath(pos[i]); } catch (Exception ex) { Console.Error.WriteLine("Bad path: " + ex.Message); return 2; }
             if (!full.StartsWith(TestRoot + "\\", StringComparison.OrdinalIgnoreCase))
@@ -79,6 +79,7 @@ static partial class Draw
                 case "view-boxes": if (pos.Count != 1) return Usage(); rc = ViewBoxes(pos[0]); break;
                 case "add-projection": if (pos.Count != 3) return Usage(); rc = AddProjection(pos[0], pos[1], pos[2]); break;
                 case "hole-dims": if (pos.Count != 2) return Usage(); rc = HoleDims(pos[0], pos[1]); break;
+                case "copy-layout": if (pos.Count != 2) return Usage(); rc = CopyLayout(pos[0], pos[1]); break;
                 case "move-view": if (pos.Count != 4) return Usage(); rc = MoveView(pos[0], pos[1], double.Parse(pos[2], System.Globalization.CultureInfo.InvariantCulture), double.Parse(pos[3], System.Globalization.CultureInfo.InvariantCulture)); break;
                 case "delete-view": if (pos.Count != 2) return Usage(); rc = DeleteView(pos[0], pos[1]); break;
                 case "save-active": if (pos.Count != 1) return Usage(); rc = SaveActive(pos[0]); break;

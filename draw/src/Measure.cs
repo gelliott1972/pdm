@@ -429,4 +429,36 @@ static partial class Draw
         doc.EditRebuild3();
         doc.ClearSelection2(true);
     }
+
+    // copy-layout <approved drawing> <open drawing>: Grant's placement from an approved sibling: each view's scale and
+    // position, and the note block's position. Edits the open drawing only; no save. (08X04-PLP-33 from -32)
+    static int CopyLayout(string from, string to)
+    {
+        var src = OpenDoc(from, null, true); var sd = (DrawingDoc)src;
+        var pos = new Dictionary<string, double[]>(); var scl = new Dictionary<string, double[]>(); var sheetScale = new Dictionary<string, bool>();
+        double[] notePos = null;
+        for (var v = (View)((View)sd.GetFirstView()).GetNextView(); v != null; v = (View)v.GetNextView())
+        {
+            pos[v.GetName2()] = (double[])v.Position; scl[v.GetName2()] = (double[])v.ScaleRatio; sheetScale[v.GetName2()] = v.UseSheetScale != 0;
+            foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+                if (a.GetType() == (int)swAnnotationType_e.swNote && (((Note)a.GetSpecificAnnotation()).GetText() ?? "").Contains("Filename")) notePos = (double[])a.GetPosition();
+        }
+        sw.CloseDoc(src.GetTitle());
+        var doc = OpenDoc(to, null, false); var drw = (DrawingDoc)doc;
+        for (var v = (View)((View)drw.GetFirstView()).GetNextView(); v != null; v = (View)v.GetNextView())
+        {
+            string n = v.GetName2(); if (!pos.ContainsKey(n)) continue;
+            if (sheetScale[n]) v.UseSheetScale = 1; else { v.UseSheetScale = 0; v.ScaleRatio = scl[n]; }
+            doc.ForceRebuild3(false);
+            v.Position = pos[n];
+            Console.WriteLine("View " + n + ": 1:" + Math.Round(1 / v.ScaleDecimal) + " at " + (pos[n][0] * 1000).ToString("0.#") + "," + (pos[n][1] * 1000).ToString("0.#"));
+            if (notePos != null)
+                foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+                    if (a.GetType() == (int)swAnnotationType_e.swNote && (((Note)a.GetSpecificAnnotation()).GetText() ?? "").Contains("Filename"))
+                    { a.SetPosition2(notePos[0], notePos[1], 0); Console.WriteLine("Note block at " + (notePos[0] * 1000).ToString("0.#") + "," + (notePos[1] * 1000).ToString("0.#")); }
+        }
+        doc.ForceRebuild3(false);
+        Console.WriteLine("not saved");
+        return 0;
+    }
 }

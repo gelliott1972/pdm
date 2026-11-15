@@ -236,7 +236,7 @@ static partial class Draw
     // main view's (Grant 15 Nov, GNRIC-LMW-01). Keeps its left-right place. Edits the open drawing only; doesn't save.
     static int AlignIso(string drawing)
     {
-        var doc = OpenDoc(drawing, null, true);
+        var doc = OpenDoc(drawing, null, false);   // for editing
         var drw = (DrawingDoc)doc;
         View main = null, iso = null;
         for (var v = (View)((View)drw.GetFirstView()).GetNextView(); v != null; v = (View)v.GetNextView())
@@ -253,5 +253,28 @@ static partial class Draw
         io = (double[])iso.GetOutline();
         Console.WriteLine("Isometric centre now " + ((io[1] + io[3]) / 2 * 1000).ToString("0.0") + " mm (left edge kept at " + (io[0] * 1000).ToString("0.0") + "); not saved");
         return 0;
+    }
+
+    // remove-note <drawing> <text>: in the open drawing, delete the sheet notes on DRAFT whose text contains <text> (e.g. a
+    // CHECK line that no longer applies after the model was fixed). Edits the open drawing only; doesn't save.
+    static int RemoveNote(string drawing, string contains)
+    {
+        var doc = OpenDoc(drawing, null, false);   // for editing
+        var drw = (DrawingDoc)doc;
+        int n = 0;
+        for (var v = (View)drw.GetFirstView(); v != null; v = (View)v.GetNextView())
+            foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.GetType() != (int)swAnnotationType_e.swNote || a.Layer != DraftLayer) continue;
+                var nt = (Note)a.GetSpecificAnnotation();
+                string t = nt.GetText() ?? "";
+                if (t.IndexOf(contains, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                doc.ClearSelection2(true);
+                if (a.Select3(false, null) && doc.Extension.DeleteSelection2(0)) { n++; Console.WriteLine("Removed note: " + t.Replace("\n", " / ")); }
+                else Console.WriteLine("Could not remove: " + t);
+            }
+        doc.ClearSelection2(true);
+        Console.WriteLine(n + " note(s) removed; not saved");
+        return n > 0 ? 0 : 1;
     }
 }

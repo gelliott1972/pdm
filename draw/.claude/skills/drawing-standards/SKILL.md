@@ -118,4 +118,4 @@ How it works (Grant D12, 15 Nov): one drawing at a time. Draw generates it and o
 | --- | --- | --- |
 | Moved the CHECK note from above the title block to outside the drawing border, bottom left of the sheet (x 3.4, y 5.4 mm from the sheet corner, one line) | **In the generator:** CHECK notes for James outside the border, bottom left of the sheet (brief draw-3) | GNRIC-LMW-02, 15 Nov |
 | Moved the isometric (with its note block) up 16 mm and left 12 mm on GNRIC-LMW-02; on GNRIC-LMW-01 said "the isometric should be vertically center aligned to the main 2D view" | **In the generator:** the isometric's vertical centre level with the main view's (its left-right place as before) | GNRIC-LMW-02, -01, 15 Nov (Grant agreed) |
-
+| Asked "why is the endcap 2D view on the bottom?" on GNRIC-LMW-04 (caps at both ends) | **In the generator:** with caps at both ends the cap view goes at the top (as with one cap), the section view below it, moved down clear of the cap view's label | GNRIC-LMW-04, 15 Nov |

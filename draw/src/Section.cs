@@ -61,7 +61,9 @@ static partial class Draw
         // LED members (GNRIC-LMW, batch 1) stand upright as James draws them (GNRIC-LWP-20) and as Grant signed off for
         // 08X06-LMW (15 Nov): the end view of the capped end to the right, the length measured from the top
         bool upright = Regex.IsMatch(props["PartNo"], "-LMW-", RegexOptions.IgnoreCase);
-        bool capAtMax = others.Count == 0 || others.Average(b => { var bb = (double[])b.GetBodyBox(); return (bb[lenAx] + bb[3 + lenAx]) / 2; }) > (box[lenAx] + box[3 + lenAx]) / 2;
+        // the cap view goes at the capped end; with caps at both ends, at the top like the one-cap members (Grant 15 Nov, GNRIC-LMW-04:
+        // "why is the endcap 2D view on the bottom?" - the average of the two caps fell in the middle)
+        bool capAtMax = others.Count == 0 || others.Any(b => { var bb = (double[])b.GetBodyBox(); return (bb[lenAx] + bb[3 + lenAx]) / 2 > (box[lenAx] + box[3 + lenAx]) / 2; });
         Console.WriteLine("Member length " + Mm(length) + " along " + "XYZ"[lenAx]);
 
         // Holes (full cylinders) and slots (two half cylinders), square to a flat face.
@@ -644,6 +646,21 @@ static partial class Draw
             lm.SetCurrentLayer("");
             drwDoc.ClearSelection2(true);
             Console.WriteLine("End views at 1:" + endDen + " (sheet 1:" + den + "), labelled");
+        }
+        // the lower end view clear of the upper one's label (GNRIC-LMW-04, caps both ends at 1:20: the section's 40 sat on
+        // the cap view's label). Upper label: top at its view's bottom - 16 mm, two lines; lower view: its width dimension
+        // 10 mm above it. Move the lower view down until there's 4 mm between.
+        if (upright && side != null && capView != null)
+        {
+            var upper = capAtMax ? capView : side; var lower = capAtMax ? side : capView;
+            var uo = (double[])upper.GetOutline(); var lo = (double[])lower.GetOutline();
+            double labelBottom = uo[1] - 0.016 - 0.009, lowerTop = lo[3] + 0.014;
+            if (lowerTop > labelBottom - 0.004)
+            {
+                double dy = lowerTop - (labelBottom - 0.004);
+                MoveOutline(drwDoc, lower, lo[0], (lo[1] + lo[3]) / 2 - dy);
+                Console.WriteLine("Lower end view moved down " + Mm(dy) + " to clear the upper view's label");
+            }
         }
         if (flagNote != null)
             {   // notes for James: outside the border, bottom left of the sheet, as Grant placed them on GNRIC-LMW-02 (15 Nov, brief draw-3)

@@ -226,7 +226,7 @@ static partial class Draw
         if (thin == 2) { xA = ext[0]; yB = ext[1]; zC = ext[2]; }
         else if (thin == 1) { xA = ext[0]; yB = ext[2]; zC = ext[1]; }
         else { xA = ext[2]; yB = ext[1]; zC = ext[0]; }
-        const double m = 0.004, dimRoom = 0.024, padL = 0.018, padR = 0.016, padT = 0.014, isoZoneRight = 0.185;
+        const double m = 0.004, dimRoom = 0.024, dimRoomV = 0.020, padL = 0.018, padR = 0.016, padT = 0.014, isoZoneRight = 0.185;
         double isoW = 0.7071 * (ext[0] + ext[2]), isoH = 0.8165 * ext[1] + 0.4082 * (ext[0] + ext[2]);   // standard isometric of the model's box
         double izX0 = BorderX0 + m, izX1 = isoZoneRight, izY0 = RevTop + 0.012, izY1 = (bomBox != null ? bomBox[1] : BorderY1) - 0.010;
         double pzX0 = isoZoneRight + 0.005, pzX1 = BorderX1 - m, pzY0 = TitleTop + m, pzY1 = BorderY1 - m;
@@ -238,14 +238,14 @@ static partial class Draw
         if (longMember) Console.WriteLine("Long member (" + (sorted[0] / sorted[1]).ToString("0.0") + " x): front, side and end views; plates and holes dimensioned down its length");
         Func<int, bool> projFits = d => longMember
             ? (zC + xA) / d + 3 * dimRoom <= pzX1 - pzX0 && (zC + yB) / d + 2 * dimRoom <= pzY1 - pzY0
-            : (2 * zC + xA) / d + 3 * dimRoom <= pzX1 - pzX0 && (2 * zC + yB) / d + 2 * dimRoom <= pzY1 - pzY0;
+            : (2 * zC + xA) / d + 3 * dimRoom <= pzX1 - pzX0 && (2 * zC + yB) / d + 3 * dimRoomV <= pzY1 - pzY0;   // rows between the views and above the top view, 20 mm each, so the scale stays up (Grant 15 Nov, 08A04-SFA-5B: 1:30, not 1:40)
         int den = AsmScales.FirstOrDefault(projFits);
         if (isoDen == 0) { isoDen = AsmScales.Last(); problems.Add("isometric too big for the space under the BOM even at 1:" + isoDen); }
         if (den == 0) { den = AsmScales.Last(); problems.Add("projections too big even at 1:" + den); }
         double sA = xA / den, sB = yB / den, sC = zC / den;
-        double blockW = (longMember ? 1 : 2) * sC + sA + 3 * dimRoom, blockH = (longMember ? 1 : 2) * sC + sB + 2 * dimRoom + (longMember ? 0.012 : 0);   // long: room above the end view for its dimensions
+        double blockW = (longMember ? 1 : 2) * sC + sA + 3 * dimRoom, blockH = (longMember ? 1 : 2) * sC + sB + (longMember ? 2 * dimRoom : 3 * dimRoomV) + (longMember ? 0.012 : 0);   // long: room above the end view for its dimensions
         double fx = pzX0 + (pzX1 - pzX0 - blockW) / 2 + (longMember ? 0 : sC + dimRoom) + sA / 2;     // face view centre
-        double fy = pzY0 + (pzY1 - pzY0 - blockH) / 2 + (longMember ? 0 : sC + dimRoom) + sB / 2;
+        double fy = pzY0 + (pzY1 - pzY0 - blockH) / 2 + (longMember ? 0 : sC + dimRoomV) + sB / 2;
         double ix = (izX0 + izX1) / 2 + (padL - padR) / 2, iy = (izY0 + izY1) / 2 - padT / 2;
         Console.WriteLine("[" + stamp() + "] plan: projections 1:" + den + " (block " + Mm(blockW) + " x " + Mm(blockH) + " mm in " + Mm(pzX1 - pzX0) + " x " + Mm(pzY1 - pzY0)
             + "), isometric 1:" + isoDen + " (" + Mm(isoW / isoDen) + " x " + Mm(isoH / isoDen) + " mm in " + Mm(izX1 - izX0) + " x " + Mm(izY1 - izY0) + ")");
@@ -266,8 +266,8 @@ static partial class Draw
         };
         var left = longMember ? null : project(fx - sA / 2 - dimRoom - sC / 2, fy);
         var right = project(fx + sA / 2 + dimRoom + sC / 2, fy);
-        var top = project(fx, fy + sB / 2 + dimRoom + sC / 2);
-        var bottom = longMember ? null : project(fx, fy - sB / 2 - dimRoom - sC / 2);
+        var top = project(fx, fy + sB / 2 + (longMember ? dimRoom : dimRoomV) + sC / 2);
+        var bottom = longMember ? null : project(fx, fy - sB / 2 - dimRoomV - sC / 2);
         main.UseSheetScale = 1;
         drwDoc.ForceRebuild3(false);
         geomCache.Clear(); geomScale.Clear();
@@ -275,8 +275,8 @@ static partial class Draw
         CentreAt(drwDoc, main, fx, fy);
         if (left != null) CentreAt(drwDoc, left, fx - sA / 2 - dimRoom - sC / 2, double.NaN);
         if (right != null) CentreAt(drwDoc, right, fx + sA / 2 + dimRoom + sC / 2, double.NaN);
-        if (top != null) CentreAt(drwDoc, top, double.NaN, fy + sB / 2 + dimRoom + sC / 2);
-        if (bottom != null) CentreAt(drwDoc, bottom, double.NaN, fy - sB / 2 - dimRoom - sC / 2);
+        if (top != null) CentreAt(drwDoc, top, double.NaN, fy + sB / 2 + (longMember ? dimRoom : dimRoomV) + sC / 2);
+        if (bottom != null) CentreAt(drwDoc, bottom, double.NaN, fy - sB / 2 - dimRoomV - sC / 2);
         drwDoc.ForceRebuild3(false);
         var isoF = drw.CreateDrawViewFromModelView3(asmFile, "*Isometric", ix, iy, 0);
         if (isoF != null)
@@ -360,6 +360,7 @@ static partial class Draw
             bo.Layername = DraftLayer;
             balloonNotes = ((drw.AutoBalloon5(bo) as object[]) ?? new object[0]).Cast<Note>().ToList();
             drwDoc.ClearSelection2(true);
+            // RetipBalloons: off (Grant 15 Nov: leave the balloons as SOLIDWORKS places them; James moves odd ones)
             SpreadBalloons(drwDoc, isoF, balloonNotes, noteAnn);
         }
         Console.WriteLine("[" + stamp() + "] balloons: " + balloonNotes.Count + " for " + items + " BOM items");
@@ -395,6 +396,12 @@ static partial class Draw
         {
             var tm = MemberOrdinates(drwDoc, drw, top, dimsOk);   // Grant 14 Nov: the top view as well
             if (!tm[0] || !tm[1]) { OverallByClick(drwDoc, drw, top, !tm[1], !tm[0], want, dimsOk); missingGroups.RemoveAll(g => g.StartsWith(top.GetName2())); }   // plain overall size where members failed
+        }
+        if (bottom != null && !longMember)
+        {
+            // Grant 15 Nov (08A04-SFA-5B): the bottom view as well - its feet and brackets aren't in the top view
+            var bm = MemberOrdinates(drwDoc, drw, bottom, dimsOk);
+            if (!bm[0] || !bm[1]) { OverallByClick(drwDoc, drw, bottom, !bm[1], !bm[0], want, dimsOk); missingGroups.RemoveAll(g => g.StartsWith(bottom.GetName2())); }
         }
         Console.WriteLine("[" + stamp() + "] member positions");
         if (!mem[0] || !mem[1]) OverallByClick(drwDoc, drw, main, !mem[1], !mem[0], want, dimsOk);   // plain overall size where members failed
@@ -552,6 +559,87 @@ static partial class Draw
 
     // Balloons outside the isometric's drawn box, in the same order round it as the parts they point to, evenly
     // spaced, so the leaders fan out without crossing; clear of the note block and on the paper.
+    // Each balloon's leader to its part's outermost point on the side the balloon goes (left column: the part's
+    // left-most point, lowest if level; right: right-most, lowest; top row: top-most), so leaders are short and the
+    // same part gets the same point every run (Grant 15 Nov, 08A04-SFA-5B: balloon 4 on the top of a post one run, a
+    // different balloon the next). The point is the middle of the part's visible edge nearest that extreme; a balloon
+    // that no longer names its own part after the move is put back.
+    static void RetipBalloons(ModelDoc2 doc, DrawingDoc drw, View iso, List<Note> notes)
+    {
+        var mu = (MathUtility)sw.GetMathUtility();
+        var io = OutlineOf(iso);
+        double cx = (io[0] + io[2]) / 2, w = W(io);
+        Func<Component2, Component2> topOf = c => { while (c != null && c.GetParent() != null) c = c.GetParent(); return c; };
+        Func<Component2, List<Component2>> leaves = null;
+        leaves = c => { var ch = (c.GetChildren() as object[]) ?? new object[0]; return ch.Length == 0 ? new List<Component2> { c } : ch.Cast<Component2>().SelectMany(x => leaves(x)).ToList(); };
+        int moved = 0, back = 0;
+        var replaced = new List<Tuple<Note, Note>>();
+        drw.ActivateView(iso.GetName2());
+        foreach (var n in notes.ToList())
+        {
+            var a = (Annotation)n.GetAnnotation();
+            var ents = a.GetAttachedEntities3() as object[];
+            if (ents == null || ents.Length == 0) continue;
+            var top = topOf(((Entity)ents[0]).GetComponent() as Component2);
+            if (top == null) continue;
+            var corners = new List<Tuple<Component2, double[]>>();
+            foreach (var lf in leaves(top))
+            {
+                if (lf.IsSuppressed() || !lf.Visible.Equals((int)swComponentVisibilityState_e.swComponentVisible)) continue;
+                var b = lf.GetBox(false, false) as double[];
+                if (b == null) continue;
+                for (int i = 0; i < 8; i++) corners.Add(Tuple.Create(lf, ToSheet(mu, iso, new[] { (i & 1) == 0 ? b[0] : b[3], (i & 2) == 0 ? b[1] : b[4], (i & 4) == 0 ? b[2] : b[5] })));
+            }
+            if (corners.Count == 0) continue;
+            double mx = corners.Average(t => t.Item2[0]);
+            int side = mx < cx - 0.15 * w ? -1 : mx > cx + 0.15 * w ? 1 : 0;
+            var target = side == -1 ? corners.OrderBy(t => Math.Round(t.Item2[0] / 0.002)).ThenBy(t => t.Item2[1]).First()
+                       : side == 1 ? corners.OrderByDescending(t => Math.Round(t.Item2[0] / 0.002)).ThenBy(t => t.Item2[1]).First()
+                       : corners.OrderByDescending(t => Math.Round(t.Item2[1] / 0.002)).ThenBy(t => Math.Abs(t.Item2[0] - cx)).First();
+            var lfc = target.Item1;
+            var ct = lfc.Transform2 == null ? null : (double[])lfc.Transform2.ArrayData;
+            double[] best = null; double bd = double.MaxValue;
+            foreach (Edge e in (iso.GetVisibleEntities2(lfc, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+            {
+                if (!((Curve)e.GetCurve()).IsLine()) continue;
+                var cp = e.GetCurveParams3(); var p0 = (double[])cp.StartPoint; var p1 = (double[])cp.EndPoint;
+                var q = ToSheet(mu, iso, Xf(ct, new[] { (p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (p0[2] + p1[2]) / 2 }));
+                double d = Math.Pow(q[0] - target.Item2[0], 2) + Math.Pow(q[1] - target.Item2[1], 2);
+                if (d < bd) { bd = d; best = q; }
+            }
+            if (best == null) continue;
+            // a fresh balloon picked on that edge at that point (moving a balloon's leader by API leaves it dangling)
+            string txt = n.GetText();
+            doc.ClearSelection2(true);
+            if (!doc.Extension.SelectByID2("", "EDGE", best[0], best[1], 0, false, 0, null, 0)) { Console.WriteLine("  balloon " + txt + ": nothing to pick at " + Mm(best[0]) + "," + Mm(best[1])); doc.ClearSelection2(true); back++; continue; }
+            var smgr = (SelectionMgr)doc.SelectionManager;
+            var selC = topOf(smgr.GetSelectedObjectsComponent4(1, -1) as Component2);
+            if (selC == null || selC.Name2 != top.Name2) { Console.WriteLine("  balloon " + txt + ": pick at " + Mm(best[0]) + "," + Mm(best[1]) + " found " + (selC == null ? "no part" : selC.Name2) + ", wanted " + top.Name2); doc.ClearSelection2(true); back++; continue; }   // the pick found another part there
+            var bop = (BalloonOptions)doc.Extension.CreateBalloonOptions();
+            bop.Style = (int)swBalloonStyle_e.swBS_Circular; bop.Size = (int)swBalloonFit_e.swBF_2Chars;
+            bop.UpperTextContent = (int)swBalloonTextContent_e.swBalloonTextItemNumber;
+            var nb = doc.Extension.InsertBOMBalloon2(bop) as Note;
+            doc.ClearSelection2(true);
+            if (nb == null) { back++; continue; }
+            var na = (Annotation)nb.GetAnnotation();
+            var ents2 = na.GetAttachedEntities3() as object[];
+            var top2 = ents2 == null || ents2.Length == 0 ? null : topOf(((Entity)ents2[0]).GetComponent() as Component2);
+            if (top2 == null || top2.Name2 != top.Name2 || nb.GetText() != txt)
+            {
+                Console.WriteLine("  balloon " + txt + ": new balloon says '" + nb.GetText() + "' on " + (top2 == null ? "nothing" : top2.Name2));
+                doc.ClearSelection2(true); na.Select3(false, null); doc.Extension.DeleteSelection2(0); doc.ClearSelection2(true); back++; continue;
+            }
+            na.Layer = DraftLayer;
+            na.SetPosition2(((double[])a.GetPosition())[0], ((double[])a.GetPosition())[1], 0);
+            doc.ClearSelection2(true); a.Select3(false, null); doc.Extension.DeleteSelection2(0); doc.ClearSelection2(true);
+            replaced.Add(Tuple.Create(n, nb));
+            moved++;
+        }
+        foreach (var r in replaced) { notes[notes.IndexOf(r.Item1)] = r.Item2; }
+        doc.GraphicsRedraw2();
+        Console.WriteLine("Balloon leaders to each part's outer point: " + moved + " re-placed" + (back > 0 ? ", " + back + " left as SOLIDWORKS put them (the pick found another part, or the new balloon didn't match)" : ""));
+    }
+
     static void SpreadBalloons(ModelDoc2 doc, View iso, List<Note> notes, Annotation noteAnn)
     {
         if (notes.Count == 0) return;

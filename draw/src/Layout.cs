@@ -303,7 +303,9 @@ static partial class Draw
                 if (d < bestD) { bestD = d; best = sp; }
             }
         if (best != null) { note.SetPosition2(best[0], best[3], 0); Console.WriteLine("Flags placed in the clear spot nearest " + st.Flags + " at " + Mm(best[0]) + "," + Mm(best[3])); return; }
-        note.SetPosition2(corners["TL"][0], corners["TL"][3], 0);
-        problems.Add("no clear space for the CHECK flags; they may overlap a view");
+        // no clear space on the sheet: outside the border, bottom left, where the members' and plates' notes for James go
+        // (Grant 15 Nov: 08A04-SFA-5B's landed on the BOM)
+        note.SetPosition2(0.0034, 0.0054 + 0.0045 * (lines.Length - 1), 0);
+        Console.WriteLine("Flags placed outside the border, bottom left (no clear space on the sheet)");
     }
 }

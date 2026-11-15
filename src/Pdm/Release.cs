@@ -257,6 +257,12 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         {
             var rev = ((string?)sh?["rev"] ?? "").Trim();
             if (rev.Contains('*')) item.Problems.Add($"{DraftPrefix}: sheet {(string?)sh?["name"]} title block REV is \"{rev}\" (remove the * when checked)");
+            // Grant's D3/D5: Draw puts what it adds on layer DRAFT (magenta); James accepts each item by moving it to the
+            // normal layer. SwCmd drawing-info counts what's left per sheet (Dev, 22b7267). An older SwCmd can't count: refuse.
+            if (sh?["draftCount"] is not JsonValue dc || !dc.TryGetValue<int>(out var drafted))
+                item.Problems.Add($"sheet {(string?)sh?["name"]}: SwCmd didn't count DRAFT-layer items (SwCmd too old? rebuild tools\\SwCmd)");
+            else if (drafted > 0)
+                item.Problems.Add($"draft items not yet accepted by James: sheet {(string?)sh?["name"]} has {drafted} item(s) on layer DRAFT ({(string?)sh?["draftTypes"]}); James moves each to the normal layer once checked");
             rev = rev.Replace("*", "").Trim();
             if (!rev.Equals(code, StringComparison.Ordinal))
                 found.Add($"sheet {(string?)sh?["name"]}: title block REV is \"{rev}\", not {code}");

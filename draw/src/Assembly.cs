@@ -992,17 +992,11 @@ static partial class Draw
             add(l0, l1, (l0.Item2[0] + l1.Item2[0]) / 2, yBot - 0.010, "width", Math.Round((l1.Item2[0] - l0.Item2[0]) / sc * 1000, 1));
         if (length)
         {
-            // the member's top: the highest horizontal edge between its long faces that is below the very top (the plate)
-            double yTop = hor.Max(l => l.Item2[1]);
-            var inside = hor.Where(l => Math.Min(l.Item2[0], l.Item3[0]) >= l0.Item2[0] - 1e-6 && Math.Max(l.Item2[0], l.Item3[0]) <= l1.Item2[0] + 1e-6).ToList();
-            var topE = inside.Where(l => l.Item2[1] < yTop - 1e-6).OrderByDescending(l => l.Item2[1]).FirstOrDefault()
-                       ?? hor.OrderByDescending(l => l.Item2[1]).First();
+            // the overall length, top plate to bottom (Grant 15 Nov, 08X06-LMW-02-grant: 2155 in place of the RHS's 2145,
+            // the RHS length is in the BOM), 8 mm left of the member, inside the hole ordinates
+            var topE = hor.OrderByDescending(l => l.Item2[1]).First();
             var botE = hor.OrderBy(l => l.Item2[1]).First();
-            // the top plate's underside: a full-width edge just under the top; if the member reaches the top, use the top
-            var plateUnder = hor.Where(l => l.Item2[1] < yTop - 1e-6 && Math.Abs(l.Item2[0] - l.Item3[0]) > (l1.Item2[0] - l0.Item2[0]) * 1.2)
-                                .OrderByDescending(l => l.Item2[1]).FirstOrDefault();
-            if (plateUnder != null && plateUnder.Item2[1] >= topE.Item2[1] - 1e-6) topE = plateUnder;
-            add(topE, botE, l0.Item2[0] - 0.026, (topE.Item2[1] + botE.Item2[1]) / 2, "length", Math.Round((topE.Item2[1] - botE.Item2[1]) / sc * 1000, 1));
+            add(topE, botE, l0.Item2[0] - 0.0082, (topE.Item2[1] + botE.Item2[1]) / 2, "overall length", Math.Round((topE.Item2[1] - botE.Item2[1]) / sc * 1000, 1));
         }
     }
 
@@ -1102,7 +1096,7 @@ static partial class Draw
             doc.ClearSelection2(true); foreach (var a in made) a.Select3(true, null); doc.Extension.DeleteSelection2(0);
             missingGroups.Add(v.GetName2() + " member holes");
         }
-        HoleSizes(doc, drw, v, memberName, -1, report);
+        HoleSizes(doc, drw, v, memberName, 2, report);   // right of the view (Grant 15 Nov, 08X06-LMW-02-grant)
     }
 
     // Holes seen face-on in a view (Grant 15 Nov: "all holes should be clearly defined"): round holes and slot ends
@@ -1373,7 +1367,8 @@ static partial class Draw
     // One callout per hole size in a view (Grant 15 Nov): "n x Ø d" and how far it goes, worked out from the part's
     // own circular edges on the hole's axis (each wall has two): in a member, both walls "THRU ALL", one "THRU ONE
     // WALL"; in a plate "THRU". A slot gets its width ("n x 12 WIDE SLOT THRU"); its end centres are placed by the
-    // ordinates. Holes already called out (the HDG hole) are left out. side: -1 left of the view, +1 right, 0 below.
+    // ordinates. Holes already called out (the HDG hole) are left out. side: -1 left of the view, +1 right below the
+    // hole, 2 right above it (member holes, Grant 15 Nov), 0 below the view.
     static void HoleSizes(ModelDoc2 doc, DrawingDoc drw, View v, string ownerName, int side, List<string> report)
     {
         var all = FacingHoles(v, ownerName).Where(h => !calledOut.Contains(v.GetName2() + ":" + HoleKey(h.C))).ToList();
@@ -1406,8 +1401,8 @@ static partial class Draw
             bool member = h.Own != null && h.Own.Name2 == memberName;
             string thru = member ? (walls >= 2 ? " THRU ALL" : walls == 1 ? " THRU ONE WALL" : "") : (walls >= 1 ? " THRU" : "");
             if (thru == "") problems.Add(v.GetName2() + ": couldn't tell how far the Ø" + dia + " holes go");
-            double px = side < 0 ? o[0] - 0.050 : side > 0 ? o[2] + 0.030 : (o[0] + o[2]) / 2 + 0.0024;   // below: centred under the view (Grant 15 Nov)
-            double py = side == 0 ? o[1] - 0.0276 - 0.010 * k : side > 0 ? h.C[1] - 0.012 - 0.009 * k : h.C[1] + 0.016 + 0.009 * k;   // right: just below the hole, clear of the ordinate lines above it
+            double px = side < 0 ? o[0] - 0.050 : side == 2 ? o[2] + 0.0143 : side > 0 ? o[2] + 0.030 : (o[0] + o[2]) / 2 + 0.0024;   // below: centred under the view (Grant 15 Nov)
+            double py = side == 0 ? o[1] - 0.0276 - 0.010 * k : side == 2 ? h.C[1] + 0.0124 + 0.009 * k : side > 0 ? h.C[1] - 0.012 - 0.009 * k : h.C[1] + 0.016 + 0.009 * k;   // right: just below the hole, clear of the ordinate lines above it
             doc.ClearSelection2(true);
             DisplayDimension dd = null;
             if (((Entity)h.E).Select4(false, sd))

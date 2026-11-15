@@ -235,7 +235,7 @@ static partial class Draw
     }
 
     // CHECK flags into the learned corner, else the first free one.
-    static void PlaceFlags(Annotation note, string text, IEnumerable<double[]> taken)
+    static void PlaceFlags(Annotation note, string text, IEnumerable<double[]> taken, string prefer = null)
     {
         var st = Style();
         var lines = text.Split('\n');
@@ -245,12 +245,14 @@ static partial class Draw
             { "TR", new[] { BorderX1 - m - w, BorderY1 - m - h, BorderX1 - m, BorderY1 - m } },
             { "BR", new[] { BorderX1 - m - w, TitleTop + m, BorderX1 - m, TitleTop + m + h } },
             { "BL", new[] { BorderX0 + m, RevTop + m, BorderX0 + m + w, RevTop + m + h } } };
-        var order = new[] { st.Flags }.Concat(new[] { "TL", "TR", "BR", "BL" }.Where(k => k != st.Flags)).Where(k => corners.ContainsKey(k));
+        var order = new[] { prefer ?? st.Flags }.Concat(new[] { st.Flags }).Concat(new[] { "TL", "TR", "BR", "BL" }.Where(k => k != st.Flags)).Where(k => corners.ContainsKey(k));
         foreach (var k in order)
         {
             var sp = corners[k];
             if (!taken.Any(t => t != null && sp[0] < t[2] && sp[2] > t[0] && sp[1] < t[3] && sp[3] > t[1]))
             { note.SetPosition2(sp[0], sp[3], 0); Console.WriteLine("Flags placed " + k); return; }
+            var hit = taken.First(t => t != null && sp[0] < t[2] && sp[2] > t[0] && sp[1] < t[3] && sp[3] > t[1]);
+            Console.WriteLine("  flags: corner " + k + " taken by a box " + string.Join(",", hit.Select(z => (z * 1000).ToString("0"))));
         }
         // no free corner: the clear spot nearest the preferred corner, searched over the sheet in 5 mm steps
         var pref = corners.ContainsKey(st.Flags) ? corners[st.Flags] : corners["TL"];

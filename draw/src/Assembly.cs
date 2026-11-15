@@ -291,8 +291,10 @@ static partial class Draw
         {
             // Grant 14 Nov "make the views bigger": the member gets the full height of the space (the end view goes
             // beside it, not above), the largest scale at which it fits broken, and breaks only as long as needed
-            const double labelRoom = 0.008;   // the 0 and last ordinate labels above / below the member
-            const double acrossRoom = 0.030;   // Grant 15 Nov: the holes-across rows (labels standing up) under the views
+            // Grant 15 Nov (08X06-LMW-01-grant): the member's top about 15 mm below the space's top, the holes-across
+            // rows about 15 mm under its bottom
+            const double labelRoom = 0.0155;
+            const double acrossRoom = 0.0225;
             double memberH = pzY1 - pzY0 - labelRoom - acrossRoom;
             Func<int, bool> widthFits = d => (xA + zC + (top != null ? xA : 0)) / 1000.0 / d * 1000 / 1000 + 3 * dimRoom + 0.010 <= pzX1 - pzX0;
             den = BreakLongMember(drwDoc, drw, sheet, main, right, den, memberH, widthFits);
@@ -300,19 +302,20 @@ static partial class Draw
             // re-place, side by side and centred: face | side (plate dims on its right) | end view
             if (top != null) top.RemoveAlignment();
             double wM = W(OutlineOf(main)), wS = W(OutlineOf(right)), wT = top != null ? W(OutlineOf(top)) : 0;
-            // packed to the right (the note block sits top left, beside the BOM): face, a small gap (no dims between
-            // them), side with the plate dims on its right, end view with its height dim on its right
-            const double gapFS = 0.012, gapSE = 0.024, endDims = 0.016;
-            double rowW = wM + gapFS + wS + (top != null ? gapSE + wT : 0);
-            double x0 = pzX1 - endDims - rowW, yMid = (pzY0 + acrossRoom + pzY1 - labelRoom) / 2;
-
-            CentreAt(drwDoc, main, x0 + wM / 2, yMid);
+            // Grant's placing (08X06-LMW-01-grant, 15 Nov): the face view about 49 mm into the space, the side view
+            // 49.5 mm on (centre to centre), the end view 77.7 mm on from that, clear of the side view's labels; all
+            // moved left together if the end view's labels would run off the space
+            const double faceIn = 0.049, faceToSide = 0.0495, sideToEnd = 0.0777, endDims = 0.016;
+            double fx0 = pzX0 + faceIn, yMid = (pzY0 + acrossRoom + pzY1 - labelRoom) / 2;
+            double over = (top != null ? fx0 + faceToSide + sideToEnd + wT / 2 : fx0 + faceToSide + wS / 2) + endDims - pzX1;
+            if (over > 0) fx0 -= over;
+            CentreAt(drwDoc, main, fx0, yMid);
             drwDoc.ForceRebuild3(false);
-            CentreAt(drwDoc, right, x0 + wM + gapFS + wS / 2, double.NaN);
+            CentreAt(drwDoc, right, fx0 + faceToSide, double.NaN);
             if (top != null)
             {
                 var so = OutlineOf(right);
-                CentreAt(drwDoc, top, so[2] + gapSE + wT / 2, so[3] - 0.012 - H(OutlineOf(top)) / 2);   // end view beside the side view, a little below its top (room for its hole labels, 15 Nov)
+                CentreAt(drwDoc, top, fx0 + faceToSide + sideToEnd, so[3] - 0.014 - H(OutlineOf(top)) / 2);   // a little below the side view's top
             }
             drwDoc.ForceRebuild3(false);
             geomCache.Clear(); geomScale.Clear();
@@ -336,7 +339,7 @@ static partial class Draw
             {
                 noteAnn = (Annotation)note.GetAnnotation();
                 var tf = (TextFormat)noteAnn.GetTextFormat(0); tf.TypeFaceName = "Century Gothic"; tf.CharHeight = 0.00212; noteAnn.SetTextFormat(0, false, tf);
-                if (longMember) noteAnn.SetPosition2(isoZoneRight - 0.045, TitleTop + 0.040, 0);   // long member: low down between the isometric and the views (as James), clear of the tall views
+                if (longMember) noteAnn.SetPosition2(BorderX0 + 0.006, (bomBox != null ? bomBox[1] : BorderY1) - 0.005, 0);   // long member: top left, under the BOM (Grant 15 Nov)
                 else noteAnn.SetPosition2((bomBox != null ? bomBox[2] : BorderX0) + 0.008, BorderY1 - m, 0);
             }
         }
@@ -410,8 +413,8 @@ static partial class Draw
         drwDoc.ForceRebuild3(false);
         var taken = new List<double[]> { bomBox };
         if (noteAnn != null) { var np = (double[])noteAnn.GetPosition(); taken.Add(new[] { np[0] - 0.002, np[1] - 0.030, np[0] + 0.110, np[1] + 0.002 }); }   // generous: the text estimate ran short (08X06-LMW-02)
-        foreach (var vw in new[] { main, left, right, top, bottom, isoF }) if (vw != null) taken.Add(ExtentTrue(vw));
-        if (flagNote != null) PlaceFlags((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), taken);
+        foreach (var vw in new[] { main, left, right, top, bottom, isoF }) if (vw != null) taken.Add(longMember && vw == isoF ? OutlineOf(vw) : ExtentTrue(vw));   // long member: the note block (part of the isometric) sits top left now; its own box is above
+        if (flagNote != null) PlaceFlags((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), taken, longMember ? "BL" : null);   // long member: bottom left, above the revision table (Grant 15 Nov)
         // nothing may overlap: views with each other, the BOM, the title block
         var boxes = new[] { main, left, right, top, bottom, isoF }.Where(v => v != null).Select(v => Tuple.Create(v.GetName2(), OutlineOf(v))).ToList();
         for (int i = 0; i < boxes.Count; i++)
@@ -884,10 +887,13 @@ static partial class Draw
         double sc = v.ScaleDecimal;
         var hor = ls.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7 && Math.Abs(l.Item2[0] - l.Item3[0]) > 0.0002).ToList();
         if (hor.Count < 2) { report.Add(v.GetName2() + " plate positions: no edges found"); return false; }
-        var datum = hor.OrderByDescending(l => l.Item2[1]).First();      // the top
-        var far = hor.OrderBy(l => l.Item2[1]).First();                   // the bottom end
+        // Grant 15 Nov: where edges or holes line up, the one nearest the dimension line (here on the right), so no
+        // extension line crosses the part
+        Func<Tuple<Edge, double[], double[]>, double> rx = l => Math.Max(l.Item2[0], l.Item3[0]);
+        var datum = hor.OrderByDescending(l => Math.Round(l.Item2[1] * 1e6)).ThenByDescending(rx).First();      // the top
+        var far = hor.OrderBy(l => Math.Round(l.Item2[1] * 1e6)).ThenByDescending(rx).First();                   // the bottom end
         // clusters of horizontal edges (one per plate) between the ends, by height
-        var mid = hor.Where(l => datum.Item2[1] - l.Item2[1] > 1e-5 && l.Item2[1] - far.Item2[1] > 1e-5).OrderByDescending(l => l.Item2[1]).ToList();
+        var mid = hor.Where(l => datum.Item2[1] - l.Item2[1] > 1e-5 && l.Item2[1] - far.Item2[1] > 1e-5).OrderByDescending(l => Math.Round(l.Item2[1] * 1e6)).ThenByDescending(rx).ToList();
         var clusters = new List<List<Tuple<Edge, double[], double[]>>>();
         foreach (var l in mid)
             if (clusters.Count == 0 || clusters.Last().Last().Item2[1] - l.Item2[1] > PlateClusterMm / 1000 * sc) clusters.Add(new List<Tuple<Edge, double[], double[]>> { l }); else clusters.Last().Add(l);
@@ -902,14 +908,14 @@ static partial class Draw
             double v0 = val(edge.Item2[1]);
             if (!expect.Contains(v0)) { items.Add(edge.Item1); expect.Add(v0); if (v0 > PlateClusterMm) refVals.Add(v0); }
             double yTop = c.First().Item2[1], yBot = c.Last().Item2[1];
-            foreach (var h in circ.Where(ci => ci.Item2[1] <= yTop + 1e-6 && ci.Item2[1] >= yBot - 1e-6).GroupBy(ci => Math.Round(ci.Item2[1] * 1e5)).Select(g => g.First()))
+            foreach (var h in circ.Where(ci => ci.Item2[1] <= yTop + 1e-6 && ci.Item2[1] >= yBot - 1e-6).GroupBy(ci => Math.Round(ci.Item2[1] * 1e5)).Select(g => g.OrderByDescending(ci => ci.Item2[0]).First()))
             {
                 double hv = val(h.Item2[1]);
                 if (!expect.Contains(hv)) { items.Add(h.Item1); expect.Add(hv); }
             }
         }
         // holes outside any plate (in the member itself)
-        foreach (var h in circ.GroupBy(ci => Math.Round(ci.Item2[1] * 1e5)).Select(g => g.First()))
+        foreach (var h in circ.GroupBy(ci => Math.Round(ci.Item2[1] * 1e5)).Select(g => g.OrderByDescending(ci => ci.Item2[0]).First()))
         {
             double hv = val(h.Item2[1]);
             if (!expect.Contains(hv) && h.Item2[1] < datum.Item2[1] && h.Item2[1] > far.Item2[1]) { items.Add(h.Item1); expect.Add(hv); }
@@ -1034,8 +1040,7 @@ static partial class Draw
             var sd = (SelectData)((SelectionMgr)doc.SelectionManager).CreateSelectData(); sd.View = v;
             DisplayDimension dd = null;
             if (((Entity)h.Item1).Select4(false, sd))
-                // text right of the hole: the leader stays clear of the side view's labels
-                try { dd = doc.AddDiameterDimension2(Math.Min(o[2] + 0.002, BorderX1 - 0.020), o[1] - 0.040 - 0.010 * k, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }
+                try { dd = doc.AddDiameterDimension2(o[0] - 0.0065 - 0.010 * k, o[3] + 0.0226 + 0.010 * k, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }   // above the end view, to the left (Grant 15 Nov)
             doc.ClearSelection2(true);
             double want = Math.Round(2 * h.Item3 * 1000, 1);
             double got = dd == null ? double.NaN : Math.Round(((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000, 1);
@@ -1068,11 +1073,11 @@ static partial class Draw
         var ls = ViewLines(mu, v);
         var hor = ls.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7 && Math.Abs(l.Item2[0] - l.Item3[0]) > 0.0002).ToList();
         if (hor.Count == 0) return;
-        var datum = hor.OrderByDescending(l => l.Item2[1]).First();
+        var datum = hor.OrderByDescending(l => Math.Round(l.Item2[1] * 1e6)).ThenBy(l => Math.Min(l.Item2[0], l.Item3[0])).First();
         double sc = v.ScaleDecimal;
         var o = OutlineOf(v);
-        // ordinates: the top, then one hole per height
-        var rows = dist.GroupBy(h => Math.Round(h.Item2[1] * 1e5)).Select(g => g.First()).OrderByDescending(h => h.Item2[1]).ToList();
+        // ordinates: the top, then one hole per height, the one nearest the row on the left (Grant 15 Nov)
+        var rows = dist.GroupBy(h => Math.Round(h.Item2[1] * 1e5)).Select(g => g.OrderBy(h => h.Item2[0]).First()).OrderByDescending(h => h.Item2[1]).ToList();
         var expect = new List<double> { 0 };
         expect.AddRange(rows.Select(h => Math.Round((datum.Item2[1] - h.Item2[1]) / sc * 1000, 1)));
         drw.ActivateView(v.GetName2());
@@ -1151,13 +1156,32 @@ static partial class Draw
 
     // An ordinate row: items[0] is the datum (0), the rest are checked against expect; values in refVals in brackets.
     // A row that doesn't check is removed and listed as not dimensioned.
-    static bool OrdinateRow(ModelDoc2 doc, DrawingDoc drw, View v, bool vertical, List<object> items, List<double> expect, HashSet<double> refVals, double x, double y, string what, List<string> report)
+    // An item that is a sheet point (double[]) is a slot's centre mark, picked by clicking it (as Section.cs).
+    // moveToY: where a horizontal row's labels end up (a broken view places them in its unbroken coordinates).
+    static bool OrdinateRow(ModelDoc2 doc, DrawingDoc drw, View v, bool vertical, List<object> items, List<double> expect, HashSet<double> refVals, double x, double y, string what, List<string> report, double moveToY = double.NaN)
     {
         drw.ActivateView(v.GetName2());
         doc.ClearSelection2(true);
-        var sd = (SelectData)((SelectionMgr)doc.SelectionManager).CreateSelectData(); sd.View = v;
+        var smg0 = (SelectionMgr)doc.SelectionManager;
+        var sd = (SelectData)smg0.CreateSelectData(); sd.View = v;
         int sel = 0;
-        for (int i = 0; i < items.Count; i++) if (((Entity)items[i]).Select4(i > 0, sd)) sel++;
+        for (int i = 0; i < items.Count; i++)
+        {
+            bool ok1 = false;
+            if (items[i] is double[])
+            {
+                var q = (double[])items[i];
+                foreach (var off in new[] { new[] { 0.0, 0.0 }, new[] { 0.002, 0.0 }, new[] { -0.002, 0.0 }, new[] { 0.0, 0.002 }, new[] { 0.0, -0.002 } })
+                {
+                    int nb = smg0.GetSelectedObjectCount2(-1);
+                    if (!doc.Extension.SelectByID2("", "CENTERMARKSYMS", q[0] + off[0], q[1] + off[1], 0, i > 0, 0, null, 0)) continue;
+                    int na = smg0.GetSelectedObjectCount2(-1);
+                    if (na > nb && smg0.GetSelectedObjectType3(na, -1) == (int)swSelectType_e.swSelCENTERMARKSYMS) { ok1 = true; break; }
+                }
+            }
+            else ok1 = ((Entity)items[i]).Select4(i > 0, sd);
+            if (ok1) sel++;
+        }
         var before = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(a => a.GetName()));
         int r;
         try { r = doc.Extension.AddOrdinateDimension(vertical ? (int)swAddOrdinateDims_e.swVerticalOrdinate : (int)swAddOrdinateDims_e.swHorizontalOrdinate, x, y, 0); }
@@ -1189,6 +1213,12 @@ static partial class Draw
             {
                 var dd = (DisplayDimension)a.GetSpecificAnnotation();
                 if (refVals.Contains(Math.Round(((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000, 1))) dd.ShowParenthesis = true;
+            }
+            if (!double.IsNaN(moveToY))
+            {
+                foreach (var a in made) { var ap = (double[])a.GetPosition(); a.SetPosition2(ap[0], moveToY, 0); }
+                doc.GraphicsRedraw2();
+                Console.WriteLine("    " + v.GetName2() + " " + what + ": labels moved to " + (moveToY * 1000).ToString("0.0") + ", now at " + string.Join("/", made.Select(a => (((double[])a.GetPosition())[1] * 1000).ToString("0.0")).Distinct()));
             }
             report.Add(w + " OK");
             return true;
@@ -1224,8 +1254,8 @@ static partial class Draw
         foreach (var ay in rowsY)
         {
         Func<Tuple<Edge, double[], double[]>, bool> beside = l => Math.Min(l.Item2[1], l.Item3[1]) <= ay + 1e-6 && Math.Max(l.Item2[1], l.Item3[1]) >= ay - 1e-6;
-        var datum = hx0 >= l0.Item2[0] - 1e-6 ? l0 : vert.Where(l => l.Item2[0] < hx0 - 1e-6 && beside(l)).OrderByDescending(l => l.Item2[0]).FirstOrDefault();
-        var far = hx1 <= l1.Item2[0] + 1e-6 ? l1 : vert.Where(l => l.Item2[0] > hx1 + 1e-6 && beside(l)).OrderBy(l => l.Item2[0]).FirstOrDefault();
+        var datum = hx0 >= l0.Item2[0] - 1e-6 ? l0 : vert.Where(l => l.Item2[0] < hx0 - 1e-6 && beside(l)).OrderByDescending(l => Math.Round(l.Item2[0] * 1e6)).ThenBy(l => Math.Min(l.Item2[1], l.Item3[1])).FirstOrDefault();
+        var far = hx1 <= l1.Item2[0] + 1e-6 ? l1 : vert.Where(l => l.Item2[0] > hx1 + 1e-6 && beside(l)).OrderBy(l => Math.Round(l.Item2[0] * 1e6)).ThenBy(l => Math.Min(l.Item2[1], l.Item3[1])).FirstOrDefault();
         if (datum == null || far == null) continue;
         var pts = holes.GroupBy(h => Math.Round(h.C[0] * 1e5)).Select(g => g.OrderBy(h => Math.Abs(h.C[1] - ay)).First()).OrderBy(h => h.C[0]).ToList();
         if (ownerName != null && l1.Item2[0] - l0.Item2[0] > 1e-5 && ay == rowsY[0])
@@ -1248,20 +1278,36 @@ static partial class Draw
         double yBot = hor.Min(l => l.Item2[1]);
         bool last = ay == rowsY[rowsY.Count - 1];
         int nMissing = missingGroups.Count;
-        if (OrdinateRow(doc, drw, v, false, items, expect, new HashSet<double> { fv }, datum.Item2[0], yBot - 0.010, "holes across", report)) return true;
+        if (OrdinateRow(doc, drw, v, false, items, expect, new HashSet<double> { fv }, datum.Item2[0], yBot - 0.010, "holes across", report, OutlineOf(v)[1] - 0.0146)) return true;   // labels about 15 mm under the member as drawn (Grant 15 Nov)
         if (!last) missingGroups.RemoveRange(nMissing, missingGroups.Count - nMissing);   // try the next row before giving up
         }
         if (missingGroups.All(g => g != v.GetName2() + " holes across")) { report.Add(v.GetName2() + " holes across: no edge to measure from"); missingGroups.Add(v.GetName2() + " holes across"); }
         return false;
     }
 
-    // The end view of a long member (the top plate, Grant 15 Nov): every hole placed both ways from the plate's
-    // bottom-left corner, as James (08X06-LMW-02: 0/20/50/(120)/(140) and 0/60/(140)/(200)), the far edges in
-    // brackets, and each size called out. Returns false (the caller dimensions the outline instead) if there are no holes.
+    // The end view of a long member (the top plate). Grant 15 Nov: "for the top plate we just need slot centers":
+    // each slot's centre placed both ways from the plate's bottom-left corner, the far edges in brackets; round holes
+    // by their centres too, except the HDG drainage hole (it has its own callout). Square to a slot, its end arc gives
+    // the centre's position; along it, the slot's centre mark is picked (only one row per view can pick centre marks,
+    // so that row goes first). Returns false (the caller dimensions the outline instead) if there's nothing to place.
     static bool EndViewHoles(ModelDoc2 doc, DrawingDoc drw, View v, List<string> report)
     {
-        var holes = FacingHoles(v, null);
+        var holes = FacingHoles(v, null).Where(h => !calledOut.Contains(v.GetName2() + ":" + HoleKey(h.C))).ToList();
         if (holes.Count == 0) return false;
+        // slot ends in pairs: same size, in line, nearest
+        var ends = holes.Where(h => h.Slot).ToList();
+        var used = new HashSet<FHole>();
+        var slots = new List<Tuple<FHole, FHole>>();
+        foreach (var a in ends)
+        {
+            if (used.Contains(a)) continue;
+            var b = ends.Where(x => x != a && !used.Contains(x) && Math.Abs(x.R - a.R) < 1e-7 && (Math.Abs(x.C[0] - a.C[0]) < 1e-6 || Math.Abs(x.C[1] - a.C[1]) < 1e-6))
+                        .OrderBy(x => Math.Pow(x.C[0] - a.C[0], 2) + Math.Pow(x.C[1] - a.C[1], 2)).FirstOrDefault();
+            if (b == null) { problems.Add(v.GetName2() + ": a slot end without its partner"); continue; }
+            used.Add(a); used.Add(b); slots.Add(Tuple.Create(a, b));
+        }
+        var round = holes.Where(h => !h.Slot).ToList();
+        if (slots.Count == 0 && round.Count == 0) return false;
         var mu = (MathUtility)sw.GetMathUtility();
         var ls = ViewLines(mu, v);
         var o = OutlineOf(v);
@@ -1269,25 +1315,56 @@ static partial class Draw
         var vert = ls.Where(l => Math.Abs(l.Item2[0] - l.Item3[0]) < 1e-7 && Math.Abs(l.Item2[1] - l.Item3[1]) > 0.0002).ToList();
         var hor = ls.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7 && Math.Abs(l.Item2[0] - l.Item3[0]) > 0.0002).ToList();
         if (vert.Count < 2 || hor.Count < 2) return false;
+        if (slots.Count > 0)
+        {
+            drw.ActivateView(v.GetName2());
+            if (!v.AutoInsertCenterMarks2((int)swAutoInsertCenterMarkTypes_e.swAutoInsertCenterMarkType_Slots, 0, true, true, false, CentreMarkSize, CentreMarkGap, true, true, 0))
+                problems.Add(v.GetName2() + ": slot centre marks not inserted");
+            doc.ClearSelection2(true);
+        }
+        // per direction (0: across, measuring x; 1: up, measuring y): the targets and whether any is a centre-mark pick
+        // nearness to each row (Grant 15 Nov: the hole nearest the dimension line): the across row is below the
+        // view (lowest first), the up row on its right (right-most first)
+        Func<int, double[], double> away = (d, q) => d == 0 ? q[1] : -q[0];
+        var rows = new List<Tuple<bool, List<Tuple<object, double, double[]>>>>();
         for (int dir = 0; dir < 2; dir++)
+        {
+            int ci = dir;
+            var t = new List<Tuple<object, double, double[]>>();
+            foreach (var h in round) t.Add(Tuple.Create((object)h.E, h.C[ci], h.C));
+            bool pick = false;
+            foreach (var sl in slots)
+            {
+                double mid = (sl.Item1.C[ci] + sl.Item2.C[ci]) / 2;
+                bool along = Math.Abs(sl.Item1.C[ci] - sl.Item2.C[ci]) > 1e-6;   // the slot runs this way: pick its centre mark
+                var cpt = new[] { (sl.Item1.C[0] + sl.Item2.C[0]) / 2, (sl.Item1.C[1] + sl.Item2.C[1]) / 2 };
+                if (along) { t.Add(Tuple.Create((object)cpt, mid, cpt)); pick = true; }
+                else { var e = away(dir, sl.Item1.C) <= away(dir, sl.Item2.C) ? sl.Item1 : sl.Item2; t.Add(Tuple.Create((object)e.E, mid, e.C)); }   // the end nearer the row
+            }
+            rows.Add(Tuple.Create(pick, t));
+        }
+        foreach (int dir in new[] { 0, 1 }.OrderBy(d => rows[d].Item1 ? 0 : 1))
         {
             bool vertical = dir == 1;   // a vertical row measures heights
             Func<Tuple<Edge, double[], double[]>, double> pos = l => vertical ? l.Item2[1] : l.Item2[0];
-            Func<FHole, double> hp = h => vertical ? h.C[1] : h.C[0];
             var lines = vertical ? hor : vert;
-            var datum = lines.OrderBy(pos).First(); var far = lines.OrderBy(pos).Last();
+            // of edge pieces in line, the one nearest the row
+            Func<Tuple<Edge, double[], double[]>, double> near = l => vertical ? -Math.Max(l.Item2[0], l.Item3[0]) : Math.Min(l.Item2[1], l.Item3[1]);
+            var datum = lines.OrderBy(l => Math.Round(pos(l) * 1e6)).ThenBy(near).First();
+            var far = lines.OrderByDescending(l => Math.Round(pos(l) * 1e6)).ThenBy(near).First();
             Func<double, double> val = p => Math.Round((p - pos(datum)) / sc * 1000, 1);
             var items = new List<object> { datum.Item1 };
             var expect = new List<double> { 0 };
-            foreach (var h in holes.GroupBy(h => Math.Round(hp(h) * 1e5)).Select(g => g.First()).OrderBy(hp))
+            int dd0 = dir;
+            foreach (var tg in rows[dir].Item2.GroupBy(tg => Math.Round(tg.Item2 * 1e5)).Select(g => g.OrderBy(tg => tg.Item1 is double[] ? 1 : 0).ThenBy(tg => away(dd0, tg.Item3)).First()).OrderBy(tg => tg.Item2))
             {
-                double hv = val(hp(h));
-                if (hv > 0.05 && !expect.Contains(hv)) { items.Add(h.E); expect.Add(hv); }
+                double hv = val(tg.Item2);
+                if (hv > 0.05 && !expect.Contains(hv)) { items.Add(tg.Item1); expect.Add(hv); }
             }
             double fv = val(pos(far));
             if (!expect.Contains(fv)) { items.Add(far.Item1); expect.Add(fv); }
             OrdinateRow(doc, drw, v, vertical, items, expect, new HashSet<double> { fv },
-                vertical ? o[2] + 0.010 : pos(datum), vertical ? pos(datum) : o[1] - 0.008, vertical ? "holes up the plate" : "holes across the plate", report);
+                vertical ? o[2] + 0.010 : pos(datum), vertical ? pos(datum) : o[1] - 0.008, vertical ? "slot centres up the plate" : "slot centres across the plate", report);
         }
         HoleSizes(doc, drw, v, null, 0, report);
         return true;
@@ -1308,7 +1385,7 @@ static partial class Draw
         foreach (var g in all.GroupBy(h => (h.Slot ? "slot " : "") + Math.Round(h.R * 2000, 1)))
         {
             var h = side == 0 ? g.OrderByDescending(x => Math.Round(x.C[0] * 1e4)).ThenBy(x => x.C[1]).First()   // below the view: the right-hand one
-                              : g.OrderBy(x => x.C[1]).First();   // beside it: the lowest
+                              : g.OrderBy(x => Math.Round(x.C[1] * 1e4)).ThenBy(x => side * -x.C[0]).First();   // beside it: the lowest, nearest the text's side (Grant 15 Nov)
             double dia = Math.Round(h.R * 2000, 1);
             int n = h.Slot ? (g.Count() + 1) / 2 : g.Count();   // a slot has two ends
             var along = new HashSet<double>();
@@ -1329,8 +1406,8 @@ static partial class Draw
             bool member = h.Own != null && h.Own.Name2 == memberName;
             string thru = member ? (walls >= 2 ? " THRU ALL" : walls == 1 ? " THRU ONE WALL" : "") : (walls >= 1 ? " THRU" : "");
             if (thru == "") problems.Add(v.GetName2() + ": couldn't tell how far the Ø" + dia + " holes go");
-            double px = side < 0 ? o[0] - 0.050 : side > 0 ? o[2] + 0.030 : Math.Min(o[2] + 0.002, BorderX1 - 0.030);   // the text (about 45 mm) is centred on px
-            double py = side == 0 ? o[1] - 0.058 - 0.010 * k : h.C[1] + 0.016 + 0.009 * k;
+            double px = side < 0 ? o[0] - 0.050 : side > 0 ? o[2] + 0.030 : (o[0] + o[2]) / 2 + 0.0024;   // below: centred under the view (Grant 15 Nov)
+            double py = side == 0 ? o[1] - 0.0276 - 0.010 * k : side > 0 ? h.C[1] - 0.012 - 0.009 * k : h.C[1] + 0.016 + 0.009 * k;   // right: just below the hole, clear of the ordinate lines above it
             doc.ClearSelection2(true);
             DisplayDimension dd = null;
             if (((Entity)h.E).Select4(false, sd))

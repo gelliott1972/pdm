@@ -26,7 +26,7 @@ Brief: `docs\briefs\desk.md`. Code: `src\PdmDesk\`. Owner: App.
 | Field | Values | Notes |
 | --- | --- | --- |
 | `id` | `"D16"` | Same as the file name. Letters then a number; each session keeps its own prefix (Admin `A`, SW `SW`, Draw `DR`) |
-| `type` | `decision`, `info`, `sw-job` | `sw-job` is phase 2 (the page shows it read-only for now) |
+| `type` | `decision`, `info`, `sw-job`, `draft-review` | `sw-job` and `draft-review` have their own sections below |
 | `ref` | `"D16"` | Optional chip before the title |
 | `title` | text | One line |
 | `body` | text | Short context |
@@ -118,6 +118,38 @@ When Grant presses **Next** on such a step (or **Run** if it's the last step), t
 | check-in | it's no longer checked out to you (checked in, or released with no changes) |
 
 It moves to the next step only if every file is done. Otherwise it stays on the step, lists each file that isn't done and why (for example "checked out by James", with PDM's own message), and Next tries again. The result is saved in the ticket's `actions`. If PDM isn't running, or nobody is logged in, the page says "Open PDM and log in, then press Next again." Back/Next can't skip past a PDM step that hasn't succeeded.
+
+## `draft-review` tickets (Grant's D8, 15 Nov; brief `docs\briefs\desk-drafts.md`)
+
+One ticket per Draw draft, owner `draw`, id prefix `DR` (e.g. `DR12.json`). Fields agreed with Draw on 15 Nov. Common fields as above (`id, type, owner, priority, body, createdAt, status`), plus:
+
+| Field | Value | Notes |
+| --- | --- | --- |
+| `batch` | `"1"` | The page groups drafts by it, under one header per batch |
+| `batchTitle` | `"Batch 1: LED members GNRIC-LMW, 10 drawings"` | The header text (from any ticket of the batch) |
+| `partNo` | `"GNRIC-LMW-01"` | Shown first in the title |
+| `title` | the model's description | Shown after the PartNo |
+| `version` | `1`, `2`, … | Shown as "Draft v2" |
+| `pdf` | full path to the newest version's PDF | Served by the Desk at `/api/pdf?id=<id>` only if it's under `C:\code\pdm\scratch\` or `C:\code\pdm\draw\` and ends `.pdf`. Each version gets its own file (e.g. `GNRIC-LMW-01 v2.pdf`) |
+| `body` | the sheet's CHECK flags, as on the sheet, and one "needs a look" line | |
+| `drawing` | full path to the `.SLDDRW` | Optional (for a later "Open in SOLIDWORKS") |
+| `postedAt` | UTC ISO | When this version was posted (shown instead of `createdAt`) |
+| `thread` | as for decisions | Review comments (`from: "grant"`) and Draw's replies (`from: "draw"`) |
+| `answer` | `{ "choice": "accept" \| "redo", "note": "…" }` | Set by the page. `redo` always has a note |
+| `history` | `[{ "version", "choice", "note", "answeredAt" }]` | Earlier answers: Change answer on the same version, and Draw's move of the redo answer when it posts the next version |
+
+What the page does:
+
+| Grant presses | Ticket afterwards |
+| --- | --- |
+| **Open PDF** / **Show PDF here** | Nothing changes (the PDF opens in a new tab, or on the card) |
+| **Accept** (note optional) | `status: "answered"`, `answer.choice: "accept"`, `answeredAt` |
+| **Send comment** | Comment added to `thread`, `status: "discuss"`. The card stays, marked "Waiting for Draw to reply" |
+| **Redo** (note required) | `status: "answered"`, `answer.choice: "redo"` with the note |
+| **Accept all remaining (n)** on the batch header, then **Yes** | Every `open` or `discuss` draft of that batch as Accept |
+| **Change answer** (History) | The card reopens; the new answer replaces the old, which moves to `history` |
+
+What Draw does: after Accept, set `done` once noted for loading. After Redo (or a comment that needs a change), post the next version on the same ticket: `version` + 1, `pdf` = the new file, `postedAt`, `status: "open"`, and move the answer into `history` (`{version, choice, note, answeredAt}`) with `answer` and `answeredAt` removed; the thread stays. To reply to a comment, append `{ "from": "draw", "text", "at" }` and leave `status: "discuss"`. Write the whole file atomically (temp file, then rename).
 
 ## Who has SOLIDWORKS: Pause and Hand back (Desk v2, 7 Nov)
 

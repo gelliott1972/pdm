@@ -114,6 +114,62 @@ app.MapPost("/api/discuss", async (HttpRequest req) =>
     return Results.Ok(new { ok = true });
 });
 
+// Draft reviews (Grant's D8, 15 Nov; docs\briefs\desk-drafts.md): one ticket per Draw draft. Accept, Redo (with what's
+// wrong) or a review comment (thread, status discuss). Draw posts the next version on the same ticket.
+app.MapPost("/api/draft", async (HttpRequest req) =>
+{
+    var body = await Body(req);
+    var id = (string?)body?["id"];
+    var action = (string?)body?["action"] ?? "";
+    var text = ((string?)body?["text"] ?? "").Trim();
+    if (!Store.IdOk(id)) return Fail("Unknown ticket.");
+    if (action is not ("accept" or "redo" or "comment")) return Fail("Unknown action.");
+    if (action != "accept" && text == "") return Fail(action == "redo" ? "Say what's wrong, then press Redo." : "Type your comment first.");
+    if (text.Length > 4000) return Fail("The note is too long (4000 characters at most).");
+    lock (store.Lock)
+    {
+        var file = store.TicketFile(id!);
+        var t = store.Read(file, out var why);
+        if (t == null) return Fail($"Couldn't read the ticket ({why}).");
+        if (!DraftAnswer(t, action, text, out var refused)) return Fail(refused);
+        store.Write(file, t);
+    }
+    return Results.Ok(new { ok = true });
+});
+
+// Accept all remaining: every open or discussed draft of one batch.
+app.MapPost("/api/draft/accept-batch", async (HttpRequest req) =>
+{
+    var batch = (string?)(await Body(req))?["batch"] ?? "";
+    if (batch == "") return Fail("Which batch?");
+    int n = 0;
+    lock (store.Lock)
+    {
+        foreach (var file in Directory.GetFiles(store.Tickets, "*.json"))
+        {
+            var t = store.Read(file, out _);
+            if (t == null || (string?)t["type"] != "draft-review" || (string?)t["batch"] != batch) continue;
+            if ((string?)t["status"] is not (null or "open" or "discuss")) continue;
+            if (DraftAnswer(t, "accept", "", out _)) { store.Write(file, t); n++; }
+        }
+    }
+    return Results.Ok(new { ok = true, accepted = n });
+});
+
+// The draft's PDF, shown on the page. Only a PDF under the repo's scratch or draw folders, named on a draft-review ticket.
+app.MapGet("/api/pdf", (string? id) =>
+{
+    if (!Store.IdOk(id)) return Results.NotFound();
+    var t = store.Read(store.TicketFile(id!), out _);
+    if (t == null || (string?)t["type"] != "draft-review" || (string?)t["pdf"] is not { Length: > 0 } pdf) return Results.NotFound();
+    string full;
+    try { full = Path.GetFullPath(pdf); } catch { return Results.NotFound(); }
+    var allowed = new[] { @"C:\code\pdm\scratch\", @"C:\code\pdm\draw\" };
+    if (!Path.IsPathFullyQualified(pdf) || !allowed.Any(a => full.StartsWith(a, StringComparison.OrdinalIgnoreCase))
+        || !full.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) || !File.Exists(full)) return Results.NotFound();
+    return Results.File(full, "application/pdf", enableRangeProcessing: true);
+});
+
 app.MapPost("/api/dismiss", async (HttpRequest req) =>
 {
     var id = (string?)(await Body(req))?["id"];
@@ -392,6 +448,32 @@ static async Task<JsonNode?> Body(HttpRequest req)
 }
 
 static IResult Fail(string why) => Results.BadRequest(new { error = why });
+
+// Grant's answer on a draft-review ticket. accept / redo set "answered" (an earlier answer on the same version moves to
+// history, as Change answer does); comment adds to the thread and sets "discuss". Draw sets "done", or posts a new version.
+static bool DraftAnswer(JsonObject t, string action, string text, out string why)
+{
+    why = "";
+    if ((string?)t["type"] != "draft-review") { why = "Only draft-review tickets take this."; return false; }
+    var status = (string?)t["status"] ?? "open";
+    if (status is not ("open" or "discuss" or "answered" or "done")) { why = $"This ticket is {status}."; return false; }
+    if (action == "comment")
+    {
+        if (t["thread"] is not JsonArray thread) { thread = []; t["thread"] = thread; }
+        thread.Add(new JsonObject { ["from"] = "grant", ["text"] = text, ["at"] = Store.Now() });
+        t["status"] = "discuss";
+        return true;
+    }
+    if (t["answer"] is JsonObject old)
+    {
+        if (t["history"] is not JsonArray history) { history = []; t["history"] = history; }
+        history.Add(new JsonObject { ["version"] = (int?)t["version"] ?? 1, ["choice"] = (string?)old["choice"], ["note"] = (string?)old["note"], ["answeredAt"] = (string?)t["answeredAt"] });
+    }
+    t["answer"] = new JsonObject { ["choice"] = action, ["note"] = text };
+    t["answeredAt"] = Store.Now();
+    t["status"] = "answered";
+    return true;
+}
 
 void Open()
 {

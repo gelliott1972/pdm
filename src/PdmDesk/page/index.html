@@ -149,6 +149,14 @@ aside { min-width: 0; }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
 .s .doing { margin-top: 4px; overflow-wrap: anywhere; }
 .card.collapsed .more { display: none; }
+.batchhead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 18px 2px 8px; }
+.batchhead .bt { font-weight: 600; }
+.batchhead .acts { margin: 0 0 0 auto; }
+.pdfbox { margin-top: 12px; }
+.pdfbox iframe { width: 100%; height: 75vh; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+a.b { display: inline-block; text-decoration: none; font: 600 13px/1 inherit; font-family: inherit; border-radius: 7px; padding: 9px 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+a.b:hover { border-color: var(--accent); }
+.redone { margin-top: 8px; font-size: 13px; color: var(--amber); }
 .card:not(.collapsed) .line { display: none; }
 .card .top { cursor: pointer; }
 .card .line { margin-top: 6px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -274,21 +282,38 @@ function render() {
     + (talking ? ` · ${talking} in discussion` : '');
   document.title = mine.length ? `(${mine.length}) PDM Desk` : 'PDM Desk';
 
-  // Keyed cards: a card is rebuilt only when its file changed, so typing isn't disturbed.
-  const box = $('tickets'), keep = new Set();
+  // Draft reviews stay together under their batch, at the place of the batch's first draft; drafts in a batch by PartNo.
+  const grouped = [], seenBatch = new Set();
+  for (const t of open) {
+    if (t.type !== 'draft-review') { grouped.push(t); continue; }
+    const b = String(t.batch ?? ''); if (seenBatch.has(b)) continue; seenBatch.add(b);
+    open.filter(x => x.type === 'draft-review' && String(x.batch ?? '') === b)
+      .sort((x, y) => String(x.partNo || x._file).localeCompare(String(y.partNo || y._file))).forEach(x => grouped.push(x));
+  }
+  open.splice(0, open.length, ...grouped);
+  // Keyed cards: a card is rebuilt only when its file changed, so typing isn't disturbed. A batch header is keyed "batch:<n>".
+  const box = $('tickets'), keep = new Set(), seq = [];
   if (!open.length) { box.innerHTML = '<div class="card empty">No open tickets. New ones appear here by themselves.</div>'; cards.clear(); }
   else {
     box.querySelector('.empty')?.remove();
+    let lastBatch = null;
     open.forEach(t => {
-      const json = JSON.stringify(t) + editing.has(t._file);
+      if (t.type === 'draft-review' && String(t.batch ?? '') !== lastBatch) {
+        lastBatch = String(t.batch ?? '');
+        const k = 'batch:' + lastBatch, html = batchHead(lastBatch, tickets) + (batchConfirm === lastBatch);
+        let c = cards.get(k);
+        if (!c || c.json !== html) { const el = batchHeadEl(lastBatch, tickets); if (c) c.el.replaceWith(el); c = { json: html, el }; cards.set(k, c); }
+        keep.add(k); seq.push(k);
+      } else if (t.type !== 'draft-review') lastBatch = null;
+      const json = JSON.stringify(t) + editing.has(t._file) + pdfShown.has(t._file);
       let c = cards.get(t._file);
       if (!c || c.json !== json) { const el = ticketCard(t); if (c) c.el.replaceWith(el); c = { json, el }; cards.set(t._file, c); }
-      keep.add(t._file);
+      keep.add(t._file); seq.push(t._file);
     });
     for (const [k, c] of cards) if (!keep.has(k)) { c.el.remove(); cards.delete(k); }
     open.forEach((t, i) => cards.get(t._file).el.classList.toggle('collapsed', !isExpanded(t, i)));
     // Move cards only when the order changed (moving a card would take the cursor out of its note).
-    const want = open.map(t => cards.get(t._file).el);
+    const want = seq.map(k => cards.get(k).el);
     if (want.some((el, i) => box.children[i] !== el) || box.children.length !== want.length) want.forEach(el => box.appendChild(el));
   }
 
@@ -355,9 +380,12 @@ function ticketCard(t) {
   const el = document.createElement('div');
   el.className = 'card';
   const type = t.type || 'decision';
-  const pill = type === 'info' ? '<span class="pill info">Info</span>' : `<span class="pill ${t.priority === 'blocking' ? 'blocking' : 'later'}">${t.priority === 'blocking' ? 'Blocking' : 'Later'}</span>`;
-  const from = [t.owner ? 'from ' + name(t.owner) : '', ago(t.createdAt)].filter(Boolean).join(' · ');
-  let html = `<div class="top"><div class="title">${idChip(t)}${esc(t.title || t._file)}${refNote(t)}</div>${pill}</div>
+  const draft = type === 'draft-review';
+  const pill = type === 'info' ? '<span class="pill info">Info</span>' : draft ? `<span class="pill later">Draft v${esc(t.version || 1)}</span>`
+    : `<span class="pill ${t.priority === 'blocking' ? 'blocking' : 'later'}">${t.priority === 'blocking' ? 'Blocking' : 'Later'}</span>`;
+  const from = [t.owner ? 'from ' + name(t.owner) : '', ago(draft && t.postedAt || t.createdAt)].filter(Boolean).join(' · ');
+  const title = draft ? [t.partNo, t.title].filter(Boolean).join(' · ') : t.title;
+  let html = `<div class="top"><div class="title">${idChip(t)}${esc(title || t._file)}${refNote(t)}</div>${pill}</div>
     <div class="meta">${esc(from)}</div>${t.body ? `<div class="body">${fmt(t.body)}</div>` : ''}`;
   if (type === 'decision') {
     const d = drafts[t._file] ??= editing.has(t._file) && t.answer ? { choice: t.answer.choice || '', note: t.answer.note || '' } : { choice: '', note: '' };
@@ -375,6 +403,8 @@ function ticketCard(t) {
     html += '<div class="acts"><button class="b" data-act="dismiss">Dismiss</button><span class="msg"></span></div>';
   } else if (type === 'sw-job') {
     html += swJob(t);
+  } else if (draft) {
+    html += draftHtml(t);
   }
   el.innerHTML = html;
   // Everything below the header goes in .more; collapsed, the card shows one line of context instead.
@@ -391,7 +421,7 @@ function ticketCard(t) {
     if (e.target.closest('button, a, input, textarea')) return;
     const now = el.classList.toggle('collapsed'); expandPref.set(t._file, !now);
   });
-  if (type === 'sw-job') wireJob(el, t); else wire(el, t);
+  if (type === 'sw-job') wireJob(el, t); else if (draft) wireDraft(el, t); else wire(el, t);
   return el;
 }
 
@@ -550,6 +580,76 @@ function wire(el, t) {
   if (cancel) cancel.onclick = () => { editing.delete(t._file); delete drafts[t._file]; lastJson = ''; load(); };
 }
 
+// ---- Draft reviews (Grant's D8): the PDF one click away, Draw's notes, the thread, then Accept / Review comments / Redo.
+const pdfShown = new Set();
+let batchConfirm = null;
+const pdfUrl = t => `/api/pdf?id=${encodeURIComponent(t._file)}&v=${encodeURIComponent(t.version || 1)}`;
+function draftHtml(t) {
+  const d = drafts[t._file] ??= editing.has(t._file) && t.answer ? { note: t.answer.note || '' } : { note: '' };
+  const prev = (t.history || []).at(-1);
+  let h = prev && prev.choice === 'redo' && (t.version || 1) > (prev.version || 1) ? `<div class="redone">v${esc(t.version)} · redone after: ${esc(prev.note)}</div>` : '';
+  h += t.pdf ? `<div class="acts"><a class="b" href="${pdfUrl(t)}" target="_blank" rel="noopener">Open PDF</a>
+    <button class="b" data-act="pdf">${pdfShown.has(t._file) ? 'Hide PDF' : 'Show PDF here'}</button></div>
+    ${pdfShown.has(t._file) ? `<div class="pdfbox"><iframe src="${pdfUrl(t)}" title="${esc(t.partNo || t._file)} PDF"></iframe></div>` : ''}`
+    : '<div class="meta">No PDF on this ticket yet.</div>';
+  h += threadHtml(t);
+  h += `<textarea placeholder="Review comments or what to redo (a note with Accept is optional)">${esc(d.note)}</textarea>
+    <div class="acts"><button class="b primary" data-act="accept">Accept</button><button class="b" data-act="comment">Send comment</button>
+    <button class="b" data-act="redo">Redo</button>${editing.has(t._file) ? '<button class="b" data-act="cancel">Cancel</button>' : ''}<span class="msg"></span>
+    <span class="hint">Comment: ${esc(name(t.owner) || 'Draw')} replies here · Redo: a new version on this ticket</span></div>`;
+  return h;
+}
+function wireDraft(el, t) {
+  const msg = el.querySelector('.msg'), ta = el.querySelector('textarea'), d = drafts[t._file];
+  const btn = k => el.querySelector(`[data-act="${k}"]`);
+  const sync = () => { const empty = !d.note.trim(); btn('comment').disabled = empty; btn('redo').disabled = empty; };
+  if (ta) ta.oninput = () => { d.note = ta.value; sync(); };
+  sync();
+  const pdf = btn('pdf');
+  if (pdf) pdf.onclick = () => { pdfShown.has(t._file) ? pdfShown.delete(t._file) : pdfShown.add(t._file); lastJson = ''; load(); };
+  const act = async action => {
+    el.querySelectorAll('button').forEach(b => b.disabled = true); msg.textContent = '';
+    try {
+      await post('/api/draft', { id: t._file, action, text: d.note });
+      delete drafts[t._file]; editing.delete(t._file); pdfShown.delete(t._file);
+      el.classList.add('gone'); setTimeout(() => { lastJson = ''; load(); }, 250);
+    } catch (e) { msg.textContent = e.message; el.querySelectorAll('button').forEach(b => b.disabled = false); sync(); }
+  };
+  btn('accept').onclick = () => act('accept');
+  btn('comment').onclick = () => act('comment');
+  btn('redo').onclick = () => act('redo');
+  const cancel = btn('cancel');
+  if (cancel) cancel.onclick = () => { editing.delete(t._file); delete drafts[t._file]; lastJson = ''; load(); };
+}
+const inBatch = (b, tickets) => tickets.filter(t => t.type === 'draft-review' && String(t.batch ?? '') === b);
+const waitingDraft = t => ['open', 'discuss'].includes(t.status || 'open');
+function batchHead(b, tickets) {
+  const all = inBatch(b, tickets), waiting = all.filter(waitingDraft).length;
+  const accepted = all.filter(t => ['answered', 'done'].includes(t.status) && t.answer?.choice === 'accept').length;
+  const redo = all.filter(t => ['answered', 'done'].includes(t.status) && t.answer?.choice === 'redo').length;
+  const title = all.find(t => t.batchTitle)?.batchTitle || 'Batch ' + b;
+  const counts = [`${waiting} open`, accepted ? `${accepted} accepted` : '', redo ? `${redo} being redone` : ''].filter(Boolean).join(' · ');
+  const acts = !waiting ? '' : batchConfirm === b
+    ? `<span>Accept all ${waiting} remaining draft${waiting === 1 ? '' : 's'} of this batch?</span><button class="b primary" data-batch-go="${esc(b)}">Yes, accept ${waiting}</button><button class="b" data-batch-no="1">Cancel</button>`
+    : `<button class="b" data-batch="${esc(b)}">Accept all remaining (${waiting})</button>`;
+  return `<span class="bt">${esc(title)}</span><span class="meta">${esc(counts)}</span><div class="acts">${acts}<span class="msg"></span></div>`;
+}
+function batchHeadEl(b, tickets) {
+  const el = document.createElement('div');
+  el.className = 'batchhead'; el.innerHTML = batchHead(b, tickets);
+  el.onclick = async e => {
+    const x = e.target.dataset || {};
+    if (x.batch !== undefined) { batchConfirm = x.batch; render(); }
+    else if (x.batchNo) { batchConfirm = null; render(); }
+    else if (x.batchGo !== undefined) {
+      el.querySelectorAll('button').forEach(b => b.disabled = true);
+      try { await post('/api/draft/accept-batch', { batch: x.batchGo }); batchConfirm = null; lastJson = ''; await load(); }
+      catch (err) { el.querySelector('.msg').textContent = err.message; el.querySelectorAll('button').forEach(b => b.disabled = false); }
+    }
+  };
+  return el;
+}
+
 // The ticket's discussion: Grant's comments and the owner's replies, oldest first.
 const DISCUSS = '__discuss';
 function threadHtml(t) {
@@ -557,7 +657,7 @@ function threadHtml(t) {
   if (!th.length) return '';
   const last = th.at(-1), who = name(t.owner) || 'the owner';
   const state = t.status !== 'discuss' ? '' : last.from === 'grant' ? `<div class="tstate">Waiting for ${esc(who)} to reply</div>`
-    : `<div class="tstate new">${esc(name(last.from))} replied. Reply again, or pick an option to decide.</div>`;
+    : `<div class="tstate new">${esc(name(last.from))} replied. ${t.type === 'draft-review' ? 'Comment again, Accept or Redo.' : 'Reply again, or pick an option to decide.'}</div>`;
   return '<div class="thread">' + th.map(p => `<div class="post${p.from === 'grant' ? ' me' : ''}"><div class="pmeta">${esc(p.from === 'grant' ? 'You' : name(p.from))} · ${ago(p.at)}</div><div>${fmt(p.text || '')}</div></div>`).join('') + state + '</div>';
 }
 
@@ -565,13 +665,15 @@ function sentRow(t) {
   let ans = '';
   if (t.type === 'info') ans = 'Dismissed';
   else if (t.type === 'sw-job' && t.answer) ans = (t.answer.choice === 'problem' ? 'Problem: ' + esc(t.answer.note) : 'Done' + (t.answer.note ? ' · ' + esc(t.answer.note) : ''));
+  else if (t.type === 'draft-review' && t.answer) ans = `${t.answer.choice === 'redo' ? 'Redo' : 'Accepted'} (v${esc(t.version || 1)})${t.answer.note ? ' · ' + esc(t.answer.note) : ''}`;
   else if (t.answer) {
     const o = (t.options || []).find(o => o.key === t.answer.choice);
     ans = [o ? (o.label || o.key) : t.answer.choice, t.answer.note].filter(Boolean).map(esc).join(' · ');
   }
   const done = t.status === 'done' ? ` · done by ${esc(name(t.owner) || 'owner')}` : '';
-  const change = t.type === 'decision' || t.type === 'sw-job' ? ` · <button class="link" data-change="${esc(t._file)}">Change answer</button>` : '';
-  return `<div class="row"><div class="what"><div>${idChip(t)}${esc(t.title || t._file)}${refNote(t)}</div>
+  const change = t.type === 'decision' || t.type === 'sw-job' || t.type === 'draft-review' ? ` · <button class="link" data-change="${esc(t._file)}">Change answer</button>` : '';
+  const title = t.type === 'draft-review' ? [t.partNo, t.title].filter(Boolean).join(' · ') : t.title;
+  return `<div class="row"><div class="what"><div>${idChip(t)}${esc(title || t._file)}${refNote(t)}</div>
     <div class="ans">${ans}</div><div class="meta">${when(t.answeredAt)}${done}${change}</div></div></div>`;
 }
 

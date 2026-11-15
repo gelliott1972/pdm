@@ -7,7 +7,7 @@ Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\code\pdm\scratch\
 | Step | State |
 | --- | --- |
 | Outstanding list | Done: `draw\outstanding.md`, 89 of 319 items (LMW 10, PLP 7, BKP/BKA/MSA 15, singles and simple weldments 27, SFA/STA 30), from P:\ with `src\Outstanding.cs` (read-only, pdm coverage rule). Counts sent to Admin. Not yet compared with pdm coverage (Grant's AWS login) |
-| Batch 1 LMW | One at a time with Grant (brief draw-3, D12). **Approved and in `scratch\draw-test\load\batch-1\`** (saved as he left them, repointed to P:\, checked): GNRIC-LMW-02, -01, -03, -04, -05, -06 (re-filed with Grant's drainage note), -09, -10, -11. **GNRIC-LMW-12 ready** in SOLIDWORKS (fresh, Grant's choice over the Desk-accepted v2); -06, -09, -10, -11; -12 accepted on the Desk (DR21) as v2. Rules from his edits in the skill: CHECK notes outside the border bottom left; isometric centred on the main view |
+| Batch 1 LMW | **Done 15 Nov: all 10 GNRIC-LMW approved by Grant one at a time (draft-3) and in `scratch\draw-test\load\batch-1\`** (-01 to -06, -09 to -12), each saved as he left it, repointed to `P:\APEX\GNRIC\GNRIC-LMW.SLDPRT`, opened read-only to check (values unchanged, 0 dangling, slot check OK), PDF identical to the approved one; list in `load\batch-1\batch.md`. Desk DR12-DR21 closed. Rules learned (in the skill): CHECK notes outside the border bottom left; isometric centred on the main view; caps at both ends: matching TOP END / BOTTOM END cap views; one-wall holes "for HDG Drainage"; views and labels kept inside the border and clear of the note block. Waiting: App to load; Grant on DR22 (08X04-BKP-01, accepted) and DR23 (08X06-LMW-02, redo) |
 
 ## Done
 

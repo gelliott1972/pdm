@@ -84,14 +84,15 @@ Layout copied from Grant's `08X06-LMW-01-grant` and `08X06-LMW-02-grant` (in `sc
 | Views spaced as in Grant's file (face 49 mm in from the zone, side 49.5 mm right, end view 77.7 mm further); note block under the BOM; CHECK flags bottom left | Grant's -01 file |
 | Plates and plate holes as ordinates down the side view, plate edges in brackets; overall length (top plate to bottom, e.g. 2155) 8 mm left of the face view; the RHS length is in the BOM | Grant 14-15 Nov, -02 file |
 | Every hole defined: across each view from the RHS faces (off-centre check against the model), plate holes from the plate edge with the RHS faces in the row | Grant 15 Nov |
-| Each ordinate takes the hole, slot end or edge nearest its line, so no extension line crosses the part; across rows from the bottom holes, labels about 15 mm under the member | Grant 15 Nov |
-| Top plate (end view): slot centres only, both ways from the bottom-left corner, plate size in brackets; HDG drainage hole: its own callout only | Grant 15 Nov |
+| Each ordinate takes the round hole or edge nearest its line, so no extension line crosses the part; across rows from the bottom holes, labels about 15 mm under the member | Grant 15 Nov |
+| Top plate (end view): slot centres both ways from the bottom-left corner, plate size in brackets; HDG drainage hole: its own callout only | Grant 15 Nov |
 | One size callout per hole size: "n x Ø d THRU" (plates), "THRU ALL" / "THRU ONE WALL" (member, from the part's own edges), "n x w WIDE SLOT THRU". Member holes: right of the face view; plate holes: right of the side view; slots: centred under the end view | Grant's files |
 
 ## All drafts (Grant 15 Nov)
 
 | Rule | Source |
 | --- | --- |
+| **Slots: located by their centres only, in both directions, on every drawing.** Their size comes only from the slot callout ("n x w WIDE SLOT THRU"). Never dimension to a slot's end, arc, side or edge. Every save checks the model faces behind each dimension and refuses a drawing with one (as strict as dangling). If SOLIDWORKS won't take a slot centre in a row, the slot is left undimensioned with a magenta CHECK, never put on its end | Grant 15 Nov ("they should only have centres") |
 | A dimension too narrow for its text (under 6 mm on the sheet): text outside the extension lines, beside the outer one, arrows outside pointing in | Grant 15 Nov (GNRIC-LMW-01 wall "4") |
 | Stock with the material on the note block: "Plain Carbon Steel, SHS 40x40x4", built from the section measured in the model (hollow sections so far); magenta CHECK if the cut-list label or the description disagrees | Grant D7, 15 Nov |
 | Revision 0A* on every draft; James removes the * and fills DRAWN when he issues (release refuses * or empty DRAWN) | Grant D5 = A, 15 Nov |

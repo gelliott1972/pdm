@@ -276,10 +276,10 @@ static partial class Draw
                 var arc = circles.Where(ck => Math.Abs(ck.Item3 - c.Width) < 1e-6 && Dist2(ck.Item2, cs) < c.Length * main.ScaleDecimal)
                     .OrderBy(ck => Dist2(ck.Item2, cs)).FirstOrDefault();
                 if (arc == null) { problems.Add("slot end arc not found"); continue; }
-                if (slotAcross) { tA.Add(Tuple.Create((object)arc.Item1, cs)); tX.Add(Tuple.Create((object)cs, cs)); acrossNeedsPick = true; }
-                else { tX.Add(Tuple.Create((object)arc.Item1, cs)); tA.Add(Tuple.Create((object)cs, cs)); alongNeedsPick = true; }
+                // Grant 15 Nov: a slot is located by its centre only, both ways, never its end arc or sides
+                tA.Add(Tuple.Create((object)cs, cs)); tX.Add(Tuple.Create((object)cs, cs)); alongNeedsPick = true; acrossNeedsPick = true;
             }
-            if (alongNeedsPick && acrossNeedsPick) problems.Add("slots in both directions: one direction's slot positions can't be dimensioned yet");
+            // (both rows now pick slot centre marks; the value check and the slot check below catch a row SOLIDWORKS refuses)
             var cutSheet = cuts.Select(c => ToSheet(mu, main, c.C)).ToList();
             var sel = new List<object>();
             Action doAcross = () => {
@@ -865,6 +865,9 @@ static partial class Draw
             }
         Console.WriteLine("Placed: " + dims + " dimensions, " + marks + " centre marks, " + notes + " notes; not on DRAFT " + offDraft + "; dangling " + dangling);
         if (dangling > 0) { problems.Add(dangling + " dangling annotations: NOT saved"); return 1; }
+        var slotBad = SlotDims(drw);   // Grant 15 Nov: never a dimension to a slot's end, side or edge
+        Console.WriteLine("Slot check: " + (slotBad.Count == 0 ? "no dimension to a slot end, side or edge" : slotBad.Count + " dimension(s) to slot geometry: " + string.Join(", ", slotBad)));
+        if (slotBad.Count > 0) { problems.Add(slotBad.Count + " dimension(s) attached to a slot's end, side or edge: NOT saved"); return 1; }
         if (offDraft > 0) problems.Add(offDraft + " annotations not on the DRAFT layer");
         int err = 0, warn = 0;
         bool ok = drwDoc.Extension.SaveAs3(output, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)swSaveAsOptions_e.swSaveAsOptions_Silent, null, null, ref err, ref warn);

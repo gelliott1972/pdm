@@ -97,4 +97,72 @@ static partial class Draw
         Console.WriteLine("Closed " + closed + " of Draw's documents; " + (docs.Count - closed) + " left open");
         return 0;
     }
+
+    // Grant 15 Nov: slots are located by their centres only, in both directions, on every drawing; their size comes only
+    // from the slot callout. A dimension attached to a slot's end arc, side or edge is refused like a dangling one.
+    // A slot end: a cylinder face (a hole) with a half-circle edge (chord = diameter). A slot side: a flat face next to a
+    // slot end, square to the plate (parallel to the slot's axis). An edge belongs to a slot if either of its faces does.
+    static bool SlotEnd(Face2 f)
+    {
+        var sf = (Surface)f.GetSurface();
+        if (!sf.IsCylinder()) return false;
+        double r = ((double[])sf.CylinderParams)[6];
+        foreach (Edge e in (object[])f.GetEdges() ?? new object[0])
+        {
+            var c = (Curve)e.GetCurve();
+            if (!c.IsCircle()) continue;
+            var cp = (double[])e.GetCurveParams2();
+            double chord = Math.Sqrt(Math.Pow(cp[3] - cp[0], 2) + Math.Pow(cp[4] - cp[1], 2) + Math.Pow(cp[5] - cp[2], 2));
+            if (Math.Abs(chord - 2 * r) < 0.01 * r) return true;   // half a circle
+        }
+        return false;
+    }
+    static bool SlotFace(Face2 f)
+    {
+        if (SlotEnd(f)) return true;
+        var sf = (Surface)f.GetSurface();
+        if (!sf.IsPlane()) return false;
+        var n = (double[])f.Normal;
+        foreach (Edge e in (object[])f.GetEdges() ?? new object[0])
+            foreach (Face2 o in (object[])e.GetTwoAdjacentFaces2() ?? new object[0])
+            {
+                if (o == null || o.IsSame(f) || !SlotEnd(o)) continue;
+                var cp = (double[])((Surface)o.GetSurface()).CylinderParams;
+                if (Math.Abs(n[0] * cp[3] + n[1] * cp[4] + n[2] * cp[5]) < 1e-6) return true;   // square to the plate: the slot's side
+            }
+        return false;
+    }
+    // The dimensions on a drawing attached to slot geometry (the slot's size callout excepted).
+    static List<string> SlotDims(DrawingDoc drw)
+    {
+        var bad = new List<string>();
+        for (var v = (View)((View)drw.GetFirstView()).GetNextView(); v != null; v = (View)v.GetNextView())
+            foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.GetType() != (int)swAnnotationType_e.swDisplayDimension) continue;
+                var dd = (DisplayDimension)a.GetSpecificAnnotation();
+                string txt = (dd.GetText((int)swDimensionTextParts_e.swDimensionTextPrefix) ?? "") + (dd.GetText((int)swDimensionTextParts_e.swDimensionTextSuffix) ?? "");
+                if (txt.IndexOf("SLOT", StringComparison.OrdinalIgnoreCase) >= 0) continue;   // the slot's size callout
+                var ents = a.GetAttachedEntities3() as object[];
+                bool slot = false;
+                foreach (var o in ents ?? new object[0])
+                {
+                    var e = o as Edge;
+                    if (e == null) continue;
+                    foreach (Face2 f in (object[])e.GetTwoAdjacentFaces2() ?? new object[0])
+                        if (f != null && SlotFace(f)) { slot = true; break; }
+                    if (slot) break;
+                }
+                if (slot) bad.Add(v.GetName2() + " " + Math.Round(((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000, 1));
+            }
+        return bad;
+    }
+    static int SlotCheck(string drawing)
+    {
+        var doc = OpenDoc(drawing, null, true);
+        var bad = SlotDims((DrawingDoc)doc);
+        Console.WriteLine((bad.Count == 0 ? "OK no slot-end dimensions" : "SLOT-END DIMENSIONS " + bad.Count + ": " + string.Join(", ", bad)) + "  " + drawing);
+        sw.CloseDoc(doc.GetPathName());
+        return bad.Count == 0 ? 0 : 1;
+    }
 }

@@ -1062,7 +1062,7 @@ static partial class Draw
     {
         if (memberName == null) return;
         var mu = (MathUtility)sw.GetMathUtility();
-        var dist = FacingHoles(v, memberName).Select(h => Tuple.Create(h.E, h.C, h.Cp, h.Own)).ToList();
+        var dist = FacingHoles(v, memberName).Where(h => !h.Slot).Select(h => Tuple.Create(h.E, h.C, h.Cp, h.Own)).ToList();   // slots: centres only (Grant 15 Nov)
         if (dist.Count == 0) return;
         var ls = ViewLines(mu, v);
         var hor = ls.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7 && Math.Abs(l.Item2[0] - l.Item3[0]) > 0.0002).ToList();
@@ -1229,7 +1229,7 @@ static partial class Draw
     // The off-centre check: each member hole's place across the RHS is reported. Returns true if the row was placed.
     static bool HolesAcross(ModelDoc2 doc, DrawingDoc drw, View v, string ownerName, List<string> report)
     {
-        var holes = FacingHoles(v, ownerName);
+        var holes = FacingHoles(v, ownerName).Where(h => !h.Slot).ToList();   // slots are placed by their centres only (Grant 15 Nov)
         if (holes.Count == 0) return false;
         var mu = (MathUtility)sw.GetMathUtility();
         var ls = ViewLines(mu, v);
@@ -1336,8 +1336,7 @@ static partial class Draw
                 double mid = (sl.Item1.C[ci] + sl.Item2.C[ci]) / 2;
                 bool along = Math.Abs(sl.Item1.C[ci] - sl.Item2.C[ci]) > 1e-6;   // the slot runs this way: pick its centre mark
                 var cpt = new[] { (sl.Item1.C[0] + sl.Item2.C[0]) / 2, (sl.Item1.C[1] + sl.Item2.C[1]) / 2 };
-                if (along) { t.Add(Tuple.Create((object)cpt, mid, cpt)); pick = true; }
-                else { var e = away(dir, sl.Item1.C) <= away(dir, sl.Item2.C) ? sl.Item1 : sl.Item2; t.Add(Tuple.Create((object)e.E, mid, e.C)); }   // the end nearer the row
+                t.Add(Tuple.Create((object)cpt, mid, cpt)); pick = true;   // Grant 15 Nov: a slot by its centre only, both ways, never its end arc
             }
             rows.Add(Tuple.Create(pick, t));
         }

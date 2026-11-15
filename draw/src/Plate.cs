@@ -464,6 +464,9 @@ static partial class Draw
             }
         Console.WriteLine("Placed: " + dims + " dimensions, " + marks + " centre marks, " + notes + " notes; not on DRAFT " + offDraft + "; dangling " + dangling);
         if (dangling > 0) { problems.Add(dangling + " dangling annotations: NOT saved"); return 1; }
+        var slotBad = SlotDims(drw);   // Grant 15 Nov: never a dimension to a slot's end, side or edge
+        Console.WriteLine("Slot check: " + (slotBad.Count == 0 ? "no dimension to a slot end, side or edge" : slotBad.Count + " dimension(s) to slot geometry: " + string.Join(", ", slotBad)));
+        if (slotBad.Count > 0) { problems.Add(slotBad.Count + " dimension(s) attached to a slot's end, side or edge: NOT saved"); return 1; }
         if (offDraft > 0) problems.Add(offDraft + " annotations not on the DRAFT layer");
 
         int err = 0, warn = 0;

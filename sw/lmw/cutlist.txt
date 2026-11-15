@@ -1,0 +1,42 @@
+Attached to the running SOLIDWORKS (process 32360).
+Opened C:\PDM-work\lmw-read\GNRIC-LMW-swread.SLDPRT (EC-0+2M+46-OPEN<As Machined>)
+Configuration: EC-0+2M+46-OPEN<As Machined>
+  RHS40x40x4<1>: 1 body
+      body Shs SHS40X40X4(1)
+      LENGTH = 541   ("LENGTH@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      ANGLE1 = 0ø   ("ANGLE1@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      ANGLE2 = 0ø   ("ANGLE2@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      Angle Direction = -   ("ANGLE DIRECTION@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      Angle Rotation = -   ("ANGLE ROTATION@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      Description = RHS40x40x4
+      UNIT_OF_MEASURE = LENGTH
+      MATERIAL = Plain Carbon Steel   ("SW-Material@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      QUANTITY = 1   ("QUANTITY@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      TOTAL LENGTH = 541   ("TOTAL LENGTH@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+  Cut-List-Item1: 1 body
+      body O10.0 (10) Diameter Hole End Cap1
+      MATERIAL = Plain Carbon Steel   ("SW-Material@@@Cut-List-Item1@GNRIC-LMW-swread.SLDPRT")
+      QUANTITY = 1   ("QUANTITY@@@Cut-List-Item1@GNRIC-LMW-swread.SLDPRT")
+Closed it again without saving.
+OK
+Attached to the running SOLIDWORKS (process 32360).
+Opened C:\PDM-work\lmw-read\GNRIC-LMW-swread.SLDPRT (EC-0+2M+46-OPEN<As Welded>)
+Configuration: EC-0+2M+46-OPEN<As Welded>
+  RHS40x40x4<1>: 1 body
+      body Shs SHS40X40X4(1)
+      LENGTH = 1041   ("LENGTH@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      ANGLE1 = 0ø   ("ANGLE1@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      ANGLE2 = 0ø   ("ANGLE2@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      Angle Direction = -   ("ANGLE DIRECTION@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      Angle Rotation = -   ("ANGLE ROTATION@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      Description = RHS40x40x4
+      UNIT_OF_MEASURE = LENGTH
+      MATERIAL = Plain Carbon Steel   ("SW-Material@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      QUANTITY = 1   ("QUANTITY@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+      TOTAL LENGTH = 1041   ("TOTAL LENGTH@@@RHS40x40x4<1>@GNRIC-LMW-swread.SLDPRT")
+  Cut-List-Item1: 1 body
+      body O10.0 (10) Diameter Hole End Cap1
+      MATERIAL = Plain Carbon Steel   ("SW-Material@@@Cut-List-Item1@GNRIC-LMW-swread.SLDPRT")
+      QUANTITY = 1   ("QUANTITY@@@Cut-List-Item1@GNRIC-LMW-swread.SLDPRT")
+Closed it again without saving.
+OK

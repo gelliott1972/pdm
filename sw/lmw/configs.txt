@@ -1,0 +1,20 @@
+EC-50+7M+46-OPEN<As Machined>
+EC-0+8M+46-OPEN<As Welded>
+OPEN-46+0M+50-EC (STUB)<As Machined>
+OPEN-46+1M+0-EC<As Machined><As Welded>
+EC-0+6M+46-OPEN<As Machined>
+EC-0+6M+46-OPEN<As Welded>
+EC-0+5M+46-EC<As Machined>
+EC-0+5M+46-OPEN<As Machined><As Welded>
+EC-0+4M+46-OPEN<As Machined>
+EC-0+4M+46-OPEN<As Welded>
+EC-0+2M+46-OPEN<As Machined>
+EC-0+2M+46-OPEN<As Welded>
+EC-0+3M+46-OPEN<As Machined>
+EC-0+3M+46-OPEN<As Welded>
+EC-0+5M+0-EC<As Machined>
+EC-0+5M+0-EC<As Welded>
+EC-50+5M+46-OPEN<As Machined>
+EC-50+5M+46-OPEN<As Welded>
+EC-50+4M+46-OPEN<As Machined>
+EC-50+4M+46-OPEN<As Welded>

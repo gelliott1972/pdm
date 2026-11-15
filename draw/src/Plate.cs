@@ -394,6 +394,29 @@ static partial class Draw
                 an.SetTextFormat(0, false, tf);
             }
         }
+        // Notes for James (08B04-SFA-2T CHECK style), outside the border bottom left as Grant placed them on GNRIC-LMW-02
+        // (brief draw-3): a model with no material, or a weight far from the same plate in steel
+        {
+            var pflags = new List<string>();
+            if (props["Material"] == "") pflags.Add("CHECK: MODEL HAS NO MATERIAL PROPERTY");
+            double steelKg = ((object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]).Cast<Body2>().Sum(b => ((double[])b.GetMassProperties(7850))[5]);
+            double wProp;
+            if (double.TryParse(props["Weight"], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out wProp)
+                && Math.Abs(wProp - steelKg) > Math.Max(0.1, 0.1 * steelKg))
+                pflags.Add("CHECK: WEIGHT IS " + props["Weight"] + " KG, IN STEEL " + steelKg.ToString("0.0") + " KG");
+            if (pflags.Count > 0)
+            {
+                drw.ActivateSheet(((Sheet)drw.GetCurrentSheet()).GetName());
+                drw.EditSheet();
+                var fn = drwDoc.InsertNote(string.Join("\n", pflags)) as Note;
+                if (fn == null) problems.Add("CHECK note not placed");
+                else
+                {
+                    ((Annotation)fn.GetAnnotation()).SetPosition2(0.0034, 0.0054 + 0.0045 * (pflags.Count - 1), 0);
+                    foreach (var f in pflags) Console.WriteLine("Flag: " + f);
+                }
+            }
+        }
         lm.SetCurrentLayer("");
         drwDoc.ClearSelection2(true);
 

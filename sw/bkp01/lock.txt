@@ -1,1 +1,1 @@
-Locked SOLIDWORKS for sw: read bracket materials, read-only (08X04-BKP-01)
+Locked SOLIDWORKS for sw: BKP materials + GNRIC-LMW cut-list label on checked-out P:\ files

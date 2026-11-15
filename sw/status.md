@@ -1,8 +1,15 @@
 # SW status
 
-## 08X04-BKP-01 bracket (14 Nov 2026, Admin's job from Draw's DR1): waiting
+## Bracket materials and GNRIC-LMW SHS (14-15 Nov 2026, Admin's jobs): done, checked in 15 Nov 17:37-17:39
 
-Model is right at 100 long; Description says L=150 (to fix on both configurations). No SOLIDWORKS material: 0.147 kg at 1000 kg/m3, about 1.15 kg in steel. Read with the new read-only `tools\sw-macros\SwMaterial.exe` (log `sw\bkp01\materials.txt`): Plain Carbon Steel on 08X04-BKP-06/-07, 08B04-BKP-01/-03; none on 08X04-BKP-01, 08B04-BKP-02 and all of 08X04-BKP.SLDPRT. Waiting: Desk SW8 (which material, which brackets), Grant's vault login (SSO expired), Dev's SwCmd set-material.
+| File | Change | Check |
+| --- | --- | --- |
+| `08X04-BKP-01.SLDPRT` | Description L=150 -> L=100 (both configurations); Plain Carbon Steel | 0.147 -> 1.149 kg |
+| `08B04-BKP-02.SLDPRT` | Plain Carbon Steel (Desk SW8, Grant: A) | 0.38 -> 2.964 kg |
+| `08X04-BKP.SLDPRT` | Plain Carbon Steel, all 8 configurations | 0.31-0.36 -> 2.45-2.79 kg |
+| `GNRIC-LMW.SLDPRT` | Description RHS -> SHS 40x40x4mm (file level + 20 configurations, lengths kept); cut-list label RHS40x40x4 -> SHS40x40x4 (one shared value; SOLIDWORKS renamed the folder) | second label run finds nothing left |
+
+How: SwCmd set-material / set-cutlist-prop (Dev) with a look pass first, DmEdit batch for the Descriptions, re-inventory (exactly 23 property changes, nothing else), load dry run 4 files, load. Profile and end cap left as they are (Draw: 32 inside; Grant D9: cap stays 36x36x5). Logs `sw\bkp01`, `sw\lmw`; later clean-up list in `sw\lmw\notes.md`.
 
 ## plates-0804 (brief `docs\briefs\plates-0804.md`, 13 Nov 2026): done in the vault
 

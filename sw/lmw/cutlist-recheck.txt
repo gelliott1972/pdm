@@ -1,0 +1,28 @@
+Attached to the running SOLIDWORKS (process 32360).
+Opened P:\APEX\GNRIC\GNRIC-LMW.SLDPRT
+Selecting cut-list items: Description = "RHS40x40x4"
+  EC-50+7M+46-OPEN<As Machined>: no cut-list item matches
+  EC-0+8M+46-OPEN<As Welded>: no cut-list item matches
+  OPEN-46+0M+50-EC (STUB)<As Machined>: no cut-list item matches
+  OPEN-46+1M+0-EC<As Machined><As Welded>: no cut-list item matches
+  EC-0+6M+46-OPEN<As Machined>: no cut-list item matches
+  EC-0+6M+46-OPEN<As Welded>: no cut-list item matches
+  EC-0+5M+46-EC<As Machined>: no cut-list item matches
+  EC-0+5M+46-OPEN<As Machined><As Welded>: no cut-list item matches
+  EC-0+4M+46-OPEN<As Machined>: no cut-list item matches
+  EC-0+4M+46-OPEN<As Welded>: no cut-list item matches
+  EC-0+2M+46-OPEN<As Machined>: no cut-list item matches
+  EC-0+2M+46-OPEN<As Welded>: no cut-list item matches
+  EC-0+3M+46-OPEN<As Machined>: no cut-list item matches
+  EC-0+3M+46-OPEN<As Welded>: no cut-list item matches
+  EC-0+5M+0-EC<As Machined>: no cut-list item matches
+  EC-0+5M+0-EC<As Welded>: no cut-list item matches
+  EC-50+5M+46-OPEN<As Machined>: no cut-list item matches
+  EC-50+5M+46-OPEN<As Welded>: no cut-list item matches
+  EC-50+4M+46-OPEN<As Machined>: no cut-list item matches
+  EC-50+4M+46-OPEN<As Welded>: no cut-list item matches
+0 value(s) set; 0 targeted item(s) over 20 configuration(s)
+Not saved.
+Closed it again without saving: the file on disk is unchanged.
+PROBLEMS (1):
+  no cut-list item matches in any configuration

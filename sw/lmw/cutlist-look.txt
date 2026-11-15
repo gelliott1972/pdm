@@ -1,0 +1,49 @@
+Attached to the running SOLIDWORKS (process 32360).
+Opened P:\APEX\GNRIC\GNRIC-LMW.SLDPRT
+Selecting cut-list items: Description = "RHS40x40x4"
+MATCH	EC-50+7M+46-OPEN<As Machined>	RHS40x40x4<1>	[O10.0 (10) Diameter Hole Side Wall]	Description = RHS40x40x4
+MATCH	EC-0+8M+46-OPEN<As Welded>	RHS40x40x4<1>	[O10.0 (10) Diameter Hole Side Wall]	Description = RHS40x40x4
+MATCH	OPEN-46+0M+50-EC (STUB)<As Machined>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	OPEN-46+1M+0-EC<As Machined><As Welded>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-0+6M+46-OPEN<As Machined>	RHS40x40x4<1>	[O10.0 (10) Diameter Hole Side Wall]	Description = RHS40x40x4
+MATCH	EC-0+6M+46-OPEN<As Welded>	RHS40x40x4<1>	[O10.0 (10) Diameter Hole Side Wall]	Description = RHS40x40x4
+MATCH	EC-0+5M+46-EC<As Machined>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-0+5M+46-OPEN<As Machined><As Welded>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-0+4M+46-OPEN<As Machined>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-0+4M+46-OPEN<As Welded>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-0+2M+46-OPEN<As Machined>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-0+2M+46-OPEN<As Welded>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-0+3M+46-OPEN<As Machined>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-0+3M+46-OPEN<As Welded>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-0+5M+0-EC<As Machined>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-0+5M+0-EC<As Welded>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-50+5M+46-OPEN<As Machined>	RHS40x40x4<1>	[O10.0 (10) Diameter Hole Side Wall]	Description = RHS40x40x4
+MATCH	EC-50+5M+46-OPEN<As Welded>	RHS40x40x4<1>	[O10.0 (10) Diameter Hole Side Wall]	Description = RHS40x40x4
+MATCH	EC-50+4M+46-OPEN<As Machined>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+MATCH	EC-50+4M+46-OPEN<As Welded>	RHS40x40x4<1>	[Shs SHS40X40X4(1)]	Description = RHS40x40x4
+SET	EC-50+7M+46-OPEN<As Machined>	RHS40x40x4<1>	[O10.0 (10) Diameter Hole Side Wall]	Description: RHS40x40x4 -> SHS40x40x4
+  EC-50+7M+46-OPEN<As Machined>: SHS40x40x4<1> [O10.0 (10) Diameter Hole Side Wall] now Description = SHS40x40x4
+  cut-list folder renamed by SOLIDWORKS: RHS40x40x4<1> -> SHS40x40x4<1>
+  EC-0+8M+46-OPEN<As Welded>: SHS40x40x4<1> [O10.0 (10) Diameter Hole Side Wall] now Description = SHS40x40x4
+  OPEN-46+0M+50-EC (STUB)<As Machined>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  OPEN-46+1M+0-EC<As Machined><As Welded>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-0+6M+46-OPEN<As Machined>: SHS40x40x4<1> [O10.0 (10) Diameter Hole Side Wall] now Description = SHS40x40x4
+  EC-0+6M+46-OPEN<As Welded>: SHS40x40x4<1> [O10.0 (10) Diameter Hole Side Wall] now Description = SHS40x40x4
+  EC-0+5M+46-EC<As Machined>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-0+5M+46-OPEN<As Machined><As Welded>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-0+4M+46-OPEN<As Machined>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-0+4M+46-OPEN<As Welded>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-0+2M+46-OPEN<As Machined>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-0+2M+46-OPEN<As Welded>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-0+3M+46-OPEN<As Machined>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-0+3M+46-OPEN<As Welded>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-0+5M+0-EC<As Machined>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-0+5M+0-EC<As Welded>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-50+5M+46-OPEN<As Machined>: SHS40x40x4<1> [O10.0 (10) Diameter Hole Side Wall] now Description = SHS40x40x4
+  EC-50+5M+46-OPEN<As Welded>: SHS40x40x4<1> [O10.0 (10) Diameter Hole Side Wall] now Description = SHS40x40x4
+  EC-50+4M+46-OPEN<As Machined>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+  EC-50+4M+46-OPEN<As Welded>: SHS40x40x4<1> [Shs SHS40X40X4(1)] now Description = SHS40x40x4
+1 value(s) set; 20 targeted item(s) over 20 configuration(s)
+Not saved.
+Closed it again without saving: the file on disk is unchanged.
+OK

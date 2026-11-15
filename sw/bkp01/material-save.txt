@@ -1,0 +1,54 @@
+Attached to the running SOLIDWORKS (process 32360).
+Opened P:\APEX\SC08\LS-08X-04\_Shared\08X04-BKP-01.SLDPRT
+Material Plain Carbon Steel [SOLIDWORKS Materials] set in 2 of 2 configuration(s):
+MATERIAL	Default<As Machined>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.147 kg -> 1.149 kg
+MATERIAL	Default<As Welded>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.147 kg -> 1.149 kg
+What's wrong: nothing.
+Saved P:\APEX\SC08\LS-08X-04\_Shared\08X04-BKP-01.SLDPRT
+Opened P:\APEX\SC08\LS-08X-04\_Shared\08X04-BKP-01.SLDPRT
+Read back from disk:
+SAVED	Default<As Machined>	Plain Carbon Steel [SOLIDWORKS Materials]	1.149 kg
+SAVED	Default<As Welded>	Plain Carbon Steel [SOLIDWORKS Materials]	1.149 kg
+Closed it again (opened read-only for the read-back).
+OK
+exit 0
+Attached to the running SOLIDWORKS (process 32360).
+Opened P:\APEX\SC08\LS-08X-04\ShaftB\08B04-BKP-02.SLDPRT
+Material Plain Carbon Steel [SOLIDWORKS Materials] set in 2 of 2 configuration(s):
+MATERIAL	Default<As Machined>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.38 kg -> 2.964 kg
+MATERIAL	Default<As Welded>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.38 kg -> 2.964 kg
+What's wrong: nothing.
+Saved P:\APEX\SC08\LS-08X-04\ShaftB\08B04-BKP-02.SLDPRT
+Opened P:\APEX\SC08\LS-08X-04\ShaftB\08B04-BKP-02.SLDPRT
+Read back from disk:
+SAVED	Default<As Machined>	Plain Carbon Steel [SOLIDWORKS Materials]	2.964 kg
+SAVED	Default<As Welded>	Plain Carbon Steel [SOLIDWORKS Materials]	2.964 kg
+Closed it again (opened read-only for the read-back).
+OK
+exit 0
+Attached to the running SOLIDWORKS (process 32360).
+Opened P:\APEX\SC08\LS-08X-04\_Shared\08X04-BKP.SLDPRT
+Material Plain Carbon Steel [SOLIDWORKS Materials] set in 8 of 8 configuration(s):
+MATERIAL	68MM_SPACE_80X40RHS_150X140PLATE_SLOTS_SHOT_AXIS<As Machined>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.314 kg -> 2.449 kg
+MATERIAL	68MM_SPACE_80X40RHS_140X120PLATE<As Welded>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.314 kg -> 2.449 kg
+MATERIAL	68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_SHORT_AXIS<As Machined>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.356 kg -> 2.777 kg
+MATERIAL	Default<As Welded>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.356 kg -> 2.777 kg
+MATERIAL	68MM_SPACE_80X40RHS_150x140PLATE_SLOTS_LONG_AXIS<As Machined>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.316 kg -> 2.464 kg
+MATERIAL	68MM_SPACE_80X40RHS_140X120PLATE_SLOTS_LONG_AXIS<As Welded>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.316 kg -> 2.464 kg
+MATERIAL	68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_LONG_AXIS<As Machined>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.358 kg -> 2.792 kg
+MATERIAL	68MM_SPACE_80X40RHS_180X120PLATE_SLOTS_LONG_AXIS<As Welded>	(none) -> Plain Carbon Steel [SOLIDWORKS Materials]	0.358 kg -> 2.792 kg
+What's wrong: nothing.
+Saved P:\APEX\SC08\LS-08X-04\_Shared\08X04-BKP.SLDPRT
+Opened P:\APEX\SC08\LS-08X-04\_Shared\08X04-BKP.SLDPRT
+Read back from disk:
+SAVED	68MM_SPACE_80X40RHS_150X140PLATE_SLOTS_SHOT_AXIS<As Machined>	Plain Carbon Steel [SOLIDWORKS Materials]	2.449 kg
+SAVED	68MM_SPACE_80X40RHS_140X120PLATE<As Welded>	Plain Carbon Steel [SOLIDWORKS Materials]	2.449 kg
+SAVED	68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_SHORT_AXIS<As Machined>	Plain Carbon Steel [SOLIDWORKS Materials]	2.777 kg
+SAVED	Default<As Welded>	Plain Carbon Steel [SOLIDWORKS Materials]	2.777 kg
+SAVED	68MM_SPACE_80X40RHS_150x140PLATE_SLOTS_LONG_AXIS<As Machined>	Plain Carbon Steel [SOLIDWORKS Materials]	2.464 kg
+SAVED	68MM_SPACE_80X40RHS_140X120PLATE_SLOTS_LONG_AXIS<As Welded>	Plain Carbon Steel [SOLIDWORKS Materials]	2.464 kg
+SAVED	68MM_SPACE_80X40RHS_180X140PLATE_SLOTS_LONG_AXIS<As Machined>	Plain Carbon Steel [SOLIDWORKS Materials]	2.792 kg
+SAVED	68MM_SPACE_80X40RHS_180X120PLATE_SLOTS_LONG_AXIS<As Welded>	Plain Carbon Steel [SOLIDWORKS Materials]	2.792 kg
+Closed it again (opened read-only for the read-back).
+OK
+exit 0

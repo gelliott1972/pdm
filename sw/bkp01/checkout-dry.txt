@@ -1,0 +1,6 @@
+Vault: pdm-apex, pdm-files; local root P:\
+  would check out APEX/SC08/LS-08X-04/_Shared/08X04-BKP-01.SLDPRT
+  would check out APEX/SC08/LS-08X-04/ShaftB/08B04-BKP-02.SLDPRT
+  would check out APEX/SC08/LS-08X-04/_Shared/08X04-BKP.SLDPRT
+  would check out APEX/GNRIC/GNRIC-LMW.SLDPRT
+Dry run: 4 files; nothing checked out.

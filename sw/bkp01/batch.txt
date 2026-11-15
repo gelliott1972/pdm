@@ -1,0 +1,50 @@
+Batch: 23 changes in 2 files under P:\ (--checked-out)
+LOG APEX\SC08\LS-08X-04\_Shared\08X04-BKP-01.SLDPRT [Default<As Machined>] Description: 100x100x8 L=150 EA EXPANSION BRACKET -> 100x100x8 L=100 EA EXPANSION BRACKET
+Set Description = 100x100x8 L=100 EA EXPANSION BRACKET at Default<As Machined>
+LOG APEX\SC08\LS-08X-04\_Shared\08X04-BKP-01.SLDPRT [Default<As Welded>] Description: 100x100x8 L=150 EA EXPANSION BRACKET -> 100x100x8 L=100 EA EXPANSION BRACKET
+Set Description = 100x100x8 L=100 EA EXPANSION BRACKET at Default<As Welded>
+OK APEX\SC08\LS-08X-04\_Shared\08X04-BKP-01.SLDPRT: 2 change(s), read back, nothing else changed
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [@file] Description: RHS 40x40x4mm MEMBER -> SHS 40x40x4mm MEMBER
+Set Description = SHS 40x40x4mm MEMBER at @file
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-50+7M+46-OPEN<As Machined>] Description: RHS 40x40x4mm MEMBER x1841mm -> SHS 40x40x4mm MEMBER x1841mm
+Set Description = SHS 40x40x4mm MEMBER x1841mm at EC-50+7M+46-OPEN<As Machined>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+8M+46-OPEN<As Welded>] Description: RHS 40x40x4mm MEMBER x1841mm -> SHS 40x40x4mm MEMBER x1841mm
+Set Description = SHS 40x40x4mm MEMBER x1841mm at EC-0+8M+46-OPEN<As Welded>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [OPEN-46+0M+50-EC (STUB)<As Machined>] Description: RHS 40x40x4mm MEMBER x91mm -> SHS 40x40x4mm MEMBER x91mm
+Set Description = SHS 40x40x4mm MEMBER x91mm at OPEN-46+0M+50-EC (STUB)<As Machined>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [OPEN-46+1M+0-EC<As Machined><As Welded>] Description: RHS 40x40x4mm MEMBER x91mm -> SHS 40x40x4mm MEMBER x91mm
+Set Description = SHS 40x40x4mm MEMBER x91mm at OPEN-46+1M+0-EC<As Machined><As Welded>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+6M+46-OPEN<As Machined>] Description: RHS 40x40x4mm MEMBER x1541mm -> SHS 40x40x4mm MEMBER x1541mm
+Set Description = SHS 40x40x4mm MEMBER x1541mm at EC-0+6M+46-OPEN<As Machined>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+6M+46-OPEN<As Welded>] Description: RHS 40x40x4mm MEMBER x1541mm -> SHS 40x40x4mm MEMBER x1541mm
+Set Description = SHS 40x40x4mm MEMBER x1541mm at EC-0+6M+46-OPEN<As Welded>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+5M+46-EC<As Machined>] Description: RHS 40x40x4mm MEMBER x1286mm -> SHS 40x40x4mm MEMBER x1286mm
+Set Description = SHS 40x40x4mm MEMBER x1286mm at EC-0+5M+46-EC<As Machined>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+5M+46-OPEN<As Machined><As Welded>] Description: RHS 40x40x4mm MEMBER x1286mm -> SHS 40x40x4mm MEMBER x1286mm
+Set Description = SHS 40x40x4mm MEMBER x1286mm at EC-0+5M+46-OPEN<As Machined><As Welded>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+4M+46-OPEN<As Machined>] Description: RHS 40x40x4mm MEMBER x1041mm -> SHS 40x40x4mm MEMBER x1041mm
+Set Description = SHS 40x40x4mm MEMBER x1041mm at EC-0+4M+46-OPEN<As Machined>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+4M+46-OPEN<As Welded>] Description: RHS 40x40x4mm MEMBER x1041mm -> SHS 40x40x4mm MEMBER x1041mm
+Set Description = SHS 40x40x4mm MEMBER x1041mm at EC-0+4M+46-OPEN<As Welded>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+2M+46-OPEN<As Machined>] Description: RHS 40x40x4mm MEMBER x541mm -> SHS 40x40x4mm MEMBER x541mm
+Set Description = SHS 40x40x4mm MEMBER x541mm at EC-0+2M+46-OPEN<As Machined>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+2M+46-OPEN<As Welded>] Description: RHS 40x40x4mm MEMBER x541mm -> SHS 40x40x4mm MEMBER x541mm
+Set Description = SHS 40x40x4mm MEMBER x541mm at EC-0+2M+46-OPEN<As Welded>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+3M+46-OPEN<As Machined>] Description: RHS 40x40x4mm MEMBER x791mm -> SHS 40x40x4mm MEMBER x791mm
+Set Description = SHS 40x40x4mm MEMBER x791mm at EC-0+3M+46-OPEN<As Machined>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+3M+46-OPEN<As Welded>] Description: RHS 40x40x4mm MEMBER x791mm -> SHS 40x40x4mm MEMBER x791mm
+Set Description = SHS 40x40x4mm MEMBER x791mm at EC-0+3M+46-OPEN<As Welded>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+5M+0-EC<As Machined>] Description: RHS 40x40x4mm MEMBER x1240mm -> SHS 40x40x4mm MEMBER x1240mm
+Set Description = SHS 40x40x4mm MEMBER x1240mm at EC-0+5M+0-EC<As Machined>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-0+5M+0-EC<As Welded>] Description: RHS 40x40x4mm MEMBER x1240mm -> SHS 40x40x4mm MEMBER x1240mm
+Set Description = SHS 40x40x4mm MEMBER x1240mm at EC-0+5M+0-EC<As Welded>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-50+5M+46-OPEN<As Machined>] Description: RHS 40x40x4mm MEMBER x1341mm -> SHS 40x40x4mm MEMBER x1341mm
+Set Description = SHS 40x40x4mm MEMBER x1341mm at EC-50+5M+46-OPEN<As Machined>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-50+5M+46-OPEN<As Welded>] Description: RHS 40x40x4mm MEMBER x1341mm -> SHS 40x40x4mm MEMBER x1341mm
+Set Description = SHS 40x40x4mm MEMBER x1341mm at EC-50+5M+46-OPEN<As Welded>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-50+4M+46-OPEN<As Machined>] Description: RHS 40x40x4mm MEMBER x1091mm -> SHS 40x40x4mm MEMBER x1091mm
+Set Description = SHS 40x40x4mm MEMBER x1091mm at EC-50+4M+46-OPEN<As Machined>
+LOG APEX\GNRIC\GNRIC-LMW.SLDPRT [EC-50+4M+46-OPEN<As Welded>] Description: RHS 40x40x4mm MEMBER x1091mm -> SHS 40x40x4mm MEMBER x1091mm
+Set Description = SHS 40x40x4mm MEMBER x1091mm at EC-50+4M+46-OPEN<As Welded>
+OK APEX\GNRIC\GNRIC-LMW.SLDPRT: 21 change(s), read back, nothing else changed
+RESULT: 2 files, 23 changes, all read back

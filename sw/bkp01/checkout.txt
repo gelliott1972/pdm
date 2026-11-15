@@ -1,0 +1,5 @@
+Vault: pdm-apex, pdm-files; local root P:\
+Checked out APEX/GNRIC/GNRIC-LMW.SLDPRT
+Checked out APEX/SC08/LS-08X-04/ShaftB/08B04-BKP-02.SLDPRT
+Checked out APEX/SC08/LS-08X-04/_Shared/08X04-BKP.SLDPRT
+Checked out APEX/SC08/LS-08X-04/_Shared/08X04-BKP-01.SLDPRT

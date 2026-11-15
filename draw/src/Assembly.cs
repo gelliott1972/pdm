@@ -1245,14 +1245,18 @@ static partial class Draw
         // one row of holes at a time (14 Nov: picking edges and holes from different plates made SOLIDWORKS refuse the
         // row): the edges beside that row and, for each position across, the hole nearest it; next row if refused
         var rowsY = holes.Select(h => h.C[1]).GroupBy(y => Math.Round(y * 1e5)).Select(g => g.First()).OrderBy(y => y).Take(3).ToList();
-        foreach (var ay in rowsY)
+        // Grant 15 Nov: from the bottom holes. SOLIDWORKS sometimes refuses a row once (RPC fault) and takes it the
+        // second time, so the bottom row is tried twice before the rows above it
+        var tries = new[] { rowsY[0] }.Concat(rowsY).ToList();
+        for (int ti = 0; ti < tries.Count; ti++)
         {
+        double ay = tries[ti];
         Func<Tuple<Edge, double[], double[]>, bool> beside = l => Math.Min(l.Item2[1], l.Item3[1]) <= ay + 1e-6 && Math.Max(l.Item2[1], l.Item3[1]) >= ay - 1e-6;
         var datum = hx0 >= l0.Item2[0] - 1e-6 ? l0 : vert.Where(l => l.Item2[0] < hx0 - 1e-6 && beside(l)).OrderByDescending(l => Math.Round(l.Item2[0] * 1e6)).ThenBy(l => Math.Min(l.Item2[1], l.Item3[1])).FirstOrDefault();
         var far = hx1 <= l1.Item2[0] + 1e-6 ? l1 : vert.Where(l => l.Item2[0] > hx1 + 1e-6 && beside(l)).OrderBy(l => Math.Round(l.Item2[0] * 1e6)).ThenBy(l => Math.Min(l.Item2[1], l.Item3[1])).FirstOrDefault();
         if (datum == null || far == null) continue;
         var pts = holes.GroupBy(h => Math.Round(h.C[0] * 1e5)).Select(g => g.OrderBy(h => Math.Abs(h.C[1] - ay)).First()).OrderBy(h => h.C[0]).ToList();
-        if (ownerName != null && l1.Item2[0] - l0.Item2[0] > 1e-5 && ay == rowsY[0])
+        if (ownerName != null && l1.Item2[0] - l0.Item2[0] > 1e-5 && ti == 0)
             foreach (var h in pts)
             {
                 double off = Math.Round((h.C[0] - (l0.Item2[0] + l1.Item2[0]) / 2) / sc * 1000, 1);
@@ -1270,7 +1274,7 @@ static partial class Draw
         double fv = val(far.Item2[0]);
         if (!expect.Contains(fv)) { items.Add(far.Item1); expect.Add(fv); }
         double yBot = hor.Min(l => l.Item2[1]);
-        bool last = ay == rowsY[rowsY.Count - 1];
+        bool last = ti == tries.Count - 1;
         int nMissing = missingGroups.Count;
         if (OrdinateRow(doc, drw, v, false, items, expect, new HashSet<double> { fv }, datum.Item2[0], yBot - 0.010, "holes across", report, OutlineOf(v)[1] - 0.0146)) return true;   // labels about 15 mm under the member as drawn (Grant 15 Nov)
         if (!last) missingGroups.RemoveRange(nMissing, missingGroups.Count - nMissing);   // try the next row before giving up

@@ -7,7 +7,7 @@ Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\code\pdm\scratch\
 | Step | State |
 | --- | --- |
 | Outstanding list | Done: `draw\outstanding.md`, 89 of 319 items (LMW 10, PLP 7, BKP/BKA/MSA 15, singles and simple weldments 27, SFA/STA 30), from P:\ with `src\Outstanding.cs` (read-only, pdm coverage rule). Counts sent to Admin. Not yet compared with pdm coverage (Grant's AWS login) |
-| Batch 1 LMW | One at a time with Grant (brief draw-3, D12). **GNRIC-LMW-02 approved** 15 Nov (his edits: CHECK note outside the border bottom left, isometric lined up with the profiles), saved as he left it, repointed to P:\ and in `scratch\draw-test\load\batch-1\` (checked: values unchanged, 0 dangling). **GNRIC-LMW-01 ready** in SOLIDWORKS. Then -03, -04, -05, -06, -09, -10, -11; -12 accepted on the Desk (DR21) as v2 |
+| Batch 1 LMW | One at a time with Grant (brief draw-3, D12). **Approved and in `scratch\draw-test\load\batch-1\`** (saved as he left them, repointed to P:\, checked): GNRIC-LMW-02, -01. **GNRIC-LMW-03 ready** in SOLIDWORKS. Then -04, -05, -06, -09, -10, -11; -12 accepted on the Desk (DR21) as v2. Rules from his edits in the skill: CHECK notes outside the border bottom left; isometric centred on the main view |
 
 ## Done
 

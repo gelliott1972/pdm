@@ -231,4 +231,27 @@ static partial class Draw
         Console.WriteLine("Dimensions " + dims + "; dangling " + dangling + "; slot check " + (slot.Count == 0 ? "OK" : "FAILED " + string.Join(", ", slot)));
         return dangling == 0 && slot.Count == 0 ? 0 : 1;
     }
+
+    // align-iso <drawing>: in the open drawing, move the isometric up or down so its vertical centre is level with the
+    // main view's (Grant 15 Nov, GNRIC-LMW-01). Keeps its left-right place. Edits the open drawing only; doesn't save.
+    static int AlignIso(string drawing)
+    {
+        var doc = OpenDoc(drawing, null, true);
+        var drw = (DrawingDoc)doc;
+        View main = null, iso = null;
+        for (var v = (View)((View)drw.GetFirstView()).GetNextView(); v != null; v = (View)v.GetNextView())
+        {
+            string o = v.GetOrientationName() ?? "";
+            if (o.IndexOf("Isometric", StringComparison.OrdinalIgnoreCase) >= 0) { if (iso == null) iso = v; }
+            else if (main == null) main = v;
+        }
+        if (main == null || iso == null) { Console.Error.WriteLine("main view or isometric not found"); return 1; }
+        var mo = (double[])main.GetOutline(); var io = (double[])iso.GetOutline();
+        double want = (mo[1] + mo[3]) / 2, was = (io[1] + io[3]) / 2;
+        Console.WriteLine("Main view " + main.GetName2() + " centre " + (want * 1000).ToString("0.0") + " mm; isometric " + iso.GetName2() + " centre " + (was * 1000).ToString("0.0") + " mm");
+        MoveOutline(doc, iso, io[0], want);
+        io = (double[])iso.GetOutline();
+        Console.WriteLine("Isometric centre now " + ((io[1] + io[3]) / 2 * 1000).ToString("0.0") + " mm (left edge kept at " + (io[0] * 1000).ToString("0.0") + "); not saved");
+        return 0;
+    }
 }

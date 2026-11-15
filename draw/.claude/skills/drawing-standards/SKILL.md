@@ -116,6 +116,6 @@ How it works (Grant D12, 15 Nov): one drawing at a time. Draw generates it and o
 
 | What Grant changed | Rule for future drawings | From |
 | --- | --- | --- |
-| Moved the CHECK note from above the title block to outside the drawing border, bottom left of the sheet (x 3.4, y 5.4 mm from the sheet corner, one line) | CHECK notes for James go outside the border, at the bottom left of the sheet, under the revision table; never inside the drawing area | GNRIC-LMW-02, 15 Nov |
-| Moved the isometric (with its note block) up 16 mm and left 12 mm so its bottom lines up with the bottom of the profile views | Upright members: the isometric's bottom level with the bottom of the face and end views | GNRIC-LMW-02, 15 Nov |
+| Moved the CHECK note from above the title block to outside the drawing border, bottom left of the sheet (x 3.4, y 5.4 mm from the sheet corner, one line) | **In the generator:** CHECK notes for James outside the border, bottom left of the sheet (brief draw-3) | GNRIC-LMW-02, 15 Nov |
+| Moved the isometric (with its note block) up 16 mm and left 12 mm on GNRIC-LMW-02; on GNRIC-LMW-01 said "the isometric should be vertically center aligned to the main 2D view" | **In the generator:** the isometric's vertical centre level with the main view's (its left-right place as before) | GNRIC-LMW-02, -01, 15 Nov (Grant agreed) |
 

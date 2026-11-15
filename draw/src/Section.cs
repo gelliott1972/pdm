@@ -600,6 +600,13 @@ static partial class Draw
                 if (Math.Abs(dx) > 0.001) foreach (var x in vs) { var xo = (double[])x.GetOutline(); MoveOutline(drwDoc, x, xo[0] + dx, double.NaN); }
                 Console.WriteLine("Upright views moved " + Mm(dx) + " across to sit centred right of the isometric");
             }
+            // Grant 15 Nov (GNRIC-LMW-01): the isometric's vertical centre level with the main view's
+            if (iso != null)
+            {
+                var mo3 = (double[])main.GetOutline(); var io3 = (double[])iso.GetOutline();
+                MoveOutline(drwDoc, iso, io3[0], (mo3[1] + mo3[3]) / 2);
+                Console.WriteLine("Isometric centred level with the main view");
+            }
         }
         // Grant 15 Nov (D9): every view that shows a different body says what it shows (the cap's 36 read as the tube's
         // inside); with the scale when it differs from the sheet

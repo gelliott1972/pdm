@@ -147,6 +147,7 @@ static partial class Draw
     // places goes on layer DRAFT (magenta). Nothing is copied from another drawing, so nothing can dangle; it is
     // still checked before saving.
     static List<string> plateSlotFlags = new List<string>();
+    static int weldedOthers;   // bodies welded to the plate (shown, not dimensioned)
     static int MakePlate(string partFile, string config, string output, string template, HashSet<string> flags)
     {
         if (File.Exists(output)) { Console.Error.WriteLine("REFUSED: already exists, not overwritten: " + output); return 2; }
@@ -168,8 +169,14 @@ static partial class Draw
         }
         if (props["PartNo"] == "") { Console.Error.WriteLine("REFUSED: no PartNo on " + config + "; no draft"); return 2; }
         var bodies = (object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true);
-        if (bodies == null || bodies.Length != 1) { Console.Error.WriteLine("REFUSED: make-plate needs one solid body, found " + (bodies == null ? 0 : bodies.Length)); return 2; }
-        var body = (Body2)bodies[0];
+        if (bodies == null || bodies.Length == 0) { Console.Error.WriteLine("REFUSED: make-plate needs a solid body"); return 2; }
+        // A welded bracket (batch 3, 08X04-BKP: a plate with an RHS stub or angles welded on): draw it as its plate, the
+        // flattest of the large bodies, the rest shown in the views but not dimensioned; a CHECK note says so (overnight, Admin)
+        Func<Body2, double[]> extOf = b => { var bb = (double[])b.GetBodyBox(); var e = new[] { bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2] }; Array.Sort(e); return e; };
+        var body = bodies.Length == 1 ? (Body2)bodies[0] : bodies.Cast<Body2>().Where(b => { var e = extOf(b); return e[0] < 0.25 * e[1]; }).OrderByDescending(b => { var e = extOf(b); return e[1] * e[2]; }).FirstOrDefault();
+        if (body == null) { Console.Error.WriteLine("REFUSED: make-plate found no plate among " + bodies.Length + " bodies"); return 2; }
+        weldedOthers = bodies.Length - 1;
+        if (weldedOthers > 0) Console.WriteLine("Welded bracket: drawn as its plate " + body.Name + "; " + weldedOthers + " other bod" + (weldedOthers == 1 ? "y" : "ies") + " shown, not dimensioned");
         var box = (double[])body.GetBodyBox();
         var ext = new[] { box[3] - box[0], box[4] - box[1], box[5] - box[2] };
         int thin = Array.IndexOf(ext, ext.Min());
@@ -484,6 +491,8 @@ static partial class Draw
         // (brief draw-3): a model with no material, or a weight far from the same plate in steel
         {
             var pflags = new List<string>(plateSlotFlags);
+            if (weldedOthers > 0) pflags.Add("CHECK: WELDED PART: ONLY THE PLATE IS DIMENSIONED; " + weldedOthers + " WELDED BOD" + (weldedOthers == 1 ? "Y" : "IES") + " TO LOCATE AND SIZE; WELDS NOT ADDED");
+            foreach (var x in ExtraChecks) pflags.Add((x.StartsWith("CHECK:", StringComparison.OrdinalIgnoreCase) ? x : "CHECK: " + x).ToUpperInvariant());
             if (props["Material"] == "") pflags.Add("CHECK: MODEL HAS NO MATERIAL PROPERTY");
             double steelKg = ((object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]).Cast<Body2>().Sum(b => ((double[])b.GetMassProperties(7850))[5]);
             double wProp;

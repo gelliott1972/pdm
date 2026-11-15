@@ -531,7 +531,32 @@ static partial class Draw
         //     each row centred, and the whole group moved so its centre of area sits in the middle of the free sheet
         //     (inside the border, above the title block).
         Layout(drwDoc, main, side, iso);
-        // the isometric inside the border (Grant 15 Nov, 08X04-PLP-32: it ran off the left): one scale smaller and again
+        // the isometric inside the border at the sheet scale (Grant 15 Nov, 08X04-PLP-32: he put it back to 1:2 and moved it
+        // right): slide it right first; only if it then reaches past the title block's left, one scale smaller
+        if (iso != null && ((double[])iso.GetOutline())[0] < BorderX0 + 0.003)
+        {
+            var io5 = (double[])iso.GetOutline();
+            MoveOutline(drwDoc, iso, BorderX0 + 0.008, double.NaN);
+            Console.WriteLine("Isometric slid right inside the border (kept at 1:" + Math.Round(1 / iso.ScaleDecimal) + ")");
+        }
+        double isoRightLimit = TitleLeft - 0.005;
+        Func<double> isoRight = () =>
+        {
+            double r = ((double[])iso.GetOutline())[2];
+            foreach (Annotation a in (iso.GetAnnotations() as object[]) ?? new object[0])
+                if (a.GetType() == (int)swAnnotationType_e.swNote) { var e5 = ((Note)a.GetSpecificAnnotation()).GetExtent() as double[]; if (e5 != null) r = Math.Max(r, Math.Max(e5[0], e5[3])); }
+            return r;
+        };
+        for (int tries = 0; iso != null && tries < 3 && isoRight() > isoRightLimit && ((double[])iso.GetOutline())[1] < TitleTop; tries++)
+        {
+            int cur = (int)Math.Round(1 / iso.ScaleDecimal);
+            int next = PlateScales.Where(d => d > cur).DefaultIfEmpty(0).First();
+            if (next == 0) break;
+            iso.UseSheetScale = 0; iso.ScaleRatio = new double[] { 1, next };
+            drwDoc.ForceRebuild3(false);
+            Layout(drwDoc, main, side, iso);
+            Console.WriteLine("Isometric and note block ran into the title block: now 1:" + next);
+        }
         for (int tries = 0; iso != null && tries < 3 && ((double[])iso.GetOutline())[0] < BorderX0 + 0.003; tries++)
         {
             int cur = (int)Math.Round(1 / iso.ScaleDecimal);

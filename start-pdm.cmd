@@ -12,7 +12,7 @@ set "DESK=%LOCALAPPDATA%\PDM-Desk\PdmDesk.exe"
 if exist "%DESK%" start "" "%DESK%"
 
 wt -w new ^
-  new-tab --title Admin --suppressApplicationTitle -d "%ROOT%" %CC% ; ^
+  new-tab --title Admin --suppressApplicationTitle -d "%ROOT%" %CC% --remote-control pdm-admin ; ^
   new-tab --title Dev   --suppressApplicationTitle -d "%ROOT%\dev" %CC% ; ^
   new-tab --title SW    --suppressApplicationTitle -d "%ROOT%\sw" %CC% ; ^
   new-tab --title App   --suppressApplicationTitle -d "%ROOT%\app" %CC% ; ^

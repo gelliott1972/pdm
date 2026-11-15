@@ -594,7 +594,15 @@ static partial class Draw
             {
                 var vs = new[] { main, side, capView }.Where(x => x != null).ToList();
                 double gl = vs.Min(x => Extent(x)[0]), gr = vs.Max(x => Extent(x)[2]);
-                double freeL = Extent(iso)[2] + 0.010, freeR = BorderX1 - 0.003;
+                // clear of the isometric and its note block (GNRIC-LMW-04 at 1:20: the note block ran into the face view)
+                double isoRight = Extent(iso)[2];
+                foreach (Annotation a in (iso.GetAnnotations() as object[]) ?? new object[0])
+                    if (a.GetType() == (int)swAnnotationType_e.swNote)
+                    {
+                        var ext = ((Note)a.GetSpecificAnnotation()).GetExtent() as double[];
+                        if (ext != null) isoRight = Math.Max(isoRight, Math.Max(ext[0], ext[3]));
+                    }
+                double freeL = isoRight + 0.010, freeR = BorderX1 - 0.003;
                 double dx = (freeL + freeR) / 2 - (gl + gr) / 2;
                 if (gl + dx < freeL) dx = freeL - gl;
                 if (Math.Abs(dx) > 0.001) foreach (var x in vs) { var xo = (double[])x.GetOutline(); MoveOutline(drwDoc, x, xo[0] + dx, double.NaN); }

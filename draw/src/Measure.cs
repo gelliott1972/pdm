@@ -61,4 +61,40 @@ static partial class Draw
         }
         return 0;
     }
+
+    // close-mine: close (without saving) Draw's own documents: files under the test folder (never a "-grant" file), and
+    // unsaved new drawings whose views show a model under the test folder (drafts left by a run that refused to save).
+    // Other sessions' and Grant's documents are left alone (no close-all while Grant has drawings open).
+    static int CloseMine()
+    {
+        int closed = 0;
+        var docs = new List<ModelDoc2>();
+        for (var d = (ModelDoc2)sw.GetFirstDocument(); d != null; d = (ModelDoc2)d.GetNext()) docs.Add(d);
+        // drawings first, so the models they hold can close too
+        var order = new List<ModelDoc2>();
+        foreach (var d in docs) { try { if (d.GetType() == (int)swDocumentTypes_e.swDocDRAWING) order.Insert(0, d); else order.Add(d); } catch { } }
+        foreach (var d in order)
+        {
+            string path, title;
+            try { path = d.GetPathName() ?? ""; title = d.GetTitle(); } catch (System.Runtime.InteropServices.COMException) { continue; }   // already closed with a drawing that held it
+            bool mine;
+            if (path == "")
+            {
+                mine = false;
+                if (d.GetType() == (int)swDocumentTypes_e.swDocDRAWING)
+                    for (var v = (View)((DrawingDoc)d).GetFirstView(); v != null; v = (View)v.GetNextView())
+                    {
+                        string r = v.GetReferencedModelName() ?? "";
+                        if (r.StartsWith(TestRoot + "\\", StringComparison.OrdinalIgnoreCase)) { mine = true; break; }
+                    }
+            }
+            else mine = path.StartsWith(TestRoot + "\\", StringComparison.OrdinalIgnoreCase) && title.IndexOf("-grant", StringComparison.OrdinalIgnoreCase) < 0 && path.IndexOf("-grant", StringComparison.OrdinalIgnoreCase) < 0;
+            if (!mine) continue;
+            sw.CloseDoc(path == "" ? title : path);
+            Console.WriteLine("Closed " + (path == "" ? title + " (unsaved)" : path));
+            closed++;
+        }
+        Console.WriteLine("Closed " + closed + " of Draw's documents; " + (docs.Count - closed) + " left open");
+        return 0;
+    }
 }

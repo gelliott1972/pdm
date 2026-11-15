@@ -95,6 +95,7 @@ Layout copied from Grant's `08X06-LMW-01-grant` and `08X06-LMW-02-grant` (in `sc
 | A dimension too narrow for its text (under 6 mm on the sheet): text outside the extension lines, beside the outer one, arrows outside pointing in | Grant 15 Nov (GNRIC-LMW-01 wall "4") |
 | Stock with the material on the note block: "Plain Carbon Steel, SHS 40x40x4", built from the section measured in the model (hollow sections so far); magenta CHECK if the cut-list label or the description disagrees | Grant D7, 15 Nov |
 | Revision 0A* on every draft; James removes the * and fills DRAWN when he issues (release refuses * or empty DRAWN) | Grant D5 = A, 15 Nov |
+| Label every view that shows a different body (or hides one): e.g. "END CAP 36x36x5" under the cap view, "SHS 40x40x4 (END CAP NOT SHOWN)" under the section view; a tube's section view also shows its inside size (32) | Grant D9, 15 Nov (the cap's 36 was read as the tube's inside) |
 | Each new version of a draft gets its own PDF ("GNRIC-LMW-01 v2.pdf"); the Desk ticket points at the newest | Desk draft-review tickets, 15 Nov |
 
 ## Welded members with end caps (GNRIC-LMW, batch 1)

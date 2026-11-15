@@ -390,6 +390,18 @@ static partial class Draw
                         lv ? longest.Item2[0] : longest.Item2[1], lv ? inner.Item2[0] : inner.Item2[1], lv);
                     secExpected.Add(t);
                 }
+                // a tube's inside size (Grant 15 Nov: so it can't be confused with the end cap's 36): between the inner walls
+                var xs = vert.Select(l => Math.Round(l.Item2[0] * 1e6) / 1e6).Distinct().OrderBy(x => x).ToList();
+                if (hollow && xs.Count == 4)
+                {
+                    var in0 = vert.First(l => Math.Abs(l.Item2[0] - xs[1]) < 1e-6); var in1 = vert.First(l => Math.Abs(l.Item2[0] - xs[2]) < 1e-6);
+                    double inside = (xs[2] - xs[1]) / svs * 1000;
+                    Dim2(drwDoc, selMgr, side, in0.Item1, in1.Item1, (xs[1] + xs[2]) / 2, (so[1] + so[3]) / 2, "inside width", xs[1], xs[2], true);
+                    secExpected.Add(inside);
+                    double outW = (xs[3] - xs[0]) / svs * 1000;
+                    if (secExpected.Count >= 3 && Math.Abs(outW - 2 * secExpected[2] - inside) > 0.05) problems.Add("inside " + inside.ToString("0.#") + " is not outside less two walls");
+                }
+                else if (hollow) problems.Add("inside size: walls not found in the end view");
             }
             else problems.Add("end view outline not found; no section sizes");
             drwDoc.ClearSelection2(true);
@@ -577,16 +589,30 @@ static partial class Draw
                 Console.WriteLine("Upright views moved " + Mm(dx) + " across to sit centred right of the isometric");
             }
         }
-        if (upright && endDen != den)
+        // Grant 15 Nov (D9): every view that shows a different body says what it shows (the cap's 36 read as the tube's
+        // inside); with the scale when it differs from the sheet
+        if (upright && (endDen != den || others.Count > 0))
         {
             lm.SetCurrentLayer(DraftLayer);
+            string capName = "";
+            if (others.Count > 0)
+            {
+                var cb = (double[])others[0].GetBodyBox();
+                var cross = Enumerable.Range(0, 3).Where(i => i != lenAx).Select(i => cb[3 + i] - cb[i]).OrderByDescending(x => x).ToList();
+                capName = "END CAP " + Mm(cross[0]) + "x" + Mm(cross[1]) + "x" + Mm(cb[3 + lenAx] - cb[lenAx]);
+            }
             foreach (var vw in new[] { side, capView }.Where(x => x != null))
             {
                 drw.ActivateView(vw.GetName2());
-                var ln = drwDoc.InsertNote("SCALE 1:" + endDen) as Note;
+                var lbl = new List<string>();
+                if (vw == capView) lbl.Add(capName);
+                else if (others.Count > 0) lbl.Add((stock != "" ? stock : "MEMBER") + " (END CAP NOT SHOWN)");
+                if (endDen != den) lbl.Add("SCALE 1:" + endDen);
+                var ln = drwDoc.InsertNote(string.Join("\n", lbl)) as Note;
                 if (ln == null) { problems.Add("end view scale label not placed"); continue; }
                 var vo = (double[])vw.GetOutline();
-                ((Annotation)ln.GetAnnotation()).SetPosition2((vo[0] + vo[2]) / 2 - 0.007, vo[1] - 0.016, 0);   // under the dimensions below the view
+                ((Annotation)ln.GetAnnotation()).SetPosition2((vo[0] + vo[2]) / 2 - 0.016, vo[1] - 0.016, 0);   // under the dimensions below the view
+                Console.WriteLine("View label: " + string.Join(" / ", lbl));
             }
             lm.SetCurrentLayer("");
             drwDoc.ClearSelection2(true);

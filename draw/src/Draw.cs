@@ -77,6 +77,7 @@ static partial class Draw
                 case "bom-test": if (pos.Count != 2) return Usage(); rc = BomTest(pos[0], pos[1]); break;
                 case "view-geom": if (pos.Count != 1) return Usage(); rc = ViewGeom(pos[0]); break;
                 case "view-boxes": if (pos.Count != 1) return Usage(); rc = ViewBoxes(pos[0]); break;
+                case "close-mine": rc = CloseMine(); break;
                 case "measure-member": if (pos.Count != 2) return Usage(); rc = MeasureMember(pos[0], pos[1]); break;
                 case "weld-probe": if (pos.Count != 1) return Usage(); rc = WeldProbe(pos[0]); break;
                 case "pdf": if (pos.Count != 2) return Usage(); rc = Pdf(pos[0], pos[1]); break;

@@ -47,7 +47,7 @@ static partial class Draw
         // Every path must be inside the test folder: never P:\, M:\, C:\PDM-work or Dropbox.
         for (int i = 0; i < pos.Count; i++)
         {
-            if ((cmd == "make-plate" || cmd == "make-section" || cmd == "make-assembly" || cmd == "views" || cmd == "measure-member" || cmd == "remove-note") && i == 1) continue;   // configuration name
+            if ((cmd == "make-plate" || cmd == "make-section" || cmd == "make-assembly" || cmd == "views" || cmd == "measure-member" || cmd == "remove-note" || cmd == "add-projection" || cmd == "move-view" || cmd == "delete-view" || cmd == "hole-dims") && i >= 1) continue;   // configuration name
             string full;
             try { full = Path.GetFullPath(pos[i]); } catch (Exception ex) { Console.Error.WriteLine("Bad path: " + ex.Message); return 2; }
             if (!full.StartsWith(TestRoot + "\\", StringComparison.OrdinalIgnoreCase))
@@ -70,13 +70,18 @@ static partial class Draw
                 case "accept": if (pos.Count != 1) return Usage(); rc = Accept(pos[0], flags.Contains("all")); break;
                 case "select-draft": if (pos.Count != 1) return Usage(); rc = SelectDraft(pos[0]); break;
                 case "views": if (pos.Count != 3) return Usage(); rc = Views(pos[0], pos[1] == "-" ? null : pos[1], pos[2]); break;
-                case "make-section": if (pos.Count != 4) return Usage(); { var pf = args.FirstOrDefault(a => a.StartsWith("--pdf=")); if (pf != null) { PdfName = Path.GetFileName(pf.Substring(6)); if (!PdfName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) PdfName += ".pdf"; } } rc = MakeSection(pos[0], pos[1], pos[2], pos[3]); break;
+                case "make-section": if (pos.Count != 4) return Usage(); { var pf = args.FirstOrDefault(a => a.StartsWith("--pdf=")); if (pf != null) { PdfName = Path.GetFileName(pf.Substring(6)); if (!PdfName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) PdfName += ".pdf"; } } ExtraChecks = args.Where(a => a.StartsWith("--check=")).Select(a => a.Substring(8)).ToList(); { var fo = args.FirstOrDefault(a => a.StartsWith("--face=")); FaceOverride = fo == null ? null : fo.Substring(7); } rc = MakeSection(pos[0], pos[1], pos[2], pos[3]); break;
                 case "learn-layout": if (pos.Count < 1) return Usage(); rc = LearnLayout(pos); break;
                 case "copy-switch": if (pos.Count != 3) return Usage(); rc = CopySwitch(pos[0], pos[1], pos[2]); break;
                 case "make-assembly": if (pos.Count != 4) return Usage(); MemberCentres = flags.Contains("centrelines"); { var sf = flags.FirstOrDefault(f => f.StartsWith("scale=")); if (sf != null) ForcedDen = int.Parse(sf.Substring(6)); } rc = MakeAssembly(pos[0], pos[1], pos[2], pos[3]); break;
                 case "bom-test": if (pos.Count != 2) return Usage(); rc = BomTest(pos[0], pos[1]); break;
                 case "view-geom": if (pos.Count != 1) return Usage(); rc = ViewGeom(pos[0]); break;
                 case "view-boxes": if (pos.Count != 1) return Usage(); rc = ViewBoxes(pos[0]); break;
+                case "add-projection": if (pos.Count != 3) return Usage(); rc = AddProjection(pos[0], pos[1], pos[2]); break;
+                case "hole-dims": if (pos.Count != 2) return Usage(); rc = HoleDims(pos[0], pos[1]); break;
+                case "move-view": if (pos.Count != 4) return Usage(); rc = MoveView(pos[0], pos[1], double.Parse(pos[2], System.Globalization.CultureInfo.InvariantCulture), double.Parse(pos[3], System.Globalization.CultureInfo.InvariantCulture)); break;
+                case "delete-view": if (pos.Count != 2) return Usage(); rc = DeleteView(pos[0], pos[1]); break;
+                case "save-active": if (pos.Count != 1) return Usage(); rc = SaveActive(pos[0]); break;
                 case "remove-note": if (pos.Count != 2) return Usage(); rc = RemoveNote(pos[0], pos[1]); break;
                 case "align-iso": if (pos.Count != 1) return Usage(); rc = AlignIso(pos[0]); break;
                 case "check": if (pos.Count != 1) return Usage(); rc = CheckDrawing(pos[0]); break;

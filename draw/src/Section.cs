@@ -15,6 +15,8 @@ static partial class Draw
     class Cut { public double[] C; public double Width, Length; public double[] Axis; public bool Slot; public double[] Dir; }   // a hole or a slot (model metres)
 
     static string PdfName;
+    static string FaceOverride;   // --face=*Top: the face view when the tool's choice shows no holes (08X04-PLP-06)
+    static List<string> ExtraChecks = new List<string>();   // --check="...": a CHECK line for James given by Grant (e.g. 08X04-PLP-06)
     static int endDen;
     static int MakeSection(string partFile, string config, string output, string template)
     {
@@ -117,6 +119,7 @@ static partial class Draw
             .OrderBy(f => double.IsNaN(holeAt) ? 0 : Math.Round(Math.Abs(faceAt(f) - holeAt) * 1e4)).ThenByDescending(f => f.GetArea()).First();
         var nrm = (double[])lookFace.Normal;
         string faceView = cAx == 0 ? (nrm[0] > 0 ? "*Right" : "*Left") : cAx == 1 ? (nrm[1] > 0 ? "*Top" : "*Bottom") : (nrm[2] > 0 ? "*Front" : "*Back");
+        if (FaceOverride != null) { Console.WriteLine("Face view " + faceView + " overridden to " + FaceOverride); faceView = FaceOverride; }
         var mp = (MassProperty)part.Extension.CreateMassProperty();
         var com = (double[])mp.CenterOfMass;
         Console.WriteLine("Face view " + faceView + " (face normal " + "XYZ"[cAx] + (nrm[cAx] > 0 ? "+" : "-") + "); centre of mass " + Mm(com[0]) + "," + Mm(com[1]) + "," + Mm(com[2]));
@@ -274,7 +277,7 @@ static partial class Draw
                 if (!c.Slot)
                 {
                     var e = circles.OrderBy(ck => Dist2(ck.Item2, cs)).FirstOrDefault();
-                    if (e == null || Dist2(e.Item2, cs) > 1e-4) { problems.Add("no circle at a hole centre"); continue; }
+                    if (e == null || Dist2(e.Item2, cs) > 1e-4) { problems.Add("no circle at a hole centre"); Console.WriteLine("  hole expected at " + Mm(cs[0]) + "," + Mm(cs[1]) + "; circles at " + string.Join("; ", circles.Select(ck => Mm(ck.Item2[0]) + "," + Mm(ck.Item2[1]) + " d" + Mm(ck.Item3)))); continue; }
                     tA.Add(Tuple.Create((object)e.Item1, cs)); tX.Add(Tuple.Create((object)e.Item1, cs));
                     continue;
                 }
@@ -553,7 +556,8 @@ static partial class Draw
         }
         // Flag: a length written in the description (L=nnn) that disagrees with the model.
         var flags = new List<string>(slotFlags); Note flagNote = null;
-        if (lengthNote != "") flags.Add(lengthNote);   // a note for James, apart from the note block (Grant 15 Nov)
+        if (lengthNote != "") flags.Add(lengthNote);
+        foreach (var x in ExtraChecks) flags.Add(x.StartsWith("CHECK:", StringComparison.OrdinalIgnoreCase) ? x : "CHECK: " + x);   // a note for James, apart from the note block (Grant 15 Nov)
         var lm2 = Regex.Match(props["Description"], @"(?:L\s*=\s*|MEMBER\s*x\s*)(\d+(\.\d+)?)", RegexOptions.IgnoreCase);   // "L=150", or "MEMBER x541mm" (GNRIC-LMW)
         if (lm2.Success && Math.Abs(double.Parse(lm2.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) - length * 1000) > 0.5)
             flags.Add("CHECK: DESCRIPTION SAYS L=" + lm2.Groups[1].Value + ", MODEL IS " + Mm(length) + " LONG");

@@ -277,4 +277,149 @@ static partial class Draw
         Console.WriteLine(n + " note(s) removed; not saved");
         return n > 0 ? 0 : 1;
     }
+
+    // save-active <out.SLDDRW>: save the active (unsaved) drawing as it is, e.g. a draft whose check refused it, so Grant
+    // can look at it and say what to add (08X04-PLP-06). Refuses to overwrite.
+    static int SaveActive(string output)
+    {
+        if (System.IO.File.Exists(output)) { Console.Error.WriteLine("REFUSED: already exists: " + output); return 2; }
+        var doc = sw.ActiveDoc as ModelDoc2;
+        if (doc == null || doc.GetType() != (int)swDocumentTypes_e.swDocDRAWING) { Console.Error.WriteLine("no active drawing"); return 1; }
+        int err = 0, warn = 0;
+        bool ok = doc.Extension.SaveAs3(output, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)swSaveAsOptions_e.swSaveAsOptions_Silent, null, null, ref err, ref warn);
+        Console.WriteLine((ok ? "Saved " : "NOT saved ") + doc.GetTitle() + " as " + output + " (error " + err + ")");
+        return ok ? 0 : 1;
+    }
+
+    // add-projection <drawing> <view> <left|right|up|down>: in the open drawing, a projected view from <view> on that side
+    // (Grant 15 Nov, 08X04-PLP-06: "all we need to do is add another projection"). Reports the full circles (holes) it
+    // shows. Edits the open drawing only; doesn't save.
+    static int AddProjection(string drawing, string viewName, string dir)
+    {
+        var doc = OpenDoc(drawing, null, false);
+        var drw = (DrawingDoc)doc;
+        View v = null;
+        for (var x = (View)((View)drw.GetFirstView()).GetNextView(); x != null; x = (View)x.GetNextView()) if (x.GetName2() == viewName) v = x;
+        if (v == null) { Console.Error.WriteLine("no view " + viewName); return 1; }
+        var o = (double[])v.GetOutline();
+        double w = o[2] - o[0], h = o[3] - o[1], g = 0.030;
+        double px = dir == "left" ? o[0] - g - w / 2 : dir == "right" ? o[2] + g + w / 2 : (o[0] + o[2]) / 2;
+        double py = dir == "up" ? o[3] + g + h / 2 : dir == "down" ? o[1] - g - h / 2 : (o[1] + o[3]) / 2;
+        doc.ClearSelection2(true);
+        doc.Extension.SelectByID2(v.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
+        var nv = drw.CreateUnfoldedViewAt3(px, py, 0, false);
+        doc.ClearSelection2(true);
+        if (nv == null) { Console.Error.WriteLine("projection not created"); return 1; }
+        doc.ForceRebuild3(false);
+        int full = 0;
+        foreach (Edge e in (nv.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+        {
+            var c = (Curve)e.GetCurve();
+            if (!c.IsCircle()) continue;
+            var cp = e.GetCurveParams3(); var a = (double[])cp.StartPoint; var b = (double[])cp.EndPoint;
+            if (Math.Abs(a[0] - b[0]) + Math.Abs(a[1] - b[1]) + Math.Abs(a[2] - b[2]) < 1e-9) full++;
+        }
+        var no = (double[])nv.GetOutline();
+        Console.WriteLine("Projected " + nv.GetName2() + " (" + dir + " of " + viewName + ") at " + (no[0] * 1000).ToString("0") + "," + (no[1] * 1000).ToString("0") + " - " + (no[2] * 1000).ToString("0") + "," + (no[3] * 1000).ToString("0") + " mm; full circles seen: " + full + "; not saved");
+        return 0;
+    }
+
+    // move-view <drawing> <view> <dx mm> <dy mm> / delete-view <drawing> <view>: small edits to the open drawing (no save)
+    static int MoveView(string drawing, string viewName, double dxMm, double dyMm)
+    {
+        var doc = OpenDoc(drawing, null, false); var drw = (DrawingDoc)doc;
+        for (var x = (View)((View)drw.GetFirstView()).GetNextView(); x != null; x = (View)x.GetNextView())
+            if (x.GetName2() == viewName)
+            {
+                var p = (double[])x.Position; x.Position = new[] { p[0] + dxMm / 1000, p[1] + dyMm / 1000 }; doc.ForceRebuild3(false);
+                var o = (double[])x.GetOutline();
+                Console.WriteLine("Moved " + viewName + " to " + (o[0] * 1000).ToString("0") + "," + (o[1] * 1000).ToString("0") + " - " + (o[2] * 1000).ToString("0") + "," + (o[3] * 1000).ToString("0") + " mm");
+                return 0;
+            }
+        Console.Error.WriteLine("no view " + viewName); return 1;
+    }
+    static int DeleteView(string drawing, string viewName)
+    {
+        var doc = OpenDoc(drawing, null, false);
+        doc.ClearSelection2(true);
+        bool ok = doc.Extension.SelectByID2(viewName, "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0) && doc.Extension.DeleteSelection2(0);
+        Console.WriteLine((ok ? "Deleted " : "Could not delete ") + viewName);
+        return ok ? 0 : 1;
+    }
+
+    // hole-dims <drawing> <view>: in the open drawing, the holes seen face-on in <view> placed by ordinates from the view's
+    // outer edges (across the top from the left, down the right from the top, as on the plates) and one "n x Ø d THRU"
+    // callout per size attached to a hole; a floating "THRU" note with no leader is removed. No save. (08X04-PLP-06)
+    static int HoleDims(string drawing, string viewName)
+    {
+        var doc = OpenDoc(drawing, null, false); var drw = (DrawingDoc)doc;
+        View v = null;
+        for (var x = (View)((View)drw.GetFirstView()).GetNextView(); x != null; x = (View)x.GetNextView()) if (x.GetName2() == viewName) v = x;
+        if (v == null) { Console.Error.WriteLine("no view " + viewName); return 1; }
+        var mu = (MathUtility)sw.GetMathUtility();
+        var hor = new List<Tuple<Edge, double>>(); var ver = new List<Tuple<Edge, double>>(); var circ = new List<Tuple<Edge, double[], double>>();
+        foreach (Edge e in (v.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+        {
+            var c = (Curve)e.GetCurve(); var cp = e.GetCurveParams3();
+            var a = ToSheet(mu, v, (double[])cp.StartPoint); var b = ToSheet(mu, v, (double[])cp.EndPoint);
+            if (c.IsCircle())
+            {
+                var mp = (double[])cp.StartPoint; var ep = (double[])cp.EndPoint;
+                if (Math.Abs(mp[0] - ep[0]) + Math.Abs(mp[1] - ep[1]) + Math.Abs(mp[2] - ep[2]) > 1e-9) continue;   // full circles only
+                var q = (double[])c.CircleParams;
+                circ.Add(Tuple.Create(e, ToSheet(mu, v, new[] { q[0], q[1], q[2] }), 2 * q[6]));
+            }
+            else if (c.IsLine())
+            {
+                if (Math.Abs(a[1] - b[1]) < 1e-7) hor.Add(Tuple.Create(e, a[1]));
+                else if (Math.Abs(a[0] - b[0]) < 1e-7) ver.Add(Tuple.Create(e, a[0]));
+            }
+        }
+        if (circ.Count == 0 || hor.Count < 2 || ver.Count < 2) { Console.Error.WriteLine("holes or edges not found in " + viewName); return 1; }
+        var left = ver.OrderBy(l => l.Item2).First(); var right = ver.OrderBy(l => l.Item2).Last();
+        var top = hor.OrderBy(l => l.Item2).Last(); var bot = hor.OrderBy(l => l.Item2).First();
+        var lm = (LayerMgr)doc.GetLayerManager(); lm.SetCurrentLayer(DraftLayer);
+        drw.ActivateView(v.GetName2());
+        var selMgr = (SelectionMgr)doc.SelectionManager;
+        double vs = v.ScaleDecimal;
+        var cols = circ.GroupBy(c => Math.Round(c.Item2[0] * 1e5)).Select(g => g.OrderByDescending(c => c.Item2[1]).First()).OrderBy(c => c.Item2[0]).ToList();
+        var rows = circ.GroupBy(c => Math.Round(c.Item2[1] * 1e5)).Select(g => g.OrderByDescending(c => c.Item2[0]).First()).OrderByDescending(c => c.Item2[1]).ToList();
+        var before = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(a => a.GetName()));
+        var hSel = new List<Edge> { left.Item1 }; hSel.AddRange(cols.Select(c => c.Item1)); hSel.Add(right.Item1);
+        var vSel = new List<Edge> { top.Item1 }; vSel.AddRange(rows.Select(c => c.Item1)); vSel.Add(bot.Item1);
+        var expect = new List<double> { 0, (right.Item2 - left.Item2) / vs * 1000, 0, (top.Item2 - bot.Item2) / vs * 1000 };
+        expect.AddRange(cols.Select(c => (c.Item2[0] - left.Item2) / vs * 1000)); expect.AddRange(rows.Select(c => (top.Item2 - c.Item2[1]) / vs * 1000));
+        Ordinate(doc, selMgr, v, hSel, (int)swAddOrdinateDims_e.swHorizontalOrdinate, left.Item2, top.Item2 + 0.012, "across the top");
+        Ordinate(doc, selMgr, v, vSel, (int)swAddOrdinateDims_e.swVerticalOrdinate, right.Item2 + 0.012, top.Item2, "down the right");
+        var o = (double[])v.GetOutline(); int k = 0;
+        foreach (var g in circ.GroupBy(c => Math.Round(c.Item3 * 1e5)))
+        {
+            var pick = g.First(); doc.ClearSelection2(true);
+            var sd = (SelectData)selMgr.CreateSelectData(); sd.View = v; ((Entity)pick.Item1).Select4(false, sd);
+            var dd = doc.AddDiameterDimension2(o[0] - 0.030 - 0.008 * k, pick.Item2[1] + 0.022 + 0.008 * k, 0) as DisplayDimension;
+            if (dd == null) { Console.WriteLine("callout not placed"); continue; }
+            dd.SetBrokenLeader2(false, (int)swDisplayDimensionLeaderText_e.swBrokenLeaderHorizontalText);
+            int n = g.Count();
+            dd.SetText((int)swDimensionTextParts_e.swDimensionTextPrefix, (n > 1 ? n + " x " : "") + "<MOD-DIAM>");
+            dd.SetText((int)swDimensionTextParts_e.swDimensionTextSuffix, " THRU");
+            expect.Add(pick.Item3 * 1000); k++;
+        }
+        doc.ClearSelection2(true);
+        var got = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Where(a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension && !before.Contains(a.GetName()))
+            .Select(a => Math.Round(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 2)).OrderBy(z => z).ToList();
+        string fe = string.Join(",", expect.Select(z => Math.Round(z, 2)).OrderBy(z => z)), fg = string.Join(",", got);
+        Console.WriteLine("Check: model " + fe + " / drawing " + fg + (fe == fg ? " OK" : " MISMATCH"));
+        // the old floating callout (a note with no leader saying THRU)
+        for (var x = (View)drw.GetFirstView(); x != null; x = (View)x.GetNextView())
+            foreach (Annotation a in (x.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.GetType() != (int)swAnnotationType_e.swNote || a.Layer != DraftLayer) continue;
+                var nt = (Note)a.GetSpecificAnnotation();
+                if ((nt.GetText() ?? "").Contains("THRU") && a.GetLeaderCount() == 0)
+                { doc.ClearSelection2(true); if (a.Select3(false, null) && doc.Extension.DeleteSelection2(0)) Console.WriteLine("Removed the floating callout: " + nt.GetText()); }
+            }
+        lm.SetCurrentLayer(""); doc.ClearSelection2(true);
+        Console.WriteLine("not saved");
+        return fe == fg ? 0 : 1;
+    }
 }

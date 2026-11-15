@@ -30,6 +30,12 @@ static partial class SwCmd
         return mp.Mass;
     }
 
+    // ShowConfiguration2 returns false for the configuration already active (15 Nov test, BKP-01 Default<As Machined>).
+    static bool Show(ModelDoc2 doc, string cfg)
+    {
+        return string.Equals(((Configuration)doc.GetActiveConfiguration()).Name, cfg, StringComparison.OrdinalIgnoreCase) || doc.ShowConfiguration2(cfg);
+    }
+
     static string Kg(double m) { return double.IsNaN(m) ? "?" : m.ToString("0.###", Inv) + " kg"; }
 
     // Bodies with a material of their own keep it whatever the part's material is: listed, so a mass that doesn't
@@ -72,18 +78,18 @@ static partial class SwCmd
         var oldMass = new Dictionary<string, double>();
         foreach (var c in cfgs)
         {
-            if (!doc.ShowConfiguration2(c)) { problems.Add("could not show configuration " + c); continue; }
+            if (!Show(doc, c)) { problems.Add("could not show configuration " + c); continue; }
             oldMat[c] = MaterialOf(part, c);
             oldMass[c] = MassNow(doc);
         }
-        if (problems.Count > 0) { Console.Error.WriteLine("Nothing changed: problems above."); return Finish(); }
+        if (problems.Count > 0) { Console.Error.WriteLine("Nothing changed: problems above."); Show(doc, active); DiscardIfOpened(sw, doc, wasOpen); return Finish(); }
 
         foreach (var c in cfgs) part.SetMaterialPropertyName2(c, db, material);
         string want = material + " [" + db + "]";
         Console.WriteLine("Material " + want + " set in " + cfgs.Count + " of " + all.Count + " configuration(s):");
         foreach (var c in cfgs)
         {
-            doc.ShowConfiguration2(c);
+            if (!Show(doc, c)) problems.Add("could not show configuration " + c);
             string now = MaterialOf(part, c);
             double m = MassNow(doc);
             Console.WriteLine("MATERIAL\t" + c + "\t" + oldMat[c] + " -> " + now + "\t" + Kg(oldMass[c]) + " -> " + Kg(m));
@@ -93,7 +99,7 @@ static partial class SwCmd
             foreach (var bm in BodyMaterials(part, c)) Console.WriteLine("  " + c + ": body with its own material (not changed): " + bm);
         }
         foreach (var c in all.Where(n => !cfgs.Contains(n))) Console.WriteLine("  not changed: " + c + " (" + MaterialOf(part, c) + ")");
-        doc.ShowConfiguration2(active);
+        Show(doc, active);
         ReportWhatsWrong(doc);
 
         if (!save)
@@ -117,7 +123,7 @@ static partial class SwCmd
         Console.WriteLine("Read back from disk:");
         foreach (var c in cfgs)
         {
-            if (!back.ShowConfiguration2(c)) { problems.Add("read back: could not show " + c); continue; }
+            if (!Show(back, c)) { problems.Add("read back: could not show " + c); continue; }
             string now = MaterialOf((PartDoc)back, c);
             double m = MassNow(back);
             Console.WriteLine("SAVED\t" + c + "\t" + now + "\t" + Kg(m));

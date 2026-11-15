@@ -1781,7 +1781,12 @@ static partial class SwCmd
     // Read-only: sheets are activated and the sheet format is opened for edit in memory only, never saved.
     // Text output, tab-separated: DRAWING, PROP, SHEET, NOTE, ROW, MODEL lines, then OK / PROBLEMS.
     // --json: stdout is one JSON object (App's release step, 7 Nov); every other line goes to stderr:
-    //   { "drawing", "sheets": [ { "number", "name", "rev", "revSource", "revisionSheetProperty", "format", "revTableCurrent" } ],
+    //   { "drawing", "sheets": [ { "number", "name", "rev", "revSource", "revisionSheetProperty", "format", "revTableCurrent",
+    //                             "draftCount", "draftTypes" } ],
+    // draftCount: items on the sheet on drawing layer DRAFT (Draw's placed items until James moves them off it; App's
+    // release refuses a count above 0, Admin 15 Nov): annotations of every kind (dimensions, notes, balloons, tables,
+    // centre marks, centre lines, ...) in the sheet and its views, plus sketch segments and blocks. draftTypes: e.g.
+    // "swDisplayDimension 5, swNote 2". Text line: DRAFT <sheet> <count> <types>.
     //     "revTable": [ { "rev", "description", "date", "by", "checked", "cells": [...] } ]  (first sheet with a table, oldest first),
     //     "views": [ { "sheet", "model", "configuration" } ], "problems": [ ... ] }
     static TextWriter jsonOut;   // set when --json: the real stdout
@@ -1821,13 +1826,17 @@ static partial class SwCmd
             var shown = notes.Select(x => x[1]).Distinct().ToList();
             Console.WriteLine("SHEET\t" + n + "\t" + sheets[i] + "\tREV=" + string.Join(" / ", shown) + "\tRevision-Sheet" + n + "=" + (pv ?? "(none)")
                 + "\ttable=" + (rt == null ? "none" : rt.CurrentRevision));
+            string draftTypes;
+            int draftCount = DraftCount(drw, out draftTypes);
+            Console.WriteLine("DRAFT\t" + n + "\t" + draftCount + "\t" + draftTypes);
             if (shown.Count == 0) problems.Add("sheet " + n + " (" + sheets[i] + "): no title-block note shows a revision");
             else if (shown.Count > 1) problems.Add("sheet " + n + ": revision notes disagree: " + string.Join(" / ", shown));
             else if (pv != null && !string.Equals(shown[0].Trim(), pv.Trim(), StringComparison.OrdinalIgnoreCase))
                 problems.Add("sheet " + n + ": the title block shows " + shown[0] + " but Revision-Sheet" + n + " is " + pv);
             jSheets.Add("{\"number\":" + n + ",\"name\":" + J(sheets[i]) + ",\"rev\":" + J(shown.Count == 1 ? shown[0] : (shown.Count == 0 ? null : string.Join(" / ", shown)))
                 + ",\"revSource\":" + J(notes.Count > 0 ? notes[0][0] : null) + ",\"revisionSheetProperty\":" + J(pv)
-                + ",\"format\":" + J(sheet.GetTemplateName()) + ",\"revTableCurrent\":" + J(rt == null ? null : rt.CurrentRevision) + "}");
+                + ",\"format\":" + J(sheet.GetTemplateName()) + ",\"revTableCurrent\":" + J(rt == null ? null : rt.CurrentRevision)
+                + ",\"draftCount\":" + draftCount + ",\"draftTypes\":" + J(draftTypes) + "}");
             if (rt != null)
             {
                 var t = (TableAnnotation)rt;
@@ -1856,6 +1865,42 @@ static partial class SwCmd
         drw.ActivateSheet(active);
         if (!wasOpen) { sw.CloseDoc(doc.GetTitle()); Console.WriteLine("Closed the drawing again without saving."); }
         return FinishJson(drawing, jSheets, jTable ?? new List<string>(), jViews);
+    }
+
+    const string DraftLayer = "DRAFT";
+
+    // Items on layer DRAFT on the active sheet (sheet view and every drawing view); each item counted once.
+    static int DraftCount(DrawingDoc drw, out string types)
+    {
+        var seen = new HashSet<object>();
+        var byType = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        Action<object, string, string> add = (o, layer, type) =>
+        {
+            if (o == null || !seen.Add(o)) return;
+            if (!string.Equals((layer ?? "").Trim(), DraftLayer, StringComparison.OrdinalIgnoreCase)) return;
+            int c; byType.TryGetValue(type, out c); byType[type] = c + 1;
+        };
+        Func<object, IEnumerable<object>> list = x => (x as object[]) ?? new object[0];
+        Action<Annotation> addAnn = a =>
+        {
+            if (a == null) return;
+            add(a, a.Layer, Enum.GetName(typeof(swAnnotationType_e), a.GetType()) ?? ("annotation type " + a.GetType()));
+        };
+        for (var v = drw.GetFirstView() as View; v != null; v = v.GetNextView() as View)
+        {
+            foreach (Annotation a in list(v.GetAnnotations())) addAnn(a);
+            foreach (TableAnnotation t in list(v.GetTableAnnotations())) addAnn(t.GetAnnotation());
+            foreach (CenterMark cm in list(v.GetCenterMarks())) addAnn(cm.GetAnnotation());
+            foreach (Centerline cl in list(v.GetCenterLines())) addAnn(cl.GetAnnotation());
+            var sk = v.GetSketch() as Sketch;
+            if (sk != null)
+            {
+                foreach (SketchSegment sg in list(sk.GetSketchSegments())) add(sg, sg.Layer, "sketch segment");
+                foreach (SketchBlockInstance bi in list(sk.GetSketchBlockInstances())) add(bi, bi.Layer, "block");
+            }
+        }
+        types = string.Join(", ", byType.Select(kv => kv.Key + " " + kv.Value));
+        return byType.Values.Sum();
     }
 
     // The revision table's rows as JSON, oldest first. A row whose cells look like headers names the columns; the

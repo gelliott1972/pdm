@@ -55,6 +55,7 @@ Built up from feedback, one line per rule, with where it came from. A rule about
 | Flag | Why |
 | --- | --- |
 | Description length (L=nnn) differs from the model | 08X04-BKP-01: L=150 vs 100 |
+| Section in the description (RHS/SHS and size) differs from the section measured in the model | GNRIC-LMW-01: RHS 40x40x4 vs SHS 40x40x4 (Grant / Admin 15 Nov) |
 | No Material property | 08X04-BKP-01 |
 | Weight property far from the part's weight in steel | 08X04-BKP-01: 0.15 kg vs 1.2 kg |
 

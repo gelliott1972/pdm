@@ -465,6 +465,20 @@ static partial class Draw
         if (lm2.Success && Math.Abs(double.Parse(lm2.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) - length * 1000) > 0.5)
             flags.Add("CHECK: DESCRIPTION SAYS L=" + lm2.Groups[1].Value + ", MODEL IS " + Mm(length) + " LONG");
         if (props["Material"] == "") flags.Add("CHECK: MODEL HAS NO MATERIAL PROPERTY");
+        // Section named in the description (RHS/SHS and size) against the section measured in the end view (Admin 15 Nov,
+        // after Grant: GNRIC-LMW-01 says RHS 40x40x4, the model is SHS 40x40x4). A check, not a correction.
+        var secM = Regex.Match(props["Description"], @"\b(RHS|SHS)\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)", RegexOptions.IgnoreCase);
+        if (secM.Success && secExpected.Count >= 3)
+        {
+            Func<int, double> g = i => double.Parse(secM.Groups[i].Value, System.Globalization.CultureInfo.InvariantCulture);
+            double mw = Math.Round(secExpected[0], 1), mh = Math.Round(secExpected[1], 1), mt = Math.Round(secExpected[2], 1);
+            string kind = Math.Abs(mw - mh) < 0.05 ? "SHS" : "RHS";
+            var dSides = new[] { g(2), g(3) }.OrderBy(x => x).ToArray(); var mSides = new[] { mw, mh }.OrderBy(x => x).ToArray();
+            bool same = secM.Groups[1].Value.ToUpper() == kind && Math.Abs(dSides[0] - mSides[0]) < 0.05 && Math.Abs(dSides[1] - mSides[1]) < 0.05 && Math.Abs(g(4) - mt) < 0.05;
+            string measured = kind + " " + Mm(Math.Max(mw, mh) / 1000) + "x" + Mm(Math.Min(mw, mh) / 1000) + "x" + Mm(mt / 1000);
+            if (!same) flags.Add("CHECK: DESCRIPTION SAYS " + secM.Groups[1].Value.ToUpper() + " " + secM.Groups[2].Value + "x" + secM.Groups[3].Value + "x" + secM.Groups[4].Value + ", MODEL IS " + measured);
+            Console.WriteLine("Section: description " + secM.Value + ", model " + measured + (same ? " (same)" : " (DIFFERENT)"));
+        }
         // Weight: compare with the same volume in steel (7850 kg/m3); a part with no material is weighed at
         // SOLIDWORKS's default density and comes out far too light (14 Nov: 0.1 kg for a 1.2 kg angle).
         double steelKg = ((double[])body.GetMassProperties(7850))[5] + others.Sum(b => ((double[])b.GetMassProperties(7850))[5]);

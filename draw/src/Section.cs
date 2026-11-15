@@ -349,6 +349,9 @@ static partial class Draw
             int n = hollow ? spots.Count : g.Count();
             string thru = !hollow ? " THRU" : spots.Max(spt => spt.Count()) >= 2 ? " THRU ALL" : " THRU ONE WALL";
             string text = (n > 1 ? n + " x " : "") + (c0.Slot ? (c0.Width * 1000).ToString("0.0") + " X " + (c0.Length * 1000).ToString("0") : "<MOD-DIAM>" + (c0.Width * 1000).ToString("0.#")) + thru;
+            // Grant 15 Nov (GNRIC-LMW-06): a hole through one wall of these tubes is "an additional drainage hole"; he added
+            // the second line by hand; kept clear of the part (left of the member, above the hole)
+            if (upright && hollow && thru == " THRU ONE WALL" && !c0.Slot) text += "\nfor HDG Drainage";
             // leader to the slot's end arc / the hole's circle, picked by position on the sheet
             // slot: the leader goes to the top end of the slot (Grant 14 Nov), i.e. its upper end arc
             var arc = c0.Slot

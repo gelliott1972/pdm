@@ -148,8 +148,11 @@ What the page does:
 | **Redo** (note required) | `status: "answered"`, `answer.choice: "redo"` with the note |
 | **Accept all remaining (n)** on the batch header, then **Yes** | Every `open` or `discuss` draft of that batch as Accept |
 | **Change answer** (History) | The card reopens; the new answer replaces the old, which moves to `history` |
+| **Undo** (Review screen) | Only while `status` is `answered` on the same `version`: `answer` and `answeredAt` removed, `status` back to `open` (or `discuss` if there's a thread). Refused once Draw has set `done` or posted a new version |
 
-What Draw does: after Accept, set `done` once noted for loading. After Redo (or a comment that needs a change), post the next version on the same ticket: `version` + 1, `pdf` = the new file, `postedAt`, `status: "open"`, and move the answer into `history` (`{version, choice, note, answeredAt}`) with `answer` and `answeredAt` removed; the thread stays. To reply to a comment, append `{ "from": "draw", "text", "at" }` and leave `status: "discuss"`. Write the whole file atomically (temp file, then rename).
+**Review screen** (`/review`, Grant 15 Nov): the big **Review drafts (n waiting)** button at the top of the Desk opens it. One draft at a time: the PDF fills the window (the browser's own viewer, fit to width, zoomable), a side bar shows PartNo, description, "3 of 10", batch, the body lines (CHECK lines in amber), "Redone after" and the thread. **Accept** (key A) or a note and **Redo** (Enter); both save through the same `/api/draft` and move to the next waiting draft. Back / Next (arrow keys) move without answering; U undoes the last answer. No comments on this screen. It lists drafts waiting for Grant (`open`, or `discuss` with Draw's reply last), by batch then PartNo; drafts Draw posts while it's open join the end. Ends with "All done: n accepted, m to redo".
+
+What Draw does: read the ticket again just before acting on an answer (Grant can Undo for a short while). After Accept, set `done` once noted for loading. After Redo (or a comment that needs a change), post the next version on the same ticket: `version` + 1, `pdf` = the new file, `postedAt`, `status: "open"`, and move the answer into `history` (`{version, choice, note, answeredAt}`) with `answer` and `answeredAt` removed; the thread stays. To reply to a comment, append `{ "from": "draw", "text", "at" }` and leave `status: "discuss"`. Write the whole file atomically (temp file, then rename).
 
 ## Who has SOLIDWORKS: Pause and Hand back (Desk v2, 7 Nov)
 

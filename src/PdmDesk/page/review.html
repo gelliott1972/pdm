@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review drafts</title>
+<script>
+// Same colours setting as the Desk (light / dark / system), set before the page draws.
+try { const t = localStorage.getItem('desk-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+</script>
+<style>
+:root {
+  --bg: #f5f6f8; --panel: #ffffff; --ink: #1c2024; --muted: #646d78; --line: #e3e6ea;
+  --accent: #2f6fde; --accent-ink: #ffffff; --accent-soft: #e8effc;
+  --red: #c8372d; --red-soft: #fbeceb; --amber: #b7791f; --amber-soft: #fbf3e3;
+  --green: #2f8a4c; --green-ink: #ffffff; --green-soft: #e7f4ec; --viewer: #e9ebee;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317; --panel: #1a1d22; --ink: #e7e9ec; --muted: #9aa2ac; --line: #2a2f36;
+    --accent: #5b8ff0; --accent-ink: #0d1117; --accent-soft: #1d2a42;
+    --red: #ef6b62; --red-soft: #3a1f1d; --amber: #e0a84a; --amber-soft: #352a17;
+    --green: #5cc27f; --green-ink: #0d1117; --green-soft: #17301f; --viewer: #0c0e11;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111317; --panel: #1a1d22; --ink: #e7e9ec; --muted: #9aa2ac; --line: #2a2f36;
+  --accent: #5b8ff0; --accent-ink: #0d1117; --accent-soft: #1d2a42;
+  --red: #ef6b62; --red-soft: #3a1f1d; --amber: #e0a84a; --amber-soft: #352a17;
+  --green: #5cc27f; --green-ink: #0d1117; --green-soft: #17301f; --viewer: #0c0e11;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; overflow: hidden; }
+#app { display: grid; grid-template-columns: minmax(0, 1fr) 340px; height: 100vh; }
+.viewer { position: relative; background: var(--viewer); min-width: 0; }
+.viewer iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.viewer .none { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center; }
+.bar { display: flex; flex-direction: column; gap: 12px; background: var(--panel); border-left: 1px solid var(--line); padding: 14px 16px; overflow-y: auto; min-width: 0; }
+.topline { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.topline a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.topline a:hover { text-decoration: underline; }
+.pos { margin-left: auto; color: var(--muted); white-space: nowrap; }
+.theme { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; padding: 1px; }
+.theme button { font-family: inherit; font-weight: 600; font-size: 11px; line-height: 1; color: var(--muted); background: none; border: 0; border-radius: 5px; padding: 5px 7px; cursor: pointer; }
+.theme button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.batch { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.pn { font-family: inherit; font-weight: 600; font-size: 20px; line-height: 1.2; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.desc { margin-top: 2px; overflow-wrap: anywhere; }
+.meta { color: var(--muted); font-size: 12px; }
+.redone { font-size: 13px; color: var(--amber); background: var(--amber-soft); border-radius: 7px; padding: 7px 10px; overflow-wrap: anywhere; }
+.body { font-size: 13px; display: grid; gap: 3px; overflow-wrap: anywhere; }
+.body .check { color: var(--amber); font-weight: 600; }
+.body code { font: 12px ui-monospace, Consolas, monospace; }
+.thread { display: grid; gap: 6px; font-size: 13px; }
+.post { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; }
+.post.me { background: var(--accent-soft); border-color: transparent; }
+.post .pm { font-size: 11px; color: var(--muted); }
+.state { font-size: 13px; border-radius: 7px; padding: 8px 10px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.state.accept { background: var(--green-soft); color: var(--green); }
+.state.redo { background: var(--amber-soft); color: var(--amber); }
+.state.wait { background: var(--bg); color: var(--muted); }
+.state b { font-weight: 600; }
+.state .note { color: var(--ink); flex-basis: 100%; overflow-wrap: anywhere; }
+.acts { display: grid; gap: 8px; margin-top: auto; padding-top: 6px; }
+button.b { font-family: inherit; font-weight: 600; font-size: 14px; line-height: 1; border-radius: 8px; padding: 11px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+button.b:hover:not(:disabled) { border-color: var(--accent); }
+button.b:disabled { opacity: .45; cursor: default; }
+button.accept { background: var(--green); color: var(--green-ink); border-color: var(--green); font-size: 15px; padding: 13px 14px; }
+button.accept:hover:not(:disabled) { filter: brightness(1.06); border-color: var(--green); }
+kbd { font: 600 11px/1 ui-monospace, Consolas, monospace; border: 1px solid currentColor; border-radius: 4px; padding: 1px 4px; opacity: .7; margin-left: 6px; }
+textarea { width: 100%; min-height: 76px; resize: vertical; padding: 9px 11px; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+textarea:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.nav { display: flex; gap: 8px; }
+.nav button { flex: 1; }
+.msg { color: var(--red); font-size: 13px; }
+.msg:empty { display: none; }
+.keys { color: var(--muted); font-size: 11px; line-height: 1.6; }
+.toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--ink); color: var(--panel); border-radius: 8px; padding: 9px 14px; font-size: 13px; display: flex; gap: 12px; align-items: center; box-shadow: 0 4px 16px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
+.toast[hidden] { display: none; }
+.toast button { background: none; border: 0; color: var(--accent-soft); font-family: inherit; font-weight: 600; font-size: 13px; line-height: 1; cursor: pointer; text-decoration: underline; padding: 0; }
+.done { position: fixed; inset: 0; background: var(--bg); display: grid; place-items: center; padding: 24px; }
+.done[hidden] { display: none; }
+.done .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 28px 30px; max-width: 460px; width: 100%; text-align: center; display: grid; gap: 14px; }
+.done h1 { font-size: 22px; margin: 0; font-weight: 600; }
+.done .counts { color: var(--muted); }
+.done .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.done a.b { text-decoration: none; font-family: inherit; font-weight: 600; font-size: 14px; line-height: 1; border-radius: 8px; padding: 11px 14px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+.banner { position: fixed; top: 0; left: 0; right: 0; background: var(--red-soft); color: var(--red); font-weight: 600; padding: 8px 14px; text-align: center; }
+.banner:empty { display: none; }
+@media (max-width: 900px) {
+  body { overflow: auto; }
+  #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 70vh auto; height: auto; }
+  .bar { border-left: 0; border-top: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="viewer" id="viewer"></div>
+  <aside class="bar" id="bar"></aside>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="done" id="done" hidden></div>
+<div class="banner" id="banner"></div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = s => esc(s).replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+const NAMES = { admin: 'Admin', dev: 'Dev', sw: 'SW', app: 'App', draw: 'Draw' };
+const name = s => NAMES[s] || (s ? s[0].toUpperCase() + s.slice(1) : '');
+function ago(iso) {
+  const t = Date.parse(iso); if (!t) return '';
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 50) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  if (s < 86400) return Math.round(s / 3600) + ' h ago';
+  return new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+async function post(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Desk': '1' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'The Desk server said no (' + r.status + ').');
+  return j;
+}
+
+// The review list: the drafts waiting for Grant when the screen opened, plus any Draw posts while it's open.
+// Answered ones stay in the list (Back shows them, with Undo); after each answer the screen moves to the next waiting one.
+let tickets = {}, list = [], cur = 0, version = null, lastJson = '', finished = false, busy = false;
+const given = new Map();   // ticket -> { choice, version } answered on this screen (for the counts and Undo)
+let lastAnswer = null;     // { id, partNo, choice, version } for the Undo toast
+const lastPost = t => (t.thread || []).at(-1);
+const isDraft = t => t && t.type === 'draft-review';
+const waiting = t => isDraft(t) && ['open', 'discuss'].includes(t.status || 'open') && !(t.status === 'discuss' && lastPost(t)?.from === 'grant');
+const order = (a, b) => {
+  const ba = String(a.batch ?? ''), bb = String(b.batch ?? '');
+  return (ba !== bb ? (+ba - +bb || ba.localeCompare(bb)) : 0) || String(a.partNo || a._file).localeCompare(String(b.partNo || b._file));
+};
+
+async function load() {
+  let text;
+  try {
+    const r = await fetch('/api/state', { cache: 'no-store' });
+    if (!r.ok) throw new Error();
+    text = await r.text();
+    $('banner').textContent = '';
+  } catch { $('banner').textContent = 'The Desk server isn\'t answering. Start it again from the Start menu (PDM Sessions).'; return; }
+  if (text === lastJson) return;
+  lastJson = text;
+  const state = JSON.parse(text);
+  version ??= state.version;
+  if (state.version && state.version !== version && !$('note')?.value.trim()) { location.reload(); return; }
+  tickets = Object.fromEntries((state.tickets || []).filter(isDraft).map(t => [t._file, t]));
+  const fresh = Object.values(tickets).filter(t => waiting(t) && !list.includes(t._file)).sort(order).map(t => t._file);
+  const first = !list.length && !finished;
+  list.push(...fresh);
+  list = list.filter(id => tickets[id]);
+  if (first) cur = 0;
+  cur = Math.min(cur, Math.max(list.length - 1, 0));
+  if (first && !list.some(id => waiting(tickets[id]))) finished = true;
+  draw();
+}
+
+const nextWaiting = from => {
+  for (let k = 1; k <= list.length; k++) { const i = (from + k) % list.length; if (waiting(tickets[list[i]])) return i; }
+  return -1;
+};
+
+function draw() {
+  const left = list.filter(id => waiting(tickets[id])).length;
+  document.title = left ? `(${left}) Review drafts` : 'Review drafts';
+  // All done (or nothing to review).
+  const doneBox = $('done');
+  if (finished || !list.length) {
+    const acc = [...given.values()].filter(g => g.choice === 'accept').length, redo = given.size - acc;
+    const counts = given.size ? `${acc} accepted, ${redo} to redo` : list.length ? 'Nothing answered on this screen.' : 'No drafts are waiting for you.';
+    const html = `<div class="box"><h1>${given.size ? 'All done' : list.length ? 'Nothing waiting' : 'No drafts waiting'}</h1><div class="counts">${esc(counts)}</div>
+      ${left ? `<div>${left} draft${left === 1 ? '' : 's'} came in meanwhile.</div>` : ''}
+      <div class="row">${left ? `<button class="b accept" data-go="more">Review ${left} more</button>` : ''}
+      ${list.length ? '<button class="b" data-go="again">Look through them again</button>' : ''}<a class="b" href="/">Back to the Desk</a></div>
+      ${lastAnswer ? `<div class="meta">Last: ${esc(lastAnswer.partNo)} ${lastAnswer.choice === 'accept' ? 'accepted' : 'to redo'} · <button class="b" data-go="undo" style="padding:5px 9px;font-size:12px">Undo</button></div>` : ''}</div>`;
+    if (doneBox.dataset.h !== html) { doneBox.innerHTML = html; doneBox.dataset.h = html; }
+    doneBox.hidden = false; $('toast').hidden = true;
+    return;
+  }
+  doneBox.hidden = true;
+  const t = tickets[list[cur]];
+  // The PDF: only reloaded when this draft or its version changes, so zoom and scroll stay while the list refreshes.
+  const src = t.pdf ? `/api/pdf?id=${encodeURIComponent(t._file)}&v=${encodeURIComponent(t.version || 1)}#view=FitH` : '';
+  const viewer = $('viewer');
+  if (viewer.dataset.src !== src) {
+    viewer.dataset.src = src;
+    viewer.innerHTML = src ? `<iframe id="pdf" src="${esc(src)}" title="${esc(t.partNo || t._file)} drawing"></iframe>` : '<div class="none">No PDF on this draft yet.</div>';
+    // Keep the keys working: don't leave the focus inside the PDF viewer when a new draft opens.
+    const f = $('pdf'); if (f) f.onload = () => { if (document.activeElement === f) f.blur(); };
+  }
+  bar(t, left);
+}
+
+function bar(t, left) {
+  const v = t.version || 1, prev = (t.history || []).at(-1);
+  const answered = ['answered', 'done'].includes(t.status) && t.answer;
+  let state = '';
+  if (answered) {
+    const a = t.answer, canUndo = t.status === 'answered';
+    state = `<div class="state ${a.choice === 'redo' ? 'redo' : 'accept'}"><b>${a.choice === 'redo' ? 'Redo' : 'Accepted'}</b><span>${esc(ago(t.answeredAt))}${t.status === 'done' ? ' · Draw has taken it' : ''}</span>
+      ${canUndo ? '<button class="b" data-act="undo" style="margin-left:auto;padding:5px 9px;font-size:12px">Undo</button>' : ''}${a.note ? `<span class="note">${esc(a.note)}</span>` : ''}</div>`;
+  } else if (!waiting(t)) state = `<div class="state wait">Waiting for ${esc(name(t.owner) || 'Draw')} to reply to your comment. You can still Accept or Redo.</div>`;
+  const lines = String(t.body || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const html = `
+    <div class="topline"><a href="/" title="Back to the Desk">← Desk</a><span class="pos">${cur + 1} of ${list.length}${left ? ` · ${left} left` : ' · none left'}</span>
+      <span class="theme" id="theme"><button data-t="light">Light</button><button data-t="dark">Dark</button><button data-t="system">Auto</button></span></div>
+    <div><div class="batch">${esc(t.batchTitle || (t.batch ? 'Batch ' + t.batch : ''))}</div>
+      <div class="pn">${esc(t.partNo || t._file)}</div><div class="desc">${esc(t.title || '')}</div>
+      <div class="meta">Draft v${esc(v)} · ${esc(ago(t.postedAt || t.createdAt))} · ${esc(t._file)}</div></div>
+    ${prev && prev.choice === 'redo' && v > (prev.version || 1) ? `<div class="redone">Redone after: ${esc(prev.note)}</div>` : ''}
+    ${lines.length ? '<div class="body">' + lines.map(l => `<div${/^CHECK\b/i.test(l) ? ' class="check"' : ''}>${fmt(l)}</div>`).join('') + '</div>' : ''}
+    ${(t.thread || []).length ? '<div class="thread">' + t.thread.map(p => `<div class="post${p.from === 'grant' ? ' me' : ''}"><div class="pm">${esc(p.from === 'grant' ? 'You' : name(p.from))} · ${esc(ago(p.at))}</div>${fmt(p.text || '')}</div>`).join('') + '</div>' : ''}
+    ${state}
+    <div class="acts">
+      <button class="b accept" data-act="accept">${answered && t.answer.choice === 'accept' ? 'Accepted' : 'Accept'}<kbd>A</kbd></button>
+      <textarea id="note" placeholder="What to redo (R to type here, Enter sends Redo, Shift+Enter for a new line)"></textarea>
+      <button class="b" data-act="redo" disabled>Redo<kbd>Enter</kbd></button>
+      <div class="msg" id="msg"></div>
+      <div class="nav"><button class="b" data-act="prev" ${cur === 0 ? 'disabled' : ''}>← Back</button><button class="b" data-act="next" ${cur >= list.length - 1 ? 'disabled' : ''}>Next →</button></div>
+      <div class="keys">A accept · R type a redo note · ← → move without answering · U undo the last answer. Keys work when the PDF isn't selected (click this bar first).</div>
+    </div>`;
+  const box = $('bar'), key = html + JSON.stringify(t);
+  if (box.dataset.k === key) return;
+  // Keep a half-typed note if only the list refreshed under the same draft.
+  const typed = box.dataset.id === t._file ? $('note')?.value || '' : '';
+  box.innerHTML = html; box.dataset.k = key; box.dataset.id = t._file;
+  const ta = $('note'); ta.value = typed; syncRedo();
+  ta.oninput = syncRedo;
+  ta.onkeydown = e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); answer('redo'); }
+    else if (e.key === 'Escape') ta.blur();
+  };
+  box.querySelectorAll('[data-act]').forEach(b => b.onclick = () => act(b.dataset.act));
+  theme(document.documentElement.dataset.theme || 'system');
+  $('theme').onclick = e => { if (e.target.dataset.t) theme(e.target.dataset.t); };
+}
+const syncRedo = () => { const b = document.querySelector('[data-act="redo"]'); if (b) b.disabled = busy || !$('note').value.trim(); };
+
+function act(a) {
+  if (a === 'accept') answer('accept');
+  else if (a === 'redo') answer('redo');
+  else if (a === 'prev') move(-1);
+  else if (a === 'next') move(1);
+  else if (a === 'undo') undo();
+}
+function move(d) {
+  const i = cur + d; if (i < 0 || i >= list.length) return;
+  cur = i; draw();
+}
+async function answer(choice) {
+  if (busy || finished) return;
+  const t = tickets[list[cur]], text = $('note').value.trim();
+  if (choice === 'redo' && !text) { $('msg').textContent = 'Type what to redo first, then press Enter.'; $('note').focus(); return; }
+  busy = true; document.querySelectorAll('#bar button').forEach(b => b.disabled = true); $('msg').textContent = '';
+  try {
+    await post('/api/draft', { id: t._file, action: choice, text });
+    given.set(t._file, { choice, version: t.version || 1 });
+    lastAnswer = { id: t._file, partNo: t.partNo || t._file, choice, version: t.version || 1 };
+    // Mark it answered here straight away, then move on to the next draft still waiting.
+    tickets[t._file] = { ...t, status: 'answered', answer: { choice, note: text }, answeredAt: new Date().toISOString() };
+    const n = nextWaiting(cur);
+    if (n < 0) finished = true; else cur = n;
+    $('bar').dataset.id = ''; toast();
+    busy = false; draw(); lastJson = ''; load();
+  } catch (e) {
+    busy = false; draw(); $('msg').textContent = e.message;
+  }
+}
+async function undo() {
+  const a = lastAnswer; if (!a || busy) return;
+  busy = true;
+  try {
+    await post('/api/draft', { id: a.id, action: 'undo', version: a.version });
+    given.delete(a.id); lastAnswer = null; $('toast').hidden = true;
+    const i = list.indexOf(a.id); if (i >= 0) cur = i;
+    finished = false; busy = false; lastJson = ''; await load(); draw();
+  } catch (e) {
+    busy = false; finished = false; draw(); $('msg') && ($('msg').textContent = e.message);
+  }
+}
+function toast() {
+  const a = lastAnswer, el = $('toast');
+  if (!a) { el.hidden = true; return; }
+  el.innerHTML = `<span>${esc(a.partNo)}: ${a.choice === 'accept' ? 'accepted' : 'sent back to redo'}</span><button data-act="undo">Undo</button>`;
+  el.querySelector('button').onclick = undo;
+  el.hidden = false;
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => { el.hidden = true; }, 8000);
+}
+$('done').onclick = e => {
+  const go = e.target.dataset?.go; if (!go) return;
+  if (go === 'more') { const n = nextWaiting(list.length - 1); finished = false; cur = n < 0 ? 0 : n; draw(); }
+  else if (go === 'again') { finished = false; cur = 0; draw(); }
+  else if (go === 'undo') undo();
+};
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.target.closest?.('textarea, input')) return;
+  if (!$('done').hidden) return;
+  const k = e.key.toLowerCase();
+  if (k === 'a') { e.preventDefault(); answer('accept'); }
+  else if (k === 'r') { e.preventDefault(); $('note')?.focus(); }
+  else if (k === 'u') { e.preventDefault(); undo(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); move(-1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); move(1); }
+});
+
+function theme(t) {
+  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  try { if (t === 'light' || t === 'dark') localStorage.setItem('desk-theme', t); else localStorage.removeItem('desk-theme'); } catch {}
+  const now = document.documentElement.dataset.theme || 'system';
+  document.querySelectorAll('#theme button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === now));
+}
+
+load();
+setInterval(load, 3000);
+</script>
+</body>
+</html>

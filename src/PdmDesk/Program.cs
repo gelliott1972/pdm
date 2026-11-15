@@ -35,10 +35,13 @@ app.Use(async (ctx, next) =>
     }
 });
 
-var page = ReadPage();
-// The page's version: an open tab reloads itself when it changes (after an install), so it never runs old code.
-var pageVersion = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(page)))[..12];
+var page = ReadPage("index.html");
+var review = ReadPage("review.html");
+// The pages' version: an open tab reloads itself when it changes (after an install), so it never runs old code.
+var pageVersion = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(page + review)))[..12];
 app.MapGet("/", () => Results.Content(page, "text/html; charset=utf-8"));
+// The draft Review screen (Grant, 15 Nov): one draft at a time, the PDF large, Accept or Redo, then the next.
+app.MapGet("/review", () => Results.Content(review, "text/html; charset=utf-8"));
 app.MapGet("/api/ping", () => Results.Ok(new { desk = true }));
 
 app.MapGet("/api/state", () =>
@@ -123,15 +126,25 @@ app.MapPost("/api/draft", async (HttpRequest req) =>
     var action = (string?)body?["action"] ?? "";
     var text = ((string?)body?["text"] ?? "").Trim();
     if (!Store.IdOk(id)) return Fail("Unknown ticket.");
-    if (action is not ("accept" or "redo" or "comment")) return Fail("Unknown action.");
-    if (action != "accept" && text == "") return Fail(action == "redo" ? "Say what's wrong, then press Redo." : "Type your comment first.");
+    if (action is not ("accept" or "redo" or "comment" or "undo")) return Fail("Unknown action.");
+    if (action is "redo" or "comment" && text == "") return Fail(action == "redo" ? "Say what's wrong, then press Redo." : "Type your comment first.");
     if (text.Length > 4000) return Fail("The note is too long (4000 characters at most).");
     lock (store.Lock)
     {
         var file = store.TicketFile(id!);
         var t = store.Read(file, out var why);
         if (t == null) return Fail($"Couldn't read the ticket ({why}).");
-        if (!DraftAnswer(t, action, text, out var refused)) return Fail(refused);
+        if (action == "undo")
+        {
+            // Undo of the answer just given on the Review screen: the draft waits for Grant again. Only while it's still
+            // "answered" on the same version (once Draw has taken it, or posted a new version, it's Draw's).
+            if ((string?)t["type"] != "draft-review") return Fail("Only draft-review tickets take this.");
+            if ((string?)t["status"] != "answered" || t["answer"] == null) return Fail(t["status"]?.ToString() == "done" ? "Draw has already taken this answer, so it can't be undone here. Use Change answer, or tell Draw." : "There's no answer to undo.");
+            if ((int?)body?["version"] is int v && v != ((int?)t["version"] ?? 1)) return Fail("Draw has posted a new version since, so there's nothing to undo.");
+            t.Remove("answer"); t.Remove("answeredAt");
+            t["status"] = (t["thread"] as JsonArray)?.Count > 0 ? "discuss" : "open";
+        }
+        else if (!DraftAnswer(t, action, text, out var refused)) return Fail(refused);
         store.Write(file, t);
     }
     return Results.Ok(new { ok = true });
@@ -491,8 +504,8 @@ async Task<bool> AlreadyRunning()
     catch { return false; }
 }
 
-static string ReadPage()
+static string ReadPage(string name)
 {
-    using var s = typeof(Store).Assembly.GetManifestResourceStream("index.html")!;
+    using var s = typeof(Store).Assembly.GetManifestResourceStream(name)!;
     return new StreamReader(s).ReadToEnd();
 }

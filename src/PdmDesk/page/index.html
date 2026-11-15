@@ -183,6 +183,9 @@ a.b:hover { border-color: var(--accent); }
 .banner { max-width: 1240px; margin: 8px auto 0; padding: 0 24px; }
 .banner div { background: var(--red-soft); color: var(--red); border-radius: 8px; padding: 10px 14px; font-weight: 600; }
 .problems { color: var(--amber); font-size: 12px; margin-top: 6px; }
+a.bigreview { display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; background: var(--accent); color: var(--accent-ink); border-radius: 10px; padding: 14px 18px; font-weight: 600; font-size: 16px; margin: 4px 0 6px; box-shadow: var(--shadow); }
+a.bigreview:hover { filter: brightness(1.06); }
+a.bigreview span { font-weight: 400; opacity: .85; }
 .gone { opacity: 0; transform: translateY(-4px); transition: opacity .25s, transform .25s; }
 </style>
 </head>
@@ -199,6 +202,7 @@ a.b:hover { border-color: var(--accent); }
 <div class="swwrap"><div class="swstrip" id="swstrip"></div></div>
 <div class="wrap">
   <main>
+    <div id="reviewWrap"></div>
     <h2>Tickets</h2>
     <div id="tickets"></div>
     <div id="sentWrap"></div>
@@ -281,6 +285,11 @@ function render() {
   $('sum').textContent = (mine.length ? `${mine.length} open${blocking ? ` · ${blocking} blocking` : ''}` : 'Nothing waiting for you')
     + (talking ? ` · ${talking} in discussion` : '');
   document.title = mine.length ? `(${mine.length}) PDM Desk` : 'PDM Desk';
+
+  // The draft Review screen (/review): one draft at a time with the PDF large. The button shows while any wait for Grant.
+  const nReview = tickets.filter(t => t.type === 'draft-review' && waitingDraft(t) && !awaitingOwner(t)).length;
+  const rv = nReview ? `<a class="bigreview" href="/review">Review drafts <span>(${nReview} waiting)</span></a>` : '';
+  if ($('reviewWrap').dataset.h !== rv) { $('reviewWrap').innerHTML = rv; $('reviewWrap').dataset.h = rv; }
 
   // Draft reviews stay together under their batch, at the place of the batch's first draft; drafts in a batch by PartNo.
   const grouped = [], seenBatch = new Set();

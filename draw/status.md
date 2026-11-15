@@ -7,7 +7,7 @@ Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\code\pdm\scratch\
 | Step | State |
 | --- | --- |
 | Outstanding list | Done: `draw\outstanding.md`, 89 of 319 items (LMW 10, PLP 7, BKP/BKA/MSA 15, singles and simple weldments 27, SFA/STA 30), from P:\ with `src\Outstanding.cs` (read-only, pdm coverage rule). Counts sent to Admin. Not yet compared with pdm coverage (Grant's AWS login) |
-| Batch 1 LMW | Waiting for Admin's go. The 10 are GNRIC-LMW (configurations of one weldment part, RHS 40x40), not the signed-off 08X06-LMW assemblies: GNRIC-LMW-01 first as an example for Grant |
+| Batch 1 LMW | Example GNRIC-LMW-01 drafted 15 Nov (Grant asked), sent to Grant: `scratch\draw-testatch-1-LMW\APEX\GNRIC\GNRIC-LMW-01.pdf`. make-section now takes a welded member with end caps; LMW stands upright (James's GNRIC-LWP-20, Grant's 08X06-LMW): face view, open-end view (section 40x40x4), cap-end view (cap 36x36, Ø10 for HDG Drainage), length from the top (546 in brackets, cap included), isometric beside; all values checked; 08X04-BKP-01 regenerated the same. Not yet: cut list table (James has one). The other nine wait for Grant's look |
 
 ## Done
 

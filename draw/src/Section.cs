@@ -30,9 +30,17 @@ static partial class Draw
         { props[name] = Prop(part, config, name); Console.WriteLine("  " + name + " = " + (props[name] == "" ? "(missing)" : props[name])); }
         if (props["PartNo"] == "") { Console.Error.WriteLine("REFUSED: no PartNo; no draft"); return 2; }
         var bodies = (object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true);
-        if (bodies == null || bodies.Length != 1) { Console.Error.WriteLine("REFUSED: make-section needs one solid body"); return 2; }
-        var body = (Body2)bodies[0];
+        if (bodies == null || bodies.Length == 0) { Console.Error.WriteLine("REFUSED: make-section needs a solid body"); return 2; }
+        // A welded member (GNRIC-LMW, batch 1): the member is the longest body, the rest are end pieces (end caps)
+        // shown in the views and counted in the overall length and the weight; holes are read from the member
+        Func<Body2, double> spanOf = b => { var bb = (double[])b.GetBodyBox(); return Math.Max(bb[3] - bb[0], Math.Max(bb[4] - bb[1], bb[5] - bb[2])); };
+        var body = bodies.Cast<Body2>().OrderByDescending(spanOf).First();
+        var others = bodies.Cast<Body2>().Where(b => b != body).ToList();
+        if (others.Any(b => spanOf(b) > 0.5 * spanOf(body))) { Console.Error.WriteLine("REFUSED: make-section needs one member (plus small end pieces); this part has " + bodies.Length + " bodies"); return 2; }
+        if (others.Count > 0) Console.WriteLine("Welded member: " + body.Name + " plus " + others.Count + " end piece(s): " + string.Join(", ", others.Select(b => b.Name)));
         var box = (double[])body.GetBodyBox();
+        var partBox = (double[])box.Clone();
+        foreach (var b in others) { var bb = (double[])b.GetBodyBox(); for (int i = 0; i < 3; i++) { partBox[i] = Math.Min(partBox[i], bb[i]); partBox[3 + i] = Math.Max(partBox[3 + i], bb[3 + i]); } }
         var faces = ((object[])body.GetFaces()).Cast<Face2>().ToList();
 
         // Length axis: the axis with two flat end faces of equal area facing opposite ways.
@@ -47,6 +55,10 @@ static partial class Draw
         }
         if (lenAx < 0) { Console.Error.WriteLine("REFUSED: can't find the member's two end faces (not a straight member)"); return 2; }
         double length = box[3 + lenAx] - box[lenAx];
+        // LED members (GNRIC-LMW, batch 1) stand upright as James draws them (GNRIC-LWP-20) and as Grant signed off for
+        // 08X06-LMW (15 Nov): the end view of the capped end to the right, the length measured from the top
+        bool upright = Regex.IsMatch(props["PartNo"], "-LMW-", RegexOptions.IgnoreCase);
+        bool capAtMax = others.Count == 0 || others.Average(b => { var bb = (double[])b.GetBodyBox(); return (bb[lenAx] + bb[3 + lenAx]) / 2; }) > (box[lenAx] + box[3 + lenAx]) / 2;
         Console.WriteLine("Member length " + Mm(length) + " along " + "XYZ"[lenAx]);
 
         // Holes (full cylinders) and slots (two half cylinders), square to a flat face.
@@ -82,7 +94,7 @@ static partial class Draw
                 Dir = new[] { (b[0] - a[0]) / bd, (b[1] - a[1]) / bd, (b[2] - a[2]) / bd } });
         }
         foreach (var c in cuts) Console.WriteLine("  " + (c.Slot ? "slot " + Mm(c.Width) + " x " + Mm(c.Length) : "hole Ø" + Mm(c.Width)) + " at " + Mm(c.C[0]) + "," + Mm(c.C[1]) + "," + Mm(c.C[2]));
-        if (cuts.Count == 0) problems.Add("no holes or slots found");
+        if (cuts.Count == 0) { if (others.Count == 0) problems.Add("no holes or slots found"); else Console.WriteLine("No holes or slots in the member"); }
 
         // The face to look at: the biggest flat face square to the holes' axis (the outside of that leg).
         var cutAxis = cuts.Count > 0 ? cuts[0].Axis : new double[] { 0, 0, 1 };
@@ -96,7 +108,7 @@ static partial class Draw
         Console.WriteLine("Face view " + faceView + " (face normal " + "XYZ"[cAx] + (nrm[cAx] > 0 ? "+" : "-") + "); centre of mass " + Mm(com[0]) + "," + Mm(com[1]) + "," + Mm(com[2]));
 
         // 2. Scale: 1:5 by default (Grant 14 Nov); bigger when the member would be under MinSide on the sheet.
-        double span = Math.Max(box[3] - box[0], Math.Max(box[4] - box[1], box[5] - box[2]));
+        double span = Math.Max(partBox[3] - partBox[0], Math.Max(partBox[4] - partBox[1], partBox[5] - partBox[2]));
         Func<int, bool> fits = d => span / d <= FitH;
         int den = 5;
         if (!fits(den)) den = PlateScales.Where(d => d > 5).FirstOrDefault(fits);
@@ -118,7 +130,14 @@ static partial class Draw
         drwDoc.ForceRebuild3(false);
         var p0 = new double[3]; var p1 = new double[3]; p1[lenAx] = 1;
         var s0 = ToSheet(mu, main, p0); var s1 = ToSheet(mu, main, p1);
-        if (Math.Abs(s1[0] - s0[0]) < Math.Abs(s1[1] - s0[1]))
+        if (upright && Math.Abs(s1[0] - s0[0]) > Math.Abs(s1[1] - s0[1]))
+        {
+            main.Angle = Math.PI / 2;   // lying down: stand it up
+            drwDoc.ForceRebuild3(false);
+            s0 = ToSheet(mu, main, p0); s1 = ToSheet(mu, main, p1);
+            Console.WriteLine("Face view turned 90 degrees so the member stands up");
+        }
+        if (!upright && Math.Abs(s1[0] - s0[0]) < Math.Abs(s1[1] - s0[1]))
         {
             // the member runs up the sheet: turn the view a quarter turn so it runs across, as James draws members
             main.Angle = Math.PI / 2;
@@ -127,13 +146,29 @@ static partial class Draw
             Console.WriteLine("Face view turned 90 degrees so the member runs across the sheet");
         }
         bool lenHoriz = Math.Abs(s1[0] - s0[0]) > Math.Abs(s1[1] - s0[1]);
-        if (!lenHoriz) problems.Add("member still runs up the sheet after turning the view");
+        if (!lenHoriz && !upright) problems.Add("member still runs up the sheet after turning the view");
+        if (lenHoriz && upright) problems.Add("member still lies across the sheet after turning the view");
         var mo = (double[])main.GetOutline();
         // End view: projected to the right of the (turned) face view, so it is a true projection and stays level with
         // it (Grant 14 Nov: the two views linked, as James's).
         drwDoc.ClearSelection2(true);
         drwDoc.Extension.SelectByID2(main.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
-        var side = drw.CreateUnfoldedViewAt3(mo[2] + 0.080, (mo[1] + mo[3]) / 2, 0, false);
+        View side, capView = null;
+        if (upright)
+        {
+            // looking along the member (not projected: a projected view beside an upright member is a side view). With an
+            // end cap (James's GNRIC-LWP-20): the open end shows the section, the capped end the cap and its hole.
+            Func<bool, string> endName = atMax => lenAx == 1 ? (atMax ? "*Top" : "*Bottom") : lenAx == 0 ? (atMax ? "*Right" : "*Left") : (atMax ? "*Front" : "*Back");
+            if (main.Angle != 0) problems.Add("upright member: face view was turned; the end views may not match");
+            side = drw.CreateDrawViewFromModelView3(partFile, endName(others.Count > 0 ? !capAtMax : true), mo[2] + 0.080, mo[1] + 0.020, 0);
+            if (side != null) side.ReferencedConfiguration = config;
+            if (others.Count > 0)
+            {
+                capView = drw.CreateDrawViewFromModelView3(partFile, endName(capAtMax), mo[2] + 0.080, mo[3] - 0.020, 0);
+                if (capView != null) capView.ReferencedConfiguration = config; else problems.Add("end cap view not created");
+            }
+        }
+        else side = drw.CreateUnfoldedViewAt3(mo[2] + 0.080, (mo[1] + mo[3]) / 2, 0, false);
         drwDoc.ClearSelection2(true);
         if (side == null) problems.Add("end view not created");
         else Console.WriteLine("End view projected from the face view: '" + side.GetOrientationName() + "', aligned " + side.GetAlignment());
@@ -144,11 +179,13 @@ static partial class Draw
         // to a smaller scale until face view + end view (with room for dimensions) and the isometric below them fit.
         foreach (int d in PlateScales.Where(x => x >= den))
         {
-            foreach (var vw in new[] { main, iso }) if (vw != null) { vw.UseSheetScale = 0; vw.ScaleRatio = new double[] { 1, d }; }   // the end view follows the face view
+            foreach (var vw in new[] { main, iso, upright ? side : null, capView }) if (vw != null) { vw.UseSheetScale = 0; vw.ScaleRatio = new double[] { 1, d }; }   // a projected end view follows the face view
             drwDoc.ForceRebuild3(false);
             var o1 = (double[])main.GetOutline(); var o2 = side != null ? (double[])side.GetOutline() : o1; var o3 = iso != null ? (double[])iso.GetOutline() : new double[4];
             double topW = W(o1) + W(o2) + 0.100, topH = Math.Max(H(o1), H(o2)) + 0.030, isoW = W(o3) + 0.070, isoH = H(o3);
-            bool fitsAll = topW <= AreaX1 - AreaX0 && topH + RowGap + isoH <= AreaY1 - AreaY0 && isoW <= AreaX1 - AreaX0;
+            bool fitsAll = upright
+                ? isoW + topW <= AreaX1 - AreaX0 && Math.Max(topH, isoH) <= AreaY1 - AreaY0   // upright: the isometric beside the views
+                : topW <= AreaX1 - AreaX0 && topH + RowGap + isoH <= AreaY1 - AreaY0 && isoW <= AreaX1 - AreaX0;
             den = d;
             if (fitsAll) break;
             Console.WriteLine("  1:" + d + " doesn't fit (top row " + Mm(topW) + " x " + Mm(topH) + ", isometric " + Mm(W(o3)) + " x " + Mm(isoH) + ")");
@@ -156,7 +193,7 @@ static partial class Draw
         mo = (double[])main.GetOutline();
         var sp = (double[])sheet.GetProperties2();
         sheet.SetProperties2((int)sp[0], (int)sp[1], 1, den, sp[4] != 0, sp[5], sp[6], sp[7] != 0);
-        foreach (var vw in new[] { main, iso }) if (vw != null) vw.UseSheetScale = 1;
+        foreach (var vw in new[] { main, iso, upright ? side : null, capView }) if (vw != null) vw.UseSheetScale = 1;
         drwDoc.ForceRebuild3(false);
         sp = (double[])sheet.GetProperties2();
         Console.WriteLine("Scale 1:" + den + (sp[3] == den && Math.Abs(main.ScaleDecimal - 1.0 / den) < 1e-9 ? "" : " NOT SET"));
@@ -189,8 +226,14 @@ static partial class Draw
         else
         {
             var end0 = alongLines.OrderBy(l => along(l.Item2)).First(); var end1 = alongLines.OrderBy(l => along(l.Item2)).Last();
-            var heel = acrossLines.OrderBy(l => Math.Abs(across(l.Item2) - across(comS))).First();
-            var toe = acrossLines.OrderBy(l => Math.Abs(across(l.Item2) - across(heel.Item2))).Last();
+            if (upright) { var t = end0; end0 = end1; end1 = t; }   // from the top down (08X06-LMW, Grant 15 Nov)
+            // heel and toe: the member's long edges only (an end cap's short edges sit inside them, GNRIC-LMW)
+            double longest = acrossLines.Max(l => Dist2(l.Item2, l.Item3));
+            var sideLines = acrossLines.Where(l => Dist2(l.Item2, l.Item3) >= 0.5 * longest).ToList();
+            // the two outermost (a tube's corner-radius lines lie inside them); the heel is the one nearer the centre of mass
+            var outer = new[] { sideLines.OrderBy(l => across(l.Item2)).First(), sideLines.OrderBy(l => across(l.Item2)).Last() };
+            var heel = outer.OrderBy(l => Math.Abs(across(l.Item2) - across(comS))).First();
+            var toe = outer.First() == heel ? outer.Last() : outer.First();
             double vs = main.ScaleDecimal;
             // One target per cut and direction. Holes: the circle edge. Slots: in the direction square to the slot, its end
             // arc (same position as the slot centre); along the slot, its centre mark, picked by position (the API won't
@@ -226,7 +269,7 @@ static partial class Draw
             expected.Add(0);
             expected.AddRange(cutSheet.GroupBy(q => Math.Round(across(q) * 1e5)).Select(g => Math.Abs(across(g.First()) - across(heel.Item2)) / vs * 1000));
             expected.Add(Math.Abs(across(toe.Item2) - across(heel.Item2)) / vs * 1000);
-            double endLine = along(end1.Item2) + 0.012;
+            double endLine = along(end1.Item2) + (along(end1.Item2) >= along(end0.Item2) ? 0.012 : -0.012);
             Ordinate2(drwDoc, selMgr, main, sel, lenHoriz ? (int)swAddOrdinateDims_e.swVerticalOrdinate : (int)swAddOrdinateDims_e.swHorizontalOrdinate,
                 lenHoriz ? endLine : across(heel.Item2), lenHoriz ? across(heel.Item2) : endLine, "across the face");
             };
@@ -326,6 +369,73 @@ static partial class Draw
             drwDoc.ClearSelection2(true);
         }
 
+        // 6b. A hole through an end cap, square to the end (GNRIC-LMW): the HDG drainage hole, called out as James does
+        //     (08A06-HBW-01): "Ø10" over "for HDG Drainage", a diameter dimension so the size comes from the model.
+        var capExpected = new List<double>();
+        if (capView != null)
+        {
+            // the cap's size: its outermost straight edges inside the tube's outline (checked against the cap's body)
+            var cl = ViewLines(mu, capView); var co = (double[])capView.GetOutline(); double cvs = capView.ScaleDecimal;
+            var cv = cl.Where(l => Math.Abs(l.Item2[0] - l.Item3[0]) < 1e-7).OrderBy(l => l.Item2[0]).ToList();
+            var ch = cl.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7).OrderBy(l => l.Item2[1]).ToList();
+            // leave out the tube's outline (the outermost lines each way): the cap sits inside it
+            if (cv.Count > 0) { double a = cv.First().Item2[0], b = cv.Last().Item2[0]; cv = cv.Where(l => l.Item2[0] > a + 1e-6 && l.Item2[0] < b - 1e-6).ToList(); }
+            if (ch.Count > 0) { double a = ch.First().Item2[1], b = ch.Last().Item2[1]; ch = ch.Where(l => l.Item2[1] > a + 1e-6 && l.Item2[1] < b - 1e-6).ToList(); }
+            var capBox = (double[])others[0].GetBodyBox();
+            var capSizes = Enumerable.Range(0, 3).Where(i => i != lenAx).Select(i => Math.Round((capBox[3 + i] - capBox[i]) * 1000, 2)).ToList();
+            if (cv.Count >= 2 && ch.Count >= 2)
+            {
+                double wv = (cv.Last().Item2[0] - cv.First().Item2[0]) / cvs * 1000, hv = (ch.Last().Item2[1] - ch.First().Item2[1]) / cvs * 1000;
+                if (capSizes.Contains(Math.Round(wv, 2)) && capSizes.Contains(Math.Round(hv, 2)))
+                {
+                    Dim2(drwDoc, selMgr, capView, cv.First().Item1, cv.Last().Item1, (cv.First().Item2[0] + cv.Last().Item2[0]) / 2, co[1] - 0.010, "end cap width");
+                    Dim2(drwDoc, selMgr, capView, ch.First().Item1, ch.Last().Item1, co[2] + 0.012, (ch.First().Item2[1] + ch.Last().Item2[1]) / 2, "end cap height");
+                    capExpected.Add(wv); capExpected.Add(hv);
+                }
+                else problems.Add("end cap edges do not match the cap (" + Mm(wv / 1000) + " x " + Mm(hv / 1000) + "): cap size not dimensioned");
+            }
+            else problems.Add("end cap edges not found: cap size not dimensioned");
+            drwDoc.ClearSelection2(true);
+        }
+        if (capView != null)
+        {
+            var side0 = side; side = capView;   // the hole is seen in the cap view
+            var capHoles = others.SelectMany(b => ((object[])b.GetFaces()).Cast<Face2>())
+                .Where(f => ((Surface)f.GetSurface()).IsCylinder() && f.GetLoopCount() == 2)
+                .Select(f => (double[])((Surface)f.GetSurface()).CylinderParams)
+                .Where(cp => Math.Abs(Math.Abs(new[] { cp[3], cp[4], cp[5] }[lenAx]) - 1) < 1e-6).ToList();
+            var sc = ViewCircles(mu, side);
+            var so = (double[])side.GetOutline();
+            int kk = 0;
+            foreach (var hd in capHoles.Select(cp => 2 * cp[6]).Distinct())
+            {
+                var e = sc.Where(c => Math.Abs(c.Item3 - hd) < 1e-6).OrderBy(c => Dist2(c.Item2, new[] { (so[0] + so[2]) / 2, (so[1] + so[3]) / 2 })).FirstOrDefault();
+                if (e == null) { problems.Add("end cap hole Ø" + Mm(hd) + " not seen in the end view"); continue; }
+                drw.ActivateView(side.GetName2());
+                drwDoc.ClearSelection2(true);
+                var sd = (SelectData)selMgr.CreateSelectData(); sd.View = side;
+                DisplayDimension dd = null;
+                if (((Entity)e.Item1).Select4(false, sd))
+                    try { dd = drwDoc.AddDiameterDimension2(so[0] - 0.0065 - 0.010 * kk, so[3] + 0.0226 + 0.010 * kk, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }   // above left (Grant 15 Nov, 08X06-LMW)
+                drwDoc.ClearSelection2(true);
+                double gotD = dd == null ? double.NaN : ((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000;
+                if (dd != null && Math.Abs(gotD - hd * 1000) < 0.05)
+                {
+                    dd.SetBrokenLeader2(false, (int)swDisplayDimensionLeaderText_e.swBrokenLeaderHorizontalText);
+                    dd.SetText((int)swDimensionTextParts_e.swDimensionTextCalloutBelow, "for HDG Drainage");
+                    capExpected.Add(hd * 1000);
+                    Console.WriteLine("End cap hole: Ø" + Mm(hd) + " for HDG Drainage");
+                }
+                else
+                {
+                    problems.Add("end cap hole callout not placed (got " + gotD + ")");
+                    if (dd != null) { ((Annotation)dd.GetAnnotation()).Select3(false, null); drwDoc.Extension.DeleteSelection2(0); }
+                }
+                kk++;
+            }
+            side = side0;
+        }
+
         // 7. Hole centre marks (after the dimensions, see Plate.cs), note block, flags, revision row.
         drw.ActivateView(main.GetName2());
         if (cuts.Any(c => !c.Slot) && !main.AutoInsertCenterMarks2((int)swAutoInsertCenterMarkTypes_e.swAutoInsertCenterMarkType_Hole, 0, true, true, false, CentreMarkSize, CentreMarkGap, true, true, 0))
@@ -351,13 +461,13 @@ static partial class Draw
         }
         // Flag: a length written in the description (L=nnn) that disagrees with the model.
         var flags = new List<string>(); Note flagNote = null;
-        var lm2 = Regex.Match(props["Description"], @"L\s*=\s*(\d+(\.\d+)?)");
+        var lm2 = Regex.Match(props["Description"], @"(?:L\s*=\s*|MEMBER\s*x\s*)(\d+(\.\d+)?)", RegexOptions.IgnoreCase);   // "L=150", or "MEMBER x541mm" (GNRIC-LMW)
         if (lm2.Success && Math.Abs(double.Parse(lm2.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) - length * 1000) > 0.5)
             flags.Add("CHECK: DESCRIPTION SAYS L=" + lm2.Groups[1].Value + ", MODEL IS " + Mm(length) + " LONG");
         if (props["Material"] == "") flags.Add("CHECK: MODEL HAS NO MATERIAL PROPERTY");
         // Weight: compare with the same volume in steel (7850 kg/m3); a part with no material is weighed at
         // SOLIDWORKS's default density and comes out far too light (14 Nov: 0.1 kg for a 1.2 kg angle).
-        double steelKg = ((double[])body.GetMassProperties(7850))[5];
+        double steelKg = ((double[])body.GetMassProperties(7850))[5] + others.Sum(b => ((double[])b.GetMassProperties(7850))[5]);
         double wProp;
         if (double.TryParse(props["Weight"], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out wProp)
             && Math.Abs(wProp - steelKg) > Math.Max(0.1, 0.1 * steelKg))
@@ -377,6 +487,29 @@ static partial class Draw
 
         // 8. Layout, then the value check against the model, then save.
         Layout(drwDoc, main, side, iso);
+        if (upright && side != null)
+        {
+            // each end view level with its end of the member (the cap end view at the cap's end: Grant's 08X06-LMW layout)
+            var so2 = (double[])side.GetOutline(); var mo2 = (double[])main.GetOutline(); double hs = so2[3] - so2[1];
+            bool sideAtTop = capView == null || !capAtMax;
+            MoveOutline(drwDoc, side, so2[0], sideAtTop ? mo2[3] - hs / 2 : mo2[1] + hs / 2);
+            if (capView != null)
+            {
+                var co2 = (double[])capView.GetOutline(); double hc = co2[3] - co2[1];
+                MoveOutline(drwDoc, capView, so2[0] + (so2[2] - so2[0]) / 2 - (co2[2] - co2[0]) / 2, capAtMax ? mo2[3] - hc / 2 : mo2[1] + hc / 2);
+            }
+            // the views (with their dimensions) centred in the paper right of the isometric and its note
+            if (iso != null)
+            {
+                var vs = new[] { main, side, capView }.Where(x => x != null).ToList();
+                double gl = vs.Min(x => Extent(x)[0]), gr = vs.Max(x => Extent(x)[2]);
+                double freeL = Extent(iso)[2] + 0.010, freeR = BorderX1 - 0.003;
+                double dx = (freeL + freeR) / 2 - (gl + gr) / 2;
+                if (gl + dx < freeL) dx = freeL - gl;
+                if (Math.Abs(dx) > 0.001) foreach (var x in vs) { var xo = (double[])x.GetOutline(); MoveOutline(drwDoc, x, xo[0] + dx, double.NaN); }
+                Console.WriteLine("Upright views moved " + Mm(dx) + " across to sit centred right of the isometric");
+            }
+        }
         if (flagNote != null)
             PlaceFlags((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), new[] { Extent(main), side != null ? Extent(side) : null, iso != null ? Extent(iso) : null });
         var got = new List<double>(); var gotSec = new List<double>();
@@ -389,7 +522,16 @@ static partial class Draw
         bool ok1 = fmt(expected) == fmt(got), ok2 = fmt(secExpected) == fmt(gotSec);
         Console.WriteLine("Check positions: model " + fmt(expected) + " / drawing " + fmt(got) + (ok1 ? " OK" : " MISMATCH"));
         Console.WriteLine("Check section: from the end view " + fmt(secExpected) + " / drawing " + fmt(gotSec) + (ok2 ? " OK" : " MISMATCH") + " (model box " + fmt(modelSec) + ")");
-        if (!ok1 || !ok2) { problems.Add("dimensions don't match the model: NOT saved"); return 1; }
+        bool ok3 = true;
+        if (capView != null)
+        {
+            var gotCap = new List<double>();
+            foreach (Annotation a in (capView.GetAnnotations() as object[]) ?? new object[0])
+                if (a.GetType() == (int)swAnnotationType_e.swDisplayDimension) gotCap.Add(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000);
+            ok3 = fmt(capExpected) == fmt(gotCap);
+            Console.WriteLine("Check end cap: " + fmt(capExpected) + " / drawing " + fmt(gotCap) + (ok3 ? " OK" : " MISMATCH"));
+        }
+        if (!ok1 || !ok2 || !ok3) { problems.Add("dimensions don't match the model: NOT saved"); return 1; }
         return SaveDraft(drw, drwDoc, output, pdfOut, t0);
     }
 

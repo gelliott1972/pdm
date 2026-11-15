@@ -87,3 +87,23 @@ Layout copied from Grant's `08X06-LMW-01-grant` and `08X06-LMW-02-grant` (in `sc
 | Each ordinate takes the hole, slot end or edge nearest its line, so no extension line crosses the part; across rows from the bottom holes, labels about 15 mm under the member | Grant 15 Nov |
 | Top plate (end view): slot centres only, both ways from the bottom-left corner, plate size in brackets; HDG drainage hole: its own callout only | Grant 15 Nov |
 | One size callout per hole size: "n x Ø d THRU" (plates), "THRU ALL" / "THRU ONE WALL" (member, from the part's own edges), "n x w WIDE SLOT THRU". Member holes: right of the face view; plate holes: right of the side view; slots: centred under the end view | Grant's files |
+
+## All drafts (Grant 15 Nov)
+
+| Rule | Source |
+| --- | --- |
+| A dimension too narrow for its text (under 6 mm on the sheet): text outside the extension lines, beside the outer one, arrows outside pointing in | Grant 15 Nov (GNRIC-LMW-01 wall "4") |
+| Stock with the material on the note block: "Plain Carbon Steel, SHS 40x40x4", built from the section measured in the model (hollow sections so far); magenta CHECK if the cut-list label or the description disagrees | Grant D7, 15 Nov |
+| Revision 0A* on every draft; James removes the * and fills DRAWN when he issues (release refuses * or empty DRAWN) | Grant D5 = A, 15 Nov |
+| Each new version of a draft gets its own PDF ("GNRIC-LMW-01 v2.pdf"); the Desk ticket points at the newest | Desk draft-review tickets, 15 Nov |
+
+## Welded members with end caps (GNRIC-LMW, batch 1)
+
+| Rule | Source |
+| --- | --- |
+| The member is the longest body; end caps count in the overall length and weight | batch 1 |
+| Upright: face view on the side with the holes; open-end view with the section (the tube alone, caps hidden); cap-end view with the cap size and "Ø10 for HDG Drainage" ("2 x ... one in each end cap" when both ends are capped); each end view level with its end | James's GNRIC-LWP-20, Grant's 08X06-LMW |
+| Length from the top: 0 ... (overall) in brackets; across row 0 / 40 under the member, to the tube's outer edges | 08X06-LMW |
+| End views no smaller than 1:5, labelled "SCALE 1:5" when the sheet is smaller | batch 1 (1:20 members) |
+| Hole in a tube: "Ø10 THRU ONE WALL" / "THRU ALL", beside the hole on the left | 08X06-LMW rule |
+

@@ -69,7 +69,7 @@ static partial class Draw
                 case "accept": if (pos.Count != 1) return Usage(); rc = Accept(pos[0], flags.Contains("all")); break;
                 case "select-draft": if (pos.Count != 1) return Usage(); rc = SelectDraft(pos[0]); break;
                 case "views": if (pos.Count != 3) return Usage(); rc = Views(pos[0], pos[1] == "-" ? null : pos[1], pos[2]); break;
-                case "make-section": if (pos.Count != 4) return Usage(); rc = MakeSection(pos[0], pos[1], pos[2], pos[3]); break;
+                case "make-section": if (pos.Count != 4) return Usage(); { var pf = args.FirstOrDefault(a => a.StartsWith("--pdf=")); if (pf != null) { PdfName = Path.GetFileName(pf.Substring(6)); if (!PdfName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) PdfName += ".pdf"; } } rc = MakeSection(pos[0], pos[1], pos[2], pos[3]); break;
                 case "learn-layout": if (pos.Count < 1) return Usage(); rc = LearnLayout(pos); break;
                 case "copy-switch": if (pos.Count != 3) return Usage(); rc = CopySwitch(pos[0], pos[1], pos[2]); break;
                 case "make-assembly": if (pos.Count != 4) return Usage(); MemberCentres = flags.Contains("centrelines"); { var sf = flags.FirstOrDefault(f => f.StartsWith("scale=")); if (sf != null) ForcedDen = int.Parse(sf.Substring(6)); } rc = MakeAssembly(pos[0], pos[1], pos[2], pos[3]); break;

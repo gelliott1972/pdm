@@ -7,7 +7,7 @@ Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\code\pdm\scratch\
 | Step | State |
 | --- | --- |
 | Outstanding list | Done: `draw\outstanding.md`, 89 of 319 items (LMW 10, PLP 7, BKP/BKA/MSA 15, singles and simple weldments 27, SFA/STA 30), from P:\ with `src\Outstanding.cs` (read-only, pdm coverage rule). Counts sent to Admin. Not yet compared with pdm coverage (Grant's AWS login) |
-| Batch 1 LMW | Example GNRIC-LMW-01 drafted 15 Nov (Grant asked), sent to Grant: `scratch\draw-test\batch-1-LMW\APEX\GNRIC\GNRIC-LMW-01.pdf`. make-section now takes a welded member with end caps; LMW stands upright (James's GNRIC-LWP-20, Grant's 08X06-LMW): face view, open-end view (section 40x40x4), cap-end view (cap 36x36, Ø10 for HDG Drainage), length from the top (546 in brackets, cap included), isometric beside; all values checked; 08X04-BKP-01 regenerated the same. Not yet: cut list table (James has one). The other nine wait for Grant's look |
+| Batch 1 LMW | **Drawn 15 Nov: 10 of 10, 0 failed**, all values checked, 0 dangling, about 20 s each. `scratch\draw-testatch-1-LMW\` (batch.md, drawings and PDFs in `APEX\GNRIC\`). Desk tickets DR2-DR11 (draft-review) and B1-MODEL (model problems). New in make-section: welded members with end caps, upright LMW layout, tube shown alone in the section view, end views 1:5 at least, narrow dimensions outside, stock on the Material line (D7), RHS/SHS CHECK flags, THRU ONE WALL. Cut-list survey: `draw\cutlist-survey.md`. Waiting for Grant's review on the Desk |
 
 ## Done
 

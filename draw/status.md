@@ -7,7 +7,7 @@ Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\code\pdm\scratch\
 | Step | State |
 | --- | --- |
 | Outstanding list | Done: `draw\outstanding.md`, 89 of 319 items (LMW 10, PLP 7, BKP/BKA/MSA 15, singles and simple weldments 27, SFA/STA 30), from P:\ with `src\Outstanding.cs` (read-only, pdm coverage rule). Counts sent to Admin. Not yet compared with pdm coverage (Grant's AWS login) |
-| Batch 1 LMW | **Redrawn 15 Nov evening: 10 of 10**, from a fresh P: copy after SW fixed the SHS names; cap view labelled END CAP 36x36x5, section view shows the tube alone with 32 inside (D9); slot check passed; Desk DR12-DR21 (DR2-DR11 withdrawn). Slot fixes: 08X04-BKP-01 and 08X06-LMW-02 redone with slots by centres only (DR22, DR23). SOLIDWORKS lets a slot centre mark serve one ordinate row only: the second direction is left off and flagged (Grant to decide). Waiting for Grant on the Desk |
+| Batch 1 LMW | One at a time with Grant (brief draw-3, D12). **GNRIC-LMW-02 approved** 15 Nov (his edits: CHECK note outside the border bottom left, isometric lined up with the profiles), saved as he left it, repointed to P:\ and in `scratch\draw-test\load\batch-1\` (checked: values unchanged, 0 dangling). **GNRIC-LMW-01 ready** in SOLIDWORKS. Then -03, -04, -05, -06, -09, -10, -11; -12 accepted on the Desk (DR21) as v2 |
 
 ## Done
 

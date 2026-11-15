@@ -631,7 +631,11 @@ static partial class Draw
             Console.WriteLine("End views at 1:" + endDen + " (sheet 1:" + den + "), labelled");
         }
         if (flagNote != null)
-            PlaceFlags((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), new[] { Extent(main), side != null ? Extent(side) : null, iso != null ? Extent(iso) : null, capView != null ? Extent(capView) : null }, "BR");   // as on the assemblies (Grant 15 Nov: 08B04-SFA-2T)
+            {   // notes for James: outside the border, bottom left of the sheet, as Grant placed them on GNRIC-LMW-02 (15 Nov, brief draw-3)
+                var fa = (Annotation)flagNote.GetAnnotation();
+                fa.SetPosition2(0.0034, 0.0054 + 0.0045 * (flags.Count - 1), 0);
+                Console.WriteLine("Flags placed outside the border, bottom left (as on GNRIC-LMW-02)");
+            }
         var got = new List<double>(); var gotSec = new List<double>();
         foreach (Annotation a in (main.GetAnnotations() as object[]) ?? new object[0])
             if (a.GetType() == (int)swAnnotationType_e.swDisplayDimension) got.Add(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000);

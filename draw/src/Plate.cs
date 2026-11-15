@@ -463,6 +463,7 @@ static partial class Draw
             drw.ActivateView(iso.GetName2());
             string text = "<FONT size=8PTS>Filename:         <FONT size=3.5>$PRPVIEW:\"SW-File Name(File Name)\"\n"
                 + "<FONT size=8PTS>Config name:  <FONT size=3.5>$PRPVIEW:\"SW-Configuration Name(Configuration Name)\"\n"
+                + "<FONT size=8PTS>Material:          <FONT size=12PTS>$PRPVIEW:\"Material\"<FONT size=8PTS>\n"   // Grant 15 Nov (08X04-PLP-02): "where is the material?"
                 + "<FONT size=8PTS>Weight (kg):     <FONT size=12PTS>$PRPVIEW:\"Weight\"<FONT size=8PTS>\n"
                 + "Finish:                 <FONT size=12PTS>$PRPVIEW:\"Finish\"";
             var note = drwDoc.InsertNote(text) as Note;

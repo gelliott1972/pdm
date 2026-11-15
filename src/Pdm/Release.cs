@@ -245,6 +245,9 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
     // R4 with Desk A13 (Grant, 7 Nov): the table has one row per formal release plus a top row for the current issue,
     // replaced on each lettered issue. Check: title-block REV on every sheet = top row = the code (= the file name), and
     // every row below the top is a formal number. SwCmd lists the rows oldest first, so the top (current) row is the last.
+    // Grant's D5 (15 Nov): a Draw draft shows REV "0A*" until James has checked it; he removes the * and fills DRAWN in
+    // the top row as his sign-off. Those two can't be accepted with --accept-rev. The other checks compare without the *.
+    public const string DraftPrefix = "draft not signed off by James";
     void CheckRevision(Item item, JsonObject json, string code)
     {
         var found = new List<string>();
@@ -253,10 +256,17 @@ public sealed partial class Release(Settings s, List<FileRecord> all, Action<str
         foreach (var sh in sheets)
         {
             var rev = ((string?)sh?["rev"] ?? "").Trim();
+            if (rev.Contains('*')) item.Problems.Add($"{DraftPrefix}: sheet {(string?)sh?["name"]} title block REV is \"{rev}\" (remove the * when checked)");
+            rev = rev.Replace("*", "").Trim();
             if (!rev.Equals(code, StringComparison.Ordinal))
                 found.Add($"sheet {(string?)sh?["name"]}: title block REV is \"{rev}\", not {code}");
         }
-        var rows = (json["revTable"] as JsonArray ?? []).Select(r => ((string?)r?["rev"] ?? "").Trim()).Where(r => r != "").ToList();
+        var table = (json["revTable"] as JsonArray ?? []).Where(r => ((string?)r?["rev"] ?? "").Trim() != "").ToList();
+        foreach (var r in table.Where(r => ((string?)r?["rev"] ?? "").Contains('*')))
+            item.Problems.Add($"{DraftPrefix}: revision table row \"{((string?)r?["rev"])!.Trim()}\" (remove the * when checked)");
+        if (table.Count > 0 && string.IsNullOrWhiteSpace((string?)table[^1]?["by"]))
+            item.Problems.Add($"{DraftPrefix}: the revision table's top row has no DRAWN name (James fills it when he has checked the drawing)");
+        var rows = table.Select(r => ((string?)r?["rev"] ?? "").Replace("*", "").Trim()).ToList();
         if (rows.Count == 0) found.Add($"revision table is empty or missing; its top row should be {code}");
         else
         {

@@ -915,6 +915,7 @@ static partial class Draw
         var selTypes = Enumerable.Range(1, smx.GetSelectedObjectCount2(-1)).Select(ix => smx.GetSelectedObjectType3(ix, -1)).ToList();
         var beforeDims = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(an => an.GetName()));
         int r = doc.Extension.AddOrdinateDimension(kind, x, y, 0);
+        EndOrdinate(doc);   // 15 Nov: SOLIDWORKS stays in "add to this row" mode; the next row's picks went into this one (08X04-PLP-32: a second 155)
         var madeVals = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Where(an => an.GetType() == (int)swAnnotationType_e.swDisplayDimension && !beforeDims.Contains(an.GetName()))
             .Select(an => Math.Round(((Dimension)((DisplayDimension)an.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 1)).ToList();
         Console.WriteLine("Ordinate " + what + ": " + selected + " of " + items.Count + " selected (types " + string.Join(",", selTypes) + "), result " + r + ", made " + string.Join("/", madeVals));

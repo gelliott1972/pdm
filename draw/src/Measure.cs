@@ -422,4 +422,11 @@ static partial class Draw
         Console.WriteLine("not saved");
         return fe == fg ? 0 : 1;
     }
+
+    static void EndOrdinate(ModelDoc2 doc)
+    {
+        doc.ClearSelection2(true);
+        doc.EditRebuild3();
+        doc.ClearSelection2(true);
+    }
 }

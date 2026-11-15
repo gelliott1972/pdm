@@ -403,7 +403,9 @@ static partial class Draw
         drwDoc.ClearSelection2(true);
         foreach (var g in slots.GroupBy(x => Math.Round(x.Item2 * 1e5) + "x" + Math.Round(x.Item3 * 1e5)))
         {
-            var s0 = g.OrderByDescending(x => ToSheet(mu, main, x.Item1)[1]).First();
+            // the leader to the slot nearest the callout, and that slot's end nearest it (Grant 15 Nov, 08X04-PLP-32)
+            double tx = mo[0] - 0.050 - 0.008 * k, ty = mo[3] + 0.010 + 0.008 * k;   // clear of the top row's "0" (08X04-PLP-32)
+            var s0 = g.OrderBy(x => { var q = ToSheet(mu, main, x.Item1); return Math.Pow(q[0] - tx, 2) + Math.Pow(q[1] - ty, 2); }).First();
             var cs = ToSheet(mu, main, s0.Item1);
             int n = g.Count();
             string text = (n > 1 ? n + " x " : "") + (s0.Item2 * 1000).ToString("0.0") + " X " + (s0.Item3 * 1000).ToString("0") + " THRU";
@@ -411,12 +413,12 @@ static partial class Draw
                 .Where(e => ((Curve)e.GetCurve()).IsCircle() && Math.Abs(((double[])((Curve)e.GetCurve()).CircleParams)[6] * 2 - s0.Item2) < 1e-7)
                 .Select(e => Tuple.Create(e, ToSheet(mu, main, ((double[])((Curve)e.GetCurve()).CircleParams).Take(3).ToArray())))
                 .Where(t => Math.Sqrt(Math.Pow(t.Item2[0] - cs[0], 2) + Math.Pow(t.Item2[1] - cs[1], 2)) < s0.Item3 * main.ScaleDecimal)
-                .OrderByDescending(t => t.Item2[1]).FirstOrDefault();
+                .OrderBy(t => Math.Pow(t.Item2[0] - tx, 2) + Math.Pow(t.Item2[1] - ty, 2)).FirstOrDefault();
             drwDoc.ClearSelection2(true);
             if (arc != null) { var sd = (SelectData)selMgr.CreateSelectData(); sd.View = main; ((Entity)arc.Item1).Select4(false, sd); }
             var note = drwDoc.InsertNote(text) as Note;
             if (note == null) { problems.Add("slot callout not placed: " + text); continue; }
-            ((Annotation)note.GetAnnotation()).SetPosition2(mo[0] - 0.030 - 0.008 * k, cs[1] + 0.022 + 0.008 * k, 0);
+            ((Annotation)note.GetAnnotation()).SetPosition2(tx, Math.Max(ty, cs[1] + 0.022), 0);
             Console.WriteLine("Slot callout: " + text + (arc == null ? " (no leader: end arc not found)" : ""));
             if (arc == null) problems.Add("slot callout without a leader: " + text);
             k++;
@@ -529,6 +531,17 @@ static partial class Draw
         //     each row centred, and the whole group moved so its centre of area sits in the middle of the free sheet
         //     (inside the border, above the title block).
         Layout(drwDoc, main, side, iso);
+        // the isometric inside the border (Grant 15 Nov, 08X04-PLP-32: it ran off the left): one scale smaller and again
+        for (int tries = 0; iso != null && tries < 3 && ((double[])iso.GetOutline())[0] < BorderX0 + 0.003; tries++)
+        {
+            int cur = (int)Math.Round(1 / iso.ScaleDecimal);
+            int next = PlateScales.Where(d => d > cur).DefaultIfEmpty(0).First();
+            if (next == 0) break;
+            iso.UseSheetScale = 0; iso.ScaleRatio = new double[] { 1, next };
+            drwDoc.ForceRebuild3(false);
+            Layout(drwDoc, main, side, iso);
+            Console.WriteLine("Isometric past the border: now 1:" + next);
+        }
 
         // 10. Self-check: every ordinate value equals the model's geometry; callouts and thickness likewise.
         var gotOrd = new List<double>(); var gotDia = new List<double>(); var gotThk = new List<double>();
@@ -632,6 +645,7 @@ static partial class Draw
         int selected = 0;
         for (int i = 0; i < edges.Count; i++) if (((Entity)edges[i]).Select4(i > 0, sd)) selected++;
         int r = doc.Extension.AddOrdinateDimension(kind, x, y, 0);
+        EndOrdinate(doc);   // 15 Nov: SOLIDWORKS stays in "add to this row" mode; the next row's picks went into this one (08X04-PLP-32: a second 155)
         Console.WriteLine("Ordinate " + what + ": " + selected + " of " + edges.Count + " edges selected, result " + r);
         if (selected != edges.Count || r != 0) problems.Add("ordinate dimensions " + what + " may be incomplete (result " + r + ")");
     }

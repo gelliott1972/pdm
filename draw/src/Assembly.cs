@@ -1195,6 +1195,8 @@ static partial class Draw
         int r;
         try { r = doc.Extension.AddOrdinateDimension(vertical ? (int)swAddOrdinateDims_e.swVerticalOrdinate : (int)swAddOrdinateDims_e.swHorizontalOrdinate, x, y, 0); }
         catch (System.Runtime.InteropServices.COMException) { r = -99; }
+        EndOrdinate(doc);   // 15 Nov: SOLIDWORKS stays in "add to this row" mode; the next row's picks went into this one (08X04-PLP-32: a second 155)
+
         doc.ClearSelection2(true);
         var made = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>()
             .Where(a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension && !before.Contains(a.GetName())).ToList();

@@ -213,7 +213,7 @@ static partial class Draw
             (int)swBomType_e.swBomType_TopLevelOnly, config, bomTpl, false, 0, false);
         if (bom == null) problems.Add("BOM not inserted");
         else ((Annotation)((TableAnnotation)bom).GetAnnotation()).Layer = DraftLayerEnsure(drwDoc);
-        if (bom != null) SortBomByDescription((TableAnnotation)bom);   // James 15 Nov: alphabetical; balloons come after, so they follow
+        if (bom != null) SortBomByPartNo((TableAnnotation)bom);   // James/Grant 15 Nov: alphabetical by part number, all assemblies; balloons come after, so they follow
         drwDoc.ForceRebuild3(true);
         var bomBox = BomBox(bom);
         int items = bom != null ? ((TableAnnotation)bom).RowCount - 1 : 0;
@@ -431,7 +431,7 @@ static partial class Draw
         }
 
         // 7. Check and save. The BOM is sorted again last: a rebuild during the run put it back in assembly order (15 Nov)
-        if (bom != null) { drwDoc.ForceRebuild3(true); SortBomByDescription((TableAnnotation)bom); drwDoc.ForceRebuild3(true); }
+        if (bom != null) { drwDoc.ForceRebuild3(true); SortBomByPartNo((TableAnnotation)bom); drwDoc.ForceRebuild3(true); }
         foreach (var d in dimsOk) Console.WriteLine("  " + d);
         bool ok = items > 0 && !dimsOk.Any(d => d.Contains("MISMATCH"));
         Console.WriteLine("Check BOM: " + items + " items" + (items > 0 ? " OK" : " EMPTY"));
@@ -647,23 +647,23 @@ static partial class Draw
         return new[] { p[0], y0, x1, p[1] };
     }
 
-    // The BOM in alphabetical order of DESCRIPTION (James, 15 Nov), part number second, items renumbered 1, 2, 3...
-    static void SortBomByDescription(TableAnnotation ta)
+    // The BOM in alphabetical order of part number (Grant 15 Nov, all assemblies), description second, items renumbered 1, 2, 3...
+    static void SortBomByPartNo(TableAnnotation ta)
     {
         int dc = Enumerable.Range(0, ta.ColumnCount).Where(c => Flat(ta.Text[0, c]).Trim().ToUpper() == "DESCRIPTION").DefaultIfEmpty(-1).First();
         int pc = Enumerable.Range(0, ta.ColumnCount).Where(c => Flat(ta.Text[0, c]).Trim().ToUpper() == "PARTNO").DefaultIfEmpty(-1).First();
-        if (dc < 0) { problems.Add("BOM: no DESCRIPTION column to sort on"); return; }
+        if (pc < 0) { problems.Add("BOM: no PartNo column to sort on"); return; }
         var bt = (BomTableAnnotation)ta;
         var sd = (BomTableSortData)bt.GetBomTableSortData();
-        sd.set_ColumnIndex(0, dc); sd.set_Ascending(0, true);
-        sd.set_ColumnIndex(1, pc); sd.set_Ascending(1, true);
+        sd.set_ColumnIndex(0, pc); sd.set_Ascending(0, true);   // Grant 15 Nov: by part number, description second
+        sd.set_ColumnIndex(1, dc); sd.set_Ascending(1, true);
         sd.set_ColumnIndex(2, -1);
         sd.SortMethod = (int)swBomTableSortMethod_e.swBomTableSortMethod_Literal;
         sd.DoNotChangeItemNumber = false;
         bool ok = bt.Sort(sd);
-        var rows = Enumerable.Range(1, ta.RowCount - 1).Select(r => Flat(ta.Text[r, dc])).ToList();
+        var rows = Enumerable.Range(1, ta.RowCount - 1).Select(r => Flat(ta.Text[r, pc])).ToList();
         bool sorted = rows.Zip(rows.Skip(1), (a, b) => string.Compare(a, b, StringComparison.OrdinalIgnoreCase) <= 0).All(x => x);
-        Console.WriteLine("BOM sorted by description: " + (ok && sorted ? "OK" : "NOT SORTED (" + ok + ")") + ": " + string.Join(" | ", rows));
+        Console.WriteLine("BOM sorted by part number: " + (ok && sorted ? "OK" : "NOT SORTED (" + ok + ")") + ": " + string.Join(" | ", rows));
         if (!(ok && sorted)) problems.Add("BOM not in alphabetical order");
     }
 

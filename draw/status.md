@@ -2,6 +2,13 @@
 
 Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\code\pdm\scratch\draw-test` (Grant: nothing in the root of C:\). Tool: `draw\src\` (Draw.exe; build with `build.ps1`).
 
+## Brief draw-2 (15 Nov): all outstanding drawings, one batch per type
+
+| Step | State |
+| --- | --- |
+| Outstanding list | Done: `draw\outstanding.md`, 89 of 319 items (LMW 10, PLP 7, BKP/BKA/MSA 15, singles and simple weldments 27, SFA/STA 30), from P:\ with `src\Outstanding.cs` (read-only, pdm coverage rule). Counts sent to Admin. Not yet compared with pdm coverage (Grant's AWS login) |
+| Batch 1 LMW | Waiting for Admin's go. The 10 are GNRIC-LMW (configurations of one weldment part, RHS 40x40), not the signed-off 08X06-LMW assemblies: GNRIC-LMW-01 first as an example for Grant |
+
 ## Done
 
 | Step | Result | Checked? |

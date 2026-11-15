@@ -68,6 +68,21 @@ Built up from feedback, one line per rule, with where it came from. A rule about
 | Front with top above, bottom below, left and right sides; largest scale that fits the rest with room for dimensions; block centred | Grant |
 | Back isometric only if it fits (option B) | Grant |
 | BOM: James's template, top left; the configuration must be named or it comes out empty | James; 14 Nov bug |
+| BOM rows in alphabetical order of part number (description second), items renumbered, balloons follow; every assembly. Sort again before saving (a rebuild puts it back) | James / Grant 15 Nov |
 | Dimensions: ordinates to each horizontal member (up the side) and each upright (across the top) from the bottom-left, overall in brackets; checked against the model | Grant / James's 08A04-SFA-2T |
 | Member dims to the underside / left side for now: CHECK flag until James says (centreline?) | open |
 | Measure assembly views from the model's visible parts, not the view outline (counts suppressed parts) | 14 Nov |
+
+## LED members / long members (Grant signed off 15 Nov, 08X06-LMW-02 and -01)
+
+Layout copied from Grant's `08X06-LMW-01-grant` and `08X06-LMW-02-grant` (in `scratch\draw-test\LMW\...\_Shared`).
+
+| Rule | Source |
+| --- | --- |
+| Isometric, front (face), side (plates face-on), end view of the top plate; zig-zag breaks only as long as needed; largest scale whose breaks cut out at most a third | Grant 14 Nov |
+| Views spaced as in Grant's file (face 49 mm in from the zone, side 49.5 mm right, end view 77.7 mm further); note block under the BOM; CHECK flags bottom left | Grant's -01 file |
+| Plates and plate holes as ordinates down the side view, plate edges in brackets; overall length (top plate to bottom, e.g. 2155) 8 mm left of the face view; the RHS length is in the BOM | Grant 14-15 Nov, -02 file |
+| Every hole defined: across each view from the RHS faces (off-centre check against the model), plate holes from the plate edge with the RHS faces in the row | Grant 15 Nov |
+| Each ordinate takes the hole, slot end or edge nearest its line, so no extension line crosses the part; across rows from the bottom holes, labels about 15 mm under the member | Grant 15 Nov |
+| Top plate (end view): slot centres only, both ways from the bottom-left corner, plate size in brackets; HDG drainage hole: its own callout only | Grant 15 Nov |
+| One size callout per hole size: "n x Ø d THRU" (plates), "THRU ALL" / "THRU ONE WALL" (member, from the part's own edges), "n x w WIDE SLOT THRU". Member holes: right of the face view; plate holes: right of the side view; slots: centred under the end view | Grant's files |

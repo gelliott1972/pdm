@@ -18,6 +18,7 @@
 //   make-assembly <asm> <config> <out.SLDDRW> <template.drwdot>  assembly nuts and bolts: views, BOM, balloons,
 //                                             member positions, note block, flags (DRAFT, magenta);
 //                                             --centrelines: member positions to centrelines, not undersides
+//   measure-member <part> <config>          a welded member's real geometry: walls, caps, profile sketch (read-only)
 //   pdf <drawing> <out.pdf>                   export a PDF
 //   close-all                                 close every document without saving
 //
@@ -46,7 +47,7 @@ static partial class Draw
         // Every path must be inside the test folder: never P:\, M:\, C:\PDM-work or Dropbox.
         for (int i = 0; i < pos.Count; i++)
         {
-            if ((cmd == "make-plate" || cmd == "make-section" || cmd == "make-assembly" || cmd == "views") && i == 1) continue;   // configuration name
+            if ((cmd == "make-plate" || cmd == "make-section" || cmd == "make-assembly" || cmd == "views" || cmd == "measure-member") && i == 1) continue;   // configuration name
             string full;
             try { full = Path.GetFullPath(pos[i]); } catch (Exception ex) { Console.Error.WriteLine("Bad path: " + ex.Message); return 2; }
             if (!full.StartsWith(TestRoot + "\\", StringComparison.OrdinalIgnoreCase))
@@ -76,6 +77,7 @@ static partial class Draw
                 case "bom-test": if (pos.Count != 2) return Usage(); rc = BomTest(pos[0], pos[1]); break;
                 case "view-geom": if (pos.Count != 1) return Usage(); rc = ViewGeom(pos[0]); break;
                 case "view-boxes": if (pos.Count != 1) return Usage(); rc = ViewBoxes(pos[0]); break;
+                case "measure-member": if (pos.Count != 2) return Usage(); rc = MeasureMember(pos[0], pos[1]); break;
                 case "weld-probe": if (pos.Count != 1) return Usage(); rc = WeldProbe(pos[0]); break;
                 case "pdf": if (pos.Count != 2) return Usage(); rc = Pdf(pos[0], pos[1]); break;
                 case "close-all": sw.CloseAllDocuments(true); Console.WriteLine("Closed all documents (not saved)."); rc = 0; break;

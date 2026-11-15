@@ -211,7 +211,7 @@ static partial class Draw
         sheet.SetProperties2((int)sp[0], (int)sp[1], 1, den, sp[4] != 0, sp[5], sp[6], sp[7] != 0);
         foreach (var vw in new[] { main, iso, upright ? side : null, capView }) if (vw != null) vw.UseSheetScale = 1;
         // upright members: the end views no smaller than 1:5 (at 1:20 a 40 mm section is 2 mm on the sheet, GNRIC-LMW-11)
-        endDen = upright ? Math.Min(den, 5) : den;
+        endDen = upright ? Math.Max(2, Math.Min(den, 5)) : den;   // and no bigger than 1:2 (GNRIC-LMW-12 at 1:1: the two end views overlapped)
         if (endDen != den)
             foreach (var vw in new[] { side, capView }) if (vw != null) { vw.UseSheetScale = 0; vw.ScaleRatio = new double[] { 1, endDen }; }
         drwDoc.ForceRebuild3(false);
@@ -292,6 +292,12 @@ static partial class Draw
             double endLine = along(end1.Item2) + (along(end1.Item2) >= along(end0.Item2) ? 0.012 : -0.012);
             Ordinate2(drwDoc, selMgr, main, sel, lenHoriz ? (int)swAddOrdinateDims_e.swVerticalOrdinate : (int)swAddOrdinateDims_e.swHorizontalOrdinate,
                 lenHoriz ? endLine : across(heel.Item2), lenHoriz ? across(heel.Item2) : endLine, "across the face");
+            foreach (var q in lastMissed)
+            {
+                double mv = Math.Abs(across(q) - across(heel.Item2)) / vs * 1000;
+                int at = expected.FindLastIndex(e => Math.Abs(e - mv) < 0.01); if (at >= 0) expected.RemoveAt(at);
+                slotFlags.Add("CHECK: SLOT CENTRE ACROSS THE FACE NOT DIMENSIONED (" + Math.Round(mv, 1) + ")");
+            }
             };
             Action doAlong = () => {
             // along the member: ordinate from end0, one per distinct position, then end1 in brackets (reference)
@@ -304,6 +310,12 @@ static partial class Draw
             double toeLine = across(toe.Item2) + (across(toe.Item2) > across(heel.Item2) ? 0.012 : -0.012);
             Ordinate2(drwDoc, selMgr, main, sel, lenHoriz ? (int)swAddOrdinateDims_e.swHorizontalOrdinate : (int)swAddOrdinateDims_e.swVerticalOrdinate,
                 lenHoriz ? along(end0.Item2) : toeLine, lenHoriz ? toeLine : along(end0.Item2), "along the member");
+            foreach (var q in lastMissed)
+            {
+                double mv = Math.Abs(along(q) - along(end0.Item2)) / vs * 1000;
+                int at = expected.FindLastIndex(e => Math.Abs(e - mv) < 0.01); if (at >= 0) expected.RemoveAt(at);
+                slotFlags.Add("CHECK: SLOT CENTRE ALONG THE MEMBER NOT DIMENSIONED (" + Math.Round(mv, 1) + ")");
+            }
             };
             if (alongNeedsPick) { doAlong(); doAcross(); } else { doAcross(); doAlong(); }
             // the member's length is a reference dimension: brackets on the last "along" ordinate
@@ -454,7 +466,7 @@ static partial class Draw
                 var sd = (SelectData)selMgr.CreateSelectData(); sd.View = side;
                 DisplayDimension dd = null;
                 if (((Entity)e.Item1).Select4(false, sd))
-                    try { dd = drwDoc.AddDiameterDimension2(capAtMax ? so[0] - 0.0065 - 0.010 * kk : so[0] - 0.022, capAtMax ? so[3] + 0.0226 + 0.010 * kk : (so[1] + so[3]) / 2 + 0.006 + 0.010 * kk, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }   // above left (Grant 15 Nov, 08X06-LMW); left, level with it, when the cap view is the lower one (GNRIC-LMW-04/-12: clear of the dimensions and scale label below)
+                    try { dd = drwDoc.AddDiameterDimension2(capAtMax ? so[0] - 0.0065 - 0.010 * kk : so[2] + 0.058, capAtMax ? so[3] + 0.0226 + 0.010 * kk : (so[1] + so[3]) / 2 + 0.006 + 0.010 * kk, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }   // above left (Grant 15 Nov, 08X06-LMW); right, level with it, when the cap view is the lower one (GNRIC-LMW-04/-12: clear of the member, the dimensions and the label below)
                 drwDoc.ClearSelection2(true);
                 double gotD = dd == null ? double.NaN : ((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000;
                 if (dd != null && Math.Abs(gotD - hd * 1000) < 0.05)
@@ -515,7 +527,7 @@ static partial class Draw
             }
         }
         // Flag: a length written in the description (L=nnn) that disagrees with the model.
-        var flags = new List<string>(); Note flagNote = null;
+        var flags = new List<string>(slotFlags); Note flagNote = null;
         var lm2 = Regex.Match(props["Description"], @"(?:L\s*=\s*|MEMBER\s*x\s*)(\d+(\.\d+)?)", RegexOptions.IgnoreCase);   // "L=150", or "MEMBER x541mm" (GNRIC-LMW)
         if (lm2.Success && Math.Abs(double.Parse(lm2.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) - length * 1000) > 0.5)
             flags.Add("CHECK: DESCRIPTION SAYS L=" + lm2.Groups[1].Value + ", MODEL IS " + Mm(length) + " LONG");
@@ -754,12 +766,30 @@ static partial class Draw
     }
 
     // Ordinate dimensions over a mix of edges and centre marks (first item is the zero).
+    static List<double[]> lastMissed = new List<double[]>();
+    static List<string> slotFlags = new List<string>();
     static void Ordinate2(ModelDoc2 doc, SelectionMgr selMgr, View v, List<object> items, int kind, double x, double y, string what)
     {
         doc.ClearSelection2(true);
         ((DrawingDoc)doc).ActivateView(v.GetName2());   // picks by position only land in the active view
         var sd = (SelectData)selMgr.CreateSelectData(); sd.View = v;
         int selected = 0;
+        var missed = new List<double[]>();   // slot centres the row couldn't pick (their mark already serves the other row)
+        // a failed pick clears the whole selection (15 Nov), so first find which slot centres can be picked, one at a time
+        {
+            var smp = (SelectionMgr)doc.SelectionManager;
+            foreach (var q in items.OfType<double[]>())
+            {
+                doc.ClearSelection2(true);
+                bool can = false;
+                foreach (var off in PickOffsets)
+                    if (doc.Extension.SelectByID2("", "CENTERMARKSYMS", q[0] + off[0], q[1] + off[1], 0, false, 0, null, 0)
+                        && smp.GetSelectedObjectCount2(-1) == 1 && smp.GetSelectedObjectType3(1, -1) == (int)swSelectType_e.swSelCENTERMARKSYMS) { can = true; break; }
+                if (!can) missed.Add(q);
+            }
+            doc.ClearSelection2(true);
+            items = items.Where(it => !(it is double[] && missed.Contains((double[])it))).ToList();
+        }
         for (int i = 0; i < items.Count; i++)
         {
             bool ok;
@@ -767,24 +797,35 @@ static partial class Draw
             {
                 // a slot centre: pick the centre mark's middle on the sheet, as a person clicking it would
                 var q = (double[])items[i];
-                // centre first; if another dimension's line already covers it, a little way along the mark's arms
                 ok = false;
                 var sm = (SelectionMgr)doc.SelectionManager;
-                foreach (var off in new[] { new[] { 0.0, 0.0 }, new[] { 0.002, 0.0 }, new[] { -0.002, 0.0 }, new[] { 0.0, 0.002 }, new[] { 0.0, -0.002 } })
+                foreach (var off in PickOffsets)
                 {
                     int before = sm.GetSelectedObjectCount2(-1);
-                    if (!doc.Extension.SelectByID2("", "CENTERMARKSYMS", q[0] + off[0], q[1] + off[1], 0, i > 0, 0, null, 0)) continue;
+                    if (!doc.Extension.SelectByID2("", "CENTERMARKSYMS", q[0] + off[0], q[1] + off[1], 0, selected > 0, 0, null, 0)) continue;
                     int n = sm.GetSelectedObjectCount2(-1);
                     if (n > before && sm.GetSelectedObjectType3(n, -1) == (int)swSelectType_e.swSelCENTERMARKSYMS) { ok = true; break; }
+                    if (n > before) sm.DeSelect2(n, -1);   // something else under the click: put it back
                 }
-                Console.WriteLine("    pick slot centre at " + Mm(q[0]) + "," + Mm(q[1]) + ": " + ok + " (" + ((SelectionMgr)doc.SelectionManager).GetSelectedObjectType3(((SelectionMgr)doc.SelectionManager).GetSelectedObjectCount2(-1), -1) + ")");
+                Console.WriteLine("    pick slot centre at " + Mm(q[0]) + "," + Mm(q[1]) + ": " + ok);
+                if (!ok) { missed.Add(q); problems.Add("slot centre pick failed after the pre-check: row " + what + " may be incomplete"); continue; }
             }
-            else ok = items[i] is CenterMark ? ((CenterMark)items[i]).Select(i > 0, sd) : ((Entity)items[i]).Select4(i > 0, sd);
+            else ok = items[i] is CenterMark ? ((CenterMark)items[i]).Select(selected > 0, sd) : ((Entity)items[i]).Select4(selected > 0, sd);
             if (ok) selected++;
         }
+        var smx = (SelectionMgr)doc.SelectionManager;
+        var selTypes = Enumerable.Range(1, smx.GetSelectedObjectCount2(-1)).Select(ix => smx.GetSelectedObjectType3(ix, -1)).ToList();
+        var beforeDims = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(an => an.GetName()));
         int r = doc.Extension.AddOrdinateDimension(kind, x, y, 0);
-        Console.WriteLine("Ordinate " + what + ": " + selected + " of " + items.Count + " selected, result " + r);
+        var madeVals = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Where(an => an.GetType() == (int)swAnnotationType_e.swDisplayDimension && !beforeDims.Contains(an.GetName()))
+            .Select(an => Math.Round(((Dimension)((DisplayDimension)an.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 1)).ToList();
+        Console.WriteLine("Ordinate " + what + ": " + selected + " of " + items.Count + " selected (types " + string.Join(",", selTypes) + "), result " + r + ", made " + string.Join("/", madeVals));
         if (selected != items.Count || r != 0) problems.Add("ordinate dimensions " + what + " may be incomplete (result " + r + ")");
+        // Grant 15 Nov: slots by their centres only. SOLIDWORKS lets a slot's centre mark serve one ordinate row only (a
+        // second row can't pick it, by position, name or object, nor a fresh mark laid over it), so a slot the row missed
+        // is left out of it and flagged on the sheet; never dimensioned to its end or side
+        lastMissed = missed;
+        foreach (var q in missed) Console.WriteLine("    slot centre " + Mm(q[0]) + "," + Mm(q[1]) + " " + what + ": not dimensioned (its centre mark already serves the other row); flagged");
     }
 
     // aPos / bPos: where the two edges sit on the sheet along the measured direction (x when measuresX), when known.

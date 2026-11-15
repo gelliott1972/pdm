@@ -7,7 +7,7 @@ Brief: `docs\briefs\draw-1.md` (14 Nov 2026). Test folder: `C:\code\pdm\scratch\
 | Step | State |
 | --- | --- |
 | Outstanding list | Done: `draw\outstanding.md`, 89 of 319 items (LMW 10, PLP 7, BKP/BKA/MSA 15, singles and simple weldments 27, SFA/STA 30), from P:\ with `src\Outstanding.cs` (read-only, pdm coverage rule). Counts sent to Admin. Not yet compared with pdm coverage (Grant's AWS login) |
-| Batch 1 LMW | **Drawn 15 Nov: 10 of 10, 0 failed**, all values checked, 0 dangling, about 20 s each. `scratch\draw-test\batch-1-LMW\` (batch.md, drawings and PDFs in `APEX\GNRIC\`). Desk tickets DR2-DR11 (draft-review) and B1-MODEL (model problems). New in make-section: welded members with end caps, upright LMW layout, tube shown alone in the section view, end views 1:5 at least, narrow dimensions outside, stock on the Material line (D7), RHS/SHS CHECK flags, THRU ONE WALL. Cut-list survey: `draw\cutlist-survey.md`. Waiting for Grant's review on the Desk |
+| Batch 1 LMW | **Redrawn 15 Nov evening: 10 of 10**, from a fresh P: copy after SW fixed the SHS names; cap view labelled END CAP 36x36x5, section view shows the tube alone with 32 inside (D9); slot check passed; Desk DR12-DR21 (DR2-DR11 withdrawn). Slot fixes: 08X04-BKP-01 and 08X06-LMW-02 redone with slots by centres only (DR22, DR23). SOLIDWORKS lets a slot centre mark serve one ordinate row only: the second direction is left off and flagged (Grant to decide). Waiting for Grant on the Desk |
 
 ## Done
 

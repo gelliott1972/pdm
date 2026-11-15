@@ -1159,22 +1159,37 @@ static partial class Draw
         var smg0 = (SelectionMgr)doc.SelectionManager;
         var sd = (SelectData)smg0.CreateSelectData(); sd.View = v;
         int sel = 0;
+        var failedPicks = new List<int>();
         for (int i = 0; i < items.Count; i++)
         {
             bool ok1 = false;
             if (items[i] is double[])
             {
                 var q = (double[])items[i];
-                foreach (var off in new[] { new[] { 0.0, 0.0 }, new[] { 0.002, 0.0 }, new[] { -0.002, 0.0 }, new[] { 0.0, 0.002 }, new[] { 0.0, -0.002 } })
+                foreach (var off in PickOffsets)
                 {
                     int nb = smg0.GetSelectedObjectCount2(-1);
                     if (!doc.Extension.SelectByID2("", "CENTERMARKSYMS", q[0] + off[0], q[1] + off[1], 0, i > 0, 0, null, 0)) continue;
                     int na = smg0.GetSelectedObjectCount2(-1);
                     if (na > nb && smg0.GetSelectedObjectType3(na, -1) == (int)swSelectType_e.swSelCENTERMARKSYMS) { ok1 = true; break; }
+                    if (na > nb) smg0.DeSelect2(na, -1);   // something else under the click: put it back
                 }
+                if (!ok1) ok1 = PickMarkByName(doc, v, q, i > 0);
             }
             else ok1 = ((Entity)items[i]).Select4(i > 0, sd);
             if (ok1) sel++;
+            else if (items[i] is double[]) failedPicks.Add(i);
+        }
+        if (failedPicks.Count > 0)
+        {
+            // Grant 15 Nov: slots by their centres only. A slot's centre mark serves one ordinate row only, so a slot this
+            // row couldn't pick is left out and flagged; the row goes on without it (never to the slot's end or side)
+            doc.ClearSelection2(true);
+            var items2 = items.Where((it, ix) => !failedPicks.Contains(ix)).ToList();
+            var expect2 = expect.Where((e, ix) => !failedPicks.Contains(ix)).ToList();
+            foreach (var ix in failedPicks) missingGroups.Add(v.GetName2() + " slot centre " + what.Replace("slot centres ", "") + " " + expect[ix]);
+            Console.WriteLine("    " + v.GetName2() + " " + what + ": " + failedPicks.Count + " slot centre(s) already serve the other row: placed without them, flagged");
+            return OrdinateRow(doc, drw, v, vertical, items2, expect2, refVals, x, y, what, report, moveToY);
         }
         var before = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(a => a.GetName()));
         int r;

@@ -105,17 +105,20 @@ static partial class Draw
     static bool SlotEnd(Face2 f)
     {
         var sf = (Surface)f.GetSurface();
-        if (!sf.IsCylinder()) return false;
-        double r = ((double[])sf.CylinderParams)[6];
+        if (!sf.IsCylinder() || f.GetLoopCount() != 1) return false;   // a round hole has two loops
+        // a half cylinder: its circular edges (top and bottom rim, possibly split) sweep 2 x 180 degrees in all;
+        // a plate's or tube's rounded corner sweeps 2 x 90
+        double sweep = 0;
         foreach (Edge e in (object[])f.GetEdges() ?? new object[0])
         {
             var c = (Curve)e.GetCurve();
             if (!c.IsCircle()) continue;
             var cp = (double[])e.GetCurveParams2();
-            double chord = Math.Sqrt(Math.Pow(cp[3] - cp[0], 2) + Math.Pow(cp[4] - cp[1], 2) + Math.Pow(cp[5] - cp[2], 2));
-            if (Math.Abs(chord - 2 * r) < 0.01 * r) return true;   // half a circle
+            double a = Math.Abs(cp[7] - cp[6]);
+            if (a > 2 * Math.PI + 1e-6) a = a % (2 * Math.PI);
+            sweep += a;
         }
-        return false;
+        return Math.Abs(sweep - 2 * Math.PI) < 0.1;
     }
     static bool SlotFace(Face2 f)
     {
@@ -153,6 +156,9 @@ static partial class Draw
                         if (f != null && SlotFace(f)) { slot = true; break; }
                     if (slot) break;
                 }
+                if (System.Environment.GetEnvironmentVariable("DRAW_DEBUG") == "1")
+                    Console.WriteLine("  " + v.GetName2() + " " + Math.Round(((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000, 1) + ": "
+                        + string.Join(", ", (ents ?? new object[0]).Select(o2 => o2 == null ? "null" : o2 is Edge ? "edge(" + string.Join("/", ((object[])((Edge)o2).GetTwoAdjacentFaces2() ?? new object[0]).Select(ff => ff == null ? "-" : (((Surface)((Face2)ff).GetSurface()).IsCylinder() ? "cyl" : "plane") + (SlotFace((Face2)ff) ? "*SLOT*" : ""))) + ")" : o2.GetType().Name)));
                 if (slot) bad.Add(v.GetName2() + " " + Math.Round(((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000, 1));
             }
         return bad;
@@ -165,4 +171,40 @@ static partial class Draw
         sw.CloseDoc(doc.GetPathName());
         return bad.Count == 0 ? 0 : 1;
     }
+
+    // Where to click a slot centre mark (sheet metres from its centre): the centre, then the small centre cross (1 mm),
+    // then out along the arms past the 2.5 mm gap (4, 6 mm). After the first row, its extension lines run through the
+    // centre and along one arm, so the second row needs the other arm (15 Nov: 2 mm fell in the gap and picked nothing).
+    static readonly double[][] PickOffsets = new[] { 0.0, 0.001, -0.001, 0.004, -0.004, 0.006, -0.006, 0.0085, -0.0085, 0.010, -0.010, 0.0115, -0.0115 }
+        .SelectMany(d => d == 0 ? new[] { new[] { 0.0, 0.0 } } : new[] { new[] { d, 0.0 }, new[] { 0.0, d } }).ToArray();
+
+    // A centre mark already used by one ordinate row can't be picked by position again (its extension lines cover it):
+    // select the nearest centre mark to q by its name, then as an object, and keep it only if it lands as a centre mark.
+    static bool PickMarkByName(ModelDoc2 doc, View v, double[] q, bool append)
+    {
+        var sm = (SelectionMgr)doc.SelectionManager;
+        Annotation best = null; double bd = double.MaxValue;
+        foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+        {
+            if (a.GetType() != (int)swAnnotationType_e.swCenterMarkSym) continue;
+            var p = (double[])a.GetPosition();
+            double d = Math.Sqrt(Math.Pow(p[0] - q[0], 2) + Math.Pow(p[1] - q[1], 2));
+            // the nearest; at the same spot, the newest (a fresh mark laid over one already used by a row)
+            if (d < bd - 1e-5 || (Math.Abs(d - bd) <= 1e-5 && best != null && MarkNo(a) > MarkNo(best))) { bd = d; best = a; }
+        }
+        if (best == null || bd > 0.008) { foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0]) if (a.GetType() == (int)swAnnotationType_e.swCenterMarkSym) { var pp = (double[])a.GetPosition(); var cm = (CenterMark)a.GetSpecificAnnotation(); Console.WriteLine("      mark " + a.GetName() + " at " + (pp[0] * 1000).ToString("0.#") + "," + (pp[1] * 1000).ToString("0.#") + " style " + cm.Style); } Console.WriteLine("    no centre mark within 8 mm of " + (q[0] * 1000).ToString("0.#") + "," + (q[1] * 1000).ToString("0.#")); return false; }
+        int nb = sm.GetSelectedObjectCount2(-1);
+        string name = best.GetName() + "@" + v.GetName2();
+        bool ok = doc.Extension.SelectByID2(name, "CENTERMARKSYMS", 0, 0, 0, append, 0, null, 0);
+        int na = sm.GetSelectedObjectCount2(-1);
+        if (ok && na > nb && sm.GetSelectedObjectType3(na, -1) == (int)swSelectType_e.swSelCENTERMARKSYMS) { Console.WriteLine("    centre mark picked by name " + name); return true; }
+        var sd = (SelectData)sm.CreateSelectData(); sd.View = v;
+        ok = best.Select3(append, sd);
+        na = sm.GetSelectedObjectCount2(-1);
+        bool good = ok && na > nb && sm.GetSelectedObjectType3(na, -1) == (int)swSelectType_e.swSelCENTERMARKSYMS;
+        Console.WriteLine("    centre mark " + name + (good ? " picked as an object" : " not picked (by name or object)"));
+        return good;
+    }
+
+    static int MarkNo(Annotation a) { var m = System.Text.RegularExpressions.Regex.Match(a.GetName() ?? "", @"(\d+)$"); return m.Success ? int.Parse(m.Groups[1].Value) : 0; }
 }

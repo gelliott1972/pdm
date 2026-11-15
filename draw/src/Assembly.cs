@@ -213,6 +213,7 @@ static partial class Draw
             (int)swBomType_e.swBomType_TopLevelOnly, config, bomTpl, false, 0, false);
         if (bom == null) problems.Add("BOM not inserted");
         else ((Annotation)((TableAnnotation)bom).GetAnnotation()).Layer = DraftLayerEnsure(drwDoc);
+        if (bom != null) SortBomByDescription((TableAnnotation)bom);   // James 15 Nov: alphabetical; balloons come after, so they follow
         drwDoc.ForceRebuild3(true);
         var bomBox = BomBox(bom);
         int items = bom != null ? ((TableAnnotation)bom).RowCount - 1 : 0;
@@ -426,7 +427,8 @@ static partial class Draw
             }
         }
 
-        // 7. Check and save.
+        // 7. Check and save. The BOM is sorted again last: a rebuild during the run put it back in assembly order (15 Nov)
+        if (bom != null) { drwDoc.ForceRebuild3(true); SortBomByDescription((TableAnnotation)bom); drwDoc.ForceRebuild3(true); }
         foreach (var d in dimsOk) Console.WriteLine("  " + d);
         bool ok = items > 0 && !dimsOk.Any(d => d.Contains("MISMATCH"));
         Console.WriteLine("Check BOM: " + items + " items" + (items > 0 ? " OK" : " EMPTY"));
@@ -640,6 +642,26 @@ static partial class Draw
             x1 = Math.Max(x1, p[0] + t.Length * h * 0.6); y0 = Math.Min(y0, p[1] - h * (i + 1) * 1.5);
         }
         return new[] { p[0], y0, x1, p[1] };
+    }
+
+    // The BOM in alphabetical order of DESCRIPTION (James, 15 Nov), part number second, items renumbered 1, 2, 3...
+    static void SortBomByDescription(TableAnnotation ta)
+    {
+        int dc = Enumerable.Range(0, ta.ColumnCount).Where(c => Flat(ta.Text[0, c]).Trim().ToUpper() == "DESCRIPTION").DefaultIfEmpty(-1).First();
+        int pc = Enumerable.Range(0, ta.ColumnCount).Where(c => Flat(ta.Text[0, c]).Trim().ToUpper() == "PARTNO").DefaultIfEmpty(-1).First();
+        if (dc < 0) { problems.Add("BOM: no DESCRIPTION column to sort on"); return; }
+        var bt = (BomTableAnnotation)ta;
+        var sd = (BomTableSortData)bt.GetBomTableSortData();
+        sd.set_ColumnIndex(0, dc); sd.set_Ascending(0, true);
+        sd.set_ColumnIndex(1, pc); sd.set_Ascending(1, true);
+        sd.set_ColumnIndex(2, -1);
+        sd.SortMethod = (int)swBomTableSortMethod_e.swBomTableSortMethod_Literal;
+        sd.DoNotChangeItemNumber = false;
+        bool ok = bt.Sort(sd);
+        var rows = Enumerable.Range(1, ta.RowCount - 1).Select(r => Flat(ta.Text[r, dc])).ToList();
+        bool sorted = rows.Zip(rows.Skip(1), (a, b) => string.Compare(a, b, StringComparison.OrdinalIgnoreCase) <= 0).All(x => x);
+        Console.WriteLine("BOM sorted by description: " + (ok && sorted ? "OK" : "NOT SORTED (" + ok + ")") + ": " + string.Join(" | ", rows));
+        if (!(ok && sorted)) problems.Add("BOM not in alphabetical order");
     }
 
     static double[] BomBox(object bom)
@@ -1143,7 +1165,23 @@ static partial class Draw
         doc.ClearSelection2(true);
         var made = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>()
             .Where(a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension && !before.Contains(a.GetName())).ToList();
-        var got = made.Select(a => Math.Round(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 1)).OrderBy(z => z).ToList();
+        Func<List<double>> values = () => made.Select(a => Math.Round(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 1)).OrderBy(z => z).ToList();
+        var got = values();
+        if (r == 0 && string.Join(",", got) != string.Join(",", expect.OrderBy(z => z)))
+        {
+            // 15 Nov: SOLIDWORKS sometimes measures to the near side of a hole or slot end (22.5 for a slot at 30):
+            // put every arc end on its centre and measure again
+            foreach (var a in made)
+            {
+                var dm = (Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0);
+                dm.SetArcEndCondition(1, (int)swArcEndCondition_e.swArcEndConditionCenter);
+                dm.SetArcEndCondition(2, (int)swArcEndCondition_e.swArcEndConditionCenter);
+            }
+            doc.EditRebuild3();
+            var got2 = values();
+            Console.WriteLine("    " + v.GetName2() + " " + what + ": arc ends set to centres: " + string.Join("/", got) + " -> " + string.Join("/", got2));
+            got = got2;
+        }
         string w = v.GetName2() + " " + what + " " + string.Join(" / ", expect.OrderBy(z => z).Select(z => refVals.Contains(z) ? "(" + z + ")" : z.ToString()));
         if (sel == items.Count && r == 0 && string.Join(",", got) == string.Join(",", expect.OrderBy(z => z)))
         {

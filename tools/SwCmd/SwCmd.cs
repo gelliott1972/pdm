@@ -44,7 +44,7 @@
 //                                                any other mate lost, new or changed is still a PROBLEM (no save)
 //   cut-list <part> [--config <name>]            cut-list items of a weldment part: bodies and properties (read-only)
 //   bodies, place, new-asm, delete-feature, dims, add-config, swap-asm: see Place.cs (plates out of the 0804 weldments, 13 Nov)
-//   set-material: see Material.cs (14 Nov)
+//   set-material: see Material.cs (14 Nov); set-cutlist-prop: see CutListProp.cs (15 Nov)
 //   save-as / new-asm --round <round.csv>: as form-sub, a new file in the vault only as a "new" row of that list
 //   tree <asm>                                   the component tree with configurations and suppression (read-only)
 //   mass <file> [--config <name>]                mass (kg), volume (m3), surface (m2) of every configuration, read-only
@@ -89,7 +89,7 @@
 //   status never starts SOLIDWORKS: with none running it says "not running". No command starts SOLIDWORKS while
 //   another role holds the lock (5).
 // Build (from tools\SwCmd, after copying the interop DLLs from tools\sw-macros\bin into bin\):
-//   csc /platform:x64 /r:Microsoft.VisualBasic.dll /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs DialogWatch.cs Place.cs Material.cs
+//   csc /platform:x64 /r:Microsoft.VisualBasic.dll /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwCmd.exe SwCmd.cs DialogWatch.cs Place.cs Material.cs CutListProp.cs
 
 using System;
 using System.Collections.Generic;
@@ -118,13 +118,14 @@ static partial class SwCmd
             { if (i + 1 >= args.Length) return Usage(); (args[i] == "--dim" ? dimArgs : suppressArgs).Add(args[++i]); }
             else if (args[i] == "--accept-gone")
             { if (i + 1 >= args.Length) return Usage(); acceptGone.Add(args[++i].Trim()); }
-            else if (args[i] == "--config" || args[i] == "--as" || args[i] == "--purpose" || args[i] == "--round" || args[i] == "--src-config" || args[i] == "--from" || args[i] == "--tolerance" || args[i] == "--db")
+            else if (args[i] == "--config" || args[i] == "--as" || args[i] == "--purpose" || args[i] == "--round" || args[i] == "--src-config" || args[i] == "--from" || args[i] == "--tolerance" || args[i] == "--db"
+                || args[i] == "--body" || args[i] == "--item" || args[i] == "--where-value")
             { if (i + 1 >= args.Length) return Usage(); opts[args[i].Substring(2)] = args[++i]; }
             else if (args[i].StartsWith("--")) opts[args[i].Substring(2)] = "yes";
             else pos.Add(args[i]);
         }
         string cmd = args[0].ToLowerInvariant();
-        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top", "json", "as", "purpose", "force", "round", "src-config", "from", "tolerance", "db", "all-configs" };
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config", "exit", "all", "save", "checked-out", "copy", "top", "json", "as", "purpose", "force", "round", "src-config", "from", "tolerance", "db", "all-configs", "body", "item", "where-value" };
         if (opts.ContainsKey("round") && cmd != "form-sub" && cmd != "save-as" && cmd != "new-asm") { Console.Error.WriteLine("--round is only for form-sub, save-as and new-asm"); return 2; }
         if (opts.ContainsKey("tolerance"))
         {
@@ -135,7 +136,9 @@ static partial class SwCmd
         }
         if (opts.ContainsKey("src-config") && cmd != "place") { Console.Error.WriteLine("--src-config is only for place"); return 2; }
         if ((opts.ContainsKey("from") || dimArgs.Count > 0 || suppressArgs.Count > 0) && cmd != "add-config") { Console.Error.WriteLine("--from, --dim, --suppress are only for add-config"); return 2; }
-        if ((opts.ContainsKey("db") || opts.ContainsKey("all-configs")) && cmd != "set-material") { Console.Error.WriteLine("--db and --all-configs are only for set-material"); return 2; }
+        if (opts.ContainsKey("db") && cmd != "set-material") { Console.Error.WriteLine("--db is only for set-material"); return 2; }
+        if (opts.ContainsKey("all-configs") && cmd != "set-material" && cmd != "set-cutlist-prop") { Console.Error.WriteLine("--all-configs is only for set-material and set-cutlist-prop"); return 2; }
+        if ((opts.ContainsKey("body") || opts.ContainsKey("item") || opts.ContainsKey("where-value")) && cmd != "set-cutlist-prop") { Console.Error.WriteLine("--body, --item, --where-value are only for set-cutlist-prop"); return 2; }
         if (excepts.Count > 0 && cmd != "form-sub") { Console.Error.WriteLine("--except is only for form-sub"); return 2; }
         if (acceptGone.Count > 0 && cmd != "form-sub" && cmd != "dissolve" && cmd != "swap-asm") { Console.Error.WriteLine("--accept-gone is only for form-sub, dissolve and swap-asm"); return 2; }
         foreach (var k in opts.Keys) if (!known.Contains(k)) { Console.Error.WriteLine("Unknown option: --" + k); return 2; }
@@ -253,6 +256,15 @@ static partial class SwCmd
                 if (refusal == null && Kind(pos[0]) != (int)swDocumentTypes_e.swDocPART) refusal = "set-material is for parts";
                 if (refusal == null && (config == null) == !opts.ContainsKey("all-configs")) refusal = "set-material needs exactly one of --config <cfg> or --all-configs";
                 break;
+            case "set-cutlist-prop":
+                if (pos.Count != 3) return Usage();
+                refusal = save ? WriteRefusal(pos[0], checkedOut, false) : ReadRefusal(pos[0]);
+                if (refusal == null && !File.Exists(pos[0])) refusal = "no such file: " + pos[0];
+                if (refusal == null && Kind(pos[0]) != (int)swDocumentTypes_e.swDocPART) refusal = "set-cutlist-prop is for parts";
+                if (refusal == null && (config == null) == !opts.ContainsKey("all-configs")) refusal = "set-cutlist-prop needs exactly one of --config <cfg> or --all-configs";
+                if (refusal == null && !opts.ContainsKey("body") && !opts.ContainsKey("item") && !opts.ContainsKey("where-value")) refusal = "set-cutlist-prop needs --body, --item or --where-value";
+                if (refusal == null && pos[1].Trim() == "") refusal = "set-cutlist-prop needs a property name";
+                break;
             case "delete-feature":
                 if (pos.Count < 2) return Usage();
                 refusal = WriteRefusal(pos[0], checkedOut, false); break;
@@ -332,6 +344,8 @@ static partial class SwCmd
                 case "swap-asm": return SwapAsm(sw, pos[0], pos[1], pos[2], pos[3], save, checkedOut);
                 case "add-config": return AddConfig(sw, pos[0], pos[1], opts["from"], dimArgs, suppressArgs, save, checkedOut);
                 case "set-material": return SetMaterial(sw, pos[0], pos[1], opts.ContainsKey("db") ? opts["db"] : null, config, opts.ContainsKey("all-configs"), save, checkedOut);
+                case "set-cutlist-prop": return SetCutListProp(sw, pos[0], pos[1], pos[2], opts.ContainsKey("body") ? opts["body"] : null,
+                    opts.ContainsKey("item") ? opts["item"] : null, opts.ContainsKey("where-value") ? opts["where-value"] : null, config, opts.ContainsKey("all-configs"), save, checkedOut);
                 case "delete-feature": return DeleteFeature(sw, pos[0], pos.Skip(1).ToList(), save, checkedOut);
                 case "pack-and-go": return PackAndGo(sw, pos[0], pos[1]);
                 case "form-sub": return FormSub(sw, pos[0], pos[1], formSubExcepts, save, checkedOut);
@@ -501,7 +515,7 @@ static partial class SwCmd
         switch (cmd)
         {
             case "replace": case "save-virtual": return i == 0 || i == 2;
-            case "set-config": case "delete": case "delete-config": case "move": case "dissolve": case "delete-feature": case "add-config": case "set-material": return i == 0;
+            case "set-config": case "delete": case "delete-config": case "move": case "dissolve": case "delete-feature": case "add-config": case "set-material": case "set-cutlist-prop": return i == 0;
             case "place": return i <= 2;
             default: return true;
         }
@@ -527,6 +541,7 @@ static partial class SwCmd
         Console.Error.WriteLine("       | new-asm <newAsm> <part> [--config <cfg>] [--round <round.csv>] | delete-feature <part> <feature> [<feature> ...] [--save] [--checked-out]");
         Console.Error.WriteLine("       | save-as ... [--round <round.csv>]: a new vault file only as a \"new\" row of the round list");
         Console.Error.WriteLine("       | set-material <part> <material> [--db <database, default SOLIDWORKS Materials>] (--config <cfg> | --all-configs) [--save] [--checked-out]");
+        Console.Error.WriteLine("       | set-cutlist-prop <part> <property> <new value> [--body <body>] [--item <cut-list folder>] [--where-value <current>] (--config <cfg> | --all-configs) [--save] [--checked-out]");
         Console.Error.WriteLine("       | export-pdf <drawing> <out.pdf> | drawing-info <drawing> [--json]");
         Console.Error.WriteLine("       | lock --as <role> [--purpose <text>] | unlock --as <role> [--force]");
         Console.Error.WriteLine("  every command: [--as <role>] (default unknown; grant = Grant's Desk job)");

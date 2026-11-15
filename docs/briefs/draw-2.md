@@ -30,6 +30,14 @@ Stop after each batch and report to Admin: drawn, failed, what needed fixing, ti
 - Each batch folder has the `.SLDDRW` files, a PDF of each, and a `batch.md` list: PartNo, drawing file, status (ready / needs a look / failed), and one line on anything James or Grant should check (flags, guesses, model problems).
 - Model problems in vault files (wrong description, missing material, wrong weight, etc.) go into one Desk ticket per batch for Grant, not one per part. SW fixes them later through the normal check-out.
 
+## Grant's decisions (15 Nov)
+
+| # | Decision |
+| --- | --- |
+| D5 | **A.** Drafts show `0A*`. James removes the * and fills DRAWN when he issues: his sign that he has checked everything. Release refuses a drawing with a * in any REV or an empty DRAWN (App). |
+| D7 | **Stock size goes with the material** on the note block's Material line (e.g. "Plain Carbon Steel, SHS 40x40x4"), built from the measured section and checked against the model; magenta flag where the cut-list/profile label disagrees. Draw surveys cut lists read-only (`draw\cutlist-survey.md`); SW fixes the mislabelled profiles and stale cut lists later through check-out. |
+| — | Dimension text too narrow to fit between extension lines goes outside them, arrows inward (GNRIC-LMW-01 wall "4"). |
+
 ## 5. Rules carried over
 
 Never save a dangling dimension (D1). Check every dimension value against the model, and every hole and slot appears. Dimension assemblies too (D2). Welds stay with James. BOM sorted by part number, then description, on every assembly (Grant 15 Nov). SOLIDWORKS 2026 only, through SwCmd `--as draw`, batched, Close All between sets. Keep `draw\status.md` and the drawing-standards skill current.

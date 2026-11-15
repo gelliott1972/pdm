@@ -409,6 +409,7 @@ static partial class Draw
         else if (right != null && !longMember) OverallByClick(drwDoc, drw, right, true, false, want, dimsOk);
         Console.WriteLine("[" + stamp() + "] overall dimensions");
         var flags = new List<string> { missingGroups.Count > 0 ? "CHECK: NOT DIMENSIONED: " + string.Join(", ", missingGroups).ToUpper().Replace("DRAWING VIEW", "VIEW ") : null, longMember ? null : MemberCentres ? "CHECK: MEMBER DIMS TO CENTRELINES" + (centreFallbacks.Count > 0 ? " (EXCEPT " + string.Join(", ", centreFallbacks).ToUpper().Replace("DRAWING VIEW", "VIEW ") + ": EDGES)" : "") : "CHECK: MEMBER DIMS TO UNDERSIDE / LEFT EDGE", "CHECK: WELDS NOT ADDED" };
+        foreach (var x in ExtraChecks) flags.Add((x.StartsWith("CHECK:", StringComparison.OrdinalIgnoreCase) ? x : "CHECK: " + x).ToUpperInvariant());   // a line for James given on the command line (e.g. a BOM row with no part number)
         flags = flags.Where(f => f != null).ToList();
         foreach (var g in missingGroups) problems.Add("not dimensioned: " + g);
         drw.ActivateSheet(sheet.GetName());
@@ -488,9 +489,14 @@ static partial class Draw
             if (p == null) continue;
             var dd = a.GetDisplayData() as DisplayData;
             double w = 0.004, h = 0.004;
-            for (int i = 0; dd != null && i < dd.GetTextCount(); i++) { w = Math.Max(w, (dd.GetTextAtIndex(i) ?? "").Length * dd.GetTextHeightAtIndex(i) * 0.6); h += dd.GetTextHeightAtIndex(i) * 1.4; }
+            // DisplayData text heights come back in the view's scale (3.5 mm text reads 70 mm at 1:20), so cap them at sheet size
+            for (int i = 0; dd != null && i < dd.GetTextCount(); i++) { double th = Math.Min(dd.GetTextHeightAtIndex(i), 0.005); w = Math.Max(w, (dd.GetTextAtIndex(i) ?? "").Length * th * 0.6); h += th * 1.4; }
             x0 = Math.Min(x0, p[0] - 0.003); x1 = Math.Max(x1, p[0] + w); y0 = Math.Min(y0, p[1] - h); y1 = Math.Max(y1, p[1] + 0.003);
+            // a dimension's text may stand on end (the ordinate rows across: 08B04-SFA-3T's CHECKs touched 1820 / 1970)
+            if (a.GetType() == (int)swAnnotationType_e.swDisplayDimension) y1 = Math.Max(y1, p[1] + w + 0.002);
+            if (System.Environment.GetEnvironmentVariable("DRAW_DEBUG_EXTENT") == "1") Console.WriteLine("    ext " + v.GetName2() + " t" + a.GetType() + " at " + Mm(p[0]) + "," + Mm(p[1]) + " w" + Mm(w) + " h" + Mm(h));
         }
+        if (System.Environment.GetEnvironmentVariable("DRAW_DEBUG_EXTENT") == "1") Console.WriteLine("    ext " + v.GetName2() + " outline " + string.Join(",", o.Select(z => Mm(z))));
         return new[] { x0, y0, x1, y1 };
     }
 

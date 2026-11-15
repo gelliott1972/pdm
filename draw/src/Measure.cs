@@ -461,4 +461,40 @@ static partial class Draw
         Console.WriteLine("not saved");
         return 0;
     }
+
+    // place-flags <drawing>: in the open drawing, put the CHECK notes for James in clear space again, measuring every
+    // view with its dimensions (text on end included), the BOM and the note block. No save. (night 15-16 Nov)
+    static int PlaceFlagsCmd(string drawing, List<string> add)
+    {
+        var doc = OpenDoc(drawing, null, false); var drw = (DrawingDoc)doc;
+        Annotation flag = null; string text = null;
+        var taken = new List<double[]>();
+        var sheetView = (View)drw.GetFirstView();
+        for (var v = sheetView; v != null; v = (View)v.GetNextView())
+        {
+            if (v != sheetView) taken.Add(ExtentTrue(v));
+            foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.GetType() == (int)swAnnotationType_e.swNote)
+                {
+                    var nt = (Note)a.GetSpecificAnnotation(); string t = nt.GetText() ?? "";
+                    if (t.StartsWith("CHECK:") && a.Layer == DraftLayer && a.GetLeaderCount() == 0) { flag = a; text = t; continue; }
+                    var ex = nt.GetExtent() as double[];
+                    if (ex != null && a.Layer == DraftLayer) taken.Add(new[] { Math.Min(ex[0], ex[3]), Math.Min(ex[1], ex[4]), Math.Max(ex[0], ex[3]), Math.Max(ex[1], ex[4]) });
+                }
+                else if (a.GetType() == (int)swAnnotationType_e.swTableAnnotation) { var bb = BomBox(a.GetSpecificAnnotation()); if (bb != null) taken.Add(bb); }
+            }
+        }
+        if (flag == null) { Console.WriteLine("no CHECK note"); return 1; }
+        if (add.Count > 0)
+        {   // --check="...": a further line for James on a finished draft (e.g. a BOM row with no part number in the model)
+            foreach (var x in add) text += "\n" + (x.StartsWith("CHECK:", StringComparison.OrdinalIgnoreCase) ? x : "CHECK: " + x).ToUpperInvariant();
+            ((Note)flag.GetSpecificAnnotation()).SetText(text);
+        }
+        var before = (double[])flag.GetPosition();
+        PlaceFlags(flag, text, taken);
+        var after = (double[])flag.GetPosition();
+        Console.WriteLine("CHECK notes " + (Math.Abs(before[0] - after[0]) + Math.Abs(before[1] - after[1]) < 1e-6 ? "stay" : "moved") + " at " + (after[0] * 1000).ToString("0") + "," + (after[1] * 1000).ToString("0") + "; not saved");
+        return 0;
+    }
 }

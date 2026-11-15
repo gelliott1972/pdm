@@ -64,6 +64,11 @@ static partial class Draw
         // the cap view goes at the capped end; with caps at both ends, at the top like the one-cap members (Grant 15 Nov, GNRIC-LMW-04:
         // "why is the endcap 2D view on the bottom?" - the average of the two caps fell in the middle)
         bool capAtMax = others.Count == 0 || others.Any(b => { var bb = (double[])b.GetBodyBox(); return (bb[lenAx] + bb[3 + lenAx]) / 2 > (box[lenAx] + box[3 + lenAx]) / 2; });
+        // caps at both ends (GNRIC-LMW-04/-05): Grant 15 Nov "the top and bottom views should be the same" - both end views show
+        // their cap, labelled TOP END / BOTTOM END
+        bool capsBoth = others.Count > 1
+            && others.Any(b => { var bb = (double[])b.GetBodyBox(); return (bb[lenAx] + bb[3 + lenAx]) / 2 > (box[lenAx] + box[3 + lenAx]) / 2; })
+            && others.Any(b => { var bb = (double[])b.GetBodyBox(); return (bb[lenAx] + bb[3 + lenAx]) / 2 < (box[lenAx] + box[3 + lenAx]) / 2; });
         Console.WriteLine("Member length " + Mm(length) + " along " + "XYZ"[lenAx]);
 
         // Holes (full cylinders) and slots (two half cylinders), square to a flat face.
@@ -172,7 +177,7 @@ static partial class Draw
             side = drw.CreateDrawViewFromModelView3(partFile, endName(others.Count > 0 ? !capAtMax : true), mo[2] + 0.080, mo[1] + 0.020, 0);
             if (side != null) side.ReferencedConfiguration = config;
             // the section view shows the tube alone: with caps at both ends (GNRIC-LMW-04) the wall can't be seen otherwise
-            if (side != null && others.Count > 0)
+            if (side != null && others.Count > 0 && !capsBoth)
             {
                 var before = side.GetBodiesCount();
                 side.Bodies = new Body2[] { body };
@@ -376,7 +381,7 @@ static partial class Draw
 
         // 6. End view: the section's overall sizes and the wall thickness.
         var secExpected = new List<double>();
-        if (side != null)
+        if (side != null && !capsBoth)
         {
             var sl = ViewLines(mu, side);
             var vert = sl.Where(l => Math.Abs(l.Item2[0] - l.Item3[0]) < 1e-7).ToList();
@@ -413,10 +418,11 @@ static partial class Draw
         // 6b. A hole through an end cap, square to the end (GNRIC-LMW): the HDG drainage hole, called out as James does
         //     (08A06-HBW-01): "Ø10" over "for HDG Drainage", a diameter dimension so the size comes from the model.
         var capExpected = new List<double>();
-        if (capView != null)
+        var capViews = (capsBoth ? new[] { capView, side } : new[] { capView }).Where(x => x != null).ToList();
+        foreach (var cvw in capViews)
         {
             // the cap's size: its outermost straight edges inside the tube's outline (checked against the cap's body)
-            var cl = ViewLines(mu, capView); var co = (double[])capView.GetOutline(); double cvs = capView.ScaleDecimal;
+            var cl = ViewLines(mu, cvw); var co = (double[])cvw.GetOutline(); double cvs = cvw.ScaleDecimal;
             var cv = cl.Where(l => Math.Abs(l.Item2[0] - l.Item3[0]) < 1e-7).OrderBy(l => l.Item2[0]).ToList();
             var ch = cl.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7).OrderBy(l => l.Item2[1]).ToList();
             // leave out the tube's outline (the outermost lines each way): the cap sits inside it
@@ -429,8 +435,8 @@ static partial class Draw
                 double wv = (cv.Last().Item2[0] - cv.First().Item2[0]) / cvs * 1000, hv = (ch.Last().Item2[1] - ch.First().Item2[1]) / cvs * 1000;
                 if (capSizes.Contains(Math.Round(wv, 2)) && capSizes.Contains(Math.Round(hv, 2)))
                 {
-                    Dim2(drwDoc, selMgr, capView, cv.First().Item1, cv.Last().Item1, (cv.First().Item2[0] + cv.Last().Item2[0]) / 2, co[1] - 0.010, "end cap width", cv.First().Item2[0], cv.Last().Item2[0], true);
-                    Dim2(drwDoc, selMgr, capView, ch.First().Item1, ch.Last().Item1, co[2] + 0.012, (ch.First().Item2[1] + ch.Last().Item2[1]) / 2, "end cap height", ch.Last().Item2[1], ch.First().Item2[1], false);
+                    Dim2(drwDoc, selMgr, cvw, cv.First().Item1, cv.Last().Item1, (cv.First().Item2[0] + cv.Last().Item2[0]) / 2, co[1] - 0.010, "end cap width", cv.First().Item2[0], cv.Last().Item2[0], true);
+                    Dim2(drwDoc, selMgr, cvw, ch.First().Item1, ch.Last().Item1, co[2] + 0.012, (ch.First().Item2[1] + ch.Last().Item2[1]) / 2, "end cap height", ch.Last().Item2[1], ch.First().Item2[1], false);
                     capExpected.Add(wv); capExpected.Add(hv);
                 }
                 else problems.Add("end cap edges do not match the cap (" + Mm(wv / 1000) + " x " + Mm(hv / 1000) + "): cap size not dimensioned");
@@ -438,9 +444,9 @@ static partial class Draw
             else problems.Add("end cap edges not found: cap size not dimensioned");
             drwDoc.ClearSelection2(true);
         }
-        if (capView != null)
+        foreach (var cvw in capViews)
         {
-            var side0 = side; side = capView;   // the hole is seen in the cap view
+            var side0 = side; side = cvw; bool upperCap = cvw == cvw && capAtMax;   // the hole is seen in the cap view
             var capHoles = others.SelectMany(b => ((object[])b.GetFaces()).Cast<Face2>())
                 .Where(f => ((Surface)f.GetSurface()).IsCylinder() && f.GetLoopCount() == 2)
                 .Select(f => (double[])((Surface)f.GetSurface()).CylinderParams)
@@ -457,7 +463,7 @@ static partial class Draw
                 var sd = (SelectData)selMgr.CreateSelectData(); sd.View = side;
                 DisplayDimension dd = null;
                 if (((Entity)e.Item1).Select4(false, sd))
-                    try { dd = drwDoc.AddDiameterDimension2(capAtMax ? so[0] - 0.0065 - 0.010 * kk : so[2] + 0.058, capAtMax ? so[3] + 0.0226 + 0.010 * kk : so[3] + 0.008 + 0.010 * kk, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }   // above left (Grant 15 Nov, 08X06-LMW); right and above it when the cap view is the lower one (GNRIC-LMW-04/-12; Grant DR16: not through the cap's 36)
+                    try { dd = drwDoc.AddDiameterDimension2(upperCap ? so[0] - 0.0065 - 0.010 * kk : so[0] - 0.030, upperCap ? so[3] + 0.0226 + 0.010 * kk : (so[1] + so[3]) / 2 + 0.004 + 0.010 * kk, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }   // above left (Grant 15 Nov, 08X06-LMW); left of it, level with the cap, when the cap view is the lower one (GNRIC-LMW-04: to the right it ran off the sheet and SOLIDWORKS put it over the top view; Grant DR16: not through the cap's 36)
                 drwDoc.ClearSelection2(true);
                 double gotD = dd == null ? double.NaN : ((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000;
                 if (dd != null && Math.Abs(gotD - hd * 1000) < 0.05)
@@ -466,8 +472,8 @@ static partial class Draw
                     // caps at both ends, a hole in each (GNRIC-LMW-04/-05): one callout for both, as only one cap is drawn
                     int nCap = others.Count(b => ((object[])b.GetFaces()).Cast<Face2>().Any(f => ((Surface)f.GetSurface()).IsCylinder() && f.GetLoopCount() == 2
                         && Math.Abs(2 * ((double[])((Surface)f.GetSurface()).CylinderParams)[6] - hd) < 1e-7));
-                    if (nCap > 1) dd.SetText((int)swDimensionTextParts_e.swDimensionTextPrefix, nCap + " x <MOD-DIAM>");
-                    dd.SetText((int)swDimensionTextParts_e.swDimensionTextCalloutBelow, nCap > 1 ? "for HDG Drainage, one in each end cap" : "for HDG Drainage");
+                    if (nCap > 1 && !capsBoth) dd.SetText((int)swDimensionTextParts_e.swDimensionTextPrefix, nCap + " x <MOD-DIAM>");
+                    dd.SetText((int)swDimensionTextParts_e.swDimensionTextCalloutBelow, nCap > 1 && !capsBoth ? "for HDG Drainage, one in each end cap" : "for HDG Drainage");
                     capExpected.Add(hd * 1000);
                     Console.WriteLine("End cap hole: Ø" + Mm(hd) + " for HDG Drainage");
                 }
@@ -484,9 +490,24 @@ static partial class Draw
         // D7 (Grant 15 Nov): the stock goes with the material on the note block, e.g. "Plain Carbon Steel, SHS 40x40x4",
         // built from the section measured in the end view (the dimensions above, checked against the model before saving)
         string stock = "";
-        if (hollow && secExpected.Count >= 3)
+        var secVals = secExpected;
+        if (capsBoth && hollow)
         {
-            double sw0 = Math.Round(secExpected[0], 1), sh0 = Math.Round(secExpected[1], 1), st0 = Math.Round(secExpected[2], 1);
+            // both ends capped: no view shows the wall; take outside and wall from the member's own flat faces (+-20, +-16)
+            var cross = Enumerable.Range(0, 3).Where(ax => ax != lenAx).ToList();
+            var w = new List<double>(); double wall = double.NaN;
+            foreach (int ax in cross)
+            {
+                var at = faces.Where(f => ((Surface)f.GetSurface()).IsPlane() && Math.Abs(Math.Abs(((double[])f.Normal)[ax]) - 1) < 1e-6)
+                    .Select(f => { var fb = (double[])f.GetBox(); return Math.Round(fb[ax] * 1e6) / 1e6; }).Distinct().OrderBy(x => x).ToList();
+                if (at.Count == 4) { w.Add((at[3] - at[0]) * 1000); wall = Math.Round((at[1] - at[0]) * 1000, 2); }
+            }
+            if (w.Count == 2 && !double.IsNaN(wall)) secVals = new List<double> { w[0], w[1], wall };
+            else problems.Add("both ends capped: tube walls not found in the model; no stock on the Material line");
+        }
+        if (hollow && secVals.Count >= 3)
+        {
+            double sw0 = Math.Round(secVals[0], 1), sh0 = Math.Round(secVals[1], 1), st0 = Math.Round(secVals[2], 1);
             stock = (Math.Abs(sw0 - sh0) < 0.05 ? "SHS " : "RHS ") + Mm(Math.Max(sw0, sh0) / 1000) + "x" + Mm(Math.Min(sw0, sh0) / 1000) + "x" + Mm(st0 / 1000);
             Console.WriteLine("Stock: " + stock + " (measured)");
         }
@@ -547,10 +568,10 @@ static partial class Draw
             else flags.Add("CHECK: CUT LIST SAYS " + cutLabel.ToUpper() + ", MODEL IS " + stock);
         }
         var secM = Regex.Match(props["Description"], @"\b(RHS|SHS)\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)", RegexOptions.IgnoreCase);
-        if (secM.Success && secExpected.Count >= 3)
+        if (secM.Success && secVals.Count >= 3)
         {
             Func<int, double> g = i => double.Parse(secM.Groups[i].Value, System.Globalization.CultureInfo.InvariantCulture);
-            double mw = Math.Round(secExpected[0], 1), mh = Math.Round(secExpected[1], 1), mt = Math.Round(secExpected[2], 1);
+            double mw = Math.Round(secVals[0], 1), mh = Math.Round(secVals[1], 1), mt = Math.Round(secVals[2], 1);
             string kind = Math.Abs(mw - mh) < 0.05 ? "SHS" : "RHS";
             var dSides = new[] { g(2), g(3) }.OrderBy(x => x).ToArray(); var mSides = new[] { mw, mh }.OrderBy(x => x).ToArray();
             bool same = secM.Groups[1].Value.ToUpper() == kind && Math.Abs(dSides[0] - mSides[0]) < 0.05 && Math.Abs(dSides[1] - mSides[1]) < 0.05 && Math.Abs(g(4) - mt) < 0.05;
@@ -634,7 +655,8 @@ static partial class Draw
             {
                 drw.ActivateView(vw.GetName2());
                 var lbl = new List<string>();
-                if (vw == capView) lbl.Add(capName);
+                if (vw == capView) lbl.Add(capName + (capsBoth ? ", TOP END" : ""));
+                else if (capsBoth) lbl.Add(capName + ", BOTTOM END");
                 else if (others.Count > 0) lbl.Add((stock != "" ? stock : "MEMBER") + " (END CAP NOT SHOWN)");
                 if (endDen != den) lbl.Add("SCALE 1:" + endDen);
                 var ln = drwDoc.InsertNote(string.Join("\n", lbl)) as Note;
@@ -662,6 +684,20 @@ static partial class Draw
                 Console.WriteLine("Lower end view moved down " + Mm(dy) + " to clear the upper view's label");
             }
         }
+        // the drainage callouts placed last, from where each cap view finally sits (GNRIC-LMW-04: the lower one, placed
+        // when it was made, ended up over the upper view's label): above left of the upper cap view, left of the lower one
+        foreach (var cvw in capViews)
+        {
+            var fo = (double[])cvw.GetOutline();
+            bool up = cvw == capView && capAtMax;
+            foreach (Annotation a in (cvw.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.GetType() != (int)swAnnotationType_e.swDisplayDimension) continue;
+                var dd = (DisplayDimension)a.GetSpecificAnnotation();
+                if ((dd.GetText((int)swDimensionTextParts_e.swDimensionTextCalloutBelow) ?? "").IndexOf("HDG", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                a.SetPosition2(up ? fo[0] - 0.0065 : fo[0] - 0.030, up ? fo[3] + 0.0226 : (fo[1] + fo[3]) / 2 + 0.004, 0);
+            }
+        }
         if (flagNote != null)
             {   // notes for James: outside the border, bottom left of the sheet, as Grant placed them on GNRIC-LMW-02 (15 Nov, brief draw-3)
                 var fa = (Annotation)flagNote.GetAnnotation();
@@ -675,14 +711,14 @@ static partial class Draw
                 if (a.GetType() == (int)swAnnotationType_e.swDisplayDimension) gotSec.Add(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000);
         Func<IEnumerable<double>, string> fmt = l => string.Join(",", l.Select(x => Math.Round(x, 2)).OrderBy(x => x));
         var modelSec = new List<double> { (box[3] - box[0]) * 1000, (box[4] - box[1]) * 1000, (box[5] - box[2]) * 1000 };
-        bool ok1 = fmt(expected) == fmt(got), ok2 = fmt(secExpected) == fmt(gotSec);
+        bool ok1 = fmt(expected) == fmt(got), ok2 = capsBoth || fmt(secExpected) == fmt(gotSec);
         Console.WriteLine("Check positions: model " + fmt(expected) + " / drawing " + fmt(got) + (ok1 ? " OK" : " MISMATCH"));
         Console.WriteLine("Check section: from the end view " + fmt(secExpected) + " / drawing " + fmt(gotSec) + (ok2 ? " OK" : " MISMATCH") + " (model box " + fmt(modelSec) + ")");
         bool ok3 = true;
         if (capView != null)
         {
             var gotCap = new List<double>();
-            foreach (Annotation a in (capView.GetAnnotations() as object[]) ?? new object[0])
+            foreach (Annotation a in capViews.SelectMany(cv2 => ((cv2.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>()))
                 if (a.GetType() == (int)swAnnotationType_e.swDisplayDimension) gotCap.Add(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000);
             ok3 = fmt(capExpected) == fmt(gotCap);
             Console.WriteLine("Check end cap: " + fmt(capExpected) + " / drawing " + fmt(gotCap) + (ok3 ? " OK" : " MISMATCH"));

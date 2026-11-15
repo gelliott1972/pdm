@@ -246,6 +246,41 @@ static partial class Draw
             { "BR", new[] { BorderX1 - m - w, TitleTop + m, BorderX1 - m, TitleTop + m + h } },
             { "BL", new[] { BorderX0 + m, RevTop + m, BorderX0 + m + w, RevTop + m + h } } };
         var order = new[] { prefer ?? st.Flags }.Concat(new[] { st.Flags }).Concat(new[] { "TL", "TR", "BR", "BL" }.Where(k => k != st.Flags)).Where(k => corners.ContainsKey(k));
+        // Grant 15 Nov (DR23: "the CHECKs go over the BOM - put them in the lower left"): when a corner is asked for and the
+        // note is too wide for it, wrap its lines to the clear width there (up to the first box in that band)
+        if (prefer != null && corners.ContainsKey(prefer))
+        {
+            var c0 = corners[prefer];
+            Func<double[], double[], bool> hits = (a, t) => t != null && a[0] < t[2] && a[2] > t[0] && a[1] < t[3] && a[3] > t[1];
+            if (taken.Any(t => hits(c0, t)))
+            {
+                double right = taken.Where(t => t != null && t[0] > c0[0] && c0[1] < t[3] && c0[1] + 0.06 > t[1]).Select(t => t[0]).DefaultIfEmpty(BorderX1).Min();
+                int maxChars = (int)((right - c0[0] - 0.006) / (0.0025 * 0.85));
+                if (maxChars >= 24)
+                {
+                    var wrapped = new List<string>();
+                    foreach (var l in lines)
+                    {
+                        var cur = "";
+                        foreach (var word in l.Split(' '))
+                        {
+                            if (cur.Length > 0 && cur.Length + 1 + word.Length > maxChars) { wrapped.Add(cur); cur = "  " + word; }
+                            else cur = cur.Length == 0 ? word : cur + " " + word;
+                        }
+                        wrapped.Add(cur);
+                    }
+                    double w2 = wrapped.Max(l => l.Length) * 0.0025 * 0.85 + 0.004, h2 = wrapped.Count * 0.0045 + 0.003;
+                    double[] sp2 = prefer == "BL" ? new[] { BorderX0 + m, RevTop + m, BorderX0 + m + w2, RevTop + m + h2 }
+                                 : prefer == "TL" ? new[] { BorderX0 + m, BorderY1 - m - h2, BorderX0 + m + w2, BorderY1 - m } : null;
+                    if (sp2 != null && !taken.Any(t => hits(sp2, t)))
+                    {
+                        var nt = note.GetSpecificAnnotation() as Note;
+                        if (nt != null && nt.SetText(string.Join("\n", wrapped)))
+                        { note.SetPosition2(sp2[0], sp2[3], 0); Console.WriteLine("Flags placed " + prefer + ", wrapped to " + maxChars + " characters a line"); return; }
+                    }
+                }
+            }
+        }
         foreach (var k in order)
         {
             var sp = corners[k];

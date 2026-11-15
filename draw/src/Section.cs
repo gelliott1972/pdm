@@ -402,18 +402,7 @@ static partial class Draw
                         lv ? longest.Item2[0] : longest.Item2[1], lv ? inner.Item2[0] : inner.Item2[1], lv);
                     secExpected.Add(t);
                 }
-                // a tube's inside size (Grant 15 Nov: so it can't be confused with the end cap's 36): between the inner walls
-                var xs = vert.Select(l => Math.Round(l.Item2[0] * 1e6) / 1e6).Distinct().OrderBy(x => x).ToList();
-                if (hollow && xs.Count == 4)
-                {
-                    var in0 = vert.First(l => Math.Abs(l.Item2[0] - xs[1]) < 1e-6); var in1 = vert.First(l => Math.Abs(l.Item2[0] - xs[2]) < 1e-6);
-                    double inside = (xs[2] - xs[1]) / svs * 1000;
-                    Dim2(drwDoc, selMgr, side, in0.Item1, in1.Item1, (xs[1] + xs[2]) / 2, (so[1] + so[3]) / 2, "inside width", xs[1], xs[2], true);
-                    secExpected.Add(inside);
-                    double outW = (xs[3] - xs[0]) / svs * 1000;
-                    if (secExpected.Count >= 3 && Math.Abs(outW - 2 * secExpected[2] - inside) > 0.05) problems.Add("inside " + inside.ToString("0.#") + " is not outside less two walls");
-                }
-                else if (hollow) problems.Add("inside size: walls not found in the end view");
+                // no inside size (Grant 15 Nov, DR12 redo: "the 32 dimension is in the middle of the part - there is no need for it")
             }
             else problems.Add("end view outline not found; no section sizes");
             drwDoc.ClearSelection2(true);
@@ -466,7 +455,7 @@ static partial class Draw
                 var sd = (SelectData)selMgr.CreateSelectData(); sd.View = side;
                 DisplayDimension dd = null;
                 if (((Entity)e.Item1).Select4(false, sd))
-                    try { dd = drwDoc.AddDiameterDimension2(capAtMax ? so[0] - 0.0065 - 0.010 * kk : so[2] + 0.058, capAtMax ? so[3] + 0.0226 + 0.010 * kk : (so[1] + so[3]) / 2 + 0.006 + 0.010 * kk, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }   // above left (Grant 15 Nov, 08X06-LMW); right, level with it, when the cap view is the lower one (GNRIC-LMW-04/-12: clear of the member, the dimensions and the label below)
+                    try { dd = drwDoc.AddDiameterDimension2(capAtMax ? so[0] - 0.0065 - 0.010 * kk : so[2] + 0.058, capAtMax ? so[3] + 0.0226 + 0.010 * kk : so[3] + 0.008 + 0.010 * kk, 0) as DisplayDimension; } catch (System.Runtime.InteropServices.COMException) { }   // above left (Grant 15 Nov, 08X06-LMW); right and above it when the cap view is the lower one (GNRIC-LMW-04/-12; Grant DR16: not through the cap's 36)
                 drwDoc.ClearSelection2(true);
                 double gotD = dd == null ? double.NaN : ((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000;
                 if (dd != null && Math.Abs(gotD - hd * 1000) < 0.05)
@@ -503,6 +492,16 @@ static partial class Draw
         string cutLabel = CutListLabel(part, body);
         if (cutLabel != null) Console.WriteLine("Cut list label: " + cutLabel);
 
+        // Grant 15 Nov (DR13-DR20): "add a note that the Description is MEMBER x791mm but the length is 796mm including endcap"
+        string lengthNote = "";
+        var memLen = Regex.Match(props["Description"], @"MEMBER\s*x\s*(\d+(?:\.\d+)?)\s*mm", RegexOptions.IgnoreCase);
+        double overall = (partBox[3 + lenAx] - partBox[lenAx]) * 1000;
+        if (others.Count > 0 && memLen.Success && Math.Abs(overall - length * 1000) > 0.05)
+        {
+            lengthNote = "CHECK: DESCRIPTION MEMBER x" + memLen.Groups[1].Value + "mm IS THE TUBE ONLY; OVERALL LENGTH " + Mm(overall / 1000) + "mm INCLUDES THE END CAP" + (others.Count > 1 ? "S" : "");
+            Console.WriteLine("Length note: MEMBER x" + memLen.Groups[1].Value + "mm, overall " + Mm(overall / 1000));
+        }
+
         // 7. Hole centre marks (after the dimensions, see Plate.cs), note block, flags, revision row.
         drw.ActivateView(main.GetName2());
         if (cuts.Any(c => !c.Slot) && !main.AutoInsertCenterMarks2((int)swAutoInsertCenterMarkTypes_e.swAutoInsertCenterMarkType_Hole, 0, true, true, false, CentreMarkSize, CentreMarkGap, true, true, 0))
@@ -528,6 +527,7 @@ static partial class Draw
         }
         // Flag: a length written in the description (L=nnn) that disagrees with the model.
         var flags = new List<string>(slotFlags); Note flagNote = null;
+        if (lengthNote != "") flags.Add(lengthNote);   // a note for James, apart from the note block (Grant 15 Nov)
         var lm2 = Regex.Match(props["Description"], @"(?:L\s*=\s*|MEMBER\s*x\s*)(\d+(\.\d+)?)", RegexOptions.IgnoreCase);   // "L=150", or "MEMBER x541mm" (GNRIC-LMW)
         if (lm2.Success && Math.Abs(double.Parse(lm2.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) - length * 1000) > 0.5)
             flags.Add("CHECK: DESCRIPTION SAYS L=" + lm2.Groups[1].Value + ", MODEL IS " + Mm(length) + " LONG");
@@ -631,7 +631,7 @@ static partial class Draw
             Console.WriteLine("End views at 1:" + endDen + " (sheet 1:" + den + "), labelled");
         }
         if (flagNote != null)
-            PlaceFlags((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), new[] { Extent(main), side != null ? Extent(side) : null, iso != null ? Extent(iso) : null });
+            PlaceFlags((Annotation)flagNote.GetAnnotation(), string.Join("\n", flags), new[] { Extent(main), side != null ? Extent(side) : null, iso != null ? Extent(iso) : null, capView != null ? Extent(capView) : null }, "BR");   // as on the assemblies (Grant 15 Nov: 08B04-SFA-2T)
         var got = new List<double>(); var gotSec = new List<double>();
         foreach (Annotation a in (main.GetAnnotations() as object[]) ?? new object[0])
             if (a.GetType() == (int)swAnnotationType_e.swDisplayDimension) got.Add(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000);

@@ -77,6 +77,7 @@ static partial class Draw
                 case "bom-test": if (pos.Count != 2) return Usage(); rc = BomTest(pos[0], pos[1]); break;
                 case "view-geom": if (pos.Count != 1) return Usage(); rc = ViewGeom(pos[0]); break;
                 case "view-boxes": if (pos.Count != 1) return Usage(); rc = ViewBoxes(pos[0]); break;
+                case "check": if (pos.Count != 1) return Usage(); rc = CheckDrawing(pos[0]); break;
                 case "slot-check": if (pos.Count < 1) return Usage(); rc = 0; foreach (var d in pos) rc = Math.Max(rc, SlotCheck(d)); break;
                 case "close-mine": rc = CloseMine(); break;
                 case "measure-member": if (pos.Count != 2) return Usage(); rc = MeasureMember(pos[0], pos[1]); break;

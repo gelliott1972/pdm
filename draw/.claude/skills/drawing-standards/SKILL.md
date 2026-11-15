@@ -96,7 +96,8 @@ Layout copied from Grant's `08X06-LMW-01-grant` and `08X06-LMW-02-grant` (in `sc
 | A dimension too narrow for its text (under 6 mm on the sheet): text outside the extension lines, beside the outer one, arrows outside pointing in | Grant 15 Nov (GNRIC-LMW-01 wall "4") |
 | Stock with the material on the note block: "Plain Carbon Steel, SHS 40x40x4", built from the section measured in the model (hollow sections so far); magenta CHECK if the cut-list label or the description disagrees | Grant D7, 15 Nov |
 | Revision 0A* on every draft; James removes the * and fills DRAWN when he issues (release refuses * or empty DRAWN) | Grant D5 = A, 15 Nov |
-| Label every view that shows a different body (or hides one): e.g. "END CAP 36x36x5" under the cap view, "SHS 40x40x4 (END CAP NOT SHOWN)" under the section view; a tube's section view also shows its inside size (32) | Grant D9, 15 Nov (the cap's 36 was read as the tube's inside) |
+| Label every view that shows a different body (or hides one): e.g. "END CAP 36x36x5" under the cap view, "SHS 40x40x4 (END CAP NOT SHOWN)" under the section view | Grant D9, 15 Nov (the cap's 36 was read as the tube's inside) |
+| No inside size on a tube's section view (outside and wall only) | Grant 15 Nov, DR12 redo ("the 32 dimension is in the middle of the part, there is no need for it") |
 | Each new version of a draft gets its own PDF ("GNRIC-LMW-01 v2.pdf"); the Desk ticket points at the newest | Desk draft-review tickets, 15 Nov |
 
 ## Welded members with end caps (GNRIC-LMW, batch 1)
@@ -108,4 +109,13 @@ Layout copied from Grant's `08X06-LMW-01-grant` and `08X06-LMW-02-grant` (in `sc
 | Length from the top: 0 ... (overall) in brackets; across row 0 / 40 under the member, to the tube's outer edges | 08X06-LMW |
 | End views no smaller than 1:5, labelled "SCALE 1:5" when the sheet is smaller | batch 1 (1:20 members) |
 | Hole in a tube: "Ø10 THRU ONE WALL" / "THRU ALL", beside the hole on the left | 08X06-LMW rule |
+
+## Learned from Grant's edits (forward only: never applied to drawings already accepted or saved)
+
+How it works (Grant D12, 15 Nov): one drawing at a time. Draw generates it and opens it; Grant tweaks it by hand or by asking (Draw edits that open drawing, never regenerates); Grant says "good"; Draw checks, saves, exports the PDF, moves it to the load folder and never touches it again. After each one, Draw compares its generated version with Grant's saved one and writes down what he changed here.
+
+| What Grant changed | Rule for future drawings | From |
+| --- | --- | --- |
+| Moved the CHECK note from above the title block to outside the drawing border, bottom left of the sheet (x 3.4, y 5.4 mm from the sheet corner, one line) | CHECK notes for James go outside the border, at the bottom left of the sheet, under the revision table; never inside the drawing area | GNRIC-LMW-02, 15 Nov |
+| Moved the isometric (with its note block) up 16 mm and left 12 mm so its bottom lines up with the bottom of the profile views | Upright members: the isometric's bottom level with the bottom of the face and end views | GNRIC-LMW-02, 15 Nov |
 

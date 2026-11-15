@@ -207,4 +207,28 @@ static partial class Draw
     }
 
     static int MarkNo(Annotation a) { var m = System.Text.RegularExpressions.Regex.Match(a.GetName() ?? "", @"(\d+)$"); return m.Success ? int.Parse(m.Groups[1].Value) : 0; }
+
+    // check <drawing>: read-only checks on a drawing as it is (open or from disk): every dimension's value per view,
+    // dangling, anything placed by Draw not on DRAFT, and the slot check. Changes nothing, saves nothing.
+    static int CheckDrawing(string drawing)
+    {
+        var doc = OpenDoc(drawing, null, true);
+        var drw = (DrawingDoc)doc;
+        int dims = 0, dangling = 0;
+        for (var v = (View)drw.GetFirstView(); v != null; v = (View)v.GetNextView())
+        {
+            var vals = new List<double>();
+            foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.IsDangling()) dangling++;
+                if (a.GetType() != (int)swAnnotationType_e.swDisplayDimension) continue;
+                dims++;
+                vals.Add(Math.Round(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 2));
+            }
+            if (vals.Count > 0) Console.WriteLine("  " + v.GetName2() + ": " + string.Join(",", vals.OrderBy(x => x)));
+        }
+        var slot = SlotDims(drw);
+        Console.WriteLine("Dimensions " + dims + "; dangling " + dangling + "; slot check " + (slot.Count == 0 ? "OK" : "FAILED " + string.Join(", ", slot)));
+        return dangling == 0 && slot.Count == 0 ? 0 : 1;
+    }
 }

@@ -271,13 +271,16 @@ static partial class Draw
             // can pick centre marks, 14 Nov).
             var tA = new List<Tuple<object, double[]>>(); var tX = new List<Tuple<object, double[]>>();
             bool alongNeedsPick = false, acrossNeedsPick = false;
+            // Grant 16 Nov (08X04-BRP-02): a hole or slot the face view can't show is left out and flagged, not a reason to
+            // throw the whole draft away
+            var unseen = new HashSet<Cut>();
             foreach (var c in cuts)
             {
                 var cs = ToSheet(mu, main, c.C);
                 if (!c.Slot)
                 {
                     var e = circles.OrderBy(ck => Dist2(ck.Item2, cs)).FirstOrDefault();
-                    if (e == null || Dist2(e.Item2, cs) > 1e-4) { problems.Add("no circle at a hole centre"); Console.WriteLine("  hole expected at " + Mm(cs[0]) + "," + Mm(cs[1]) + "; circles at " + string.Join("; ", circles.Select(ck => Mm(ck.Item2[0]) + "," + Mm(ck.Item2[1]) + " d" + Mm(ck.Item3)))); continue; }
+                    if (e == null || Dist2(e.Item2, cs) > 1e-4) { unseen.Add(c); slotFlags.Add("CHECK: A <MOD-DIAM>" + (c.Width * 1000).ToString("0.#") + " HOLE IS NOT SEEN IN THE FACE VIEW (FAR WALL?): ITS POSITION IS NOT DIMENSIONED"); Console.WriteLine("  hole expected at " + Mm(cs[0]) + "," + Mm(cs[1]) + "; circles at " + string.Join("; ", circles.Select(ck => Mm(ck.Item2[0]) + "," + Mm(ck.Item2[1]) + " d" + Mm(ck.Item3)))); continue; }
                     tA.Add(Tuple.Create((object)e.Item1, cs)); tX.Add(Tuple.Create((object)e.Item1, cs));
                     continue;
                 }
@@ -285,12 +288,12 @@ static partial class Draw
                 bool slotAcross = Math.Abs(across(ds) - across(cs)) > Math.Abs(along(ds) - along(cs));
                 var arc = circles.Where(ck => Math.Abs(ck.Item3 - c.Width) < 1e-6 && Dist2(ck.Item2, cs) < c.Length * main.ScaleDecimal)
                     .OrderBy(ck => Dist2(ck.Item2, cs)).FirstOrDefault();
-                if (arc == null) { problems.Add("slot end arc not found"); continue; }
+                if (arc == null) { unseen.Add(c); slotFlags.Add("CHECK: A " + (c.Width * 1000).ToString("0.0") + " X " + (c.Length * 1000).ToString("0") + " SLOT IS NOT SEEN CLEARLY IN THE FACE VIEW: ITS POSITION IS NOT DIMENSIONED"); Console.WriteLine("  slot end arc not found: slot left out of the ordinates, flagged"); continue; }
                 // Grant 15 Nov: a slot is located by its centre only, both ways, never its end arc or sides
                 tA.Add(Tuple.Create((object)cs, cs)); tX.Add(Tuple.Create((object)cs, cs)); alongNeedsPick = true; acrossNeedsPick = true;
             }
             // (both rows now pick slot centre marks; the value check and the slot check below catch a row SOLIDWORKS refuses)
-            var cutSheet = cuts.Select(c => ToSheet(mu, main, c.C)).ToList();
+            var cutSheet = cuts.Where(c => !unseen.Contains(c)).Select(c => ToSheet(mu, main, c.C)).ToList();
             var sel = new List<object>();
             Action doAcross = () => {
             // across the face: from the heel, one per distinct position, then the toe
@@ -401,6 +404,12 @@ static partial class Draw
                 Dim2(drwDoc, selMgr, side, left.Item1, right.Item1, (left.Item2[0] + right.Item2[0]) / 2, so[3] + 0.010, "section width", left.Item2[0], right.Item2[0], true);
                 Dim2(drwDoc, selMgr, side, bot.Item1, top.Item1, so[2] + 0.012, (bot.Item2[1] + top.Item2[1]) / 2, "section height", top.Item2[1], bot.Item2[1], false);
                 secExpected.Add((right.Item2[0] - left.Item2[0]) / svs * 1000); secExpected.Add((top.Item2[1] - bot.Item2[1]) / svs * 1000);
+                // the end view must show the member's own section (16 Nov, 08C04-SFP-04: two members at a mitre drew the whole
+                // frame, 356 x 106, as a "section"); otherwise this isn't a straight member: refuse, so make-basic takes it
+                var cross = Enumerable.Range(0, 3).Where(i => i != lenAx).Select(i => Math.Round((box[3 + i] - box[i]) * 1000, 1)).OrderBy(x => x).ToList();
+                var seen = secExpected.Take(2).Select(x => Math.Round(x, 1)).OrderBy(x => x).ToList();
+                if (Math.Abs(cross[0] - seen[0]) > 0.05 || Math.Abs(cross[1] - seen[1]) > 0.05)
+                { Console.Error.WriteLine("REFUSED: the end view shows " + seen[0] + " x " + seen[1] + ", the member's section is " + cross[0] + " x " + cross[1] + " (not a straight member)"); return 2; }
                 // wall thickness: the line nearest to and parallel with the longest outside line
                 var longest = sl.OrderByDescending(l => Dist(l.Item2, l.Item3)).First();
                 bool lv = Math.Abs(longest.Item2[0] - longest.Item3[0]) < 1e-7;
@@ -749,7 +758,23 @@ static partial class Draw
             ok3 = fmt(capExpected) == fmt(gotCap);
             Console.WriteLine("Check end cap: " + fmt(capExpected) + " / drawing " + fmt(gotCap) + (ok3 ? " OK" : " MISMATCH"));
         }
-        if (!ok1 || !ok2 || !ok3) { problems.Add("dimensions don't match the model: NOT saved"); return 1; }
+        if (!ok1 || !ok2 || !ok3)
+        {
+            // Grant 16 Nov: not all-or-nothing. Remove only the dimensions that don't match the model, flag what's missing,
+            // check again; refuse only if it still doesn't match.
+            var pr = new List<Tuple<List<double>, List<double>>>();
+            if (!ok1) pr.Add(Prune(drwDoc, new[] { main }, expected));
+            if (!ok2) pr.Add(Prune(drwDoc, new[] { side }, secExpected));
+            if (!ok3) pr.Add(Prune(drwDoc, capViews, capExpected));
+            var removed = pr.SelectMany(x => x.Item1).ToList(); var missing = pr.SelectMany(x => x.Item2).ToList();
+            if (removed.Count > 0) flags.Add("CHECK: " + removed.Count + " DIMENSION(S) THAT DIDN'T MATCH THE MODEL REMOVED (" + string.Join(", ", removed.Select(x => Math.Round(x, 1))) + ")");
+            if (missing.Count > 0) flags.Add("CHECK: NOT DIMENSIONED: " + string.Join(", ", missing.Select(x => Math.Round(x, 1))));
+            drwDoc.ForceRebuild3(false);
+            if (!PrunedOk(new[] { main }, expected, ok1) || !PrunedOk(new[] { side }, secExpected, ok2) || !PrunedOk(capViews, capExpected, ok3))
+            { problems.Add("dimensions don't match the model even after removing the wrong ones: NOT saved"); return 1; }
+            SetFlags(drw, drwDoc, sheet, ref flagNote, flags);
+            Console.WriteLine("Kept the dimensions that match; removed " + removed.Count + ", flagged " + missing.Count + " not dimensioned");
+        }
         return SaveDraft(drw, drwDoc, output, pdfOut, t0);
     }
 

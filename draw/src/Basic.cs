@@ -96,7 +96,18 @@ static partial class Draw
                 an.SetTextFormat(0, false, tf);
             }
         }
-        var flags = new List<string> { "CHECK: BASIC DRAFT: DIMENSIONS FOR JAMES" };
+        // Grant 16 Nov ("very simple - you should have been able to dimension this"): the simple sizes, each checked
+        // against the model's exact extents; anything that doesn't match is left off
+        var mu = (MathUtility)sw.GetMathUtility(); var selMgr = (SelectionMgr)drwDoc.SelectionManager;
+        var expectBasic = new List<double>();
+        int sized = 0;
+        if (!isAsm)
+        {
+            var bodies = ((object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]).Cast<Body2>().ToList();
+            var cutLabels = bodies.Select(b => CutListLabel(part, b)).Where(x => x != null);
+            sized = BasicSizes(drwDoc, selMgr, mu, main, side, Extents(bodies), props["Description"] + " " + string.Join(" ", cutLabels), expectBasic);
+        }
+        var flags = new List<string> { sized > 0 ? "CHECK: BASIC DRAFT: OVERALL SIZES ONLY, DETAIL DIMENSIONS FOR JAMES" : "CHECK: BASIC DRAFT: DIMENSIONS FOR JAMES" };
         // a weldment: James's cut-list table and balloons; an assembly: his BOM is not added here (CHECK)
         if (!isAsm && ((object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]).Length > 1)
         {
@@ -123,6 +134,12 @@ static partial class Draw
         PlaceIso(drwDoc, main, side, iso, den);
         drwDoc.ForceRebuild3(false);
 
+        if (sized > 0)
+        {
+            var pr = Prune(drwDoc, new[] { main, side }, expectBasic);
+            if (pr.Item1.Count > 0) problems.Add("basic sizes: removed " + pr.Item1.Count + " that didn't match the model");
+            Console.WriteLine("Check sizes: model " + string.Join(",", expectBasic.Select(x => Math.Round(x, 2))) + "; removed " + pr.Item1.Count + ", missing " + pr.Item2.Count);
+        }
         int dangling = 0;
         for (var v = (View)((View)drw.GetFirstView()).GetNextView(); v != null; v = (View)v.GetNextView())
             foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0]) if (a.IsDangling()) dangling++;
@@ -227,5 +244,137 @@ static partial class Draw
         Console.WriteLine(ok ? "PDF " + pdfOut : "PDF failed: error " + err);
         Console.WriteLine("Time: " + (DateTime.Now - t0).TotalSeconds.ToString("0") + " s.");
         return 0;
+    }
+
+    // The part's exact size along model X, Y, Z (extreme points, not the loose body box).
+    static double[] Extents(List<Body2> bodies)
+    {
+        var r = new double[3];
+        for (int i = 0; i < 3; i++)
+        {
+            double hi = double.MinValue, lo = double.MaxValue;
+            foreach (var b in bodies)
+            {
+                var d = new double[3]; d[i] = 1;
+                double x, y, z;
+                if (b.GetExtremePoint(d[0], d[1], d[2], out x, out y, out z)) hi = Math.Max(hi, new[] { x, y, z }[i]);
+                if (b.GetExtremePoint(-d[0], -d[1], -d[2], out x, out y, out z)) lo = Math.Min(lo, new[] { x, y, z }[i]);
+            }
+            r[i] = hi - lo;
+        }
+        return r;
+    }
+
+    // Which model axis runs across (sheetDir 0) or up (1) the sheet in this view.
+    static int SheetAxis(MathUtility mu, View v, int sheetDir)
+    {
+        var o = ToSheet(mu, v, new double[3]); int best = 0; double bm = -1;
+        for (int i = 0; i < 3; i++) { var p = new double[3]; p[i] = 1; var s = ToSheet(mu, v, p); double d = Math.Abs(s[sheetDir] - o[sheetDir]); if (d > bm) { bm = d; best = i; } }
+        return best;
+    }
+
+    // Basic draft sizes (Grant 16 Nov, DW7-DW10): the face view's overall width and height, the side view's width, and
+    // the wall of a tube when the description or cut list names it (RHS/SHS a x b x t) and the side view shows it.
+    // Each drawn value must equal the model's exact extent (or the named wall) or it isn't placed.
+    static int BasicSizes(ModelDoc2 doc, SelectionMgr sm, MathUtility mu, View main, View side, double[] ext, string text, List<double> expected)
+    {
+        int n = 0;
+        var tm = System.Text.RegularExpressions.Regex.Match(text ?? "", @"\b(?:RHS|SHS)\s*\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?\s*x\s*(\d+(?:\.\d+)?)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        double wall = tm.Success ? double.Parse(tm.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) : double.NaN;
+        foreach (var v in new[] { main, side })
+        {
+            if (v == null) continue;
+            var lines = ViewLines(mu, v);
+            var vert = lines.Where(l => Math.Abs(l.Item2[0] - l.Item3[0]) < 1e-7).OrderBy(l => l.Item2[0]).ToList();
+            var hor = lines.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7).OrderBy(l => l.Item2[1]).ToList();
+            var o = (double[])v.GetOutline(); double vs = v.ScaleDecimal;
+            if (vert.Count >= 2)
+            {
+                var l = vert.First(); var r = vert.Last();
+                double w = (r.Item2[0] - l.Item2[0]) / vs * 1000, m = ext[SheetAxis(mu, v, 0)] * 1000;
+                if (Math.Abs(w - m) < 0.01) { Dim2(doc, sm, v, l.Item1, r.Item1, (l.Item2[0] + r.Item2[0]) / 2, o[3] + 0.010, "overall width", l.Item2[0], r.Item2[0], true); expected.Add(w); n++; }
+                else Console.WriteLine("  width on the view " + w.ToString("0.##") + ", model " + m.ToString("0.##") + ": not dimensioned");
+                if (v == side && !double.IsNaN(wall))
+                {
+                    // a line one wall in from either outside line, along most of it
+                    foreach (var outer in new[] { l, r })
+                    {
+                        double len = Math.Abs(outer.Item2[1] - outer.Item3[1]);
+                        var inner = vert.FirstOrDefault(q => q.Item1 != outer.Item1 && Math.Abs(Math.Abs(q.Item2[0] - outer.Item2[0]) / vs * 1000 - wall) < 0.01 && Overlap(q, outer, true) > 0.3 * len);
+                        if (inner == null) continue;
+                        Dim2(doc, sm, v, outer.Item1, inner.Item1, (outer.Item2[0] + inner.Item2[0]) / 2, o[1] - 0.010, "wall thickness", outer.Item2[0], inner.Item2[0], true);
+                        expected.Add(wall); n++;
+                        break;
+                    }
+                }
+            }
+            if (v == main && hor.Count >= 2)
+            {
+                var b = hor.First(); var t = hor.Last();
+                double h = (t.Item2[1] - b.Item2[1]) / vs * 1000, m = ext[SheetAxis(mu, v, 1)] * 1000;
+                if (Math.Abs(h - m) < 0.01) { Dim2(doc, sm, v, b.Item1, t.Item1, o[0] - 0.012, (b.Item2[1] + t.Item2[1]) / 2, "overall height", t.Item2[1], b.Item2[1], false); expected.Add(h); n++; }
+                else Console.WriteLine("  height on the view " + h.ToString("0.##") + ", model " + m.ToString("0.##") + ": not dimensioned");
+            }
+            doc.ClearSelection2(true);
+        }
+        return n;
+    }
+
+    // Grant 16 Nov: not all-or-nothing. Deletes the dimensions in these views whose value isn't among the expected ones
+    // (each expected value used once). Returns the values removed and the expected values not on the drawing.
+    static Tuple<List<double>, List<double>> Prune(ModelDoc2 doc, IEnumerable<View> views, List<double> expected)
+    {
+        var left = expected.ToList(); var removed = new List<double>(); var del = new List<Annotation>();
+        foreach (var v in views.Where(x => x != null))
+            foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.GetType() != (int)swAnnotationType_e.swDisplayDimension) continue;
+                double val = ((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000;
+                int i = left.FindIndex(e => Math.Abs(e - val) < 0.011);
+                if (i >= 0) left.RemoveAt(i); else { del.Add(a); removed.Add(val); }
+            }
+        for (int k = 0; k < del.Count; k++)
+        {
+            doc.ClearSelection2(true);
+            if (del[k].Select3(false, null)) doc.Extension.DeleteSelection2(0);
+            Console.WriteLine("  removed a dimension that doesn't match the model: " + removed[k].ToString("0.##"));
+        }
+        doc.ClearSelection2(true);
+        foreach (var m in left) Console.WriteLine("  not on the drawing: " + m.ToString("0.##"));
+        return Tuple.Create(removed, left);
+    }
+
+    // After Prune: every dimension left in the views is one of the expected values.
+    static bool PrunedOk(IEnumerable<View> views, List<double> expected, bool wasOk)
+    {
+        if (wasOk) return true;
+        var left = expected.ToList();
+        foreach (var v in views.Where(x => x != null))
+            foreach (Annotation a in (v.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.GetType() != (int)swAnnotationType_e.swDisplayDimension) continue;
+                double val = ((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000;
+                int i = left.FindIndex(e => Math.Abs(e - val) < 0.011);
+                if (i < 0) return false;
+                left.RemoveAt(i);
+            }
+        return true;
+    }
+
+    // The CHECK notes, bottom left outside the border (as Section.cs places them); made if there were none.
+    static void SetFlags(DrawingDoc drw, ModelDoc2 doc, Sheet sheet, ref Note flagNote, List<string> flags)
+    {
+        if (flags.Count == 0) return;
+        if (flagNote == null)
+        {
+            drw.ActivateSheet(sheet.GetName()); drw.EditSheet();
+            var lm = (LayerMgr)doc.GetLayerManager(); lm.SetCurrentLayer(DraftLayer);
+            flagNote = doc.InsertNote(string.Join("\n", flags)) as Note;
+            lm.SetCurrentLayer("");
+            if (flagNote == null) { problems.Add("flag note not placed"); return; }
+        }
+        else flagNote.SetText(string.Join("\n", flags));
+        ((Annotation)flagNote.GetAnnotation()).SetPosition2(0.0034, 0.0054 + 0.0045 * (flags.Count - 1), 0);
+        foreach (var f in flags) Console.WriteLine("Flag: " + f);
     }
 }

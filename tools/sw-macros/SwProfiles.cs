@@ -2,7 +2,8 @@
 // Opens each file read-only in the running SOLIDWORKS 2026, never saves, closes what it opened. Tab-separated output:
 //   MEMBER  <file>  <feature>  <profile path>  <profile configuration (size)>  <bodies>
 //   CUT     <file>  <part config>  <folder>  <qty>  <Description resolved>  <Description raw>  <member feature(s)>  <measured section>  <length prop>
-//           (for a folder with no member, the measured section is "plate t x w x l (volume)": brief step 10)
+//           (for a folder with no member, the measured section is "plate t x w x l (volume)": brief step 10;
+//            and a last column: the End cap feature(s) the bodies come from: step 12)
 //   MAT     <file>  <part config>  <SOLIDWORKS material>  <database>  <Material property level>  <raw>  <resolved>  <mass>  <volume>   (step 9)
 //   NOMEMBERS <file>
 //   PROFILE <file>  <config>  <Description>  <other properties name=value;...>  <sketch section>   (for .sldlfp profile files)
@@ -101,20 +102,24 @@ static class SwProfiles
                 if (bf == null) continue;
                 var bodies = ((object[])bf.GetBodies() ?? new object[0]).Cast<Body2>().ToList();
                 if (bodies.Count == 0) continue;
-                var members = new SortedSet<string>();
+                var members = new SortedSet<string>(); var caps = new SortedSet<string>();
                 foreach (var b in bodies)
                     foreach (Feature bfeat in (object[])b.GetFeatures() ?? new object[0])
-                        if (bfeat.GetTypeName2() == "WeldMemberFeat") { members.Add(bfeat.Name); break; }
+                    {
+                        string bt = bfeat.GetTypeName2();
+                        if (bt == "WeldMemberFeat") { members.Add(bfeat.Name); break; }
+                        if (bt == "EndCap") { caps.Add(bfeat.Name); break; }   // step 12: end caps, by feature
+                    }
                 var cpm = f.CustomPropertyManager;
                 string raw, res; bool wasRes, link;
                 cpm.Get6("Description", false, out raw, out res, out wasRes, out link);
                 string lraw, lres;
                 cpm.Get6("LENGTH", false, out lraw, out lres, out wasRes, out link);
                 string key = string.Join(",", members), sect;
-                if (members.Count == 0) sect = "plate " + Plate(bodies[0]);   // step 10: James's "PLATE, t x w x l"
+                if (members.Count == 0) sect = "plate " + Plate(bodies[0]);   // step 10: James's "PLATE, t x w x l"; step 12 "END CAP a x b x t"
                 else if (!measured.TryGetValue(key, out sect)) { sect = Section(bodies[0]); measured[key] = sect; }   // once per member per part
                 Console.WriteLine("CUT\t" + file + "\t" + Clean(cfg) + "\t" + Clean(f.Name) + "\t" + bodies.Count + "\t" + Clean(res) + "\t" + Clean(raw)
-                    + "\t" + string.Join(",", members) + "\t" + sect + "\t" + Clean(lres));
+                    + "\t" + string.Join(",", members) + "\t" + sect + "\t" + Clean(lres) + "\t" + string.Join(",", caps));
             }
         }
         if (doc.ConfigurationManager.ActiveConfiguration.Name != active) doc.ShowConfiguration2(active);

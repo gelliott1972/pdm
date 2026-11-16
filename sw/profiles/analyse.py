@@ -120,15 +120,32 @@ w('### Cut-list folders with a blank Description (step 10)')
 w('')
 w('| Part | Configurations | Folder | Bodies | Measured | Proposed |')
 w('| --- | --- | --- | --- | --- | --- |')
+def capfeat(r): return r[10] if len(r) > 10 else ''
 blank = collections.OrderedDict()
 for r in cuts:
-    if r[5].strip(): continue
+    if r[5].strip() or capfeat(r): continue
     key = (r[1], r[3], r[8])
     blank.setdefault(key, [set(), r[4]])[0].add(r[2])
 for (f, folder, m), (cfgs, n) in blank.items():
     pm = re.match(r'plate ([\d.]+) x ([\d.]+) x ([\d.]+)', m or '')
     prop = 'PLATE, %s x %s x %s' % pm.groups() if pm else ''
     w('| %s | %d | %s | %s | %s | %s |' % (rel(f), len(cfgs), folder, n, m, prop))
+w('')
+
+w('### End caps (step 12): cut-list items whose bodies come from an End cap feature')
+w('')
+w('| Part | End cap feature(s) | Configurations | Bodies | Description now | Measured | Proposed | Change? |')
+w('| --- | --- | --- | --- | --- | --- | --- | --- |')
+caps = collections.OrderedDict()
+for r in cuts:
+    if not capfeat(r): continue
+    pm = re.match(r'plate ([\d.]+) x ([\d.]+) x ([\d.]+)', r[8] or '')
+    prop = 'END CAP %sx%sx%s' % (pm.group(3), pm.group(2), pm.group(1)) if pm else '?'
+    key = (r[1], capfeat(r), r[5], prop)
+    caps.setdefault(key, [set(), set(), r[8]])
+    caps[key][0].add(r[2]); caps[key][1].add(r[4])
+for (f, cf, now, prop), (cfgs, ns, m) in caps.items():
+    w('| %s | %s | %d | %s | %s | %s | %s | %s |' % (rel(f), cf, len(cfgs), '/'.join(sorted(ns)), now or '(blank)', m, prop, 'no' if now == prop else 'yes'))
 w('')
 
 w('### Material (step 9): parts with a configuration missing the SOLIDWORKS material or the Material property')

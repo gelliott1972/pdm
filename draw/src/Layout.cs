@@ -203,7 +203,7 @@ static partial class Draw
             }
             // too wide for its corner with the note beside it (a long configuration name, 08X04-BKP-02 16 Nov): the note
             // block goes under the isometric, lined up with its left edge
-            if (W(ie) > rightLimit - BorderX0 - 0.006)
+            if (WeldedLayout && W(ie) > rightLimit - BorderX0 - 0.006)   // welded brackets only: plates keep the note beside (08X04-PLP-32 regression, 16 Nov)
             {
                 foreach (Annotation a in (iso.GetAnnotations() as object[]) ?? new object[0])
                     if (a.GetType() == (int)swAnnotationType_e.swNote && !((Note)a.GetSpecificAnnotation()).IsBomBalloon()) a.SetPosition2(io0[0], io0[1] - 0.004, 0);

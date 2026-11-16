@@ -16,6 +16,7 @@ using SolidWorks.Interop.swconst;
 static partial class Draw
 {
     static double[] LayoutBlocked;
+    static bool WeldedLayout;   // make-plate on a welded bracket
     static int isoDenFinal;
     static List<Note> balloonNotes = new List<Note>();
     static readonly int[] AsmScales = { 5, 10, 15, 20, 25, 30, 40, 50 };
@@ -113,6 +114,14 @@ static partial class Draw
                 var p = (double[])a.GetPosition();
                 var lp = a.GetLeaderCount() > 0 ? a.GetLeaderPointsAtIndex(0) as double[] : null;
                 Console.WriteLine("    balloon " + ((Note)a.GetSpecificAnnotation()).GetText() + " at " + Mm(p[0]) + "," + Mm(p[1]) + (lp != null && lp.Length >= 6 ? " leader " + string.Join(" ", Enumerable.Range(0, lp.Length / 3).Select(i => Mm(lp[3 * i]) + "," + Mm(lp[3 * i + 1]))) : ""));
+            }
+            // other notes (the note block on the isometric): their box from SOLIDWORKS's own text extent
+            foreach (var a in ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Where(a => a.GetType() == (int)swAnnotationType_e.swNote && !((Note)a.GetSpecificAnnotation()).IsBomBalloon()))
+            {
+                var e5 = ((Note)a.GetSpecificAnnotation()).GetExtent() as double[];
+                string first = (((Note)a.GetSpecificAnnotation()).GetText() ?? "").Split('\n')[0];
+                if (first.Length > 30) first = first.Substring(0, 30);
+                if (e5 != null) Console.WriteLine("    note '" + first + "' box " + Mm(Math.Min(e5[0], e5[3])) + "," + Mm(Math.Min(e5[1], e5[4])) + " - " + Mm(Math.Max(e5[0], e5[3])) + "," + Mm(Math.Max(e5[1], e5[4])));
             }
         }
         return 0;

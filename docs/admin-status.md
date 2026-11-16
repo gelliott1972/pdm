@@ -73,7 +73,7 @@ In order. Only one thing can use SOLIDWORKS at a time (the SwCmd lock), so the p
 | # | Item | Who |
 | --- | --- | --- |
 | 10 | 08X04-PLP-03: the Default configuration has no PartNo or Description, so the BOM row is blank on 08B04-SFA-5B and 08C04-SFA-5B | SW |
-| 11 | Parts with no Material (listed in `scratch\draw-test\load\night-1\batch.md`) | SW |
+| 11 | **Moved into tonight's run (Grant 16 Nov, via Draw): every part gets a Material, and the welded-bracket plate bodies get a cut-list Description "PLATE, t x w x l"** (sw-profiles steps 9-10). Parts with no Material (listed in `scratch\draw-test\load\night-1\batch.md`) | SW |
 | 12 | GNRIC-LMW "As Welded" children with wrong lengths; 08X04-PLP-06 is only 23 cm3 | SW |
 
 ### 5. Dev

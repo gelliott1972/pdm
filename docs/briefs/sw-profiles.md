@@ -20,6 +20,13 @@ James, 16 Nov, on 08A04-HBW-05: the member is RHS 80x40x8, but the cut list says
 | 7 | **Checks, before and after, on every changed part.** Same mass, volume and bounding box. No rebuild errors. Every drawing that shows the part has the same number of dimensions and 0 dangling. Every assembly using it rebuilds with no new errors. | **Any difference: don't check that file in. Undo its check-out and list it.** |
 | 8 | **PDFs.** Regenerate the PDFs of the changed drawings that are not released. List the released drawings (0A and later) whose BOM text changes. | Grant decides about re-issuing. Change no revisions. |
 
+## Added 16 Nov (Grant's decision, via Draw): material and plate descriptions, in the same check-outs
+
+| # | What | Rules |
+| --- | --- | --- |
+| 9 | **Every part gets a Material** (Grant: "we need all parts to have material"). The survey lists every part with no Material, starting with 08X04-BKP-*, 08B04-BKP-*, 08Z04-SFP-01, 08A04-HBW-03, 08X06-SFW-* and the night-1 CHECK notes. Use the material the part's family already uses (e.g. "Plain Carbon Steel" on its siblings). Where no sibling has one, list the part for Grant and don't guess. | Same before/after checks as step 7. Mass will change when a Material is added: check it matches density x volume, and the volume is unchanged. |
+| 10 | **Plate bodies in welded brackets get a cut-list Description** (Grant: "it should have a description"). The plate body in 08X04-BKP.SLDPRT (all configurations) has a blank cut-list Description, so James's cut-list table shows an empty row. Probably the same in 08X04-BKP-06, -07 and 08B04-BKP-01, -03 (the 08X04-PLP-02 plate bodies). Use James's style: "PLATE, t x w x l" from the measured body, e.g. "PLATE, 10 x 140 x 150". Use `SwCmd set-cutlist-prop`. | List each text written |
+
 ## Not in this brief
 
 - Changing any member's size or shape. Members that are really the wrong size go on a list for Grant.

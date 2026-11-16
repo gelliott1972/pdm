@@ -29,6 +29,8 @@ James, 16 Nov, on 08A04-HBW-05: the member is RHS 80x40x8, but the cut list says
 
 | 11 | **Make 08B04-BKP-01.SLDPRT a weldment** (Grant 16 Nov, via Draw). Now it's a plate plus two 100x100x8 L=250 angles brought in as bodies (Body-Move/Copy3, Mirror1), with no Weldment feature, so there's no cut list. Add the Weldment feature so a cut list forms: 1 plate ("PLATE, 12 x 300 x 400", measured) and 2 angles (Description and length; they're plain bodies, not structural members, so set the length with `set-cutlist-prop`), plus a Material on every body. Shape unchanged: same volume and bounding box. Draw draws it after this. | Rehearse on a copy first. Any assembly using it must rebuild with no new errors. |
 
+| 12 | **End-cap cut-list Descriptions** (Grant 16 Nov ~22:10, via Draw). End-cap cut-list items have no Description, so the rows in weldment drawings' cut-list tables come up empty. In every part, in every configuration, set Description on each cut-list item whose bodies come from an End cap feature to "END CAP <a>x<b>x<t>": larger side x smaller side x thickness in mm, measured from the cap body in that configuration (e.g. "END CAP 72x32x5"; GNRIC-LMW caps are 36x36x5). Body names differ between configurations, so go by the End cap feature, not the body name. Draw's list `scratch\draw-test\endcaps\endcaps.tsv` (from 15-16 Nov copies, active configuration only) is a cross-check: list any differences. | `set-cutlist-prop ... --body ... --all-configs` only where the size is the same in every configuration; otherwise per configuration |
+
 ## Not in this brief
 
 - Changing any member's size or shape. Members that are really the wrong size go on a list for Grant.

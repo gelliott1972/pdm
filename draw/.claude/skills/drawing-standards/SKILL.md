@@ -135,3 +135,29 @@ How it works (Grant D12, 15 Nov): one drawing at a time. Draw generates it and o
 | CHECK notes: "WELDS NOT ADDED"; cut-list label vs the tube measured in the model; a plate row without a description (the cell can't be typed into; SW adds the Description) | Grant 16 Nov |
 | More than two CHECK lines: two to a line along the bottom, outside the border | 08X04-BKP-02, 16 Nov |
 | Every part has a Material (SW fixes models overnight); until then the CHECK note stays | Grant 16 Nov |
+
+## Any part the full routes can't finish: Grant's recipe (16 Nov, from the drawings he dimensioned himself, DW7-DW10)
+
+Grant: "the dimensioning is quite straightforward and I'm not sure why you didn't try". His own drawings of 08X04-BRP-02, 08X04-SFP-04, 08B04-SFP-05 and 08C04-SFP-04 (pictures in `scratch\draw-test\look\*-grant.png`) all follow one recipe that doesn't depend on the part type. `make-basic` now does it (`src\General.cs`).
+
+| Rule | Source |
+| --- | --- |
+| Face view: ordinates from one end to every flat edge and every round-hole centre, across and up. A long view gets a row at each end, each with its own zero | Grant's 08C04-SFP-04 (bottom row 0 ... 356, right row 0 / 5 / 25 / 106) |
+| One hole-size dimension per hole size ("4 x Ø11"), text outside the part on the side the holes are nearer, beyond any ordinate row there | Grant's 08C04-SFP-04, 08X04-SFP-04 |
+| End or side view: the overall sizes; the tube wall when the cut list names an RHS/SHS a x b x t and the view shows it | Grant's 08X04-BRP-02 (40, 40, 4) |
+| A row starts from a flat edge and holds more than hole centres (no hole-to-hole rows) | 08X04-BKP-07 draft, 16 Nov |
+| Positions come from the model (flat faces square to the sheet, full cylinders along the view); a position is dimensioned only where the view draws an edge or circle there; every value is checked against the model and a wrong one is removed with a CHECK note, not the whole drawing refused | Grant 16 Nov ("you often get really close but something gets missed at the last hurdle") |
+| The face view must show the part's two largest sizes; if the named view doesn't, try the others | 08A04-HBW-03 ("*Front" showed 184 x 40) |
+| Slots, welds and angled features are left for James, said in the first CHECK note | 16 Nov |
+| A feature the face view can't show (hole in the far wall) gets a CHECK note; the rest of the drawing is still made | 08X04-BRP-02 |
+
+## Look at every draft as a picture (16 Nov)
+
+Number checks miss layout faults. Before a draft goes to the Desk: render the PDF to PNG (PyMuPDF, `scripts\try_basic.sh` does it) and read the picture. Compare with Grant's approved drawing of the same or a similar part. Found this way on 16 Nov: CHECK lines running into the revision table, a balloon on the revision table, hole text over the part, a leader across the whole part, a wrong face view, a row placed off the view.
+
+| Rule | Source |
+| --- | --- |
+| CHECK notes: two lines at most, outside the border bottom left (several notes share a line) | 08X04-BRP-02 draft, 16 Nov |
+| Balloons close to the isometric (first clear spot stepping out from the part), placed again after a change of scale, never on the revision table | 16 Nov drafts |
+| Room on the sheet is used before anything is shrunk: the views move up before the isometric gets smaller | Grant 16 Nov ("a layout tweak is all that is needed as there is plenty of room on the page") |
+| A cut-list row with no description gets "CHECK: CUT LIST ITEM n HAS NO DESCRIPTION IN THE MODEL"; the fix is in the model (end caps: "END CAP 72x32x5", done by SW 17 Nov) | Grant 16 Nov |

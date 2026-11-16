@@ -47,7 +47,7 @@ static partial class Draw
         var pick = choices.OrderByDescending(c => c.Item2 * c.Item3).First();
         double fw = pick.Item2, fh = pick.Item3, sw2 = pick.Item4;   // face width, height; side view width (depth)
         // one scale for both views: they fit the space right of the isometric corner and above the title block
-        int den = PlateScales.FirstOrDefault(d => (fw + sw2) / d + 0.090 <= 0.300 && fh / d + 0.040 <= 0.170);
+        int den = PlateScales.FirstOrDefault(d => (fw + sw2) / d + 0.090 <= 0.300 && fh / d + 0.040 <= 0.195);   // 17 Nov: was 0.170; the sheet has 219 mm above the title block (08X06-SFP-03, 769 long, came out at 1:10 with the page half empty)
         if (den == 0) den = PlateScales.Last();
         Console.WriteLine("Size " + Mm(ex) + " x " + Mm(ey) + " x " + Mm(ez) + "; face view " + pick.Item1 + "; scale 1:" + den);
 
@@ -127,8 +127,8 @@ static partial class Draw
             var cutLabels = bodies.Select(b => CutListLabel(part, b)).Where(x => x != null);
             string secText = props["Description"] + " " + string.Join(" ", cutLabels);
             int general = GeneralDims(drwDoc, selMgr, mu, main, bodies, expectBasic);
-            sized = general + BasicSizes(drwDoc, selMgr, mu, general > 0 ? null : main, side, Extents(bodies), secText, expectBasic);
-            detailed = general > 0;
+            sized = general + BasicSizes(drwDoc, selMgr, mu, GeneralRows > 0 ? null : main, side, Extents(bodies), secText, expectBasic);   // no rows (08X04-BKP-07, a skewed view): the overall sizes instead
+            detailed = GeneralRows > 0;   // 17 Nov: a hole size alone is not "edges and round holes dimensioned"
         }
         var flags = new List<string> { detailed ? "CHECK: BASIC DRAFT: EDGES AND ROUND HOLES DIMENSIONED; SLOTS, WELDS AND THE REST FOR JAMES" : sized > 0 ? "CHECK: BASIC DRAFT: OVERALL SIZES ONLY, DETAIL DIMENSIONS FOR JAMES" : "CHECK: BASIC DRAFT: DIMENSIONS FOR JAMES" };
         // a weldment: James's cut-list table and balloons; an assembly: his BOM is not added here (CHECK)

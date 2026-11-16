@@ -63,6 +63,7 @@ static partial class Draw
 
     // Ordinates and hole sizes on the face view. Returns the number of dimension rows and callouts made; the values
     // expected from the model are added to `expected`.
+    static int GeneralRows;   // rows of ordinates the last GeneralDims call placed (0: hole sizes at most)
     static int GeneralDims(ModelDoc2 doc, SelectionMgr sm, MathUtility mu, View v, List<Body2> bodies, List<double> expected)
     {
         int hAx = SheetAxis(mu, v, 0), vAx = SheetAxis(mu, v, 1);
@@ -127,7 +128,7 @@ static partial class Draw
         var db = DrawnBox(v);   // what the view draws (08X06-SFP-03: with no edges one way the rows were placed from 0, off the view)
         double x0 = db[0], x1 = db[2], y0 = db[1], y1 = db[3];
         double wv = x1 - x0, hv = y1 - y0;
-        int made = 0;
+        int made = 0; GeneralRows = 0;
         bool rowBelow = false, rowAbove = false;   // where the rows across ended up (the hole-size text goes on the other side)
         // one row: positions `ps` (along x when posX), on the high side (top / right) or the low side of the view
         Action<List<OrdPos>, bool, bool, string> row = (ps, posX, high, what) =>
@@ -143,7 +144,7 @@ static partial class Draw
             if (posX) Ordinate2(doc, sm, v, items, (int)swAddOrdinateDims_e.swHorizontalOrdinate, zero, rowAt, what);
             else Ordinate2(doc, sm, v, items, (int)swAddOrdinateDims_e.swVerticalOrdinate, rowAt, zero, what);
             Console.WriteLine("General ordinates " + what + ": " + string.Join(", ", vals.Select(x => Math.Round(x, 2))));
-            made++;
+            made++; GeneralRows++;
         };
         // the long way of the view: one row, on the side most of its features are nearer. The short way: when the view is
         // long (1.5 to 1 or more), a row at each end with its own zero, so no extension line runs the length of the part

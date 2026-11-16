@@ -909,7 +909,7 @@ static partial class Draw
             Console.WriteLine("  plate row " + blank[0] + ": " + (now == plateText ? plateText + " (typed from the model)" : "NOT written (editable " + editable + ", reads '" + now + "')"));
             if (now != plateText && flagsOut != null) flagsOut.Add("CHECK: CUT LIST: PLATE ROW HAS NO DESCRIPTION (" + plateText.ToUpper() + ")");
         }
-        else if (plateText != null && flagsOut != null) flagsOut.Add("CHECK: CUT LIST: " + blank.Count + " ROW(S) WITHOUT A DESCRIPTION");
+        else if (plateText != null && blank.Count > 0 && flagsOut != null) flagsOut.Add("CHECK: CUT LIST: " + blank.Count + " ROW(S) WITHOUT A DESCRIPTION");   // not when the model now describes every row (17 Nov: "0 ROW(S)")
         // Grant 16 Nov: end caps come up empty (the model's cut-list item has no Description; fixed in the model, not here)
         else if (blank.Count > 0 && flagsOut != null) flagsOut.Add("CHECK: CUT LIST ITEM " + string.Join(", ", blank.Select(r => Flat(ta.Text[r, 0]).Trim())) + " HAS NO DESCRIPTION IN THE MODEL");
         if (tubes != null && flagsOut != null)
@@ -994,6 +994,27 @@ static partial class Draw
             {
                 if (Math.Abs(Math.Abs(x - cx) - hx) < 1e-6) y = q[1] + m * (y >= q[1] ? 1 : -1); else x = q[0] + m * (x >= q[0] ? 1 : -1);
             }
+            // 17 Nov (08B04-BKP-03 at 1:10): stepping clear of another balloon put this one on the part's corner, its
+            // number hidden by the lines. If the spot isn't clear of the part and the other balloons, take the nearest
+            // spot round it that is (not under the part, inside the border).
+            {
+                Func<double, double, bool> free = (px, py) =>
+                    placed.All(q => Math.Abs(q[0] - px) >= m - 1e-9 || Math.Abs(q[1] - py) >= m - 1e-9)
+                    && samples.All(q => (q[0] - px) * (q[0] - px) + (q[1] - py) * (q[1] - py) > 0.008 * 0.008);
+                if (!free(x, y))
+                {
+                    double best = double.MaxValue, fx = x, fy = y;
+                    for (int ring = 1; ring <= 6 && best == double.MaxValue; ring++)
+                        for (int k = 0; k < 24; k++)
+                        {
+                            double ang = k * Math.PI / 12, px = x + Math.Cos(ang) * 0.006 * ring, py = y + Math.Sin(ang) * 0.006 * ring;
+                            if (py < o[1] - 0.002 || px < BorderX0 + 0.008 || px > BorderX1 - 0.008 || py > BorderY1 - 0.008 || !free(px, py)) continue;
+                            double d = (px - at[0]) * (px - at[0]) + (py - at[1]) * (py - at[1]);
+                            if (d < best) { best = d; fx = px; fy = py; }
+                        }
+                    if (best < double.MaxValue) { Console.WriteLine("  balloon moved " + Mm(Math.Sqrt((fx - x) * (fx - x) + (fy - y) * (fy - y))) + " mm clear of the part and the other balloons"); x = fx; y = fy; }
+                }
+            }
             an.SetPosition2(x, y, 0);
             placed.Add(new[] { x, y });
         }
@@ -1060,7 +1081,11 @@ static partial class Draw
                     var nb = boxOf(a);
                     double h = nb == null ? 0.025 : nb[3] - nb[1], w = nb == null ? 0.09 : nb[2] - nb[0];
                     double top = (dw[1] + dw[3]) / 2 + h / 2;                     // level with the isometric's middle
-                    if (rightOf + gap + w > TitleLeft && top - h < TitleTop + 0.012) top = TitleTop + 0.012 + h;   // above the title block (Grant, 08X04-PLP-32)
+                    // above the title block (Grant, 08X04-PLP-32). 1 mm of tolerance: 08X04-PLP-06's block ends within 0.1 mm of
+                    // TitleLeft and jumped 17 mm between two runs (17 Nov)
+                    bool overTitle = rightOf + gap + w > TitleLeft + 0.001 && top - h < TitleTop + 0.012;
+                    Console.WriteLine("  note block: right edge " + Mm(rightOf + gap + w) + " (title block from " + Mm(TitleLeft) + ")" + (overTitle ? ": put above the title block" : ": level with the isometric"));
+                    if (overTitle) top = TitleTop + 0.012 + h;
                     a.SetPosition2(rightOf + gap, top, 0);                         // position = the note's top-left
                 }
                 drwDoc.ForceRebuild3(false);
@@ -1097,11 +1122,22 @@ static partial class Draw
                     double viewsLeft = Math.Min(me[0], se[0]), viewsRight = Math.Max(me[2], se[2]);
                     // only what actually hits the views needs to clear them (the note block sits under them)
                     double dx = partsNow().Where(pb => hits(pb, me) || hits(pb, se)).Select(pb => pb[2] + 0.012 - viewsLeft).DefaultIfEmpty(0).Max();
-                    if (dx > 0 && viewsRight + dx <= BorderX1 - 0.003)
+                    // 17 Nov (08B04-BKP-03, a few mm short of room; Grant's approved drawing keeps the isometric at 1:5): when the
+                    // side view can't go the whole way, close the gap between the two views, if 20 mm stays between them
+                    double sideDx = dx;
+                    if (dx > 0 && viewsRight + dx > BorderX1 - 0.003 && side != null)
+                    {
+                        double over = viewsRight + dx - (BorderX1 - 0.003);
+                        var mt = ExtentTrue(main); var st2 = ExtentTrue(side);
+                        double between = st2[0] - mt[2];
+                        Console.WriteLine("  views need to go right " + Mm(dx) + " mm, " + Mm(over) + " mm more than the sheet has; " + Mm(between) + " mm between the two views");
+                        if (st2[0] > mt[0] && between - over >= 0.020) sideDx = dx - over;
+                    }
+                    if (dx > 0 && viewsRight + sideDx <= BorderX1 - 0.003 + 1e-9)
                     {
                         var mo1 = (double[])main.GetOutline(); var so1 = side != null ? (double[])side.GetOutline() : null;
                         MoveOutline(drwDoc, main, mo1[0] + dx, double.NaN);
-                        if (side != null) MoveOutline(drwDoc, side, so1[0] + dx, double.NaN);
+                        if (side != null) MoveOutline(drwDoc, side, so1[0] + sideDx, double.NaN);
                         drwDoc.ForceRebuild3(false);
                         Console.WriteLine("Views moved right " + Mm(dx) + " mm to make room for the isometric");
                         clash = clashOf(partsNow());
@@ -1109,9 +1145,17 @@ static partial class Draw
                 }
                 // still hits a view: move the views UP into the free paper above them before any shrinking (Grant 16 Nov:
                 // "a layout tweak is all that is needed as there is plenty of room on the page"; his 08C04-SFP-04)
-                if (IsoClearOfDims && (clash == main.GetName2() || (side != null && clash == side.GetName2())))
+                // 17 Nov (08B04-BKP-03: the isometric went to 1:10 over a clash of about 1 mm; Grant's approved drawing has
+                // it at 1:5): plates and brackets get the same step as a nudge, 15 mm at most and only when it clears fully
+                // (their accepted layouts shrink the isometric when more than that is needed)
+                if (clash == main.GetName2() || (side != null && clash == side.GetName2()))
                 {
                     var mb = vbox(main); var sb = side != null ? vbox(side) : mb;
+                    if (!IsoClearOfDims)
+                    {   // the room above is measured from the views' dimensions too (ordinates across the top)
+                        var me2 = ExtentTrue(main); mb = new[] { mb[0], mb[1], mb[2], Math.Max(mb[3], me2[3]) };
+                        if (side != null) { var se2 = ExtentTrue(side); sb = new[] { sb[0], sb[1], sb[2], Math.Max(sb[3], se2[3]) }; }
+                    }
                     var ipts = EdgeSamples(iso, 0.004); var abox = partsNow().Skip(1).ToList();
                     Func<double[], double> needFor = vb =>
                     {
@@ -1124,7 +1168,8 @@ static partial class Draw
                     double limit = BorderY1 - 0.004;
                     if (LayoutBlocked != null && Math.Min(mb[0], sb[0]) < LayoutBlocked[2] + 0.004) limit = LayoutBlocked[1] - 0.006;   // under the cut-list table
                     double room = limit - Math.Max(mb[3], sb[3]);
-                    if (need > 0 && room > 0.002)
+                    Console.WriteLine("  isometric hits a view: the views need to go up " + Mm(need) + " mm; room above them " + Mm(room) + " mm");
+                    if (need > 0 && (IsoClearOfDims ? room > 0.002 : need <= 0.015 && room >= need))
                     {
                         double dy = Math.Min(need, room);
                         var mo2 = (double[])main.GetOutline();

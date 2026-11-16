@@ -94,3 +94,10 @@ Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08
 - **Desk:** DW11-DW15, DW17, DW19-DW23 reposted as version 2 (11 redone drafts, old files in `overnight-old-drafts-16nov`); DW26 new (08B04-BKP-01, now a weldment, bracket draft); DW7-DW10 set done. DW16, DW18, DW24, DW25 unchanged and still open.
 - **Known weak spots, not fixed:** sloping members (08B04-SFP-03, 08X06-SFP-03) get end-view sizes only; 08X04-BKP-07's model is skewed to the standard views (needs a view square to the plate); the two small assemblies (08A04-HBW-06, 08B04-SFP-01) get no BOM or dimensions (make-assembly crashes in MemberHoles / dimensions a slot end); 08C04-HBW-01 is small at 1:10; hole-size leader crosses the top ordinate row on 08X06-SFW-02/-03; make-section crashes ("Sequence contains no elements") on a member that isn't along a model axis, and make-plate saves a nearly empty drawing for such a part if it is tried (try_routes.sh did; the production flow doesn't).
 - SOLIDWORKS lock released ~05:00, 0 documents open.
+
+## 17 Nov morning: DW8 filed under the new part number
+
+- **Grant (in Admin, 17 Nov): yes**, file his approved DW8 drawing as `08X04-SFP-03.SLDDRW` in `_Shared`. Done: his saved drawing copied to `scratch\draw-test\loadlock-B2\APEX\SC08\LS-08X-04\_Shared\`, repointed to `P:\APEX\SC08\LS-08X-04\_Shared 8X04-SFP-03.SLDPRT`, nothing else changed. Check: 20 dimensions, 0 dangling; PDF text against his filed PDF differs only in the part number and the finish (HDG & PAINTED, from the renamed part); no word moved. Cut list still RHS80x40x4 with a blank end-cap row until the part is corrected with the 27 (expected).
+- The old `08C04-SFP-04.SLDDRW` and PDF moved out of `loadlock-B` to `scratch\draw-test\load-supersededlock-B\ShaftC` so they can't be loaded by mistake.
+- **Grant decided (A):** the "CHECK: MODEL HAS NO MATERIAL PROPERTY" notes stay on the four loaded block-B drawings; James deletes them as he works. Nothing for Draw to do.
+- DW8 closed on the Desk with a note about the rename. Lock released, 0 documents open.

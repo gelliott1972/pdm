@@ -53,6 +53,14 @@ In order. Only one thing can use SOLIDWORKS at a time (the SwCmd lock), so the p
 | --- | --- | --- |
 | 1 | **Profiles into the vault, then repoint and relabel** (`docs\briefs\sw-profiles.md`). Starts once James has checked in, on Grant's go. Fixes James's 16 Nov note: on 08A04-HBW-05, 08B04-BRW-02, 08B04-SFP-04 and 08C04-SFP-06 the member is RHS 80x40x8 but the cut list says 80x40x4, from the description in the `M:\DLAPEX_Members` profile. Also fixes the 51 SHS members labelled RHS (`draw\cutlist-survey.md`). Grant 16 Nov: no profiles outside the vault. SW survey (read-only) from 16 Nov daytime. | SW, App loads; Grant checks the description list and the rehearsal |
 
+**Item 1 result (17 Nov ~03:40, commit edd1044):**
+- 63 parts were repointed to `P:\_Shared\_Profiles`, relabelled and checked in, including James's four RHS 80x40x8 parts and step 11 (08B04-BKP-01 is now a weldment; its configurations are Default<As Machined> and Default<As Welded>).
+- 27 parts were restored unchanged, because 59 of their drawings dimension the profile sketch (Thickness, V_leg, H_leg) and those dimensions would dangle (list in `sw\profiles\survey.md` section 3).
+- Refused: 08B04-KBP-01 (its cut list regroups) and 08C04-SFP-04 (its shape changes).
+- No check-outs were left.
+- File Locations steps: `sw\profiles\file-locations.md`.
+- BOM changes: `scratch\profiles\bom-changes.tsv`.
+
 ### 2. James (this week)
 | # | Item | Who |
 | --- | --- | --- |
@@ -84,7 +92,9 @@ In order. Only one thing can use SOLIDWORKS at a time (the SwCmd lock), so the p
 ### Decisions for Grant
 | # | Question |
 | --- | --- |
-| Da | Released (0A) drawings whose BOM text changes with item 1: re-issue or not? |
+| Da | Released (0A) drawings whose BOM text changed with item 1: re-issue or not? 13 drawings in LS-08X-06_0A: 08A06/08B06/08C06-HBW-01/-02/-03 and -SFW-01, plus 08X06-SFW-04 |
+| Dd | The 27 parts left on the Dropbox profiles: leave them, or repoint and re-attach 3 dimensions on each of their 59 drawings (most released 0A)? |
+| De | SW's small items: the 08X04-BKP plate is 10x140x150 or 10x140x180 depending on the configuration, so it has no Description yet; the 08B04-BKP-01 angles' MATERIAL text; 4 parts with no sibling Material (200x250-MT-SC0806-SLAVE, 250x250_TRIANGLE_PANEL, DL_APEX, FAST-HST3-R-M12x125-A4) |
 | Db | Structure assemblies: a bigger sheet (A2/A1) or two A3 sheets? |
 | Dc | Draw's order: welded brackets first, or the other failures? |
 | D6 | Read-only survey of the vault for dangling dimensions? (unanswered) |

@@ -1,0 +1,17 @@
+BEFORE	RSA40x40x4	RSA40x40x4	Sketch1: 18 points, box 0..40 x 0..40; H_leg=40 Radius_1=4 V_leg=40 radius_2=2.4 thickness=4
+BEFORE	RSA40x40x5	RSA40x40x5	Sketch1: 18 points, box 0..40 x 0..40; H_leg=40 Radius_1=5 V_leg=40 radius_2=2.4 thickness=5
+BEFORE	RSA50x50x5	RSA50x50x5	Sketch1: 18 points, box 0..50 x 0..50; H_leg=50 Radius_1=5 V_leg=50 radius_2=2.4 thickness=5
+BEFORE	RSA50x50x6	RSA50x50x6	Sketch1: 18 points, box 0..50 x 0..50; H_leg=50 Radius_1=6 V_leg=50 radius_2=2.4 thickness=6
+BEFORE	RSA50x50x8	RSA50x50x8	Sketch1: 18 points, box 0..50 x 0..50; H_leg=50 Radius_1=8 V_leg=50 radius_2=2.4 thickness=8
+BEFORE	RSA100x100x10	RSA40x40x4	Sketch1: 18 points, box 0..100 x 0..100; H_leg=100 Radius_1=4 V_leg=100 radius_2=2.4 thickness=10
+BEFORE	RSA100x100x8	RSA40x40x4	Sketch1: 18 points, box 0..100 x 0..100; H_leg=100 Radius_1=4 V_leg=100 radius_2=2.4 thickness=8
+DESC	RSA100x100x10	RSA40x40x4 -> RSA100x100x10
+DESC	RSA100x100x8	RSA40x40x4 -> RSA100x100x8
+AFTER	RSA40x40x4	RSA40x40x4	Sketch1: 18 points, box 0..40 x 0..40; H_leg=40 Radius_1=4 V_leg=40 radius_2=2.4 thickness=4
+AFTER	RSA40x40x5	RSA40x40x5	Sketch1: 18 points, box 0..40 x 0..40; H_leg=40 Radius_1=5 V_leg=40 radius_2=2.4 thickness=5
+AFTER	RSA50x50x5	RSA50x50x5	Sketch1: 18 points, box 0..50 x 0..50; H_leg=50 Radius_1=5 V_leg=50 radius_2=2.4 thickness=5
+AFTER	RSA50x50x6	RSA50x50x6	Sketch1: 18 points, box 0..50 x 0..50; H_leg=50 Radius_1=6 V_leg=50 radius_2=2.4 thickness=6
+AFTER	RSA50x50x8	RSA50x50x8	Sketch1: 18 points, box 0..50 x 0..50; H_leg=50 Radius_1=8 V_leg=50 radius_2=2.4 thickness=8
+AFTER	RSA100x100x10	RSA100x100x10	Sketch1: 18 points, box 0..100 x 0..100; H_leg=100 Radius_1=4 V_leg=100 radius_2=2.4 thickness=10
+AFTER	RSA100x100x8	RSA100x100x8	Sketch1: 18 points, box 0..100 x 0..100; H_leg=100 Radius_1=4 V_leg=100 radius_2=2.4 thickness=8
+OK (look pass, not saved)

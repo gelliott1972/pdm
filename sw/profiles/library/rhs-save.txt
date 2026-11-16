@@ -1,0 +1,18 @@
+BEFORE	RHS100x50x5	RHS100x50x5	Sketch1: 37 points, box -25..25 x -50..50; D1=10 H_leg=50 Thickness=5 V_leg=100
+BEFORE	RHS150x100x8	RHS150x100x8	Sketch1: 37 points, box -20..20 x -40..40; D1=16 H_leg=40 Thickness=8 V_leg=80
+BEFORE	RHS80x40x6.3	RHS80x40x6.3	Sketch1: 37 points, box -20..20 x -40..40; D1=10 H_leg=40 Thickness=6.3 V_leg=80
+BEFORE	RHS100x200x12.5	RHS100x200x12.5	Sketch1: 37 points, box -50..50 x -100..100; D1=15 H_leg=100 Thickness=12.5 V_leg=200
+BEFORE	RHS100x200x16	RHS100x200x16	Sketch1: 37 points, box -50..50 x -100..100; D1=20 H_leg=100 Thickness=16 V_leg=200
+BEFORE	RHS80x40x5	RHS80x40x5	Sketch1: 37 points, box -20..20 x -40..40; D1=10 H_leg=40 Thickness=5 V_leg=80
+BEFORE	RHS150x75x10	RHS150x75x10	Sketch1: 37 points, box -37.5..37.5 x -75..75; D1=16 H_leg=75 Thickness=10 V_leg=150
+DESC	RHS150x100x8	RHS150x100x8 -> RHS80x40x8
+RENAME	RHS150x100x8 -> RHS80x40x8
+AFTER	RHS100x50x5	RHS100x50x5	Sketch1: 37 points, box -25..25 x -50..50; D1=10 H_leg=50 Thickness=5 V_leg=100
+AFTER	RHS80x40x8 (was RHS150x100x8)	RHS80x40x8	Sketch1: 37 points, box -20..20 x -40..40; D1=16 H_leg=40 Thickness=8 V_leg=80
+AFTER	RHS80x40x6.3	RHS80x40x6.3	Sketch1: 37 points, box -20..20 x -40..40; D1=10 H_leg=40 Thickness=6.3 V_leg=80
+AFTER	RHS100x200x12.5	RHS100x200x12.5	Sketch1: 37 points, box -50..50 x -100..100; D1=15 H_leg=100 Thickness=12.5 V_leg=200
+AFTER	RHS100x200x16	RHS100x200x16	Sketch1: 37 points, box -50..50 x -100..100; D1=20 H_leg=100 Thickness=16 V_leg=200
+AFTER	RHS80x40x5	RHS80x40x5	Sketch1: 37 points, box -20..20 x -40..40; D1=10 H_leg=40 Thickness=5 V_leg=80
+AFTER	RHS150x75x10	RHS150x75x10	Sketch1: 37 points, box -37.5..37.5 x -75..75; D1=16 H_leg=75 Thickness=10 V_leg=150
+SAVED	C:\code\pdm\scratch\profiles\_Profiles\DLAPEX\rhs.sldlfp
+OK (saved)

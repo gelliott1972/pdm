@@ -350,6 +350,129 @@ static partial class Draw
     // hole-dims <drawing> <view>: in the open drawing, the holes seen face-on in <view> placed by ordinates from the view's
     // outer edges (across the top from the left, down the right from the top, as on the plates) and one "n x Ø d THRU"
     // callout per size attached to a hole; a floating "THRU" note with no leader is removed. No save. (08X04-PLP-06)
+    // slot-dims <drw> <view>: on the open drawing (Grant 16 Nov, 08X04-PLP-05: "I do not know how to dimension the
+    // slot"), the slots seen face-on in one view: centre marks, ordinates to the slot centres (across from the plate's
+    // back face = the long vertical edge farthest from the slots, up from the lowest edge), one "n x W X L THRU" callout
+    // per size with its leader to the nearest slot end. Then everything on the drawing is put on the DRAFT layer.
+    // Values checked against the view's geometry; slot-end rule checked; no save.
+    static bool SlotCalloutOnly;
+    static int SlotDimsCmd(string drawing, string viewName)
+    {
+        var doc = sw.ActiveDoc as ModelDoc2;
+        if (doc == null || !string.Equals(doc.GetPathName(), drawing, StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: not the active document: " + drawing); return 2; }
+        var drw = (DrawingDoc)doc;
+        View v = null;
+        for (var x = (View)((View)drw.GetFirstView()).GetNextView(); x != null; x = (View)x.GetNextView()) if (x.GetName2() == viewName) v = x;
+        if (v == null) { Console.Error.WriteLine("no view " + viewName); return 1; }
+        var mu = (MathUtility)sw.GetMathUtility();
+        var hor = new List<Tuple<Edge, double, double>>(); var ver = new List<Tuple<Edge, double, double>>();   // edge, position, length
+        var arcs = new List<Tuple<Edge, double[], double>>();   // half-round slot ends: edge, sheet centre, radius (model m)
+        foreach (Edge e in (v.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+        {
+            var c = (Curve)e.GetCurve(); var cp = e.GetCurveParams3();
+            var a = ToSheet(mu, v, (double[])cp.StartPoint); var b = ToSheet(mu, v, (double[])cp.EndPoint);
+            if (c.IsCircle())
+            {
+                var q = (double[])c.CircleParams;
+                var mp = (double[])cp.StartPoint; var ep = (double[])cp.EndPoint;
+                bool full = Math.Abs(mp[0] - ep[0]) + Math.Abs(mp[1] - ep[1]) + Math.Abs(mp[2] - ep[2]) < 1e-9;
+                double chord = Math.Sqrt(Math.Pow(mp[0] - ep[0], 2) + Math.Pow(mp[1] - ep[1], 2) + Math.Pow(mp[2] - ep[2], 2));
+                if (!full && Math.Abs(chord - 2 * q[6]) < 1e-6) arcs.Add(Tuple.Create(e, ToSheet(mu, v, new[] { q[0], q[1], q[2] }), q[6]));
+            }
+            else if (c.IsLine())
+            {
+                if (Math.Abs(a[1] - b[1]) < 1e-7) hor.Add(Tuple.Create(e, a[1], Math.Abs(a[0] - b[0])));
+                else if (Math.Abs(a[0] - b[0]) < 1e-7) ver.Add(Tuple.Create(e, a[0], Math.Abs(a[1] - b[1])));
+            }
+        }
+        // pair the ends into slots
+        var slots = new List<Tuple<double[], double, double, Edge>>();   // sheet centre, width, length (model m), one end arc
+        var used = new HashSet<int>();
+        for (int i = 0; i < arcs.Count; i++)
+        {
+            if (used.Contains(i)) continue;
+            int best = -1; double bd = double.MaxValue;
+            for (int j = 0; j < arcs.Count; j++)
+            {
+                if (j == i || used.Contains(j) || Math.Abs(arcs[i].Item3 - arcs[j].Item3) > 1e-7) continue;
+                double d = Math.Sqrt(Math.Pow(arcs[i].Item2[0] - arcs[j].Item2[0], 2) + Math.Pow(arcs[i].Item2[1] - arcs[j].Item2[1], 2));
+                if (d > 1e-6 && d < bd) { bd = d; best = j; }
+            }
+            if (best < 0) continue;
+            used.Add(i); used.Add(best);
+            var c0 = arcs[i].Item2; var c1 = arcs[best].Item2;
+            slots.Add(Tuple.Create(new[] { (c0[0] + c1[0]) / 2, (c0[1] + c1[1]) / 2 }, 2 * arcs[i].Item3, bd / v.ScaleDecimal + 2 * arcs[i].Item3, arcs[i].Item1));
+        }
+        Console.WriteLine("Slots in " + viewName + ": " + slots.Count + (slots.Count > 0 ? " (" + string.Join(", ", slots.Select(s => Mm(s.Item2) + " x " + Mm(s.Item3))) + ")" : ""));
+        if (slots.Count == 0 || hor.Count == 0 || ver.Count == 0) { Console.Error.WriteLine("slots or edges not found in " + viewName); return 1; }
+        double sx = slots.Average(s => s.Item1[0]);
+        double longest = ver.Max(l => l.Item3);
+        var back = ver.Where(l => l.Item3 > 0.9 * longest).OrderByDescending(l => Math.Abs(l.Item2 - sx)).First();
+        var bottom = hor.OrderBy(l => l.Item2).First();
+        var lm = (LayerMgr)doc.GetLayerManager(); lm.SetCurrentLayer(DraftLayer);
+        drw.ActivateView(v.GetName2());
+        var selMgr = (SelectionMgr)doc.SelectionManager;
+        double vs = v.ScaleDecimal;
+        var before = new HashSet<string>(((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Select(a => a.GetName()));
+        var expect = new List<double>();
+        if (!SlotCalloutOnly) {   // callout-only: 08X04-PLP-05, SOLIDWORKS wouldn't let the rows pick these slots' centre marks
+        if (!v.AutoInsertCenterMarks2((int)swAutoInsertCenterMarkTypes_e.swAutoInsertCenterMarkType_Slots, 0, true, true, false, CentreMarkSize, CentreMarkGap, true, true, 0))
+            Console.WriteLine("slot centre marks not inserted");
+        doc.ClearSelection2(true);
+        var cols = slots.GroupBy(s => Math.Round(s.Item1[0] * 1e5)).Select(g => g.OrderBy(s => s.Item1[1]).First()).ToList();
+        var rows = slots.GroupBy(s => Math.Round(s.Item1[1] * 1e5)).Select(g => g.OrderBy(s => cols.Contains(s) ? 1 : 0).ThenBy(s => Math.Abs(s.Item1[0] - back.Item2)).First()).ToList();
+        var hItems = new List<object> { back.Item1 }; hItems.AddRange(cols.Select(s => (object)s.Item1));
+        var vItems = new List<object> { bottom.Item1 }; vItems.AddRange(rows.Select(s => (object)s.Item1));
+        expect.Add(0); expect.AddRange(cols.Select(s => Math.Abs(s.Item1[0] - back.Item2) / vs * 1000));
+        expect.Add(0); expect.AddRange(rows.Select(s => (s.Item1[1] - bottom.Item2) / vs * 1000));
+        double topY = hor.Max(l => l.Item2);
+        Ordinate2(doc, selMgr, v, hItems, (int)swAddOrdinateDims_e.swHorizontalOrdinate, back.Item2, topY + 0.012, "slot centres across");
+        foreach (var q in lastMissed) { double mv = Math.Abs(q[0] - back.Item2) / vs * 1000; int at = expect.FindIndex(z => Math.Abs(z - mv) < 0.01); if (at >= 0) expect.RemoveAt(at); Console.WriteLine("CHECK: slot centre across not dimensioned (" + Math.Round(mv, 1) + ")"); }
+        double sideX = sx < back.Item2 ? ver.Min(l => l.Item2) - 0.012 : ver.Max(l => l.Item2) + 0.012;
+        Ordinate2(doc, selMgr, v, vItems, (int)swAddOrdinateDims_e.swVerticalOrdinate, sideX, bottom.Item2, "slot centres up");
+        foreach (var q in lastMissed) { double mv = (q[1] - bottom.Item2) / vs * 1000; int at = expect.FindIndex(z => Math.Abs(z - mv) < 0.01); if (at >= 0) expect.RemoveAt(at); Console.WriteLine("CHECK: slot centre up not dimensioned (" + Math.Round(mv, 1) + ")"); }
+        doc.ClearSelection2(true);
+        }
+        // callout per size, leader to the end arc nearest the text
+        var o = (double[])v.GetOutline(); int k = 0;
+        foreach (var g in slots.GroupBy(s => Math.Round(s.Item2 * 1e5) + "x" + Math.Round(s.Item3 * 1e5)))
+        {
+            double tx = (sx < back.Item2 ? o[0] - 0.045 : o[2] + 0.010), ty = o[3] + 0.010 + 0.008 * k;
+            var s0 = g.OrderBy(s => Math.Pow(s.Item1[0] - tx, 2) + Math.Pow(s.Item1[1] - ty, 2)).First();
+            doc.ClearSelection2(true);
+            var sd = (SelectData)selMgr.CreateSelectData(); sd.View = v; ((Entity)s0.Item4).Select4(false, sd);
+            int n = g.Count();
+            string text = (n > 1 ? n + " x " : "") + (s0.Item2 * 1000).ToString("0.0") + " X " + (s0.Item3 * 1000).ToString("0") + " THRU";
+            var note = doc.InsertNote(text) as Note;
+            if (note == null) Console.WriteLine("slot callout not placed: " + text);
+            else { ((Annotation)note.GetAnnotation()).SetPosition2(tx, ty, 0); Console.WriteLine("Slot callout: " + text); }
+            k++;
+        }
+        doc.ClearSelection2(true);
+        // every annotation on the drawing on the DRAFT layer (Grant: "please also move my dimensions to the draft layer")
+        int moved = 0;
+        for (var x = (View)drw.GetFirstView(); x != null; x = (View)x.GetNextView())
+            foreach (Annotation a in (x.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.GetType() == (int)swAnnotationType_e.swTableAnnotation && x == (View)drw.GetFirstView()) continue;   // sheet-format tables stay
+                if (a.Layer != DraftLayer) { a.Layer = DraftLayer; moved++; }
+            }
+        lm.SetCurrentLayer("");
+        doc.ForceRebuild3(false);
+        Console.WriteLine("Put " + moved + " annotation(s) on the DRAFT layer");
+        var got = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Where(a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension && !before.Contains(a.GetName()))
+            .Select(a => Math.Round(((Dimension)((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0)).GetSystemValue2("") * 1000, 2)).OrderBy(z => z).ToList();
+        string fe = string.Join(",", expect.Select(z => Math.Round(z, 2)).OrderBy(z => z)), fg = string.Join(",", got);
+        Console.WriteLine("Check: model " + fe + " / drawing " + fg + (fe == fg ? " OK" : " MISMATCH"));
+        var bad = SlotDims(drw);
+        Console.WriteLine("Slot check: " + (bad.Count == 0 ? "no dimension to a slot end, side or edge" : string.Join(", ", bad)));
+        int dangling = 0;
+        for (var x = (View)drw.GetFirstView(); x != null; x = (View)x.GetNextView())
+            foreach (Annotation a in (x.GetAnnotations() as object[]) ?? new object[0]) if (a.IsDangling()) dangling++;
+        Console.WriteLine("Dangling: " + dangling + ". Not saved.");
+        return fe == fg && bad.Count == 0 && dangling == 0 ? 0 : 1;
+    }
+
     static int HoleDims(string drawing, string viewName)
     {
         var doc = OpenDoc(drawing, null, false); var drw = (DrawingDoc)doc;

@@ -809,94 +809,7 @@ static partial class Draw
         //     isometric or its note then hits a view or the title block: one scale smaller (08X04-PLP-03 was approved
         //     like that), at most twice, else a CHECK note. Replaces the earlier slide / shrink / note-under steps.
         Layout(drwDoc, main, side, null);
-        if (iso != null)
-        {
-            var muI = (MathUtility)sw.GetMathUtility();
-            Func<double[]> drawn = () =>
-            {
-                double x0 = 1, y0 = 1, x1 = -1, y1 = -1;
-                foreach (Edge e in (iso.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
-                {
-                    var cp = e.GetCurveParams3();
-                    foreach (var pt in new[] { (double[])cp.StartPoint, (double[])cp.EndPoint })
-                    {
-                        var q = ToSheet(muI, iso, pt);
-                        x0 = Math.Min(x0, q[0]); y0 = Math.Min(y0, q[1]); x1 = Math.Max(x1, q[0]); y1 = Math.Max(y1, q[1]);
-                    }
-                }
-                return new[] { x0, y0, x1, y1 };
-            };
-            Func<Annotation, double[]> boxOf = a => { var e5 = ((Note)a.GetSpecificAnnotation()).GetExtent() as double[]; return e5 == null ? null : new[] { Math.Min(e5[0], e5[3]), Math.Min(e5[1], e5[4]), Math.Max(e5[0], e5[3]), Math.Max(e5[1], e5[4]) }; };
-            Func<double[], double[], bool> hits = (p, q) => p != null && q != null && p[0] < q[2] && p[2] > q[0] && p[1] < q[3] && p[3] > q[1];
-            var titleBox = new[] { TitleLeft, 0.0, 1.0, TitleTop };
-            string clash = null;
-            int isoScale = den;
-            for (int step = 0; step < 3; step++)
-            {
-                if (isoScale == den) iso.UseSheetScale = 1; else { iso.UseSheetScale = 0; iso.ScaleRatio = new double[] { 1, isoScale }; }
-                drwDoc.ForceRebuild3(false);
-                var anns = ((iso.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Where(a => a.GetType() == (int)swAnnotationType_e.swNote).ToList();
-                Func<List<double[]>> balloonBoxes = () => anns.Where(a => ((Note)a.GetSpecificAnnotation()).IsBomBalloon()).Select(boxOf).Where(x => x != null).ToList();
-                // the corner: drawn part 28 mm in and 32 mm up; balloons to its left stay 20 mm in (inside the border)
-                var dw = drawn();
-                var bb = balloonBoxes();
-                double leftNow = Math.Min(dw[0] - 0.008, bb.Count > 0 ? bb.Min(x => x[0]) : dw[0]);
-                var ip = (double[])iso.Position;
-                iso.Position = new[] { ip[0] + (0.020 - leftNow), ip[1] + (0.032 - dw[1]) };
-                drwDoc.ForceRebuild3(false);
-                dw = drawn(); bb = balloonBoxes();
-                double rightOf = Math.Max(dw[2], bb.Count > 0 ? bb.Max(x => x[2]) : dw[2]);
-                double gap = bb.Any(x => x[2] > dw[2]) ? 0.012 : 0.018;
-                foreach (var a in anns.Where(a => !((Note)a.GetSpecificAnnotation()).IsBomBalloon()))
-                {
-                    var nb = boxOf(a);
-                    double h = nb == null ? 0.025 : nb[3] - nb[1], w = nb == null ? 0.09 : nb[2] - nb[0];
-                    double top = (dw[1] + dw[3]) / 2 + h / 2;                     // level with the isometric's middle
-                    if (rightOf + gap + w > TitleLeft && top - h < TitleTop + 0.012) top = TitleTop + 0.012 + h;   // above the title block (Grant, 08X04-PLP-32)
-                    a.SetPosition2(rightOf + gap, top, 0);                         // position = the note's top-left
-                }
-                drwDoc.ForceRebuild3(false);
-                // what the isometric puts on the sheet: drawn part, balloons, note block
-                Func<List<double[]>> partsNow = () => { var l = new List<double[]> { drawn() }; l.AddRange(anns.Select(boxOf).Where(x => x != null)); return l; };
-                Func<List<double[]>, string> clashOf = parts =>
-                {
-                    string c = null;
-                    foreach (var pb in parts)
-                    {
-                        if (hits(pb, titleBox)) c = "the title block";
-                        foreach (var vw in new[] { main, side }) if (vw != null && hits(pb, Grow(OutlineOf(vw), 0.005))) c = vw.GetName2();   // the view itself, not the box round its dimensions
-                        if (pb[0] < BorderX0 || pb[1] < BorderY0) c = "the border";
-                    }
-                    return c;
-                };
-                var parts0 = partsNow();
-                clash = clashOf(parts0);
-                var u = parts0.Aggregate((x, y) => new[] { Math.Min(x[0], y[0]), Math.Min(x[1], y[1]), Math.Max(x[2], y[2]), Math.Max(x[3], y[3]) });
-                // hits a view: move the views right to make room, if the sheet has it, before any shrinking
-                if (clash == main.GetName2() || (side != null && clash == side.GetName2()))
-                {
-                    var me = Grow(OutlineOf(main), 0.005); var se = side != null ? Grow(OutlineOf(side), 0.005) : me;
-                    double viewsLeft = Math.Min(me[0], se[0]), viewsRight = Math.Max(me[2], se[2]);
-                    // only what actually hits the views needs to clear them (the note block sits under them)
-                    double dx = partsNow().Where(pb => hits(pb, me) || hits(pb, se)).Select(pb => pb[2] + 0.012 - viewsLeft).DefaultIfEmpty(0).Max();
-                    if (dx > 0 && viewsRight + dx <= BorderX1 - 0.003)
-                    {
-                        var mo1 = (double[])main.GetOutline(); var so1 = side != null ? (double[])side.GetOutline() : null;
-                        MoveOutline(drwDoc, main, mo1[0] + dx, double.NaN);
-                        if (side != null) MoveOutline(drwDoc, side, so1[0] + dx, double.NaN);
-                        drwDoc.ForceRebuild3(false);
-                        Console.WriteLine("Views moved right " + Mm(dx) + " mm to make room for the isometric");
-                        clash = clashOf(partsNow());
-                    }
-                }
-                Console.WriteLine("Isometric at 1:" + isoScale + ", block " + Box(u) + (clash == null ? ", clear" : ", hits " + clash));
-                if (clash == null) break;
-                int next = PlateScales.Where(d => d > isoScale).DefaultIfEmpty(0).First();
-                if (next == 0 || step == 2) break;
-                isoScale = next;
-            }
-            if (clash != null) problems.Add("layout: the isometric or its note block hits " + clash);
-        }
+        PlaceIso(drwDoc, main, side, iso, den);
 
         // 10. Self-check: every ordinate value equals the model's geometry; callouts and thickness likewise.
         var gotOrd = new List<double>(); var gotDia = new List<double>(); var gotThk = new List<double>(); var gotAng = new List<double>();
@@ -1059,6 +972,100 @@ static partial class Draw
             placed.Add(new[] { x, y });
         }
         doc.ForceRebuild3(false);
+    }
+
+    // The isometric step (Grant 16 Nov, checked against his approved plates and brackets): see the comment at 9c in
+    // MakePlate. Shared by make-plate and make-basic.
+    static void PlaceIso(ModelDoc2 drwDoc, View main, View side, View iso, int den)
+    {
+        if (iso != null)
+        {
+            var muI = (MathUtility)sw.GetMathUtility();
+            Func<double[]> drawn = () =>
+            {
+                double x0 = 1, y0 = 1, x1 = -1, y1 = -1;
+                foreach (Edge e in (iso.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+                {
+                    var cp = e.GetCurveParams3();
+                    foreach (var pt in new[] { (double[])cp.StartPoint, (double[])cp.EndPoint })
+                    {
+                        var q = ToSheet(muI, iso, pt);
+                        x0 = Math.Min(x0, q[0]); y0 = Math.Min(y0, q[1]); x1 = Math.Max(x1, q[0]); y1 = Math.Max(y1, q[1]);
+                    }
+                }
+                return new[] { x0, y0, x1, y1 };
+            };
+            Func<Annotation, double[]> boxOf = a => { var e5 = ((Note)a.GetSpecificAnnotation()).GetExtent() as double[]; return e5 == null ? null : new[] { Math.Min(e5[0], e5[3]), Math.Min(e5[1], e5[4]), Math.Max(e5[0], e5[3]), Math.Max(e5[1], e5[4]) }; };
+            Func<double[], double[], bool> hits = (p, q) => p != null && q != null && p[0] < q[2] && p[2] > q[0] && p[1] < q[3] && p[3] > q[1];
+            var titleBox = new[] { TitleLeft, 0.0, 1.0, TitleTop };
+            string clash = null;
+            int isoScale = den;
+            for (int step = 0; step < 3; step++)
+            {
+                if (isoScale == den) iso.UseSheetScale = 1; else { iso.UseSheetScale = 0; iso.ScaleRatio = new double[] { 1, isoScale }; }
+                drwDoc.ForceRebuild3(false);
+                var anns = ((iso.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Where(a => a.GetType() == (int)swAnnotationType_e.swNote).ToList();
+                Func<List<double[]>> balloonBoxes = () => anns.Where(a => ((Note)a.GetSpecificAnnotation()).IsBomBalloon()).Select(boxOf).Where(x => x != null).ToList();
+                // the corner: drawn part 28 mm in and 32 mm up; balloons to its left stay 20 mm in (inside the border)
+                var dw = drawn();
+                var bb = balloonBoxes();
+                double leftNow = Math.Min(dw[0] - 0.008, bb.Count > 0 ? bb.Min(x => x[0]) : dw[0]);
+                var ip = (double[])iso.Position;
+                iso.Position = new[] { ip[0] + (0.020 - leftNow), ip[1] + (0.032 - dw[1]) };
+                drwDoc.ForceRebuild3(false);
+                dw = drawn(); bb = balloonBoxes();
+                double rightOf = Math.Max(dw[2], bb.Count > 0 ? bb.Max(x => x[2]) : dw[2]);
+                double gap = bb.Any(x => x[2] > dw[2]) ? 0.012 : 0.018;
+                foreach (var a in anns.Where(a => !((Note)a.GetSpecificAnnotation()).IsBomBalloon()))
+                {
+                    var nb = boxOf(a);
+                    double h = nb == null ? 0.025 : nb[3] - nb[1], w = nb == null ? 0.09 : nb[2] - nb[0];
+                    double top = (dw[1] + dw[3]) / 2 + h / 2;                     // level with the isometric's middle
+                    if (rightOf + gap + w > TitleLeft && top - h < TitleTop + 0.012) top = TitleTop + 0.012 + h;   // above the title block (Grant, 08X04-PLP-32)
+                    a.SetPosition2(rightOf + gap, top, 0);                         // position = the note's top-left
+                }
+                drwDoc.ForceRebuild3(false);
+                // what the isometric puts on the sheet: drawn part, balloons, note block
+                Func<List<double[]>> partsNow = () => { var l = new List<double[]> { drawn() }; l.AddRange(anns.Select(boxOf).Where(x => x != null)); return l; };
+                Func<List<double[]>, string> clashOf = parts =>
+                {
+                    string c = null;
+                    foreach (var pb in parts)
+                    {
+                        if (hits(pb, titleBox)) c = "the title block";
+                        foreach (var vw in new[] { main, side }) if (vw != null && hits(pb, Grow(OutlineOf(vw), 0.005))) c = vw.GetName2();   // the view itself, not the box round its dimensions
+                        if (pb[0] < BorderX0 || pb[1] < BorderY0) c = "the border";
+                    }
+                    return c;
+                };
+                var parts0 = partsNow();
+                clash = clashOf(parts0);
+                var u = parts0.Aggregate((x, y) => new[] { Math.Min(x[0], y[0]), Math.Min(x[1], y[1]), Math.Max(x[2], y[2]), Math.Max(x[3], y[3]) });
+                // hits a view: move the views right to make room, if the sheet has it, before any shrinking
+                if (clash == main.GetName2() || (side != null && clash == side.GetName2()))
+                {
+                    var me = Grow(OutlineOf(main), 0.005); var se = side != null ? Grow(OutlineOf(side), 0.005) : me;
+                    double viewsLeft = Math.Min(me[0], se[0]), viewsRight = Math.Max(me[2], se[2]);
+                    // only what actually hits the views needs to clear them (the note block sits under them)
+                    double dx = partsNow().Where(pb => hits(pb, me) || hits(pb, se)).Select(pb => pb[2] + 0.012 - viewsLeft).DefaultIfEmpty(0).Max();
+                    if (dx > 0 && viewsRight + dx <= BorderX1 - 0.003)
+                    {
+                        var mo1 = (double[])main.GetOutline(); var so1 = side != null ? (double[])side.GetOutline() : null;
+                        MoveOutline(drwDoc, main, mo1[0] + dx, double.NaN);
+                        if (side != null) MoveOutline(drwDoc, side, so1[0] + dx, double.NaN);
+                        drwDoc.ForceRebuild3(false);
+                        Console.WriteLine("Views moved right " + Mm(dx) + " mm to make room for the isometric");
+                        clash = clashOf(partsNow());
+                    }
+                }
+                Console.WriteLine("Isometric at 1:" + isoScale + ", block " + Box(u) + (clash == null ? ", clear" : ", hits " + clash));
+                if (clash == null) break;
+                int next = PlateScales.Where(d => d > isoScale).DefaultIfEmpty(0).First();
+                if (next == 0 || step == 2) break;
+                isoScale = next;
+            }
+            if (clash != null) problems.Add("layout: the isometric or its note block hits " + clash);
+        }
     }
 
     // A tube's long axis: square to both of its wall directions (the two directions with four parallel flat faces).

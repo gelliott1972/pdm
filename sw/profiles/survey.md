@@ -54,7 +54,26 @@ Not yet run (needs SOLIDWORKS). One part read so far:
 | --- | --- | --- | --- | --- | --- |
 | 08A04-HBW-05 | Rhs RHS80X40X8(1) | DLAPEX\rhs.sldlfp | RHS80x40x8 (not in the file) | 80 x 40, wall 8 | RHS80x40x4 |
 
-## What this means for tonight
+The full parts survey ran on the night (92 member parts plus the material and blank-plate parts): `scratch\profiles\survey\` (`analysis.md`).
+
+## 3. The night run (17 Nov 2026, 01:40-03:45): result
+
+| Stage | Result |
+| --- | --- |
+| Rehearsal on copies (step 5) | 90 of 92 parts passed every check. Refused: 08B04-KBP-01 (cut list regroups 8 -> 7 items), 08C04-SFP-04 (shape changes with both library copies; alt copy only 0.1 mm3 off on one body, still refused) |
+| Real run (step 6, 9, 10, 12) on the 90 checked-out vault parts | 90 saved by SwFix, every check passed again, same jobs and change counts as the rehearsal |
+| Drawing and assembly checks (step 7) on 100 drawings, 128 assemblies | Assemblies: all as before. Drawings: 59 gained 3 dangling dimensions each (Thickness, V_leg, H_leg: the profile sketch's own dimensions shown on the drawing, which repointing replaces). Confirmed by reopening one drawing with the backup part: 0 dangling. |
+| Restore | The 27 parts behind those 59 drawings restored byte-for-byte from backup and check-out undone; the 59 drawings rechecked: all exactly as before |
+| Step 11, 08B04-BKP-01 | Weldment added, shape same, plate "PLATE, 12 x 300 x 400", angles "EA100x100x8" with LENGTH 250, every body Plain Carbon Steel (17.107 kg, 7800 kg/m3); 08B04-STA-01 rebuilds with 0 errors, both instances on Default<As Machined>. The angle item's MATERIAL cut-list text is not set: SOLIDWORKS rewrites the link so SwCmd's exact read-back refuses it |
+| Check-in | 63 parts, exactly the clean list (`scratch\profiles\load.txt`) |
+| Step 8 | 13 released (0A, LS-08X-06_0A) drawings whose BOM text changed; 9 unreleased changed drawings, draft PDFs in `C:\PDM-work\profiles-pdfs` (`scratch\profiles\bom-changes.tsv`) |
+
+The 27 parts not changed (drawings would lose dimensions): GNRIC-BRA, GNRIC-BRP, GNRIC-LM, GNRIC-MSW-01, 08A04-HBP-01, 08A04-HBP-02,
+08A04-HBW-01, 08X04-BRP-01, 08X04-HBW-02, 08X04-HBW-04, 08X04-HBW-06, 08X06-DBP, 08A11-HBP-02, 08A11-HBW-01, 08A11-HBW-03,
+08B11-DBP-01, 08B11-HBP-02, 08B11-HBW-01, 08B11-HBW-03, 08C11-HBP-02, 08C11-HBW-01, 08C11-HBW-03, 08X11-DBP-01, 08BXX-HBW-01,
+08BXX-MSP-01, 08XXX-HBA-01, 08XXX-HBW-01. They still point at the Dropbox profiles. Logs: `scratch\profiles\real\`, `compare.txt`, `restore.log`.
+
+## What this meant for the night (written before the run)
 
 - **Repointing re-reads the profile.** A member whose size name is missing from the vault copy (RHS80x40x8 above) can't be
   repointed "same size" without either renaming a size in the copy or choosing another size. The copy's configurations must

@@ -1,6 +1,10 @@
 # SW status
 
-## Weldment profiles into the vault (brief sw-profiles, 16 Nov 2026): step 0 survey half done
+## Weldment profiles into the vault (brief sw-profiles, 16-17 Nov 2026): night run done, 63 parts checked in 03:30
+
+Result table and the 27 parts left unchanged: `sw\profiles\survey.md` section 3. In short: rehearsal 90/92 passed; real run 90 saved; drawing checks failed on 59 drawings (3 profile-sketch dimensions each became dangling), so their 27 parts were restored from backup and released unchanged; 63 parts checked in (repoint to `P:\_Shared\_Profiles`, labels, end caps, plates, Material, 08B04-BKP-01 weldment). 13 released 0A drawings (LS-08X-06) now show changed BOM text; draft PDFs of 9 unreleased drawings in `C:\PDM-work\profiles-pdfs`. File Locations steps for Grant and James: `sw\profiles\file-locations.md`. Open for Grant (via Admin): the 27 parts, 08B04-KBP-01, 08C04-SFP-04, the 08X04-BKP plate label, re-issue of the 13 released drawings.
+
+### Earlier (16 Nov): step 0 survey
 
 Profile library surveyed (`sw\profiles\survey.md`): rhs.sldlfp's size "RHS150x100x8" draws 80x40x8 and there is no RHS80x40x8 size (08A04-HBW-05 asks for it); EA50x50x6 and SHS100x100x12.5 have wrong descriptions. Parts survey (87 parts, needs SOLIDWORKS) stopped for Draw; runs when the lock is free. Next: parts survey, then scripts and rehearsal. Nothing written to `P:\` or `M:\`.
 

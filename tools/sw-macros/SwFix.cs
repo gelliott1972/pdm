@@ -176,6 +176,7 @@ static class SwFix
             // 3. Cut-list Descriptions: collect wanted values over every configuration, then set once per folder
             var wanted = new Dictionary<string, Dictionary<string, List<string>>>(StringComparer.Ordinal);   // folder -> value -> configs
             var targeted = new HashSet<string>(StringComparer.Ordinal);
+            var replacedFrom = new HashSet<string>(StringComparer.Ordinal); var replacedTo = new HashSet<string>(StringComparer.Ordinal);   // SOLIDWORKS default text replaced
             if (memberDesc.Count > 0 || capDesc || plateDesc.Count > 0)
             {
                 foreach (var c in cfgs)
@@ -241,6 +242,7 @@ static class SwFix
                     if (r != (int)swCustomInfoAddResult_e.swCustomInfoAddResult_AddedOrChanged) { problems.Add(kv.Key + ": Description not set (" + r + ")"); continue; }
                     Console.WriteLine("DESC\t" + kv.Key + "\t" + (was == "" ? "(blank)" : was) + " -> " + want + "\t(" + string.Join(", ", kv.Value[want]) + ")");
                     targeted.Add(want);
+                    if (swDefault) { replacedFrom.Add(was); replacedTo.Add(want); }
                     changes++;
                 }
             }
@@ -267,8 +269,17 @@ static class SwFix
                 }
                 // cut-list properties: everything but the Description must read as before; Descriptions only changed to targeted values
                 var b4 = beforeCut[c]; var now = cut;
-                var b4x = b4.Select(StripDesc).OrderBy(x => x, StringComparer.Ordinal).ToList();
-                var nowx = now.Select(StripDesc).OrderBy(x => x, StringComparer.Ordinal).ToList();
+                // Two exact consequences of the requested changes, nothing else: (1) step 9: an item's MATERIAL reads the material
+                // just set where it read "Material <not specified>" (only in configurations given that material); (2) step 12:
+                // an item whose SOLIDWORKS default text (PLATE, "SW-Thickness" x ...) was replaced loses SOLIDWORKS's
+                // "3D-Bounding Box ..." properties, which belong to that default text.
+                Func<string, string> noBox = x => System.Text.RegularExpressions.Regex.Replace(x, @"(?<=\| |; )3D-Bounding Box [^=;]*=[^;]*(; |$)", "").TrimEnd(' ', ';');
+                var b4x = b4.Select(x => {
+                        string s = StripDesc(x);
+                        if (matSet.Contains(c)) s = s.Replace("MATERIAL=Material <not specified>", "MATERIAL=" + matName);
+                        if (replacedFrom.Contains(DescOf(x))) s = noBox(s);
+                        return s; }).OrderBy(x => x, StringComparer.Ordinal).ToList();
+                var nowx = now.Select(x => replacedTo.Contains(DescOf(x)) ? noBox(StripDesc(x)) : StripDesc(x)).OrderBy(x => x, StringComparer.Ordinal).ToList();
                 // identical items merged or split (same properties, same total of bodies): a regrouping, reported, not a problem
                 Func<List<string>, Dictionary<string, int>> totals = l => l.Select(x => {
                         int bar = x.IndexOf(" | "); int n = int.Parse(x.Substring(7, bar - 7));
@@ -277,7 +288,7 @@ static class SwFix
                     .GroupBy(t => t.Item1).ToDictionary(g => g.Key, g => g.Sum(t => t.Item2));
                 var tb = totals(b4x); var ta = totals(nowx);
                 if (!b4x.SequenceEqual(nowx) && tb.Count == ta.Count && tb.All(kv => ta.ContainsKey(kv.Key) && ta[kv.Key] == kv.Value))
-                    Console.WriteLine("REGROUPED\t" + c + "\tcut-list items " + b4x.Count + " -> " + nowx.Count + " (identical items merged or split; same bodies)");
+                    problems.Add(c + ": cut list REGROUPED: items " + b4x.Count + " -> " + nowx.Count + " (identical items merged or split; same bodies; changes BOM rows)");   // Admin 17 Nov: refused, listed for Grant
                 else if (!b4x.SequenceEqual(nowx))
                 {
                     var cb = b4x.GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count()); var ca = nowx.GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
@@ -374,6 +385,9 @@ static class SwFix
             foreach (var n in ((pm.GetNames() as object[]) ?? new object[0]).Cast<string>().OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
             {
                 if (n.Equals("Description", StringComparison.OrdinalIgnoreCase)) continue;
+                // SOLIDWORKS's own measurements of the body, dropped when an item gets a Description (GNRIC-LM rehearsal,
+                // 17 Nov); the bodies' volumes and box are compared exactly instead
+                if (n.StartsWith("3D-Bounding Box", StringComparison.OrdinalIgnoreCase)) continue;
                 string raw, res; bool wr, lk;
                 pm.Get6(n, false, out raw, out res, out wr, out lk);
                 props.Add(n + "=" + res);

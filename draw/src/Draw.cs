@@ -47,7 +47,7 @@ static partial class Draw
         // Every path must be inside the test folder: never P:\, M:\, C:\PDM-work or Dropbox.
         for (int i = 0; i < pos.Count; i++)
         {
-            if ((cmd == "make-plate" || cmd == "make-basic" || cmd == "make-section" || cmd == "make-assembly" || cmd == "views" || cmd == "measure-member" || cmd == "remove-note" || cmd == "add-projection" || cmd == "move-view" || cmd == "delete-view" || cmd == "hole-dims" || cmd == "slot-dims" || cmd == "copy-layout") && i >= 1) continue;   // configuration name
+            if ((cmd == "make-plate" || cmd == "make-basic" || cmd == "make-overview" || cmd == "make-section" || cmd == "make-assembly" || cmd == "views" || cmd == "measure-member" || cmd == "remove-note" || cmd == "add-projection" || cmd == "move-view" || cmd == "delete-view" || cmd == "hole-dims" || cmd == "slot-dims" || cmd == "copy-layout") && i >= 1) continue;   // configuration name
             string full;
             try { full = Path.GetFullPath(pos[i]); } catch (Exception ex) { Console.Error.WriteLine("Bad path: " + ex.Message); return 2; }
             if (!full.StartsWith(TestRoot + "\\", StringComparison.OrdinalIgnoreCase))
@@ -78,6 +78,7 @@ static partial class Draw
                 case "view-geom": if (pos.Count != 1) return Usage(); rc = ViewGeom(pos[0]); break;
                 case "view-boxes": if (pos.Count != 1) return Usage(); rc = ViewBoxes(pos[0]); break;
                 case "add-projection": if (pos.Count != 3) return Usage(); rc = AddProjection(pos[0], pos[1], pos[2]); break;
+                case "make-overview": if (pos.Count != 4) return Usage(); rc = MakeOverview(pos[0], pos[1], pos[2], pos[3]); break;
                 case "make-basic": if (pos.Count != 4) return Usage(); rc = MakeBasic(pos[0], pos[1], pos[2], pos[3]); break;
                 case "slot-dims": if (pos.Count != 2) return Usage(); SlotCalloutOnly = flags.Contains("callout-only"); rc = SlotDimsCmd(pos[0], pos[1]); break;
                 case "hole-dims": if (pos.Count != 2) return Usage(); rc = HoleDims(pos[0], pos[1]); break;

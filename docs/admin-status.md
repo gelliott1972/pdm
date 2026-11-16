@@ -92,8 +92,8 @@ In order. Only one thing can use SOLIDWORKS at a time (the SwCmd lock), so the p
 ### Decisions for Grant
 | # | Question |
 | --- | --- |
-| Da | Released (0A) drawings whose BOM text changed with item 1: re-issue or not? 13 drawings in LS-08X-06_0A: 08A06/08B06/08C06-HBW-01/-02/-03 and -SFW-01, plus 08X06-SFW-04 |
-| Dd | The 27 parts left on the Dropbox profiles: leave them, or repoint and re-attach 3 dimensions on each of their 59 drawings (most released 0A)? |
+| Da | **Grant 17 Nov: leave at 0A, no re-issue**; they update at their next revision. Released (0A) drawings whose BOM text changed with item 1: 13 drawings in LS-08X-06_0A: 08A06/08B06/08C06-HBW-01/-02/-03 and -SFW-01, plus 08X06-SFW-04 |
+| Dd | The 27 parts left on the Dropbox profiles. **Grant 17 Nov: work through them with him later**, so they will be fixed, not left. 59 drawings (most released 0A) dimension the profile sketch. |
 | De | SW's small items: the 08X04-BKP plate is 10x140x150 or 10x140x180 depending on the configuration, so it has no Description yet; the 08B04-BKP-01 angles' MATERIAL text; 4 parts with no sibling Material (200x250-MT-SC0806-SLAVE, 250x250_TRIANGLE_PANEL, DL_APEX, FAST-HST3-R-M12x125-A4) |
 | Db | Structure assemblies: a bigger sheet (A2/A1) or two A3 sheets? |
 | Dc | Draw's order: welded brackets first, or the other failures? |

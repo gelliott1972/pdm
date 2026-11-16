@@ -4,6 +4,8 @@
 
 Profile library surveyed (`sw\profiles\survey.md`): rhs.sldlfp's size "RHS150x100x8" draws 80x40x8 and there is no RHS80x40x8 size (08A04-HBW-05 asks for it); EA50x50x6 and SHS100x100x12.5 have wrong descriptions. Parts survey (87 parts, needs SOLIDWORKS) stopped for Draw; runs when the lock is free. Next: parts survey, then scripts and rehearsal. Nothing written to `P:\` or `M:\`.
 
+Steps 9-11 added by Admin (Material on every part; "PLATE, t x w x l" on blank cut-list Descriptions; 08B04-BKP-01 made a weldment). The survey tool now reads materials and measures plates (`sw\profiles\analyse.py` makes the tables). Tools written, not yet tried (need SOLIDWORKS): `SwRepoint` (step 6), `SwWeldment` (step 11). Rehearsal copy of 08B04-BKP-01 in `scratch\profiles\rehearsal\bkp01` (used only in 08B04-STA-01.SLDASM; no drawing yet).
+
 ## 08X04-PLP-01/-02/-03/-05/-06 Material (15 Nov 2026, Grant via Draw): done, checked in 20:32
 
 File-level Material = "SW-Material@<own file>" (as 08X04-PLP.SLDPRT), DmEdit, read back. SOLIDWORKS material read first (SwMaterial): PLP-01/-02/-05 Plain Carbon Steel; PLP-03 and PLP-06 had none, so Plain Carbon Steel set (Grant: steel like the others): PLP-03 0.635 -> 4.956 kg (Default), 0.589 -> 4.597 kg (PLATE ONLY); PLP-06 0.023 -> 0.179 kg. Load dry run and load exactly 5 files. Odd, for Draw: PLP-06 "FLOOR PLATE EA BOLT TO STAIRS" is only 23 cm3. Logs `sw\plp-material`.

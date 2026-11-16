@@ -2,6 +2,9 @@
 // Opens each file read-only in the running SOLIDWORKS 2026, never saves, closes what it opened. Tab-separated output:
 //   MEMBER  <file>  <feature>  <profile path>  <profile configuration (size)>  <bodies>
 //   CUT     <file>  <part config>  <folder>  <qty>  <Description resolved>  <Description raw>  <member feature(s)>  <measured section>  <length prop>
+//           (for a folder with no member, the measured section is "plate t x w x l (volume)": brief step 10)
+//   MAT     <file>  <part config>  <SOLIDWORKS material>  <database>  <Material property level>  <raw>  <resolved>  <mass>  <volume>   (step 9)
+//   NOMEMBERS <file>
 //   PROFILE <file>  <config>  <Description>  <other properties name=value;...>  <sketch section>   (for .sldlfp profile files)
 //   ERROR   <file>  <message>
 // The measured section comes from the body's geometry: the long axis is the direction of the longest straight edge;
@@ -71,11 +74,26 @@ static class SwProfiles
             Console.WriteLine("MEMBER\t" + file + "\t" + Clean(f.Name) + "\t" + Clean(d == null ? "?" : d.WeldmentProfilePath) + "\t" + Clean(d == null ? "?" : d.ConfigurationName)
                 + "\t" + (f.IsSuppressed() ? "suppressed in " + active : ""));
         }
-        if (!any) { Console.WriteLine("NOMEMBERS\t" + file); return; }
+        if (!any) Console.WriteLine("NOMEMBERS\t" + file);
         var measured = new Dictionary<string, string>();
         foreach (string cfg in (string[])doc.GetConfigurationNames())
         {
             if (doc.ConfigurationManager.ActiveConfiguration.Name != cfg) doc.ShowConfiguration2(cfg);
+            // Material (step 9): the SOLIDWORKS material, the Material property (configuration, then file), mass and volume
+            {
+                string db, mat = part.GetMaterialPropertyName2(cfg, out db);
+                string praw = "", pres = "", where = "";
+                foreach (var lvl in new[] { cfg, "" })
+                {
+                    var m = doc.Extension.CustomPropertyManager[lvl];
+                    if (m == null || !(((string[])m.GetNames() ?? new string[0]).Any(n => n.Equals("Material", StringComparison.OrdinalIgnoreCase)))) continue;
+                    bool wr, lk; m.Get6("Material", false, out praw, out pres, out wr, out lk);
+                    where = lvl == "" ? "file" : "cfg"; break;
+                }
+                var mp = (MassProperty)doc.Extension.CreateMassProperty();
+                string mass = mp == null ? "" : string.Format(Inv, "{0:0.###} kg\t{1:0.###} cm3", mp.Mass, mp.Volume * 1e6);
+                Console.WriteLine("MAT\t" + file + "\t" + Clean(cfg) + "\t" + Clean(mat) + "\t" + Clean(db) + "\t" + where + "\t" + Clean(praw) + "\t" + Clean(pres) + "\t" + mass);
+            }
             foreach (Feature f in (object[])doc.FeatureManager.GetFeatures(false) ?? new object[0])
             {
                 if (f.GetTypeName2() != "CutListFolder") continue;
@@ -93,7 +111,7 @@ static class SwProfiles
                 string lraw, lres;
                 cpm.Get6("LENGTH", false, out lraw, out lres, out wasRes, out link);
                 string key = string.Join(",", members), sect;
-                if (members.Count == 0) sect = "";
+                if (members.Count == 0) sect = "plate " + Plate(bodies[0]);   // step 10: James's "PLATE, t x w x l"
                 else if (!measured.TryGetValue(key, out sect)) { sect = Section(bodies[0]); measured[key] = sect; }   // once per member per part
                 Console.WriteLine("CUT\t" + file + "\t" + Clean(cfg) + "\t" + Clean(f.Name) + "\t" + bodies.Count + "\t" + Clean(res) + "\t" + Clean(raw)
                     + "\t" + string.Join(",", members) + "\t" + sect + "\t" + Clean(lres));
@@ -140,6 +158,38 @@ static class SwProfiles
             Console.WriteLine("PROFILE\t" + file + "\t" + Clean(cfg) + "\t" + desc + "\t" + string.Join("; ", props) + "\t" + sk);
         }
         if (doc.ConfigurationManager.ActiveConfiguration.Name != active) doc.ShowConfiguration2(active);
+    }
+
+    // A plate body's size, "t x w x l": the normal of its largest flat face, the longest straight edge square to that normal,
+    // and the third direction; extents over the body's vertices (edge end points).
+    static string Plate(Body2 b)
+    {
+        Face2 big = null; double area = 0;
+        foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
+            if (((Surface)f.GetSurface()).IsPlane() && f.GetArea() > area) { area = f.GetArea(); big = f; }
+        if (big == null) return "no flat face";
+        var n = (double[])big.Normal;
+        double[] u = null; double best = 0;
+        var pts = new List<double[]>();
+        foreach (Edge e in (object[])b.GetEdges() ?? new object[0])
+        {
+            var cp = (double[])e.GetCurveParams2();
+            pts.Add(new[] { cp[0], cp[1], cp[2] }); pts.Add(new[] { cp[3], cp[4], cp[5] });
+            if (!((Curve)e.GetCurve()).IsLine()) continue;
+            double dx = cp[3] - cp[0], dy = cp[4] - cp[1], dz = cp[5] - cp[2], len = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            if (len < 1e-9 || Math.Abs((dx * n[0] + dy * n[1] + dz * n[2]) / len) > 1e-4) continue;
+            if (len > best) { best = len; u = new[] { dx / len, dy / len, dz / len }; }
+        }
+        if (u == null) return "no straight edge";
+        var v = new[] { n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0] };
+        Func<double[], double> ext = d => { var pr = pts.Select(p => p[0] * d[0] + p[1] * d[1] + p[2] * d[2]).ToList(); return pr.Max() - pr.Min(); };
+        double t = ext(n), a = ext(u), c = ext(v);
+        return Mm(t) + " x " + Mm(Math.Min(a, c)) + " x " + Mm(Math.Max(a, c)) + " (volume " + Vol(b) + " cm3)";
+    }
+    static string Vol(Body2 b)
+    {
+        var mp = b.GetMassProperties(1) as double[];   // centre x,y,z, volume, area, mass...
+        return mp == null || mp.Length < 4 ? "?" : (mp[3] * 1e6).ToString("0.#", Inv);
     }
 
     // Section of a straight member body, from its geometry.

@@ -767,7 +767,7 @@ static partial class Draw
                 drw.ActivateSheet(((Sheet)drw.GetCurrentSheet()).GetName());
                 drw.EditSheet();
                 // more than two: two to a line, so the note stays in the strip under the border (08X04-BKP-02, 16 Nov)
-                var flines = pflags.Count <= 2 ? pflags : Enumerable.Range(0, (pflags.Count + 1) / 2).Select(i => string.Join("      ", pflags.Skip(2 * i).Take(2))).ToList();
+                var flines = PackFlags(pflags);
                 var fn = drwDoc.InsertNote(string.Join("\n", flines)) as Note;
                 if (fn == null) problems.Add("CHECK note not placed");
                 else
@@ -910,6 +910,8 @@ static partial class Draw
             if (now != plateText && flagsOut != null) flagsOut.Add("CHECK: CUT LIST: PLATE ROW HAS NO DESCRIPTION (" + plateText.ToUpper() + ")");
         }
         else if (plateText != null && flagsOut != null) flagsOut.Add("CHECK: CUT LIST: " + blank.Count + " ROW(S) WITHOUT A DESCRIPTION");
+        // Grant 16 Nov: end caps come up empty (the model's cut-list item has no Description; fixed in the model, not here)
+        else if (blank.Count > 0 && flagsOut != null) flagsOut.Add("CHECK: CUT LIST ITEM " + string.Join(", ", blank.Select(r => Flat(ta.Text[r, 0]).Trim())) + " HAS NO DESCRIPTION IN THE MODEL");
         if (tubes != null && flagsOut != null)
             for (int r = 1; r < ta.RowCount; r++)
             {
@@ -945,9 +947,21 @@ static partial class Draw
     {
         if (balloons.Count == 0) return;
         doc.ForceRebuild3(false);
-        var o = (double[])iso.GetOutline();
-        double cx = (o[0] + o[2]) / 2, cy = (o[1] + o[3]) / 2, m = 0.010;
+        var o = DrawnBox(iso);   // Grant 16 Nov (08C04-SFP-04: he pulled the balloons in to the part): the drawn part, not the outline box
+        double cx = (o[0] + o[2]) / 2, cy = (o[1] + o[3]) / 2, m = 0.012;
         var placed = new List<double[]>();
+        // points along what the isometric draws (ends, and points between them on straight edges)
+        var samples = new List<double[]>();
+        {
+            var muB = (MathUtility)sw.GetMathUtility();
+            foreach (Edge e in (iso.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+            {
+                var cp = e.GetCurveParams3();
+                var a = ToSheet(muB, iso, (double[])cp.StartPoint); var b = ToSheet(muB, iso, (double[])cp.EndPoint);
+                int steps = Math.Max(1, (int)(Math.Sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1])) / 0.004));
+                for (int i = 0; i <= steps; i++) samples.Add(new[] { a[0] + (b[0] - a[0]) * i / steps, a[1] + (b[1] - a[1]) * i / steps });
+            }
+        }
         foreach (var n in balloons)
         {
             var an = (Annotation)n.GetAnnotation();
@@ -964,6 +978,18 @@ static partial class Draw
             double t = Math.Min(Math.Abs(dx) > 1e-9 ? hx / Math.Abs(dx) : double.MaxValue, Math.Abs(dy) > 1e-9 ? hy / Math.Abs(dy) : double.MaxValue);
             double x = cx + dx * t, y = cy + dy * t;
             if (y < cy - hy + 1e-6) { x = dx < 0 ? cx - hx : cx + hx; y = Math.Max(at[1], o[1]); }   // not under the view
+            // Grant 16 Nov (08C04-SFP-04: he pulled the balloons in close to the part): step out from the touch point and
+            // stop at the first spot clear of the drawn edges, when that is nearer than the edge of the box
+            {
+                double len = Math.Sqrt(dx * dx + dy * dy), ux = dx / len, uy = dy / len;
+                double full = Math.Sqrt((x - at[0]) * (x - at[0]) + (y - at[1]) * (y - at[1]));
+                for (double s = 0.014; s < full; s += 0.003)
+                {
+                    double bx = at[0] + ux * s, by = at[1] + uy * s;
+                    if (by < o[1] - 0.002) break;   // never under the part
+                    if (samples.All(q => (q[0] - bx) * (q[0] - bx) + (q[1] - by) * (q[1] - by) > 0.009 * 0.009)) { x = bx; y = by; break; }
+                }
+            }
             foreach (var q in placed.Where(q => Math.Abs(q[0] - x) < m && Math.Abs(q[1] - y) < m).ToList())
             {
                 if (Math.Abs(Math.Abs(x - cx) - hx) < 1e-6) y = q[1] + m * (y >= q[1] ? 1 : -1); else x = q[0] + m * (x >= q[0] ? 1 : -1);
@@ -976,6 +1002,7 @@ static partial class Draw
 
     // The isometric step (Grant 16 Nov, checked against his approved plates and brackets): see the comment at 9c in
     // MakePlate. Shared by make-plate and make-basic.
+    static bool IsoClearOfDims;   // make-basic: the isometric keeps clear of the views' dimensions, and the views may move up for it
     static void PlaceIso(ModelDoc2 drwDoc, View main, View side, View iso, int den)
     {
         if (iso != null)
@@ -998,6 +1025,15 @@ static partial class Draw
             Func<Annotation, double[]> boxOf = a => { var e5 = ((Note)a.GetSpecificAnnotation()).GetExtent() as double[]; return e5 == null ? null : new[] { Math.Min(e5[0], e5[3]), Math.Min(e5[1], e5[4]), Math.Max(e5[0], e5[3]), Math.Max(e5[1], e5[4]) }; };
             Func<double[], double[], bool> hits = (p, q) => p != null && q != null && p[0] < q[2] && p[2] > q[0] && p[1] < q[3] && p[3] > q[1];
             var titleBox = new[] { TitleLeft, 0.0, 1.0, TitleTop };
+            // a view's box for the clash test: the view itself; with IsoClearOfDims (make-basic: rows of ordinates under the
+            // view) its dimensions too
+            Func<View, double[]> vbox = vw =>
+            {
+                var b = Grow(OutlineOf(vw), 0.005);
+                if (!IsoClearOfDims) return b;
+                var e = ExtentTrue(vw);
+                return new[] { Math.Min(b[0], e[0]), Math.Min(b[1], e[1]), Math.Max(b[2], e[2]), Math.Max(b[3], e[3]) };
+            };
             string clash = null;
             int isoScale = den;
             for (int step = 0; step < 3; step++)
@@ -1006,12 +1042,15 @@ static partial class Draw
                 drwDoc.ForceRebuild3(false);
                 var anns = ((iso.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Where(a => a.GetType() == (int)swAnnotationType_e.swNote).ToList();
                 Func<List<double[]>> balloonBoxes = () => anns.Where(a => ((Note)a.GetSpecificAnnotation()).IsBomBalloon()).Select(boxOf).Where(x => x != null).ToList();
+                // after a change of scale the balloons are still where the bigger isometric had them: place them again
+                if (step > 0) PlaceBalloons(drwDoc, iso, anns.Where(a => ((Note)a.GetSpecificAnnotation()).IsBomBalloon()).Select(a => (Note)a.GetSpecificAnnotation()).ToList());
                 // the corner: drawn part 28 mm in and 32 mm up; balloons to its left stay 20 mm in (inside the border)
                 var dw = drawn();
                 var bb = balloonBoxes();
                 double leftNow = Math.Min(dw[0] - 0.008, bb.Count > 0 ? bb.Min(x => x[0]) : dw[0]);
                 var ip = (double[])iso.Position;
-                iso.Position = new[] { ip[0] + (0.020 - leftNow), ip[1] + (0.032 - dw[1]) };
+                double bottomNow = Math.Min(dw[1], bb.Count > 0 ? bb.Min(x => x[1]) - 0.004 : dw[1]);   // a balloon under the part: clear of the revision table (08C04-SFP-04)
+                iso.Position = new[] { ip[0] + (0.020 - leftNow), ip[1] + (0.032 - bottomNow) };
                 drwDoc.ForceRebuild3(false);
                 dw = drawn(); bb = balloonBoxes();
                 double rightOf = Math.Max(dw[2], bb.Count > 0 ? bb.Max(x => x[2]) : dw[2]);
@@ -1030,10 +1069,20 @@ static partial class Draw
                 Func<List<double[]>, string> clashOf = parts =>
                 {
                     string c = null;
-                    foreach (var pb in parts)
+                    // make-basic: the isometric's own lines against the views (it may tuck under them where its box is empty,
+                    // as Grant laid out 08C04-SFP-04), not its box
+                    var pts = IsoClearOfDims ? EdgeSamples(iso, 0.004) : null;
+                    for (int pi = 0; pi < parts.Count; pi++)
                     {
+                        var pb = parts[pi];
                         if (hits(pb, titleBox)) c = "the title block";
-                        foreach (var vw in new[] { main, side }) if (vw != null && hits(pb, Grow(OutlineOf(vw), 0.005))) c = vw.GetName2();   // the view itself, not the box round its dimensions
+                        foreach (var vw in new[] { main, side })
+                        {
+                            if (vw == null) continue;
+                            var vb = vbox(vw);
+                            bool h = pts != null && pi == 0 ? pts.Any(p => p[0] > vb[0] - 0.003 && p[0] < vb[2] + 0.003 && p[1] > vb[1] - 0.003 && p[1] < vb[3] + 0.003) : hits(pb, vb);
+                            if (h) c = vw.GetName2();
+                        }
                         if (pb[0] < BorderX0 || pb[1] < BorderY0) c = "the border";
                     }
                     return c;
@@ -1055,6 +1104,33 @@ static partial class Draw
                         if (side != null) MoveOutline(drwDoc, side, so1[0] + dx, double.NaN);
                         drwDoc.ForceRebuild3(false);
                         Console.WriteLine("Views moved right " + Mm(dx) + " mm to make room for the isometric");
+                        clash = clashOf(partsNow());
+                    }
+                }
+                // still hits a view: move the views UP into the free paper above them before any shrinking (Grant 16 Nov:
+                // "a layout tweak is all that is needed as there is plenty of room on the page"; his 08C04-SFP-04)
+                if (IsoClearOfDims && (clash == main.GetName2() || (side != null && clash == side.GetName2())))
+                {
+                    var mb = vbox(main); var sb = side != null ? vbox(side) : mb;
+                    var ipts = EdgeSamples(iso, 0.004); var abox = partsNow().Skip(1).ToList();
+                    Func<double[], double> needFor = vb =>
+                    {
+                        double nd = 0;
+                        foreach (var p in ipts) if (p[0] > vb[0] - 0.003 && p[0] < vb[2] + 0.003) nd = Math.Max(nd, p[1] + 0.004 - vb[1]);
+                        foreach (var b in abox) if (b[0] < vb[2] && b[2] > vb[0]) nd = Math.Max(nd, b[3] + 0.004 - vb[1]);
+                        return nd;
+                    };
+                    double need = Math.Max(needFor(mb), needFor(sb));
+                    double limit = BorderY1 - 0.004;
+                    if (LayoutBlocked != null && Math.Min(mb[0], sb[0]) < LayoutBlocked[2] + 0.004) limit = LayoutBlocked[1] - 0.006;   // under the cut-list table
+                    double room = limit - Math.Max(mb[3], sb[3]);
+                    if (need > 0 && room > 0.002)
+                    {
+                        double dy = Math.Min(need, room);
+                        var mo2 = (double[])main.GetOutline();
+                        MoveOutline(drwDoc, main, mo2[0], (mo2[1] + mo2[3]) / 2 + dy);   // the projected side view follows
+                        drwDoc.ForceRebuild3(false);
+                        Console.WriteLine("Views moved up " + Mm(dy) + " mm to make room for the isometric");
                         clash = clashOf(partsNow());
                     }
                 }

@@ -55,7 +55,27 @@ static partial class Draw
         if (drwDoc == null) { Console.Error.WriteLine("could not start a drawing from " + template); return 3; }
         var drw = (DrawingDoc)drwDoc;
         var sheet = (Sheet)drw.GetCurrentSheet();
-        var main = drw.CreateDrawViewFromModelView3(partFile, pick.Item1, 0.250, 0.190, 0);
+        View main = null;
+        {
+            var muV = (MathUtility)sw.GetMathUtility();
+            var exts = new[] { ex, ey, ez };
+            int thin = Enumerable.Range(0, 3).OrderBy(i => exts[i]).First();
+            bool unique = exts.Count(e => Math.Abs(e - exts[thin]) < 1e-6) == 1;
+            foreach (var name in new[] { pick.Item1 }.Concat(choices.Select(c => c.Item1)).Distinct())
+            {
+                var v = drw.CreateDrawViewFromModelView3(partFile, name, 0.250, 0.190, 0);
+                if (v == null) continue;
+                v.ReferencedConfiguration = config;
+                drwDoc.ForceRebuild3(false);
+                int ha = SheetAxis(muV, v, 0), va = SheetAxis(muV, v, 1);
+                if (!unique || isAsm || (ha != va && 3 - ha - va == thin)) { main = v; if (name != pick.Item1) Console.WriteLine("Face view " + name + " (" + pick.Item1 + " didn't show the part's largest side)"); break; }
+                Console.WriteLine("  " + name + " shows " + "XYZ"[ha] + " across and " + "XYZ"[va] + " up, not the largest side: trying the next view");
+                drwDoc.ClearSelection2(true);
+                if (drwDoc.Extension.SelectByID2(v.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0)) drwDoc.Extension.DeleteSelection2(0);
+                drwDoc.ClearSelection2(true);
+            }
+            if (main == null) main = drw.CreateDrawViewFromModelView3(partFile, pick.Item1, 0.250, 0.190, 0);
+        }
         if (main == null) { Console.Error.WriteLine("face view not created"); return 3; }
         main.ReferencedConfiguration = config;
         drwDoc.ForceRebuild3(false);
@@ -100,14 +120,17 @@ static partial class Draw
         // against the model's exact extents; anything that doesn't match is left off
         var mu = (MathUtility)sw.GetMathUtility(); var selMgr = (SelectionMgr)drwDoc.SelectionManager;
         var expectBasic = new List<double>();
-        int sized = 0;
+        int sized = 0; bool detailed = false;
         if (!isAsm)
         {
             var bodies = ((object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]).Cast<Body2>().ToList();
             var cutLabels = bodies.Select(b => CutListLabel(part, b)).Where(x => x != null);
-            sized = BasicSizes(drwDoc, selMgr, mu, main, side, Extents(bodies), props["Description"] + " " + string.Join(" ", cutLabels), expectBasic);
+            string secText = props["Description"] + " " + string.Join(" ", cutLabels);
+            int general = GeneralDims(drwDoc, selMgr, mu, main, bodies, expectBasic);
+            sized = general + BasicSizes(drwDoc, selMgr, mu, general > 0 ? null : main, side, Extents(bodies), secText, expectBasic);
+            detailed = general > 0;
         }
-        var flags = new List<string> { sized > 0 ? "CHECK: BASIC DRAFT: OVERALL SIZES ONLY, DETAIL DIMENSIONS FOR JAMES" : "CHECK: BASIC DRAFT: DIMENSIONS FOR JAMES" };
+        var flags = new List<string> { detailed ? "CHECK: BASIC DRAFT: EDGES AND ROUND HOLES DIMENSIONED; SLOTS, WELDS AND THE REST FOR JAMES" : sized > 0 ? "CHECK: BASIC DRAFT: OVERALL SIZES ONLY, DETAIL DIMENSIONS FOR JAMES" : "CHECK: BASIC DRAFT: DIMENSIONS FOR JAMES" };
         // a weldment: James's cut-list table and balloons; an assembly: his BOM is not added here (CHECK)
         if (!isAsm && ((object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]).Length > 1)
         {
@@ -121,7 +144,7 @@ static partial class Draw
         lm.SetCurrentLayer(DraftLayer);
         drw.ActivateSheet(sheet.GetName());
         drw.EditSheet();
-        var flines = flags.Count <= 2 ? flags : Enumerable.Range(0, (flags.Count + 1) / 2).Select(i => string.Join("      ", flags.Skip(2 * i).Take(2))).ToList();
+        var flines = PackFlags(flags);
         var fn = drwDoc.InsertNote(string.Join("\n", flines)) as Note;
         if (fn != null) ((Annotation)fn.GetAnnotation()).SetPosition2(0.0034, 0.0054 + 0.0045 * (flines.Count - 1), 0);
         foreach (var f in flags) Console.WriteLine("Flag: " + f);
@@ -131,7 +154,9 @@ static partial class Draw
         drwDoc.ForceRebuild3(false);
 
         Layout(drwDoc, main, side, null);
+        IsoClearOfDims = true;
         PlaceIso(drwDoc, main, side, iso, den);
+        IsoClearOfDims = false;
         drwDoc.ForceRebuild3(false);
 
         if (sized > 0)
@@ -369,12 +394,12 @@ static partial class Draw
         {
             drw.ActivateSheet(sheet.GetName()); drw.EditSheet();
             var lm = (LayerMgr)doc.GetLayerManager(); lm.SetCurrentLayer(DraftLayer);
-            flagNote = doc.InsertNote(string.Join("\n", flags)) as Note;
+            flagNote = doc.InsertNote(string.Join("\n", PackFlags(flags))) as Note;
             lm.SetCurrentLayer("");
             if (flagNote == null) { problems.Add("flag note not placed"); return; }
         }
-        else flagNote.SetText(string.Join("\n", flags));
-        ((Annotation)flagNote.GetAnnotation()).SetPosition2(0.0034, 0.0054 + 0.0045 * (flags.Count - 1), 0);
+        else flagNote.SetText(string.Join("\n", PackFlags(flags)));
+        ((Annotation)flagNote.GetAnnotation()).SetPosition2(0.0034, 0.0054 + 0.0045 * (PackFlags(flags).Count - 1), 0);
         foreach (var f in flags) Console.WriteLine("Flag: " + f);
     }
 }

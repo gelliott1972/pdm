@@ -606,7 +606,7 @@ static partial class Draw
         {
             drw.ActivateSheet(sheet.GetName());
             ((DrawingDoc)drwDoc).EditSheet();
-            flagNote = drwDoc.InsertNote(string.Join("\n", flags)) as Note;
+            flagNote = drwDoc.InsertNote(string.Join("\n", PackFlags(flags))) as Note;
             if (flagNote != null) foreach (var f in flags) Console.WriteLine("Flag: " + f);
             else problems.Add("flag note not placed");
         }
@@ -736,7 +736,7 @@ static partial class Draw
         if (flagNote != null)
             {   // notes for James: outside the border, bottom left of the sheet, as Grant placed them on GNRIC-LMW-02 (15 Nov, brief draw-3)
                 var fa = (Annotation)flagNote.GetAnnotation();
-                fa.SetPosition2(0.0034, 0.0054 + 0.0045 * (flags.Count - 1), 0);
+                fa.SetPosition2(0.0034, 0.0054 + 0.0045 * (PackFlags(flags).Count - 1), 0);
                 Console.WriteLine("Flags placed outside the border, bottom left (as on GNRIC-LMW-02)");
             }
         var got = new List<double>(); var gotSec = new List<double>();

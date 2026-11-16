@@ -69,3 +69,18 @@ Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08
 - Seen already on the machine's 08X04-BRP-02: three CHECK lines run up into the revision table (pack them into two lines at most); ordinate 0/10 text sits on the callout leader.
 - Not done: redo of the 11 basic drafts in blocks C/D (DW11-DW23; list `scratch\draw-test\redo-16nov.tsv`, 3 done in `redo-16nov\`, stopped). Tickets DW11-DW25 still open on the Desk with the old drafts.
 - SOLIDWORKS lock released. A hidden read-only 08X04-PLP-05.SLDDRW may still be open in SOLIDWORKS (close-mine).
+
+## 16 Nov late evening: general ordinate route; handed SOLIDWORKS to SW (written ~23:00)
+
+- **New: `src\General.cs`** (in make-basic). Grant's recipe from the drawings he dimensioned on the Desk (DW7-DW10): in the face view, ordinates from one end to every flat edge and round-hole centre, both ways (a row at each end of a long view, each with its own zero), one hole-size callout per size. Positions come from the model's flat faces and full cylinders; every value is checked against the model; nothing is saved dangling. On 08C04-SFP-04 it reproduces his bottom and right rows exactly.
+- **Looking at drafts:** PDFs rendered to PNG with PyMuPDF and read as pictures (`scripts\try_basic.sh` makes `png\` beside the drafts). Do this for every draft before it goes to the Desk. Grant's six approved drawings as pictures: `scratch\draw-test\look\*-grant.png`.
+- **Layout fixes from looking:** CHECK notes two lines at most (PackFlags); balloons close to the part and re-placed after a scale change; a balloon under the part keeps the isometric off the revision table; hole-size text outside the part; make-basic moves the views up before shrinking the isometric (IsoClearOfDims); the face view is checked to show the part's largest side (08A04-HBW-03); rows need a flat edge to start from; blank cut-list rows get a CHECK note.
+- **NOT YET DONE (needs SOLIDWORKS, after SW's run):**
+  1. Rerun the 11 redo drafts (`scratch\draw-test\redo-16nov.tsv`) with the last fixes: `bash scripts/try_basic.sh <list> scratch/draw-test/redo-16nov`; look at every PNG. 08B04-BRW-01 failed once with RPC_E_DISCONNECTED (rerun to see if it repeats).
+  2. **Regression before anything is posted:** plates, brackets and angled (`scripts\regress.sh` with the three lists) and members (`regress-members.tsv`): PlaceBalloons, PlaceIso and the CHECK-note packing are shared and changed tonight, untested on those routes.
+  3. Swap the redone drafts into the overnight folders and repost DW11-DW23 (history + version bump).
+  4. File the six approved drawings (DW3, DW6, DW7-DW10) to `load\block-B` with `file_draft.sh`, then tell App.
+  5. 08B04-BKP-01 after SW makes it a weldment.
+- **End caps (Grant 16 Nov):** cut-list rows for end caps are empty because the model's cut-list item has no Description. Grant: fix in the model, "END CAP 72x32x5". SW does it tonight (step 12 of its run) by End cap feature on the vault files; my cross-check list is `scratch\draw-test\endcaps\endcaps.tsv` (92 caps in 48 parts; `scripts\endcap_survey.sh`, `endcap_list.py`).
+- SOLIDWORKS was force-closed and restarted once tonight (stuck view-only after a killed PDF export; nothing unsaved). Don't kill Draw.exe or SwCmd mid-call.
+- Lock released ~23:00 for SW's run; SW messages Draw when finished.

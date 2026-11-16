@@ -187,7 +187,7 @@ static partial class Draw
             // the note block first, NoteGapMm right of the isometric; then the pair in the free corner at IsoX, IsoY
             var io0 = (double[])iso.GetOutline();
             foreach (Annotation a in (iso.GetAnnotations() as object[]) ?? new object[0])
-                if (a.GetType() == (int)swAnnotationType_e.swNote)
+                if (a.GetType() == (int)swAnnotationType_e.swNote && !((Note)a.GetSpecificAnnotation()).IsBomBalloon())
                 {
                     var p0 = (double[])a.GetPosition();
                     a.SetPosition2(io0[2] + st.NoteGapMm / 1000, (io0[1] + io0[3]) / 2 + 0.012, 0);
@@ -200,6 +200,16 @@ static partial class Draw
             {
                 top = BorderY1 - 0.003;                               // the whole left column ...
                 rightLimit = Math.Min(TitleLeft, Math.Min(fa[0], fb != null ? fb[0] : fa[0]) - RowGap);   // ... left of the views
+            }
+            // too wide for its corner with the note beside it (a long configuration name, 08X04-BKP-02 16 Nov): the note
+            // block goes under the isometric, lined up with its left edge
+            if (W(ie) > rightLimit - BorderX0 - 0.006)
+            {
+                foreach (Annotation a in (iso.GetAnnotations() as object[]) ?? new object[0])
+                    if (a.GetType() == (int)swAnnotationType_e.swNote && !((Note)a.GetSpecificAnnotation()).IsBomBalloon()) a.SetPosition2(io0[0], io0[1] - 0.004, 0);
+                doc.ForceRebuild3(false);
+                ie = Extent(iso);
+                Console.WriteLine("Layout: note block under the isometric (no room beside it)");
             }
             if (LayoutBlocked != null && LayoutBlocked[0] < TitleLeft) top = Math.Min(top, LayoutBlocked[1] - RowGap);   // below the BOM
             if (top < RevTop + 0.030) top = Math.Max(fa[1], BorderY1 - 0.003);   // no room under the views: the whole left side

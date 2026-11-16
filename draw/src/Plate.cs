@@ -155,6 +155,7 @@ static partial class Draw
         var t0 = DateTime.Now;
         string pdfOut = Path.ChangeExtension(output, ".pdf");
         if (File.Exists(pdfOut)) { Console.Error.WriteLine("REFUSED: already exists, not overwritten: " + pdfOut); return 2; }
+        LayoutBlocked = null;
 
         // 1. The model: properties, body, thickness direction, holes.
         var part = OpenDoc(partFile, config, true);
@@ -176,7 +177,16 @@ static partial class Draw
         var body = bodies.Length == 1 ? (Body2)bodies[0] : bodies.Cast<Body2>().Where(b => { var e = extOf(b); return e[0] < 0.25 * e[1]; }).OrderByDescending(b => { var e = extOf(b); return e[1] * e[2]; }).FirstOrDefault();
         if (body == null) { Console.Error.WriteLine("REFUSED: make-plate found no plate among " + bodies.Length + " bodies"); return 2; }
         weldedOthers = bodies.Length - 1;
-        if (weldedOthers > 0) Console.WriteLine("Welded bracket: drawn as its plate " + body.Name + "; " + weldedOthers + " other bod" + (weldedOthers == 1 ? "y" : "ies") + " shown, not dimensioned");
+        // Welded bracket route (item 5, Grant 16 Nov): the plate dimensioned as before, plus where each welded body sits on
+        // the plate (its outer sides in the plate's ordinate rows), how far it stands off the plate (side view), James's
+        // cut-list table top left and balloons on the isometric. Welds stay with James.
+        var others = bodies.Cast<Body2>().Where(b => b != body).ToList();
+        var plateName = body.Name;
+        var otherNames = new HashSet<string>(others.Select(b => b.Name));
+        Func<Edge, string> bodyOf = e => { try { var b = e.GetBody() as Body2; return b == null ? "" : b.Name; } catch { return ""; } };
+        Body2 angledArm = null; double[] armAxis = null; double armAngle = 0; View angleView = null;
+        var mu0 = (MathUtility)sw.GetMathUtility();
+        if (weldedOthers > 0) Console.WriteLine("Welded bracket: plate " + body.Name + "; welded: " + string.Join(", ", others.Select(b => b.Name)));
         var box = (double[])body.GetBodyBox();
         var ext = new[] { box[3] - box[0], box[4] - box[1], box[5] - box[2] };
         int thin = Array.IndexOf(ext, ext.Min());
@@ -263,12 +273,82 @@ static partial class Draw
         main.Position = new[] { MainX, TopY - (mo[3] - mo[1]) / 2 };
         drwDoc.ForceRebuild3(false);
         mo = (double[])main.GetOutline();
+        // An arm welded at an angle (08X04-BKP-06, 57°; Grant 16 Nov "we should have a side projection for this"): the
+        // side projection looks across the arm so its angle shows true. When the arm runs across the face view, the face
+        // view is turned a quarter turn first, so the arm runs up the sheet and the side view (to its right) is that one.
+        var nrm = new double[3]; nrm[thin] = 1;
+        foreach (var ob in others)
+        {
+            var ax = TubeAxis(ob);
+            if (ax == null) continue;
+            double cosA = Math.Abs(ax[0] * nrm[0] + ax[1] * nrm[1] + ax[2] * nrm[2]);
+            if (cosA > 1e-3 && cosA < 1 - 1e-3) { angledArm = ob; armAxis = ax; break; }
+        }
+        if (angledArm != null)
+        {
+            var c0 = ((double[])angledArm.GetBodyBox()); var pc = new[] { (c0[0] + c0[3]) / 2, (c0[1] + c0[4]) / 2, (c0[2] + c0[5]) / 2 };
+            var s0 = ToSheet(mu0, main, pc); var s1 = ToSheet(mu0, main, new[] { pc[0] + armAxis[0] * 0.1, pc[1] + armAxis[1] * 0.1, pc[2] + armAxis[2] * 0.1 });
+            double adx = Math.Abs(s1[0] - s0[0]), ady = Math.Abs(s1[1] - s0[1]);
+            armAngle = 90 - Math.Acos(Math.Abs(armAxis[0] * nrm[0] + armAxis[1] * nrm[1] + armAxis[2] * nrm[2])) * 180 / Math.PI;   // from the plate face
+            Console.WriteLine("Angled arm " + angledArm.Name + ": " + Math.Round(armAngle, 2) + "° to the plate face; runs " + (adx >= ady ? "across" : "up") + " the face view");
+            if (Math.Min(adx, ady) > 0.05 * Math.Max(adx, ady)) plateSlotFlags.Add("CHECK: ARM AT A COMPOUND ANGLE: NO VIEW SHOWS ITS TRUE ANGLE");
+            if (adx >= ady)
+            {
+                main.Angle = Math.PI / 2;
+                drwDoc.ForceRebuild3(false);
+                mo = (double[])main.GetOutline();
+                var t0s = ToSheet(mu0, main, pc); var t1s = ToSheet(mu0, main, new[] { pc[0] + armAxis[0] * 0.1, pc[1] + armAxis[1] * 0.1, pc[2] + armAxis[2] * 0.1 });
+                Console.WriteLine("Face view turned a quarter turn: the arm now runs " + (Math.Abs(t1s[0] - t0s[0]) < Math.Abs(t1s[1] - t0s[1]) ? "up" : "ACROSS (not turned?)") + " the sheet");
+            }
+        }
         drwDoc.ClearSelection2(true);
         drwDoc.Extension.SelectByID2(main.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
         var side = drw.CreateUnfoldedViewAt3(mo[2] + 0.040, (mo[1] + mo[3]) / 2, 0, false);
         if (side == null) problems.Add("side view not created");
         drwDoc.ClearSelection2(true);
-        var iso = drw.CreateDrawViewFromModelView3(partFile, "*Isometric", 0.100, 0.100, 0);
+        if (angledArm != null) angleView = side;
+        // Welded bracket isometric (Grant 16 Nov, 08X04-BKP-06: "the isometric angle could be improved"): the standard
+        // isometric and the views from each corner of the face and side views; the one that shows the largest share of
+        // each body's edges is kept, the others deleted.
+        View pickIso = null;
+        if (weldedOthers > 0)
+        {
+            var cands = new List<View>();
+            var star = drw.CreateDrawViewFromModelView3(partFile, "*Isometric", 0.100, 0.100, 0);
+            if (star != null) { star.ReferencedConfiguration = config; cands.Add(star); }
+            foreach (var par in new[] { main, side })
+            {
+                if (par == null) continue;
+                var po = (double[])par.GetOutline();
+                double pcx = (po[0] + po[2]) / 2, pcy = (po[1] + po[3]) / 2, hw = (po[2] - po[0]) / 2 + 0.030, hh = (po[3] - po[1]) / 2 + 0.030;
+                foreach (var dxy in new[] { new[] { -1, -1 }, new[] { 1, -1 }, new[] { -1, 1 }, new[] { 1, 1 } })
+                {
+                    drwDoc.ClearSelection2(true);
+                    drwDoc.Extension.SelectByID2(par.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
+                    var v = drw.CreateUnfoldedViewAt3(pcx + dxy[0] * hw, pcy + dxy[1] * hh, 0, false);
+                    if (v != null) cands.Add(v);
+                }
+            }
+            drwDoc.ClearSelection2(true);
+            drwDoc.ForceRebuild3(false);
+            var totals = bodies.Cast<Body2>().ToDictionary(b => b.Name, b => Math.Max(1, ((object[])b.GetEdges() ?? new object[0]).Length));
+            double bestScore = -1;
+            foreach (var v in cands)
+            {
+                var seen = ((v.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0]).Cast<Edge>().GroupBy(e => bodyOf(e)).ToDictionary(g => g.Key, g => g.Count());
+                double score = totals.Sum(t => Math.Min(1.0, (seen.ContainsKey(t.Key) ? seen[t.Key] : 0) / (double)t.Value)) / totals.Count;
+                Console.WriteLine("  isometric candidate " + v.GetName2() + " '" + v.GetOrientationName() + "': shows " + Math.Round(100 * score) + "% of the bodies' edges");
+                if (score > bestScore + 1e-9) { bestScore = score; pickIso = v; }
+            }
+            foreach (var v in cands.Where(v => v != pickIso).ToList())
+            {
+                drwDoc.ClearSelection2(true);
+                if (!(drwDoc.Extension.SelectByID2(v.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0) && drwDoc.Extension.DeleteSelection2(0))) problems.Add("isometric candidate " + v.GetName2() + " not deleted");
+            }
+            drwDoc.ClearSelection2(true);
+            if (pickIso != null) { pickIso.RemoveAlignment(); Console.WriteLine("Isometric: " + pickIso.GetName2() + " kept"); }
+        }
+        var iso = pickIso ?? drw.CreateDrawViewFromModelView3(partFile, "*Isometric", 0.100, 0.100, 0);
         if (iso == null) problems.Add("isometric not created");
         else
         {
@@ -277,6 +357,9 @@ static partial class Draw
             var io = (double[])iso.GetOutline();
             double w1 = (io[2] - io[0]) / iso.ScaleDecimal, h1 = (io[3] - io[1]) / iso.ScaleDecimal;   // at 1:1
             double boxW = IsoBoxR - IsoBoxL, boxH = mo[1] - Gap - IsoBoxB;
+            // welded brackets: the isometric goes in the bottom-left corner under the cut-list table, at the sheet scale
+            // where it fits there (Grant 16 Nov, 08X04-BKP-06: enlarged it from 1:10 to the sheet's 1:5)
+            if (weldedOthers > 0) { boxW = 0.140; boxH = 0.215; }
             int isoDen = PlateScales.Where(d => d >= den).FirstOrDefault(d => w1 / d <= boxW && h1 / d <= boxH);
             if (isoDen == 0) isoDen = PlateScales.Last();
             if (isoDen == den) iso.UseSheetScale = 1;
@@ -316,9 +399,22 @@ static partial class Draw
         var expectedOrd = new List<double>();   // mm, from the model's geometry, for the self-check
         var hLines = new List<Tuple<Edge, double>>(); var vLines = new List<Tuple<Edge, double>>();
         var circles = new List<Tuple<Edge, double[], double>>();   // edge, sheet centre, diameter (m)
+        var armH = new List<Tuple<Edge, double, string>>(); var armV = new List<Tuple<Edge, double, string>>();   // welded bodies' straight edges
         foreach (Edge e in (main.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
         {
             var c = (Curve)e.GetCurve();
+            string bn = weldedOthers > 0 ? bodyOf(e) : plateName;
+            if (bn != plateName)
+            {
+                if (otherNames.Contains(bn) && c.IsLine() && angledArm == null)   // an angled arm is located on its own projection
+                {
+                    var cpd = e.GetCurveParams3();
+                    var a0 = ToSheet(mu, main, (double[])cpd.StartPoint); var b0 = ToSheet(mu, main, (double[])cpd.EndPoint);
+                    if (Math.Abs(a0[1] - b0[1]) < 1e-7) armH.Add(Tuple.Create(e, a0[1], bn));
+                    else if (Math.Abs(a0[0] - b0[0]) < 1e-7) armV.Add(Tuple.Create(e, a0[0], bn));
+                }
+                continue;
+            }
             if (c.IsCircle())
             {
                 var cp = (double[])c.CircleParams;
@@ -347,12 +443,23 @@ static partial class Draw
             var cols = circles.GroupBy(c => Math.Round(c.Item2[0] * 1e5)).Select(g => g.OrderByDescending(c => c.Item2[1]).First()).OrderBy(c => c.Item2[0]).ToList();
             var rows = circles.GroupBy(c => Math.Round(c.Item2[1] * 1e5)).Select(g => g.OrderByDescending(c => c.Item2[0]).First()).OrderByDescending(c => c.Item2[1]).ToList();
             double vs = main.ScaleDecimal;
+            // each welded body's outer sides as seen on the plate face (its left and right, top and bottom), unless a
+            // plate edge or hole is already at that place
+            var armCols = armV.GroupBy(l => l.Item3).SelectMany(g => new[] { g.OrderBy(l => l.Item2).First(), g.OrderBy(l => l.Item2).Last() })
+                .Where(l => Math.Abs(l.Item2 - leftE.Item2) > 1e-6 && Math.Abs(l.Item2 - rightE.Item2) > 1e-6)
+                .GroupBy(l => Math.Round(l.Item2 * 1e5)).Select(g => g.First()).ToList();
+            var armRows = armH.GroupBy(l => l.Item3).SelectMany(g => new[] { g.OrderBy(l => l.Item2).First(), g.OrderBy(l => l.Item2).Last() })
+                .Where(l => Math.Abs(l.Item2 - topE.Item2) > 1e-6 && Math.Abs(l.Item2 - botE.Item2) > 1e-6)
+                .GroupBy(l => Math.Round(l.Item2 * 1e5)).Select(g => g.First()).ToList();
+            if (weldedOthers > 0) Console.WriteLine("Welded bodies on the face view: sides across " + string.Join("/", armCols.Select(l => Mm((l.Item2 - leftE.Item2) / vs)))
+                + ", down " + string.Join("/", armRows.Select(l => Mm((topE.Item2 - l.Item2) / vs))));
+            if (weldedOthers > 0 && angledArm == null && armCols.Count + armRows.Count == 0) plateSlotFlags.Add("CHECK: WELDED " + (weldedOthers == 1 ? "BODY" : "BODIES") + " NOT LOCATED ON THE PLATE");
             if (slots.Count == 0)
             {
-                var hSel = new List<Edge> { leftE.Item1 }; hSel.AddRange(cols.Select(c => c.Item1)); hSel.Add(rightE.Item1);
-                var vSel = new List<Edge> { topE.Item1 }; vSel.AddRange(rows.Select(c => c.Item1)); vSel.Add(botE.Item1);
-                expectedOrd.Add(0); expectedOrd.AddRange(cols.Select(c => (c.Item2[0] - leftE.Item2) / vs * 1000)); expectedOrd.Add((rightE.Item2 - leftE.Item2) / vs * 1000);
-                expectedOrd.Add(0); expectedOrd.AddRange(rows.Select(c => (topE.Item2 - c.Item2[1]) / vs * 1000)); expectedOrd.Add((topE.Item2 - botE.Item2) / vs * 1000);
+                var hSel = new List<Edge> { leftE.Item1 }; hSel.AddRange(cols.Select(c => c.Item1)); hSel.AddRange(armCols.Select(l => l.Item1)); hSel.Add(rightE.Item1);
+                var vSel = new List<Edge> { topE.Item1 }; vSel.AddRange(rows.Select(c => c.Item1)); vSel.AddRange(armRows.Select(l => l.Item1)); vSel.Add(botE.Item1);
+                expectedOrd.Add(0); expectedOrd.AddRange(cols.Select(c => (c.Item2[0] - leftE.Item2) / vs * 1000)); expectedOrd.AddRange(armCols.Select(l => (l.Item2 - leftE.Item2) / vs * 1000)); expectedOrd.Add((rightE.Item2 - leftE.Item2) / vs * 1000);
+                expectedOrd.Add(0); expectedOrd.AddRange(rows.Select(c => (topE.Item2 - c.Item2[1]) / vs * 1000)); expectedOrd.AddRange(armRows.Select(l => (topE.Item2 - l.Item2) / vs * 1000)); expectedOrd.Add((topE.Item2 - botE.Item2) / vs * 1000);
                 Ordinate(drwDoc, selMgr, main, hSel, (int)swAddOrdinateDims_e.swHorizontalOrdinate, leftE.Item2, topE.Item2 + 0.012, "across the top");
                 Ordinate(drwDoc, selMgr, main, vSel, (int)swAddOrdinateDims_e.swVerticalOrdinate, rightE.Item2 + 0.012, topE.Item2, "down the right");
             }
@@ -371,10 +478,12 @@ static partial class Draw
                 var hItems = new List<object> { leftE.Item1 }; var hVals = new List<double> { 0 };
                 foreach (var c in cols) { hItems.Add(c.Item1); hVals.Add((c.Item2[0] - leftE.Item2) / vs * 1000); }
                 foreach (var q in topSlots) if (!hVals.Any(v => Math.Abs(v - (q[0] - leftE.Item2) / vs * 1000) < 0.01)) { hItems.Add(q); hVals.Add((q[0] - leftE.Item2) / vs * 1000); }
+                foreach (var l in armCols) if (!hVals.Any(v => Math.Abs(v - (l.Item2 - leftE.Item2) / vs * 1000) < 0.01)) { hItems.Add(l.Item1); hVals.Add((l.Item2 - leftE.Item2) / vs * 1000); }
                 hItems.Add(rightE.Item1); hVals.Add((rightE.Item2 - leftE.Item2) / vs * 1000);
                 var vItems = new List<object> { topE.Item1 }; var vVals = new List<double> { 0 };
                 foreach (var c in rows) { vItems.Add(c.Item1); vVals.Add((topE.Item2 - c.Item2[1]) / vs * 1000); }
                 foreach (var q in rightSlots) if (!vVals.Any(v => Math.Abs(v - (topE.Item2 - q[1]) / vs * 1000) < 0.01)) { vItems.Add(q); vVals.Add((topE.Item2 - q[1]) / vs * 1000); }
+                foreach (var l in armRows) if (!vVals.Any(v => Math.Abs(v - (topE.Item2 - l.Item2) / vs * 1000) < 0.01)) { vItems.Add(l.Item1); vVals.Add((topE.Item2 - l.Item2) / vs * 1000); }
                 vItems.Add(botE.Item1); vVals.Add((topE.Item2 - botE.Item2) / vs * 1000);
                 Ordinate2(drwDoc, selMgr, main, hItems, (int)swAddOrdinateDims_e.swHorizontalOrdinate, leftE.Item2, topE.Item2 + 0.012, "across the top");
                 foreach (var q in lastMissed) { double mv = (q[0] - leftE.Item2) / vs * 1000; int at = hVals.FindIndex(v => Math.Abs(v - mv) < 0.01); if (at >= 0) hVals.RemoveAt(at); plateSlotFlags.Add("CHECK: SLOT CENTRE ACROSS NOT DIMENSIONED (" + Math.Round(mv, 1) + ")"); }
@@ -432,17 +541,23 @@ static partial class Draw
         }
         drwDoc.ClearSelection2(true);
 
-        // 8. Thickness on the side view: the two outermost vertical edges.
+        // 8. Thickness on the side view: the plate's two outermost vertical edges. A welded bracket: also how far each
+        //    welded body stands off the plate, from the plate face it sits on to its far end (expected from the model).
+        var expectedLin = new List<double> { ext[thin] * 1000 };
         if (side != null)
         {
             var lines = new List<Tuple<Edge, double[], double[]>>();
+            var armLines = new List<Tuple<Edge, double[], double[], string>>();
             foreach (Edge e in (side.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
             {
                 var c = (Curve)e.GetCurve();
                 if (!c.IsLine()) continue;
                 var ps = (double[])e.GetCurveParams3().StartPoint; var pe = (double[])e.GetCurveParams3().EndPoint;
                 var a = ToSheet(mu, side, ps); var b = ToSheet(mu, side, pe);
-                if (Math.Abs(a[0] - b[0]) < 1e-7 && Math.Abs(a[1] - b[1]) > 1e-4) lines.Add(Tuple.Create(e, a, b));
+                if (!(Math.Abs(a[0] - b[0]) < 1e-7 && Math.Abs(a[1] - b[1]) > 1e-4)) continue;
+                string bn = weldedOthers > 0 ? bodyOf(e) : plateName;
+                if (bn == plateName) lines.Add(Tuple.Create(e, a, b));
+                else if (otherNames.Contains(bn)) armLines.Add(Tuple.Create(e, a, b, bn));
             }
             if (lines.Count < 2) problems.Add("thickness: side view edges not found");
             else
@@ -454,6 +569,135 @@ static partial class Draw
                 double top = Math.Max(Math.Max(left.Item2[1], left.Item3[1]), Math.Max(right.Item2[1], right.Item3[1]));
                 var td = drwDoc.AddDimension2((left.Item2[0] + right.Item2[0]) / 2, top + 0.012, 0) as DisplayDimension;
                 if (td == null) problems.Add("thickness dimension not placed");
+                else if (Math.Abs(right.Item2[0] - left.Item2[0]) < 0.006) SmallDimOutside(td, left.Item2[0], right.Item2[0], true, "plate thickness");
+                // stand-off of each welded body, one dimension per body, stacked above the thickness
+                int sk = 0;
+                var standDone = new List<double>();   // one dimension per stand-off value (08B04-BKP-01: two angles, both 100)
+                foreach (var g in armLines.Where(l => angledArm == null).GroupBy(l => l.Item4))
+                {
+                    double armL = g.Min(l => l.Item2[0]), armR = g.Max(l => l.Item2[0]);
+                    bool onRight = (armL + armR) / 2 > (left.Item2[0] + right.Item2[0]) / 2;
+                    var pface = onRight ? right : left;
+                    var far = onRight ? g.OrderBy(l => l.Item2[0]).Last() : g.OrderBy(l => l.Item2[0]).First();
+                    if (Math.Abs(far.Item2[0] - pface.Item2[0]) < 1e-6) continue;
+                    var ob = others.First(b => b.Name == g.Key);
+                    var abx = (double[])ob.GetBodyBox(); var pbx = (double[])body.GetBodyBox();
+                    double stand = Math.Max(abx[3 + thin] - pbx[3 + thin], pbx[thin] - abx[thin]) * 1000;
+                    if (standDone.Any(x => Math.Abs(x - stand) < 0.01)) continue;
+                    standDone.Add(stand);
+                    expectedLin.Add(stand);
+                    drwDoc.ClearSelection2(true);
+                    ((Entity)pface.Item1).Select4(false, sd); ((Entity)far.Item1).Select4(true, sd);
+                    double ftop = Math.Max(top, g.Max(l => Math.Max(l.Item2[1], l.Item3[1])));
+                    var ad = drwDoc.AddDimension2((pface.Item2[0] + far.Item2[0]) / 2, ftop + 0.022 + 0.010 * sk, 0) as DisplayDimension;
+                    if (ad == null) problems.Add("stand-off of " + g.Key + " not placed");
+                    else Console.WriteLine("Stand-off of " + g.Key + ": " + Math.Round(stand, 1));
+                    sk++;
+                }
+            }
+            drwDoc.ClearSelection2(true);
+        }
+
+        // 8b. Angled arm, on its projection: the angle to the plate face; how far the arm (with its cap) stands off the
+        //     plate face; where the arm's sides meet the plate, from the plate's nearer end.
+        var expectedAng = new List<double>();
+        if (angledArm != null && angleView != null)
+        {
+            var av = angleView;
+            var sdA = (SelectData)selMgr.CreateSelectData(); sdA.View = av;
+            var org = ToSheet(mu, av, new[] { 0.0, 0, 0 });
+            Func<double[], double[]> dirIn = v => { var b = ToSheet(mu, av, new[] { v[0] * 0.1, v[1] * 0.1, v[2] * 0.1 }); double ddx = b[0] - org[0], ddy = b[1] - org[1], l = Math.Sqrt(ddx * ddx + ddy * ddy); return l < 1e-9 ? null : new[] { ddx / l, ddy / l }; };
+            var dn = dirIn(nrm); var da = dirIn(armAxis);
+            Func<double[], double[], double> dot2 = (p, q) => p[0] * q[0] + p[1] * q[1];
+            var segs = new List<Tuple<Edge, double[], double[], string>>();
+            foreach (Edge e in (av.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+            {
+                if (!((Curve)e.GetCurve()).IsLine()) continue;
+                var cp = e.GetCurveParams3();
+                segs.Add(Tuple.Create(e, ToSheet(mu, av, (double[])cp.StartPoint), ToSheet(mu, av, (double[])cp.EndPoint), bodyOf(e)));
+            }
+            Func<Tuple<Edge, double[], double[], string>, double> segLen = s => Math.Sqrt(Math.Pow(s.Item3[0] - s.Item2[0], 2) + Math.Pow(s.Item3[1] - s.Item2[1], 2));
+            Func<Tuple<Edge, double[], double[], string>, double[]> segDir = s => { double l = segLen(s); return new[] { (s.Item3[0] - s.Item2[0]) / l, (s.Item3[1] - s.Item2[1]) / l }; };
+            if (dn == null || da == null) problems.Add("angled arm: directions not found on its projection");
+            else
+            {
+                var plateFaces = segs.Where(s => s.Item4 == plateName && segLen(s) > 0.01 && Math.Abs(dot2(segDir(s), dn)) < 1e-3).ToList();
+                var plateEnds = segs.Where(s => s.Item4 == plateName && segLen(s) > 1e-4 && Math.Abs(Math.Abs(dot2(segDir(s), dn)) - 1) < 1e-3).ToList();
+                var armSegs = segs.Where(s => s.Item4 == angledArm.Name).ToList();
+                var weldSegs = segs.Where(s => s.Item4 != plateName && otherNames.Contains(s.Item4)).ToList();
+                Console.WriteLine("Arm projection: " + plateFaces.Count + " plate face lines, " + plateEnds.Count + " plate ends, " + armSegs.Count + " arm lines");
+                if (plateFaces.Count == 0 || armSegs.Count == 0) problems.Add("angled arm: plate face or arm not found on its projection");
+                else
+                {
+                    double armMid = armSegs.Average(s => dot2(new[] { (s.Item2[0] + s.Item3[0]) / 2, (s.Item2[1] + s.Item3[1]) / 2 }, dn));
+                    var pf = plateFaces.OrderBy(s => Math.Abs(dot2(s.Item2, dn) - armMid)).First();
+                    double pfAt = dot2(pf.Item2, dn);
+                    double sgn = armMid > pfAt ? 1 : -1;
+                    var dOut = new[] { dn[0] * sgn, dn[1] * sgn };   // away from the plate, towards the arm
+                    var daOut = dot2(da, dOut) > 0 ? da : new[] { -da[0], -da[1] };
+                    var uf = segDir(pf); if (dot2(uf, daOut) < 0) uf = new[] { -uf[0], -uf[1] };   // along the face, on the arm's acute side
+                    // 1. angle: the arm's longest side line and the plate face
+                    var armSide = armSegs.Where(s => Math.Abs(Math.Abs(dot2(segDir(s), da)) - 1) < 1e-3).OrderByDescending(segLen).FirstOrDefault();
+                    if (armSide == null) problems.Add("angled arm: no side line along the arm");
+                    else
+                    {
+                        // where the side line meets the face line
+                        var p = armSide.Item2; var r = segDir(armSide); var q = pf.Item2; var sv = uf;
+                        double den2 = r[0] * sv[1] - r[1] * sv[0];
+                        double t = Math.Abs(den2) < 1e-12 ? 0 : ((q[0] - p[0]) * sv[1] - (q[1] - p[1]) * sv[0]) / den2;
+                        var ip = new[] { p[0] + r[0] * t, p[1] + r[1] * t };
+                        var bis = new[] { uf[0] + daOut[0], uf[1] + daOut[1] }; double bl = Math.Sqrt(bis[0] * bis[0] + bis[1] * bis[1]);
+                        drwDoc.ClearSelection2(true);
+                        ((Entity)pf.Item1).Select4(false, sdA); ((Entity)armSide.Item1).Select4(true, sdA);
+                        var angD = drwDoc.AddDimension2(ip[0] + 0.025 * bis[0] / bl, ip[1] + 0.025 * bis[1] / bl, 0) as DisplayDimension;
+                        if (angD == null) problems.Add("arm angle not placed");
+                        else { expectedAng.Add(armAngle); Console.WriteLine("Arm angle: " + Math.Round(armAngle, 2) + "°"); }
+                    }
+                    // 2. stand-off: the plate face to the farthest point of the welded bodies
+                    var verts = new List<Tuple<object, double[], string>>();
+                    foreach (var s in weldSegs)
+                    {
+                        var v0 = s.Item1.GetStartVertex(); var v1 = s.Item1.GetEndVertex();
+                        if (v0 != null) verts.Add(Tuple.Create(v0, s.Item2, s.Item4));
+                        if (v1 != null) verts.Add(Tuple.Create(v1, s.Item3, s.Item4));
+                    }
+                    var farV = verts.OrderByDescending(v => dot2(v.Item2, dOut)).FirstOrDefault();
+                    if (farV != null)
+                    {
+                        var pbx = (double[])body.GetBodyBox();
+                        double stand = others.Max(b => { var abx = (double[])b.GetBodyBox(); return Math.Max(abx[3 + thin] - pbx[3 + thin], pbx[thin] - abx[thin]); }) * 1000;
+                        drwDoc.ClearSelection2(true);
+                        ((Entity)pf.Item1).Select4(false, sdA); ((Entity)farV.Item1).Select4(true, sdA);
+                        double ext0 = segs.Max(s => Math.Max(dot2(s.Item2, uf), dot2(s.Item3, uf)));
+                        double mid0 = (pfAt + dot2(farV.Item2, dn)) / 2;
+                        var sd2 = drwDoc.AddDimension2(dn[0] * mid0 + uf[0] * (ext0 + 0.012), dn[1] * mid0 + uf[1] * (ext0 + 0.012), 0) as DisplayDimension;
+                        if (sd2 == null) problems.Add("arm stand-off not placed");
+                        else { expectedLin.Add(stand); Console.WriteLine("Arm stand-off: " + Math.Round(stand, 1)); }
+                    }
+                    // 3. where the arm meets the plate: its corners on the plate face, from the plate's nearer end
+                    var meet = verts.Where(v => v.Item3 == angledArm.Name && Math.Abs(dot2(v.Item2, dn) - pfAt) < 2e-4)
+                        .GroupBy(v => Math.Round(dot2(v.Item2, uf) * 1e5)).Select(g => g.First()).OrderBy(v => dot2(v.Item2, uf)).ToList();
+                    if (meet.Count >= 2) meet = new List<Tuple<object, double[], string>> { meet.First(), meet.Last() };
+                    if (meet.Count == 0 || plateEnds.Count == 0) plateSlotFlags.Add("CHECK: WHERE THE ARM MEETS THE PLATE IS NOT DIMENSIONED");
+                    else
+                    {
+                        double mAvg = meet.Average(v => dot2(v.Item2, uf));
+                        var endL = plateEnds.OrderBy(s => Math.Abs(dot2(s.Item2, uf) - mAvg)).First();
+                        double endAt = dot2(endL.Item2, uf);
+                        int mk = 0;
+                        foreach (var v in meet)
+                        {
+                            drwDoc.ClearSelection2(true);
+                            ((Entity)endL.Item1).Select4(false, sdA); ((Entity)v.Item1).Select4(true, sdA);
+                            double along2 = (endAt + dot2(v.Item2, uf)) / 2, off = pfAt - sgn * (0.015 + 0.010 * mk);
+                            var md = drwDoc.AddDimension2(dn[0] * off + uf[0] * along2, dn[1] * off + uf[1] * along2, 0) as DisplayDimension;
+                            double val = Math.Abs(dot2(v.Item2, uf) - endAt) / av.ScaleDecimal * 1000;
+                            if (md == null) problems.Add("arm meeting point not placed");
+                            else { expectedLin.Add(val); Console.WriteLine("Arm meets the plate at " + Math.Round(val, 1) + " from its end"); }
+                            mk++;
+                        }
+                    }
+                }
             }
             drwDoc.ClearSelection2(true);
         }
@@ -487,11 +731,30 @@ static partial class Draw
                 an.SetTextFormat(0, false, tf);
             }
         }
+        // 9a. Welded bracket: James's cut-list table top left (from his 08X04-HBW-07: ITEM NO. | QTY. | DESCRIPTION | LENGTH)
+        //     and a balloon per cut-list item on the isometric.
+        if (weldedOthers > 0)
+        {
+            var fl = new List<string>();
+            var fsz = face.OrderBy(x => x).ToArray();
+            var tubes = others.Select(TubeSection).Where(x => x != null).Distinct().ToList();
+            int missing = AddCutList(drw, main, iso, config, template, "PLATE, " + Mm(ext[thin]) + " x " + Mm(fsz[0]) + " x " + Mm(fsz[1]), tubes, fl);
+            plateSlotFlags.AddRange(fl);
+            if (missing < 0) plateSlotFlags.Add("CHECK: NO CUT LIST IN THE MODEL (NOT A WELDMENT): NO PARTS TABLE OR BALLOONS");
+            else if (missing > 0) plateSlotFlags.Add("CHECK: " + missing + " CUT-LIST ITEM(S) WITHOUT A BALLOON");
+            lm.SetCurrentLayer(DraftLayer);
+        }
         // Notes for James (08B04-SFA-2T CHECK style), outside the border bottom left as Grant placed them on GNRIC-LMW-02
         // (brief draw-3): a model with no material, or a weight far from the same plate in steel
         {
             var pflags = new List<string>(plateSlotFlags);
-            if (weldedOthers > 0) pflags.Add("CHECK: WELDED PART: ONLY THE PLATE IS DIMENSIONED; " + weldedOthers + " WELDED BOD" + (weldedOthers == 1 ? "Y" : "IES") + " TO LOCATE AND SIZE; WELDS NOT ADDED");
+            if (weldedOthers > 0) pflags.Add("CHECK: WELDS NOT ADDED");
+            if (weldedOthers > 0)
+            {
+                // holes and slots in the welded bodies (an arm's bolt holes, an angle's slots) are not dimensioned yet
+                int wh = others.Sum(b => ((object[])b.GetFaces()).Cast<Face2>().Count(f => ((Surface)f.GetSurface()).IsCylinder() && (f.GetLoopCount() == 2 || SlotEnd(f))));
+                if (wh > 0) pflags.Add("CHECK: HOLES/SLOTS IN THE WELDED PARTS NOT DIMENSIONED");
+            }
             foreach (var x in ExtraChecks) pflags.Add((x.StartsWith("CHECK:", StringComparison.OrdinalIgnoreCase) ? x : "CHECK: " + x).ToUpperInvariant());
             if (props["Material"] == "") pflags.Add("CHECK: MODEL HAS NO MATERIAL PROPERTY");
             double steelKg = ((object[])((PartDoc)part).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]).Cast<Body2>().Sum(b => ((double[])b.GetMassProperties(7850))[5]);
@@ -503,11 +766,13 @@ static partial class Draw
             {
                 drw.ActivateSheet(((Sheet)drw.GetCurrentSheet()).GetName());
                 drw.EditSheet();
-                var fn = drwDoc.InsertNote(string.Join("\n", pflags)) as Note;
+                // more than two: two to a line, so the note stays in the strip under the border (08X04-BKP-02, 16 Nov)
+                var flines = pflags.Count <= 2 ? pflags : Enumerable.Range(0, (pflags.Count + 1) / 2).Select(i => string.Join("      ", pflags.Skip(2 * i).Take(2))).ToList();
+                var fn = drwDoc.InsertNote(string.Join("\n", flines)) as Note;
                 if (fn == null) problems.Add("CHECK note not placed");
                 else
                 {
-                    ((Annotation)fn.GetAnnotation()).SetPosition2(0.0034, 0.0054 + 0.0045 * (pflags.Count - 1), 0);
+                    ((Annotation)fn.GetAnnotation()).SetPosition2(0.0034, 0.0054 + 0.0045 * (flines.Count - 1), 0);
                     foreach (var f in pflags) Console.WriteLine("Flag: " + f);
                 }
             }
@@ -577,16 +842,76 @@ static partial class Draw
             Console.WriteLine("Isometric past the border: now 1:" + next);
         }
 
+        // 9d. Welded brackets (Grant 16 Nov, agreed after 08X04-BKP-02 and -03, where he moved it by hand both times): the
+        //     isometric with its note block in the bottom-left corner, just above the revision table.
+        if (weldedOthers > 0 && iso != null)
+        {
+            // the block: the view's outline, its balloons and the note block, from SOLIDWORKS's own text extents
+            Func<double[]> block = () =>
+            {
+                var b = (double[])((double[])iso.GetOutline()).Clone();
+                foreach (Annotation a in (iso.GetAnnotations() as object[]) ?? new object[0])
+                {
+                    if (a.GetType() != (int)swAnnotationType_e.swNote) continue;
+                    var e5 = ((Note)a.GetSpecificAnnotation()).GetExtent() as double[];
+                    if (e5 == null) continue;
+                    b[0] = Math.Min(b[0], Math.Min(e5[0], e5[3])); b[1] = Math.Min(b[1], Math.Min(e5[1], e5[4]));
+                    b[2] = Math.Max(b[2], Math.Max(e5[0], e5[3])); b[3] = Math.Max(b[3], Math.Max(e5[1], e5[4]));
+                }
+                return b;
+            };
+            // the drawn part only (the outline of a projected isometric can be far bigger than what it shows)
+            var muI = (MathUtility)sw.GetMathUtility();
+            Func<double[]> drawn = () =>
+            {
+                double x0 = 1, y0 = 1, x1 = -1, y1 = -1;
+                foreach (Edge e in (iso.GetVisibleEntities2(null, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+                {
+                    var cp = e.GetCurveParams3();
+                    foreach (var pt in new[] { (double[])cp.StartPoint, (double[])cp.EndPoint })
+                    {
+                        var q = ToSheet(muI, iso, pt);
+                        x0 = Math.Min(x0, q[0]); y0 = Math.Min(y0, q[1]); x1 = Math.Max(x1, q[0]); y1 = Math.Max(y1, q[1]);
+                    }
+                }
+                return new[] { x0, y0, x1, y1 };
+            };
+            drwDoc.ForceRebuild3(false);
+            // Grant on 08X04-BKP-06 and 08B04-BKP-03: the part's lowest point about 35 mm up, its left about 41 mm in
+            // (balloons to its left), and the note block beside it on the right, clear of the balloons
+            var dw = drawn();
+            var ip = (double[])iso.Position;
+            iso.Position = new[] { ip[0] + (0.041 - dw[0]), ip[1] + (0.035 - dw[1]) };
+            drwDoc.ForceRebuild3(false);
+            dw = drawn();
+            double balloonsRight = dw[2];
+            foreach (Annotation a in (iso.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.GetType() != (int)swAnnotationType_e.swNote || !((Note)a.GetSpecificAnnotation()).IsBomBalloon()) continue;
+                var e5 = ((Note)a.GetSpecificAnnotation()).GetExtent() as double[];
+                if (e5 != null) balloonsRight = Math.Max(balloonsRight, Math.Max(e5[0], e5[3]));
+            }
+            foreach (Annotation a in (iso.GetAnnotations() as object[]) ?? new object[0])
+                if (a.GetType() == (int)swAnnotationType_e.swNote && !((Note)a.GetSpecificAnnotation()).IsBomBalloon())
+                    a.SetPosition2(balloonsRight + 0.012, (dw[1] + dw[3]) / 2 + 0.020, 0);
+            drwDoc.ForceRebuild3(false);
+            var ie = block();
+            Console.WriteLine("Welded layout: isometric block in the bottom-left corner " + Box(ie));
+            foreach (var vw in new[] { main, side })
+                if (vw != null) { var ve = Extent(vw); if (ie[0] < ve[2] && ie[2] > ve[0] && ie[1] < ve[3] && ie[3] > ve[1]) problems.Add("layout: the isometric block overlaps " + vw.GetName2()); }
+        }
+
         // 10. Self-check: every ordinate value equals the model's geometry; callouts and thickness likewise.
-        var gotOrd = new List<double>(); var gotDia = new List<double>(); var gotThk = new List<double>();
-        foreach (var vw in new[] { main, side })
+        var gotOrd = new List<double>(); var gotDia = new List<double>(); var gotThk = new List<double>(); var gotAng = new List<double>();
+        foreach (var vw in new[] { main, side, angleView != side ? angleView : null })
             if (vw != null) foreach (Annotation a in (vw.GetAnnotations() as object[]) ?? new object[0])
                 {
                     if (a.GetType() != (int)swAnnotationType_e.swDisplayDimension) continue;
                     var dd = (DisplayDimension)a.GetSpecificAnnotation();
                     double val = ((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000;
                     int dt = dd.GetType();
-                    if (dt == 1 || dt == 7 || dt == 8) gotOrd.Add(val);
+                    if (dt == (int)swDimensionType_e.swAngularDimension) { double deg = val / 1000 * 180 / Math.PI; gotAng.Add(deg > 90 && expectedAng.Count > 0 && expectedAng[0] < 90 ? 180 - deg : deg); }
+                    else if (dt == 1 || dt == 7 || dt == 8) gotOrd.Add(val);
                     else if (dt == 5 || dt == 6) gotDia.Add(val);
                     else gotThk.Add(val);
                 }
@@ -594,7 +919,8 @@ static partial class Draw
         var checks = new[] {
             Tuple.Create("ordinates", fmt(expectedOrd), fmt(gotOrd)),
             Tuple.Create("hole sizes", fmt(groups.Select(g => g.Key)), fmt(gotDia)),
-            Tuple.Create("thickness", fmt(new[] { ext[thin] * 1000 }), fmt(gotThk)) };
+            Tuple.Create("thickness" + (weldedOthers > 0 ? " and stand-off" : ""), fmt(expectedLin), fmt(gotThk)),
+            Tuple.Create("angles", fmt(expectedAng), fmt(gotAng)) };
         bool valuesOk = true;
         foreach (var c in checks)
         {
@@ -631,6 +957,227 @@ static partial class Draw
         Console.WriteLine(ok ? "PDF " + pdfOut : "PDF failed: error " + err);
         Console.WriteLine("Time: " + (DateTime.Now - t0).TotalSeconds.ToString("0") + " s. The drawing is left open in SOLIDWORKS.");
         return 0;
+    }
+
+    // James's cut-list table top left and a balloon per item on the isometric. Returns the number of items without a
+    // balloon, or -1 when the table wouldn't go in. Tries the configuration as named, then its weldment parent
+    // ("...<As Welded>"), anchored and then at a point.
+    static int AddCutList(DrawingDoc drw, View main, View iso, string config, string template, string plateText = null, List<string> tubes = null, List<string> flagsOut = null)
+    {
+        var drwDoc = (ModelDoc2)drw;
+        string tpl = Path.Combine(Path.GetDirectoryName(template), "Unilumin-cutlist.sldwldtbt");
+        if (!File.Exists(tpl)) { Console.WriteLine("no cut-list table template " + tpl); return -1; }
+        var names = new List<string> { "", config };   // "" (the view's own) is the one that works (08X04-BKP-02, 16 Nov)
+        int lt = config.IndexOf('<'); if (lt > 0) { names.Add(config.Substring(0, lt) + "<As Welded>"); names.Add(config.Substring(0, lt)); }
+        WeldmentCutListAnnotation wt = null;
+        foreach (var cn in names.Distinct())
+        {
+            foreach (bool anchored in new[] { true, false })
+            {
+                drwDoc.ClearSelection2(true);
+                wt = main.InsertWeldmentTable(anchored, BorderX0, BorderY1, (int)swBOMConfigurationAnchorType_e.swBOMConfigurationAnchor_TopLeft, cn, tpl);
+                Console.WriteLine("  cut-list table, configuration '" + cn + "'" + (anchored ? " anchored" : " at a point") + ": " + (wt == null ? "no" : "yes"));
+                if (wt != null) break;
+            }
+            if (wt != null) break;
+        }
+        if (wt == null) return -1;
+        var ta = (TableAnnotation)wt;
+        var an = (Annotation)ta.GetAnnotation();
+        an.Layer = DraftLayer;
+        AnchorCutLists(drw);   // attached to the border corner, not just placed there (Grant 16 Nov, 08X04-BKP-02)
+        LayoutBlocked = BomBox(ta);   // the views keep clear of it, as of an assembly's BOM
+        // the plate's row has no description in these models: "PLATE, t x w x l" from the model, as James writes it
+        // (08X06-SFW-04 "PLATE, 5 x 32 x 72"); cut-list labels checked against the tubes measured in the model
+        var blank = Enumerable.Range(1, ta.RowCount - 1).Where(r => Flat(ta.Text[r, 2]).Trim() == "" && Flat(ta.Text[r, 3]).Trim() == "").ToList();
+        if (plateText != null && blank.Count == 1)
+        {
+            bool editable = ta.IsCellTextEditable(blank[0], 2);
+            ta.Text[blank[0], 2] = plateText;
+            if (Flat(ta.Text[blank[0], 2]).Trim() == "") ta.set_Text2(blank[0], 2, false, plateText);
+            string now = Flat(ta.Text[blank[0], 2]).Trim();
+            Console.WriteLine("  plate row " + blank[0] + ": " + (now == plateText ? plateText + " (typed from the model)" : "NOT written (editable " + editable + ", reads '" + now + "')"));
+            if (now != plateText && flagsOut != null) flagsOut.Add("CHECK: CUT LIST: PLATE ROW HAS NO DESCRIPTION (" + plateText.ToUpper() + ")");
+        }
+        else if (plateText != null && flagsOut != null) flagsOut.Add("CHECK: CUT LIST: " + blank.Count + " ROW(S) WITHOUT A DESCRIPTION");
+        if (tubes != null && flagsOut != null)
+            for (int r = 1; r < ta.RowCount; r++)
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(Flat(ta.Text[r, 2]), @"\b(RHS|SHS)\s*(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)");
+                if (!m.Success) continue;
+                string lab = m.Groups[1].Value.ToUpper() + " " + m.Groups[2].Value + "x" + m.Groups[3].Value + "x" + m.Groups[4].Value;
+                if (!tubes.Contains(lab)) flagsOut.Add("CHECK: CUT LIST SAYS " + m.Value.ToUpper().Replace(" ", "") + ", MODEL IS " + (tubes.Count == 1 ? tubes[0] : string.Join(" / ", tubes)));
+            }
+        for (int r = 1; r < ta.RowCount; r++) Console.WriteLine("  cut list: " + string.Join(" | ", Enumerable.Range(0, ta.ColumnCount).Select(c => Flat(ta.Text[r, c]))));
+        if (iso == null) return ta.RowCount - 1;
+        drw.ActivateView(iso.GetName2());
+        drwDoc.ClearSelection2(true);
+        drwDoc.Extension.SelectByID2(iso.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
+        var bo = drw.CreateAutoBalloonOptions();
+        bo.Layout = (int)swBalloonLayoutType_e.swDetailingBalloonLayout_Square;
+        bo.IgnoreMultiple = true;
+        bo.Style = (int)swBalloonStyle_e.swBS_Circular;
+        bo.Size = (int)swBalloonFit_e.swBF_2Chars;
+        bo.UpperTextContent = (int)swBalloonTextContent_e.swBalloonTextItemNumber;
+        bo.Layername = DraftLayer;
+        var balloons = ((drw.AutoBalloon5(bo) as object[]) ?? new object[0]).Cast<Note>().ToList();
+        int nb = balloons.Count;
+        drwDoc.ClearSelection2(true);
+        Console.WriteLine("Balloons: " + nb + " for " + (ta.RowCount - 1) + " cut-list items");
+        PlaceBalloons(drwDoc, iso, balloons);
+        return Math.Max(0, ta.RowCount - 1 - nb);
+    }
+
+    // Each balloon outward from the isometric's centre, through the point its leader touches, 10 mm outside the view's
+    // outline; never below the view (the note block goes there): those go to the left or right side instead. Balloons
+    // closer than 10 mm slide apart along their side.
+    static void PlaceBalloons(ModelDoc2 doc, View iso, List<Note> balloons)
+    {
+        if (balloons.Count == 0) return;
+        doc.ForceRebuild3(false);
+        var o = (double[])iso.GetOutline();
+        double cx = (o[0] + o[2]) / 2, cy = (o[1] + o[3]) / 2, m = 0.010;
+        var placed = new List<double[]>();
+        foreach (var n in balloons)
+        {
+            var an = (Annotation)n.GetAnnotation();
+            var bp = (double[])an.GetPosition();
+            var lp = an.GetLeaderPointsAtIndex(0) as double[];
+            if (lp == null || lp.Length < 3) continue;
+            // the leader point farthest from the balloon is where it touches the part
+            double[] at = null; double far = -1;
+            for (int i = 0; i + 2 < lp.Length; i += 3) { double d = Math.Pow(lp[i] - bp[0], 2) + Math.Pow(lp[i + 1] - bp[1], 2); if (d > far) { far = d; at = new[] { lp[i], lp[i + 1] }; } }
+            double dx = at[0] - cx, dy = at[1] - cy;
+            if (Math.Abs(dx) < 1e-6 && Math.Abs(dy) < 1e-6) dx = -1;
+            // where the ray leaves the outline grown by m
+            double hx = (o[2] - o[0]) / 2 + m, hy = (o[3] - o[1]) / 2 + m;
+            double t = Math.Min(Math.Abs(dx) > 1e-9 ? hx / Math.Abs(dx) : double.MaxValue, Math.Abs(dy) > 1e-9 ? hy / Math.Abs(dy) : double.MaxValue);
+            double x = cx + dx * t, y = cy + dy * t;
+            if (y < cy - hy + 1e-6) { x = dx < 0 ? cx - hx : cx + hx; y = Math.Max(at[1], o[1]); }   // not under the view
+            foreach (var q in placed.Where(q => Math.Abs(q[0] - x) < m && Math.Abs(q[1] - y) < m).ToList())
+            {
+                if (Math.Abs(Math.Abs(x - cx) - hx) < 1e-6) y = q[1] + m * (y >= q[1] ? 1 : -1); else x = q[0] + m * (x >= q[0] ? 1 : -1);
+            }
+            an.SetPosition2(x, y, 0);
+            placed.Add(new[] { x, y });
+        }
+        doc.ForceRebuild3(false);
+    }
+
+    // A tube's long axis: square to both of its wall directions (the two directions with four parallel flat faces).
+    static double[] TubeAxis(Body2 b)
+    {
+        var dirs = new List<Tuple<double[], HashSet<long>>>();
+        foreach (Face2 f in (object[])b.GetFaces())
+        {
+            var s = (Surface)f.GetSurface();
+            if (!s.IsPlane()) continue;
+            var pp = (double[])s.PlaneParams;
+            var n = new[] { pp[0], pp[1], pp[2] };
+            double off = n[0] * pp[3] + n[1] * pp[4] + n[2] * pp[5];
+            var d = dirs.FirstOrDefault(x => Math.Abs(x.Item1[0] * n[0] + x.Item1[1] * n[1] + x.Item1[2] * n[2]) > 1 - 1e-6);
+            if (d == null) dirs.Add(d = Tuple.Create(n, new HashSet<long>()));
+            double sgn = d.Item1[0] * n[0] + d.Item1[1] * n[1] + d.Item1[2] * n[2] > 0 ? 1 : -1;
+            d.Item2.Add((long)Math.Round(sgn * off * 1e6));
+        }
+        var four = dirs.Where(d => d.Item2.Count == 4).ToList();
+        if (four.Count != 2) return null;
+        var a = four[0].Item1; var c = four[1].Item1;
+        var x3 = new[] { a[1] * c[2] - a[2] * c[1], a[2] * c[0] - a[0] * c[2], a[0] * c[1] - a[1] * c[0] };
+        double len = Math.Sqrt(x3.Sum(v => v * v));
+        return len < 1e-6 ? null : x3.Select(v => v / len).ToArray();
+    }
+
+    // A welded tube's section from its own flat faces: the two directions with four parallel faces each (outside and
+    // inside walls) give the outside sizes and the wall. "RHS 80x40x8" / "SHS 120x120x6.3", or null when not a tube.
+    static string TubeSection(Body2 b)
+    {
+        var planes = new List<double[]>();   // unit normal (sign made positive), offset
+        foreach (Face2 f in (object[])b.GetFaces())
+        {
+            var s = (Surface)f.GetSurface();
+            if (!s.IsPlane()) continue;
+            var pp = (double[])s.PlaneParams;
+            var n = new[] { pp[0], pp[1], pp[2] };
+            int big = Enumerable.Range(0, 3).OrderByDescending(i => Math.Abs(n[i])).First();
+            if (n[big] < 0) n = n.Select(x => -x).ToArray();
+            planes.Add(new[] { n[0], n[1], n[2], n[0] * pp[3] + n[1] * pp[4] + n[2] * pp[5] });
+        }
+        var dirs = new List<Tuple<double[], List<double>>>();
+        foreach (var p in planes)
+        {
+            var d = dirs.FirstOrDefault(x => Math.Abs(x.Item1[0] * p[0] + x.Item1[1] * p[1] + x.Item1[2] * p[2]) > 1 - 1e-6);
+            if (d == null) dirs.Add(d = Tuple.Create(new[] { p[0], p[1], p[2] }, new List<double>()));
+            if (!d.Item2.Any(o => Math.Abs(o - p[3]) < 1e-6)) d.Item2.Add(p[3]);
+        }
+        var four = dirs.Where(d => d.Item2.Count == 4).Select(d => d.Item2.OrderBy(x => x).ToList()).ToList();
+        if (four.Count != 2) return null;
+        double a = (four[0][3] - four[0][0]) * 1000, c = (four[1][3] - four[1][0]) * 1000;
+        double t0 = (four[0][1] - four[0][0]) * 1000, t1 = (four[1][1] - four[1][0]) * 1000;
+        if (Math.Abs(t0 - t1) > 0.05) return null;
+        Func<double, string> f1 = x => Math.Round(x, 1).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+        return (Math.Abs(a - c) < 0.05 ? "SHS " : "RHS ") + f1(Math.Max(a, c)) + "x" + f1(Math.Min(a, c)) + "x" + f1(t0);
+    }
+
+    // The sheet's cut-list anchor at the top-left border corner (where James's BOM anchor is), and every cut-list table
+    // attached to it by its top-left corner (Grant 16 Nov, 08X04-BKP-02: "can't lock the BOM into the top LH corner").
+    static int AnchorCutLists(DrawingDoc drw)
+    {
+        var doc = (ModelDoc2)drw;
+        var sheet = (Sheet)drw.GetCurrentSheet();
+        int wt = (int)swTableAnnotationType_e.swTableAnnotation_WeldmentCutList, bt = (int)swTableAnnotationType_e.swTableAnnotation_BillOfMaterials;
+        var bomA = sheet.TableAnchor[bt] as TableAnchor;
+        double[] want = bomA != null ? (double[])bomA.Position : null;
+        Console.WriteLine("  BOM anchor: " + (want == null ? "none" : Mm(want[0]) + "," + Mm(want[1])));
+        want = new[] { BorderX0, BorderY1 };   // the border corner, where James's tables sit (the template's anchors are at 20,287: off the corner)
+        var a = sheet.TableAnchor[wt] as TableAnchor;
+        Console.WriteLine("  cut-list anchor before: " + (a == null ? "none" : Mm(((double[])a.Position)[0]) + "," + Mm(((double[])a.Position)[1])));
+        if (a == null) { sheet.SetAsTableAnchor(wt); a = sheet.TableAnchor[wt] as TableAnchor; }
+        if (a == null) { Console.WriteLine("  cut-list anchor could not be made"); return 0; }
+        a.Position = new[] { want[0], want[1] };
+        var ap = (double[])a.Position;
+        Console.WriteLine("  cut-list anchor now: " + Mm(ap[0]) + "," + Mm(ap[1]));
+        int n = 0;
+        foreach (Annotation an in (((View)drw.GetFirstView()).GetAnnotations() as object[]) ?? new object[0])
+        {
+            if (an.GetType() != (int)swAnnotationType_e.swTableAnnotation) continue;
+            var ta = (TableAnnotation)an.GetSpecificAnnotation();
+            if (ta.Type != wt) continue;
+            ta.AnchorType = (int)swBOMConfigurationAnchorType_e.swBOMConfigurationAnchor_TopLeft;
+            ta.Anchored = true;
+            var p = (double[])an.GetPosition();
+            Console.WriteLine("  cut-list table attached: " + ta.Anchored + ", top-left at " + Mm(p[0]) + "," + Mm(p[1]));
+            if (ta.Anchored) n++;
+        }
+        doc.ForceRebuild3(false);
+        return n;
+    }
+
+    static int AnchorCutListCmd(string file)
+    {
+        var doc = sw.ActiveDoc as ModelDoc2;
+        if (doc == null || !string.Equals(doc.GetPathName(), file, StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: not the active document: " + file); return 2; }
+        int n = AnchorCutLists((DrawingDoc)doc);
+        Console.WriteLine(n + " cut-list table(s) attached to the top-left anchor. Not saved.");
+        return n > 0 ? 0 : 1;
+    }
+
+    // add-cutlist <drw>: James's cut-list table and balloons on the open drawing (first view = the face view, the
+    // isometric found by its orientation); no save.
+    static int AddCutListCmd(string file, string template)
+    {
+        var doc = sw.ActiveDoc as ModelDoc2;
+        if (doc == null || !string.Equals(doc.GetPathName(), file, StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: not the active document: " + file); return 2; }
+        var drw = (DrawingDoc)doc;
+        var views = new List<View>();
+        for (var v = (View)((View)drw.GetFirstView()).GetNextView(); v != null; v = (View)v.GetNextView()) views.Add(v);
+        var main = views.First();
+        var iso = views.FirstOrDefault(v => (v.GetOrientationName() ?? "").IndexOf("Isometric", StringComparison.OrdinalIgnoreCase) >= 0);
+        var lm = (LayerMgr)doc.GetLayerManager(); lm.SetCurrentLayer(DraftLayer);
+        int r = AddCutList(drw, main, iso, main.ReferencedConfiguration, template);
+        lm.SetCurrentLayer("");
+        Console.WriteLine(r < 0 ? "cut-list table not inserted" : "done; " + r + " item(s) without a balloon. Not saved.");
+        return r < 0 ? 1 : 0;
     }
 
     // Free sheet area for views: inside the border, above the title block (sheet metres; Unilumin A3 format).

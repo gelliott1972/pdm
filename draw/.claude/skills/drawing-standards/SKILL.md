@@ -124,3 +124,14 @@ How it works (Grant D12, 15 Nov): one drawing at a time. Draw generates it and o
 | On 08X04-PLP-02 moved the face and edge views up 7 mm and the isometric (with its note block) up 17 mm, off the revision table | Not in the generator yet (one plate): offer as a rule if he does it again | 08X04-PLP-02, 15 Nov |
 | On 08X04-PLP-32: "have the slot description point to the closest slot" | **In the generator:** the slot callout's leader goes to the slot nearest the callout text, at that slot's nearer end | 08X04-PLP-32, 15 Nov |
 | On 08X04-PLP-32 put the isometric back to 1:2 (the sheet scale; I had shrunk it to 1:5 to keep it inside the border) and moved it right, inside the border, with its note block | **In the generator (plates):** keep the isometric at the sheet scale where it fits; move it right to stay inside the border rather than shrink it | 08X04-PLP-32, 15 Nov |
+| On 08X04-BKP-02 (first welded bracket) moved the face view 50 mm left, the side view 29 mm left (face-to-side gap 21 mm wider), the isometric and note block 52 mm down into the bottom-left corner above the revision table, and balloon 1 in off the left border; "can't lock the BOM into the top LH corner" | **In the generator:** the cut-list table attached to the sheet's cut-list anchor at the border corner (12.5, 284.5; the template's anchors sit at 20, 287). View moves: not yet (one drawing); offer as a rule if he does it again on -03 | 08X04-BKP-02, 16 Nov |
+
+## Welded brackets: plate with welded arm (item 5, Grant agreed the content 16 Nov)
+
+| Rule | Source |
+| --- | --- |
+| make-plate with a multi-body part: the plate dimensioned as before; each welded body's outer sides seen on the plate face join the plate's two ordinate rows; its stand-off from the plate face on the side view; thickness from the plate's own edges | Grant 16 Nov (proposal agreed) |
+| James's cut-list table (ITEM NO. / QTY. / DESCRIPTION / LENGTH, from his 08X04-HBW-07) top left, attached to the corner anchor; balloons on the isometric, outward from its centre, never under it | James's welded drawings; Grant 16 Nov |
+| CHECK notes: "WELDS NOT ADDED"; cut-list label vs the tube measured in the model; a plate row without a description (the cell can't be typed into; SW adds the Description) | Grant 16 Nov |
+| More than two CHECK lines: two to a line along the bottom, outside the border | 08X04-BKP-02, 16 Nov |
+| Every part has a Material (SW fixes models overnight); until then the CHECK note stays | Grant 16 Nov |

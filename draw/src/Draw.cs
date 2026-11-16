@@ -92,6 +92,8 @@ static partial class Draw
                 case "measure-member": if (pos.Count != 2) return Usage(); rc = MeasureMember(pos[0], pos[1]); break;
                 case "weld-probe": if (pos.Count != 1) return Usage(); rc = WeldProbe(pos[0]); break;
                 case "pdf": if (pos.Count != 2) return Usage(); rc = Pdf(pos[0], pos[1]); break;
+                case "anchor-cutlist": if (pos.Count != 1) return Usage(); rc = AnchorCutListCmd(pos[0]); break;
+                case "add-cutlist": if (pos.Count != 2) return Usage(); rc = AddCutListCmd(pos[0], pos[1]); break;
                 case "close-all": sw.CloseAllDocuments(true); Console.WriteLine("Closed all documents (not saved)."); rc = 0; break;
                 default: return Usage();
             }

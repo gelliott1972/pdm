@@ -44,20 +44,51 @@ Document Manager keeps a stale referenced configuration after Replace Components
      - SW: units survey done; kg tool (SwUnits/SwKg) in progress. Joint rehearsal with Dev not yet run.
      - Overnight run: another night, after the sheet is filled in.
 
-## To-do from the drawings work (16 Nov)
+## Plan: drawings and vault clean-up (16 Nov)
 
+In order. Only one thing can use SOLIDWORKS at a time (the SwCmd lock), so the profile run (SW) and Draw's work don't overlap.
+
+### 1. Tonight 16 Nov
 | # | Item | Who |
 | --- | --- | --- |
-| T0 | **Tonight 16 Nov (Grant runs it once James has checked in): `docs\briefs\sw-profiles.md`.** Copy `M:\DLAPEX_Members` into the vault at `P:\_Shared\_Profiles` with the descriptions corrected, switch File Locations, repoint every member, and correct the cut-list labels. This covers T1 and T2. Grant 16 Nov: no profiles outside the vault; nearly all members already point at `M:\DLAPEX_Members`. | SW, App loads |
-| T1 | **James 16 Nov, 08A04-HBW-05:** the cut list says RHS80x40x4, but the member is RHS 80x40x8. The structural member uses the custom profile "RHS80X40X8" from Grant's weldment profile library in Dropbox (`C:\Users\grant\Dropbox\Unilumi...`, Size field). That profile's description, which feeds the cut list, says 80x40x4. The geometry is 8 mm: the weight is 23.6 kg for 1.9 m, and the 72 x 32 in Detail A is the end plate, not the inside of the tube. Fix: (1) correct the description in the library profile (outside the vault and live Dropbox, so only with Grant's go); (2) update the cut lists through check-out in 08A04-HBW-05, 08B04-BRW-02, 08B04-SFP-04, 08C04-SFP-06, and the GNRIC-LM rows in `draw\cutlist-survey.md`. | Grant OK, then SW (Dev's `set-cutlist-prop`) |
-| T2 | 51 SHS 40x40x4 members whose cut lists say RHS (`draw\cutlist-survey.md`). Probably the same kind of profile-description error, so check the library first. | SW |
-| T3 | 08X04-PLP-03: the Default configuration has no PartNo or Description, so the BOM row is blank on 08B04-SFA-5B and 08C04-SFA-5B | SW |
-| T4 | Parts with no Material (CHECK notes in `scratch\draw-test\load\night-1\batch.md`) | SW |
-| T5 | Structure assemblies 08B04-STA-01 and 08C04-STA-01 don't fit A3: bigger sheet or two sheets? | Grant |
-| T6 | 31 drawings not done overnight: welded brackets and two-body welded parts (10), views overlapping or off the sheet (8), holes or slots not found (6), program errors (3), end caps (2), structures (2, T5) | Draw, order from Grant |
-| T7 | Notes for James: fill DRAWN on 08A11/08B11/08C11-STA-01; "J MCKLLOP" spelling (on 08XXX-PLP-20 and again on 08A04-HBW-05 16 Nov); on signed drafts, remove or move the CHECK note and other DRAFT items, or release refuses them | Grant to James |
-| T8 | D6: read-only survey of the vault for dangling dimensions (unanswered) | Grant |
-| T9 | Dev: an import-time check of the description against the measured section | Dev |
+| 1 | **Profiles into the vault, then repoint and relabel** (`docsriefs\sw-profiles.md`). Starts once James has checked in, on Grant's go. Fixes James's 16 Nov note: on 08A04-HBW-05, 08B04-BRW-02, 08B04-SFP-04 and 08C04-SFP-06 the member is RHS 80x40x8 but the cut list says 80x40x4, from the description in the `M:\DLAPEX_Members` profile. Also fixes the 51 SHS members labelled RHS (`draw\cutlist-survey.md`). Grant 16 Nov: no profiles outside the vault. SW survey (read-only) from 16 Nov daytime. | SW, App loads; Grant checks the description list and the rehearsal |
+
+### 2. James (this week)
+| # | Item | Who |
+| --- | --- | --- |
+| 2 | Work through the 42 overnight drafts in the vault (night-1). Accept the magenta items, remove the *, fill DRAWN, and delete the CHECK notes once dealt with: release refuses anything left on DRAFT. The "CUT LIST SAYS RHS80X40X4" notes are fixed by item 1. | James |
+| 3 | Fill DRAWN on 08A11/08B11/08C11-STA-01. "J MCKLLOP" spelling: on 08XXX-PLP-20, and again on 08A04-HBW-05 16 Nov. | Grant to James |
+| 4 | Leave profile and cut-list labels for SW (item 1) | Grant to James |
+
+### 3. Draw: the 31 not done overnight (with Grant, one at a time, draw-3)
+| # | Item | Who |
+| --- | --- | --- |
+| 5 | A route for welded brackets and two-body welded parts (10: 6 BKP and 4 others) | Draw, with Grant |
+| 6 | Views overlapping or off the sheet (8), holes or slots not found (6: mostly slots in RHS walls), program errors (3), end caps not matching (2) | Draw |
+| 7 | 08B04-STA-01 and 08C04-STA-01 don't fit A3 even at 1:50 | Grant decides the sheet size, then Draw |
+| 8 | Close Desk DR22 (08X04-BKP-01, now filed in night-1) and DR23 (08X06-LMW-02, already drawn by James). Compare `draw\outstanding.md` with `pdm coverage` (AWS works again 16 Nov). | Draw |
+| 9 | Later: learn from James's corrections when he checks the drafts in | Draw |
+
+### 4. SW model clean-up (after item 1, through check-out)
+| # | Item | Who |
+| --- | --- | --- |
+| 10 | 08X04-PLP-03: the Default configuration has no PartNo or Description, so the BOM row is blank on 08B04-SFA-5B and 08C04-SFA-5B | SW |
+| 11 | Parts with no Material (listed in `scratch\draw-test\load
+ight-1atch.md`) | SW |
+| 12 | GNRIC-LMW "As Welded" children with wrong lengths; 08X04-PLP-06 is only 23 cm3 | SW |
+
+### 5. Dev
+| # | Item | Who |
+| --- | --- | --- |
+| 13 | At import, check each description against the measured section | Dev |
+
+### Decisions for Grant
+| # | Question |
+| --- | --- |
+| Da | Released (0A) drawings whose BOM text changes with item 1: re-issue or not? |
+| Db | Structure assemblies: a bigger sheet (A2/A1) or two A3 sheets? |
+| Dc | Draw's order: welded brackets first, or the other failures? |
+| D6 | Read-only survey of the vault for dangling dimensions? (unanswered) |
 
 ## Open
 

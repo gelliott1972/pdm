@@ -14,7 +14,7 @@ Updated 26 Oct 2026 (after the 0811 import), on the laptop. The next Admin sessi
 | Register | `data\APEX_Structure_Part_Numbering_Standard_Rev3.xlsx` |
 | Way of working | Since 25 Oct: Grant decides only in Admin; SW gives SOLIDWORKS steps; Dev and App ask Admin. Fixed labels per import (memory `one-window-for-decisions`). |
 
-## 0811 import (brief `docs\briefs\import-0811.md`)
+## 0811 import (brief `docs\briefs\import-0811.md`)
 
 Done 26 Oct. Decisions D1-D33 in `docs\imports\LS-08X-11-decisions.md`. Import route as 0806 plus a new step: SwResave-import of the new assemblies after SwFixRefs (Importer DM renames left stale instance names; a configuration switch then lost suppression). After-import checks now include SwSuppDump (every sub-assembly configuration). Rehearsed 4 times on scratch copies of P:\ first. Work copies kept aside as `C:\PDM-work\LS-08x-11-hold` (pre-import record). Left: D17 fastener PartNos by Grant's check-out.
 
@@ -51,7 +51,7 @@ In order. Only one thing can use SOLIDWORKS at a time (the SwCmd lock), so the p
 ### 1. Tonight 16 Nov
 | # | Item | Who |
 | --- | --- | --- |
-| 1 | **Profiles into the vault, then repoint and relabel** (`docsriefs\sw-profiles.md`). Starts once James has checked in, on Grant's go. Fixes James's 16 Nov note: on 08A04-HBW-05, 08B04-BRW-02, 08B04-SFP-04 and 08C04-SFP-06 the member is RHS 80x40x8 but the cut list says 80x40x4, from the description in the `M:\DLAPEX_Members` profile. Also fixes the 51 SHS members labelled RHS (`draw\cutlist-survey.md`). Grant 16 Nov: no profiles outside the vault. SW survey (read-only) from 16 Nov daytime. | SW, App loads; Grant checks the description list and the rehearsal |
+| 1 | **Profiles into the vault, then repoint and relabel** (`docs\briefs\sw-profiles.md`). Starts once James has checked in, on Grant's go. Fixes James's 16 Nov note: on 08A04-HBW-05, 08B04-BRW-02, 08B04-SFP-04 and 08C04-SFP-06 the member is RHS 80x40x8 but the cut list says 80x40x4, from the description in the `M:\DLAPEX_Members` profile. Also fixes the 51 SHS members labelled RHS (`draw\cutlist-survey.md`). Grant 16 Nov: no profiles outside the vault. SW survey (read-only) from 16 Nov daytime. | SW, App loads; Grant checks the description list and the rehearsal |
 
 ### 2. James (this week)
 | # | Item | Who |
@@ -73,8 +73,7 @@ In order. Only one thing can use SOLIDWORKS at a time (the SwCmd lock), so the p
 | # | Item | Who |
 | --- | --- | --- |
 | 10 | 08X04-PLP-03: the Default configuration has no PartNo or Description, so the BOM row is blank on 08B04-SFA-5B and 08C04-SFA-5B | SW |
-| 11 | Parts with no Material (listed in `scratch\draw-test\load
-ight-1atch.md`) | SW |
+| 11 | Parts with no Material (listed in `scratch\draw-test\load\night-1\batch.md`) | SW |
 | 12 | GNRIC-LMW "As Welded" children with wrong lengths; 08X04-PLP-06 is only 23 cm3 | SW |
 
 ### 5. Dev

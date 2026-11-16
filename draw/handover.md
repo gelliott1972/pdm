@@ -50,6 +50,7 @@ The previous Draw session ran out of context after the overnight run. Read this 
   - The basename bug is fixed: write `${r##*"$B"}`, with `$B` in quotes. Unquoted, it never matched, so the first pass didn't repoint.
 - `file_list.sh LIST BATCH [RESULTTAG]`: runs file_draft.sh for each row (PartNo, folder).
 - `rows.sh CHECKFILE NOTESFILE`: writes the batch.md table rows.
+- **Line endings:** git may check these files out with CRLF. If a script or .tsv misbehaves (a stray `\r` in names), run `sed -i 's/\r$//'` on it first.
 - **Bash and backslash paths:** use `B='\'` and `${var}`. Write scripts with the Write tool rather than heredocs inside commands.
 
 ## Learned overnight (not yet in the skill)

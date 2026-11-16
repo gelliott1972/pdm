@@ -101,3 +101,4 @@ Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08
 - The old `08C04-SFP-04.SLDDRW` and PDF moved out of `load\block-B` to `scratch\draw-test\load-superseded\block-B\ShaftC` so they can't be loaded by mistake.
 - **Grant decided (A):** the "CHECK: MODEL HAS NO MATERIAL PROPERTY" notes stay on the four loaded block-B drawings; James deletes them as he works. Nothing for Draw to do.
 - DW8 closed on the Desk with a note about the rename. Lock released, 0 documents open.
+- App loaded block-B2 on 17 Nov: 08X04-SFP-03.SLDDRW is checked in at _Shared. All six of Grant's approved drawings are now in the vault.

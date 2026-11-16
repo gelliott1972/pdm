@@ -1,5 +1,9 @@
 # SW status
 
+## Weldment profiles into the vault (brief sw-profiles, 16 Nov 2026): step 0 survey half done
+
+Profile library surveyed (`sw\profiles\survey.md`): rhs.sldlfp's size "RHS150x100x8" draws 80x40x8 and there is no RHS80x40x8 size (08A04-HBW-05 asks for it); EA50x50x6 and SHS100x100x12.5 have wrong descriptions. Parts survey (87 parts, needs SOLIDWORKS) stopped for Draw; runs when the lock is free. Next: parts survey, then scripts and rehearsal. Nothing written to `P:\` or `M:\`.
+
 ## 08X04-PLP-01/-02/-03/-05/-06 Material (15 Nov 2026, Grant via Draw): done, checked in 20:32
 
 File-level Material = "SW-Material@<own file>" (as 08X04-PLP.SLDPRT), DmEdit, read back. SOLIDWORKS material read first (SwMaterial): PLP-01/-02/-05 Plain Carbon Steel; PLP-03 and PLP-06 had none, so Plain Carbon Steel set (Grant: steel like the others): PLP-03 0.635 -> 4.956 kg (Default), 0.589 -> 4.597 kg (PLATE ONLY); PLP-06 0.023 -> 0.179 kg. Load dry run and load exactly 5 files. Odd, for Draw: PLP-06 "FLOOR PLATE EA BOLT TO STAIRS" is only 23 cm3. Logs `sw\plp-material`.

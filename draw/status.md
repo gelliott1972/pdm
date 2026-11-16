@@ -61,3 +61,11 @@ Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08
 | 14 Nov | Ordinate to a slot centre: a centre mark selected by API won't take an ordinate | Pick the centre mark by position (`SelectByID2 "CENTERMARKSYMS"`); only one ordinate group per view can do that, so the other direction uses the slot's end arc |
 | 14 Nov | Value check passed with slot dimensions missing | Expected values now come from the model's holes and slots, not from what was placed |
 | 14 Nov | A free-standing end view came out upside down against the face view | Project it from the (turned) face view: true projection, and linked |
+
+## 16 Nov evening: where to resume (written at a battery stop)
+
+- Committed 1d48d2b: member route not all-or-nothing; make-basic adds checked overall sizes. Member regression (4 approved, `scripts\regress-members.tsv`) passed; plate code untouched.
+- Grant's ask (now on Fable): look at the drawings he approved (DW7-DW10: 08X04-BRP-02, 08X04-SFP-04, 08B04-SFP-05, 08C04-SFP-04; also DW3, DW6) and get the simple things right. Compare his saved drawings with the machine drafts BY EYE: render PDFs to PNG with PyMuPDF (`python -c "import pymupdf"`) into `scratch\draw-test\look\` and read the images. His PDFs: `look\*-grant.pdf` (3 exported; 08X04-SFP-04, 08B04-SFP-05 and 08X04-PLP-05 still to export with `Draw.exe pdf`). Machine tests: `scratch\draw-test\try-16nov\`.
+- Seen already on the machine's 08X04-BRP-02: three CHECK lines run up into the revision table (pack them into two lines at most); ordinate 0/10 text sits on the callout leader.
+- Not done: redo of the 11 basic drafts in blocks C/D (DW11-DW23; list `scratch\draw-test\redo-16nov.tsv`, 3 done in `redo-16nov\`, stopped). Tickets DW11-DW25 still open on the Desk with the old drafts.
+- SOLIDWORKS lock released. A hidden read-only 08X04-PLP-05.SLDDRW may still be open in SOLIDWORKS (close-mine).

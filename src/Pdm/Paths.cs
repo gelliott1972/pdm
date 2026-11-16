@@ -64,6 +64,11 @@ public static class Paths
     public static bool IsSolidWorksFile(string key) =>
         Path.GetExtension(key).ToLowerInvariant() is ".sldprt" or ".sldasm" or ".slddrw" && !Path.GetFileName(key).StartsWith('~');
 
+    // A weldment profile (library feature part, P:\_Shared\_Profiles). Members use it through File Locations, not as a
+    // reference Document Manager lists, so the load keeps it by type (brief sw-profiles step 3).
+    public static bool IsWeldmentProfile(string key) =>
+        Path.GetExtension(key).Equals(".sldlfp", StringComparison.OrdinalIgnoreCase) && !Path.GetFileName(key).StartsWith('~');
+
     // After a file leaves this PC: removes its folder, and the folders above it, while they are empty
     // (Explorer's desktop.ini and Thumbs.db don't count). Never the root itself. Quietly stops on any error.
     public static void RemoveEmptyFolders(string root, string removedFile)

@@ -55,9 +55,10 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
         var candidates = records.Select(r => r.Record).ToList();
         foreach (var (record, local, _) in records) engine.Describe(record, local, candidates);
 
-        // Keep SOLIDWORKS files and what they refer to; list the rest.
+        // Keep SOLIDWORKS files, weldment profiles and what they refer to; list the rest.
         var referenced = candidates.SelectMany(r => r.Refs).ToHashSet();
-        var skipped = records.Where(r => !Paths.IsSolidWorksFile(r.Record.Path) && !referenced.Contains(r.Record.FileId)).ToList();
+        var skipped = records.Where(r => !Paths.IsSolidWorksFile(r.Record.Path) && !Paths.IsWeldmentProfile(r.Record.Path)
+            && !referenced.Contains(r.Record.FileId)).ToList();
         records = records.Except(skipped).ToList();
         foreach (var r in skipped) say($"  skipped (not a SOLIDWORKS file, and nothing refers to it): {r.Record.Path}");
         var all = records.Select(r => r.Record).ToList();

@@ -73,6 +73,17 @@ In order. Only one thing can use SOLIDWORKS at a time (the SwCmd lock), so the p
   - (4) DW19 08X04-BKP-07: saved view square to the plate; waits for James's check-in. Draw may trial it on a copy.
 - Sessions now start with fixed names: admin, dev, sw, app, draw (`start-pdm.cmd`).
 
+**Overnight 17-18 Nov (Grant: B for 08BXX-MSW-01; James had 0 check-outs at 23:50):**
+1. Draw fixes the 08BXX-MSA-01 parts-list columns; App checks it in, still 0A.
+2. SW makes 08BXX-MSW-01 a weldment.
+3. Draw adds the DW16 cut list (Desk).
+4. SW sets the 08X04-BKP plate label (James didn't).
+5. SW adds a named view to 08X04-BKP-07; Draw drafts DW19 (Desk).
+6. SW preps the 27 plus 08X04-SFP-03 on copies (sw\profiles	he-27.md).
+7. Draw learns from James's check-ins (read-only).
+8. App rehearses the D13 cases on a scratch vault.
+Morning with Grant: File Locations, the 27, and the Desk.
+
 ### 2. James (this week)
 | # | Item | Who |
 | --- | --- | --- |

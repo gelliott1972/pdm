@@ -119,3 +119,5 @@ Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08
 - Problem, DW19 (08X04-BKP-07): "This one is on a strange angle - I think we need to re-orientate the part first and then redo". With Admin for SW.
 - Draw got this wrong: it held DW18 back and began writing a balloon fix for a drawing Grant had accepted. Grant stopped it. Rule now in the skill: his edited or accepted drawings are filed as saved; checks are reported, not acted on.
 - New commands: Draw.exe live (info, slots, cutlist, remove, part-slots) and fix-balloons (tested on a copy only; not for Grant's accepted drawings).
+- DW12 and DW14: redone from Grant's finished 08C04-SFP-03 drawing pointed at each sister assembly (DmEdit replace-ref on a copy: 21 dimensions, 0 dangling). Grant tidied and accepted both; filed as saved in block-C3, with App. My own make-assembly route gave a poor layout on these and crashed SOLIDWORKS once in MemberHoles (now behind --no-member-holes).
+- Lesson: for a sister of a drawing Grant has finished, copy his drawing and repoint it before trying a route.

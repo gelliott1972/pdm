@@ -226,6 +226,29 @@ static partial class Draw
             }
             return 0;
         }
+        if (pos[0] == "cutlist")
+        {
+            // live cutlist: the weldment cut-list table (top left, James's template) and its balloons on the isometric
+            var all = LiveViews(drw).ToList();
+            if (all.Count == 0) { Console.Error.WriteLine("no views"); return 1; }
+            var main = all[0];
+            var iso = all.FirstOrDefault(x => (x.GetOrientationName() ?? "").IndexOf("Isometric", StringComparison.OrdinalIgnoreCase) >= 0);
+            var lmc = (LayerMgr)doc.GetLayerManager(); string wasc = lmc.GetCurrentLayer() as string ?? "";
+            if (lmc.GetLayer(DraftLayer) == null) lmc.AddLayer(DraftLayer, "Placed by the machine, not yet checked", Magenta, (int)swLineStyles_e.swLineCONTINUOUS, (int)swLineWeights_e.swLW_NORMAL);
+            lmc.SetCurrentLayer(DraftLayer);
+            var pd = main.ReferencedDocument as PartDoc;
+            if (pd != null)
+            {
+                var bodies = (pd.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[]) ?? new object[0];
+                Console.WriteLine("Model " + System.IO.Path.GetFileName(((ModelDoc2)pd).GetPathName()) + ": weldment " + pd.IsWeldment() + ", solid bodies " + bodies.Length + ", configuration '" + main.ReferencedConfiguration + "'");
+                if (!pd.IsWeldment()) { Console.WriteLine("The model is not a weldment, so it has no cut list to show. Nothing added."); return 1; }
+            }
+            int r;
+            try { r = AddCutList(drw, main, iso, main.ReferencedConfiguration, System.IO.Path.Combine(TestRoot, "_Templates", "x.drwdot")); }
+            finally { lmc.SetCurrentLayer(wasc); doc.ClearSelection2(true); doc.GraphicsRedraw2(); }
+            Console.WriteLine(r < 0 ? "cut-list table not inserted" : "Cut list in; " + r + " item(s) without a balloon. Not saved.");
+            return r < 0 ? 1 : 0;
+        }
         if (pos[0] == "remove")
         {
             // live remove --names=D7,D8: delete these annotations of the view, only if they are on DRAFT (to redo a step)
@@ -241,7 +264,13 @@ static partial class Draw
         }
         if (pos[0] == "slots")
         {
-            if (v == null) { Console.Error.WriteLine("No view selected: click a view's border first (or --view=NAME)."); return 1; }
+            if (v == null)
+            {
+                // nothing selected: the one view that shows slots face-on, if there is only one
+                var withSlots = LiveViews(drw).Where(x => LiveRead(mu, x).Slots.Count > 0).ToList();
+                if (withSlots.Count == 1) v = withSlots[0];
+                else { Console.Error.WriteLine("No view selected and " + withSlots.Count + " views show slots (" + string.Join(", ", withSlots.Select(x => x.GetName2())) + "): click a view's border first (or --view=NAME)."); return 1; }
+            }
             Console.WriteLine("View: " + v.GetName2());
             var g = LiveRead(mu, v);
             double vs = v.ScaleDecimal;
@@ -323,10 +352,31 @@ static partial class Draw
                     {
                         var first = grp.OrderBy(x => x.s.Item1[0]).First();
                         double tx = first.s.Item1[0] + 0.006, ty = yb - 0.009 - 0.008 * k;
+                        string at = flags.Where(f => f.StartsWith("at=")).Select(f => f.Substring(3)).FirstOrDefault();   // --at=x,y: where the note goes (sheet mm)
+                        if (at != null) { var xy = at.Split(',').Select(t => double.Parse(t, System.Globalization.CultureInfo.InvariantCulture) / 1000).ToArray(); tx = xy[0]; ty = xy[1] - 0.008 * k; }
                         var end = g.SlotEnds[first.i].OrderBy(e => Math.Pow(e.Item2[0] - tx, 2) + Math.Pow(e.Item2[1] - ty, 2)).First();
                         doc.ClearSelection2(true);
                         var sd = (SelectData)selMgr.CreateSelectData(); sd.View = v; ((Entity)end.Item1).Select4(false, sd);
                         int n = grp.Count();
+                        // slots in line behind one another show as one in the view (08BXX-MSW-01, two angles): count the
+                        // half-round faces of that radius along the view direction in the model
+                        try
+                        {
+                            var pdm = v.ReferencedDocument as PartDoc; int half = 0;
+                            if (pdm != null)
+                                foreach (Body2 b in (pdm.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[]) ?? new object[0])
+                                    foreach (Face2 f in (b.GetFaces() as object[]) ?? new object[0])
+                                    {
+                                        var sf = (Surface)f.GetSurface(); if (!sf.IsCylinder()) continue;
+                                        var cy = (double[])sf.CylinderParams; if (Math.Abs(cy[6] - first.s.Item2 / 2) > 1e-7) continue;
+                                        var ax = (MathVector)mu.CreateVector(new[] { cy[3], cy[4], cy[5] }); ax = (MathVector)ax.MultiplyTransform(v.ModelToViewTransform);
+                                        var ad = (double[])ax.ArrayData; double al = Math.Sqrt(ad[0] * ad[0] + ad[1] * ad[1] + ad[2] * ad[2]);
+                                        if (al > 1e-12 && Math.Abs(Math.Abs(ad[2]) / al - 1) < 1e-6) half++;
+                                    }
+                            Console.WriteLine("  slots of this size: " + n + " seen in the view, " + half + " half-round faces in the model (" + half / 2 + " slots)");
+                            if (half / 2 > n) n = half / 2;
+                        }
+                        catch (Exception ex) { Console.WriteLine("  model count failed: " + ex.Message); }
                         string text = (n > 1 ? n + " x " : "") + (first.s.Item2 * 1000).ToString("0.0") + " X " + (first.s.Item3 * 1000).ToString("0") + " THRU";
                         var note = doc.InsertNote(text) as Note;
                         if (note == null) { Console.WriteLine("slot note not placed: " + text); rc = 1; }

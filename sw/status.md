@@ -13,7 +13,7 @@ Result table and the 27 parts left unchanged: `sw\profiles\survey.md` section 3.
   - Labels on the copy: "PLATE, 10 x 200 x 400"; "EA100x100x8" with LENGTH 100. The angle MATERIAL text didn't set: same rewrite as 08B04-BKP-01.
   - Users (12): every assembly has 0 errors; DW16 has 24 dims, 0 dangling; 08BXX-PLP-01 has 10 dims, 0 dangling. Fails on one: released **08BXX-MSA-01.SLDDRW (0A)** parts-list row 1 PART NUMBER "08BXX-MSW-01" goes blank. 08B11-MSA-01.SLDDRW, same layout, keeps it.
   - Cause found with `tools\sw-macros\SwBomDiag.cs`: that drawing's PART NUMBER column carries custom property "Description" and its DESCRIPTION column "PartNo". The other drawing's columns are normal.
-  - Waiting on Admin/Grant.
+  - Options with Grant: A go ahead (blank part number until the drawing is fixed); B Draw fixes that parts-list column first, then the weldment (Admin recommends B); C leave the part as it is. Waiting on Grant via Admin.
 
 ### Earlier (16 Nov): step 0 survey
 

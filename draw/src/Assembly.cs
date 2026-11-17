@@ -1161,12 +1161,16 @@ static partial class Draw
     // Holes in the member itself (Grant 14 Nov: "like on the RHS down the bottom") on a view that isn't the plate view:
     // ordinates down the left side from the top (0), and a callout per size "n x Ø d THRU ALL" (both walls) or
     // "THRU ONE WALL", worked out from the member's own edges (the far wall's holes are hidden in the view).
+    static bool NoMemberHoles;
     static void MemberHoles(ModelDoc2 doc, DrawingDoc drw, View v, List<string> report)
     {
         if (memberName == null) return;
         var mu = (MathUtility)sw.GetMathUtility();
         var dist = FacingHoles(v, memberName).Where(h => !h.Slot).Select(h => Tuple.Create(h.E, h.C, h.Cp, h.Own)).ToList();   // slots: centres only (Grant 15 Nov)
         if (dist.Count == 0) return;
+        // 17 Nov, 08A04-HBW-06: this row's AddOrdinateDimension brought SOLIDWORKS down (server fault, then gone).
+        // --no-member-holes leaves the member's holes to the reader, with the usual CHECK note.
+        if (NoMemberHoles) { Console.WriteLine("  " + v.GetName2() + ": " + dist.Count + " hole(s) in the member not dimensioned (--no-member-holes)"); missingGroups.Add(v.GetName2() + " member holes"); return; }
         var ls = ViewLines(mu, v);
         var hor = ls.Where(l => Math.Abs(l.Item2[1] - l.Item3[1]) < 1e-7 && Math.Abs(l.Item2[0] - l.Item3[0]) > 0.0002).ToList();
         if (hor.Count == 0) return;

@@ -1014,6 +1014,7 @@ static partial class Draw
         drwDoc.Extension.CustomPropertyManager[""].Set2("Revision-Sheet1", "0A*");
     }
 
+    static bool SlotCheckAsNote;
     static int SaveDraft(DrawingDoc drw, ModelDoc2 drwDoc, string output, string pdfOut, DateTime t0)
     {
         int dims = 0, notes = 0, marks = 0, offDraft = 0, dangling = 0;
@@ -1032,7 +1033,24 @@ static partial class Draw
         if (dangling > 0) { problems.Add(dangling + " dangling annotations: NOT saved"); return 1; }
         var slotBad = SlotDims(drw);   // Grant 15 Nov: never a dimension to a slot's end, side or edge
         Console.WriteLine("Slot check: " + (slotBad.Count == 0 ? "no dimension to a slot end, side or edge" : slotBad.Count + " dimension(s) to slot geometry: " + string.Join(", ", slotBad)));
-        if (slotBad.Count > 0) { problems.Add(slotBad.Count + " dimension(s) attached to a slot's end, side or edge: NOT saved"); return 1; }
+        if (slotBad.Count > 0 && SlotCheckAsNote)
+        {
+            // make-assembly --slot-note (17 Nov): Grant accepted 08C04-SFP-03 with two such dimensions and wants drafts, not
+            // refusals: say it on the sheet and save
+            string add = "CHECK: " + slotBad.Count + " DIMENSION(S) SIT ON A SLOT END OR SIDE (" + string.Join(", ", slotBad.Select(b => b.Substring(b.LastIndexOf(' ') + 1))) + ")";
+            bool said = false;
+            foreach (Annotation a in (((View)drw.GetFirstView()).GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.GetType() != (int)swAnnotationType_e.swNote || a.Layer != DraftLayer) continue;
+                var nt = (Note)a.GetSpecificAnnotation(); string tx = nt.GetText() ?? "";
+                if (!tx.StartsWith("CHECK:")) continue;
+                nt.SetText(tx + "\n" + add); said = true; break;
+            }
+            Console.WriteLine(said ? "  on the sheet: " + add : "  could not add the note: " + add);
+            if (!said) { problems.Add(slotBad.Count + " dimension(s) attached to a slot's end, side or edge: NOT saved"); return 1; }
+            problems.Add(slotBad.Count + " dimension(s) attached to a slot's end, side or edge (CHECK note on the sheet)");
+        }
+        else if (slotBad.Count > 0) { problems.Add(slotBad.Count + " dimension(s) attached to a slot's end, side or edge: NOT saved"); return 1; }
         if (offDraft > 0) problems.Add(offDraft + " annotations not on the DRAFT layer");
         int err = 0, warn = 0;
         bool ok = drwDoc.Extension.SaveAs3(output, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)swSaveAsOptions_e.swSaveAsOptions_Silent, null, null, ref err, ref warn);

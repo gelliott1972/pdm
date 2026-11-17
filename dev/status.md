@@ -1,8 +1,27 @@
 # Dev status
 
-Updated 13 Nov 2026 (plates-0804), on Grant's laptop.
+Updated 17 Nov 2026, on Grant's laptop.
 
-## Now: plates out of six 0804 weldments (brief `docsriefs\plates-0804.md`, Grant 13 Nov)
+## Now: on call (17-18 Nov overnight)
+
+SW and Draw run vault jobs; Dev fixes SwCmd or DmEdit if they ask. Nothing else queued. Session name is `dev` (fixed
+names since 17 Nov: admin, dev, sw, app, draw).
+
+| Done 13-15 Nov | Commit | Tested |
+| --- | --- | --- |
+| `place --save` leaves read-only (not checked-out) references unsaved, as swap-asm does (real run had stopped on GNRIC-LPP <DOUBLE_BOTTOM>) | 8167178 | SW's real run |
+| `swap-asm` opens the weldment-only part if it isn't loaded (08B04-SFA-2T on P:\: "08B04-SFP-05 is not loaded"); faces by position if it can't | 094a030 | Look run on P:\ (--checked-out, unsaved) |
+| `set-material <part> <material> [--db] (--config \| --all-configs) [--save] [--checked-out]`: old -> new material and mass per configuration; saved only if every configuration took it; read back from disk (for 08X04-BKP-01, SW) | 6b2e3b1, 22b7267 | Scratch copy of BKP-01 |
+| `drawing-info`: per sheet, the items on layer DRAFT (`DRAFT` line; JSON `draftCount`, `draftTypes`) for App's release check (Grant's D3/D5) | 22b7267 | Draw draft 12, James drawing 0 |
+| `set-cutlist-prop <part> <property> <new> [--body] [--item] [--where-value] (--config \| --all-configs) [--save] [--checked-out]`: every configuration read first, then set, then compared; only plain-text values; read back from disk | bef3dbb | Copy of GNRIC-LMW: RHS40x40x4 -> SHS40x40x4 in all 20 configurations |
+
+Learned (set-cutlist-prop): a cut-list Description is one value for all configurations; SOLIDWORKS renames the cut-list
+folder from it (`RHS40x40x4<1>` -> `SHS40x40x4<1>`); a stale cut list regroups on rebuild (one GNRIC-LMW configuration's
+two end caps become one line, quantity 2); body names differ between configurations, so `--where-value` is the
+reliable selector for Draw's 51 more labels (`draw\cutlist-survey.md`). SW (sw-ed) has the GNRIC-LMW command line;
+not known here whether it has been run on P:\.
+
+## Earlier: plates out of six 0804 weldments (brief `docsriefs\plates-0804.md`, Grant 13 Nov)
 
 Dev's part: SwCmd steps, tested on Dev's copy `scratch\import\plates-0804\toolcopy` (copy of P:\ 13 Nov); SW does the dry
 run, real run and check-in. Round list and draft ledger rows: `scratch\import\plates-0804\make_round.py` ->

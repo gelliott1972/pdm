@@ -21,7 +21,7 @@ two end caps become one line, quantity 2); body names differ between configurati
 reliable selector for Draw's 51 more labels (`draw\cutlist-survey.md`). SW (sw-ed) has the GNRIC-LMW command line;
 not known here whether it has been run on P:\.
 
-## Earlier: plates out of six 0804 weldments (brief `docsriefs\plates-0804.md`, Grant 13 Nov)
+## Earlier: plates out of six 0804 weldments (brief `docs\briefs\plates-0804.md`, Grant 13 Nov)
 
 Dev's part: SwCmd steps, tested on Dev's copy `scratch\import\plates-0804\toolcopy` (copy of P:\ 13 Nov); SW does the dry
 run, real run and check-in. Round list and draft ledger rows: `scratch\import\plates-0804\make_round.py` ->
@@ -170,7 +170,7 @@ Admin asked: is the importer ready for a full-rename 0804 import from the regist
 
 **SwCmd pack-and-go (7 Nov, 8b61982):** tested on scratch (C's pre-prep top: 97/97 files in 19 s, references inside the pack). SOLIDWORKS refuses custom save-to names, so the pack keeps the path below the drive (`<target>\PDM-work\LS-08x-04Év3\...`, as the 0811 -r1 packs). Work copies re-probed after SW's round (r15): every live reference inside the work copy; only unused files (old LS-08A-04_SF02, B's SF01, grout kits) point outside. SW cleared to pack A, B, C.
 
-**Release brief (`docsriefs
+**Release brief (`docs\briefs
 elease-0A.md`), started alongside:** SwCmd `export-pdf` and `drawing-info` built (ba8dc53), refusals tested; the SOLIDWORKS test (scratch copies in `scratch\import\swcmd-test\drw`) waits until SOLIDWORKS is free of 0804 work.
 
 **Vault changed again 7 Nov 10:01–10:11** (drawing revisions A → 0A, 5 new drawings, model re-saves; 08X06-SFW-04 gained Weight/Material/Finish). `GNRIC-BRW-20.SLDDRW` references a `GNRIC-BRW-20.SLDPRT` that isn't in the vault.

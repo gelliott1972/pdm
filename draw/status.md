@@ -122,3 +122,19 @@ Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08
 - DW12 and DW14: redone from Grant's finished 08C04-SFP-03 drawing pointed at each sister assembly (DmEdit replace-ref on a copy: 21 dimensions, 0 dangling). Grant tidied and accepted both; filed as saved in block-C3, with App. My own make-assembly route gave a poor layout on these and crashed SOLIDWORKS once in MemberHoles (now behind --no-member-holes).
 - Lesson: for a sister of a drawing Grant has finished, copy his drawing and repoint it before trying a route.
 - App loaded block-C2 and block-C3 on 17 Nov: all 15 drawings Grant accepted from DW11-DW26 are in the vault. Open: DW19 (SW re-orients 08X04-BKP-07, then redraw) and the DW16 cut list (SW makes 08BXX-MSW-01 a weldment).
+
+## 17 Nov afternoon: where things stand at shutdown
+
+Nothing of Draw's is running or open in SOLIDWORKS; the lock is not Draw's. All Draw code and notes are committed.
+
+| Item | State | Waits for |
+| --- | --- | --- |
+| DW1-DW15, DW17, DW18, DW20-DW26 | Done, in the vault as Grant saved them | Nothing |
+| DW16 (08BXX-MSW-01) | In the vault without a cut list | Grant's choice in Admin after SW's rehearsal, then Admin's brief |
+| DW19 (08X04-BKP-07) | Problem; Grant chose the saved-view route | James (he has the part checked out) |
+
+- **DW16 route, agreed with Admin:** once SW has checked in 08BXX-MSW-01 as a weldment, copy the part from P: to scratch, take Grant's accepted drawing from `scratch\draw-test\load\block-C`, add only the cut list and its balloons (DRAFT layer, `Draw.exe live cutlist` or the same code on a copy), check (0 dangling, his dimensions unchanged, PDF compared), post as a new version of DW16 saying only those two things were added. After Grant presses Done, hand to App: the drawing is already in the vault, so App takes it in by check-out and check-in as a new version, not a new-file load.
+- **New from SW's rehearsal (commit 42c00ea):** the released `08BXX-MSA-01.SLDDRW` parts list has its PART NUMBER and DESCRIPTION columns crossed, and its part number goes blank when 08BXX-MSW-01 becomes a weldment. If Grant picks option B, Draw fixes that parts list first. Wait for Admin's brief; don't start before it.
+- **DW19:** a trial of drawing from a named view on a scratch copy is allowed when SOLIDWORKS is free; nothing is to be posted until James has re-oriented or released the part.
+- **Session names after restart:** admin, dev, sw, app, draw. Message "admin".
+- **Not asked for, noted only:** a midpoint pick by program for slots from inserted parts; tests of `live` on copies (`--centre=midpoint` does not work); more `live` tools.

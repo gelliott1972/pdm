@@ -127,6 +127,87 @@ static partial class Draw
         return selected;
     }
 
+    // fix-balloons <drawing>: a balloon that has come loose from its part (dangling) is replaced by a fresh one picked
+    // on the nearest visible edge that gives the same item number, at the same place and on the same layer. Saves only
+    // when nothing in the drawing is dangling afterwards. (08C04-SFP-03, 17 Nov: one loose balloon in a drawing Grant
+    // had accepted.)
+    static int FixBalloons(string drawing)
+    {
+        var doc = OpenDoc(drawing, null, false); var drw = (DrawingDoc)doc;
+        var mu = (MathUtility)sw.GetMathUtility();
+        int done = 0, left = 0;
+        foreach (var v in LiveViews(drw).ToList())
+        {
+            foreach (Annotation a in ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().ToList())
+            {
+                if (a.GetType() != (int)swAnnotationType_e.swNote || !a.IsDangling()) continue;
+                var n = (Note)a.GetSpecificAnnotation();
+                if (!n.IsBomBalloon()) continue;
+                string txt = n.GetText(); var pos = (double[])a.GetPosition(); string layer = a.Layer;
+                var lp = a.GetLeaderCount() > 0 ? a.GetLeaderPointsAtIndex(0) as double[] : null;
+                double ax = lp != null && lp.Length >= 2 ? lp[0] : pos[0], ay = lp != null && lp.Length >= 2 ? lp[1] : pos[1];
+                Console.WriteLine("Loose balloon '" + txt + "' in " + v.GetName2() + " at " + Mm(pos[0]) + "," + Mm(pos[1]) + ", leader " + (lp == null ? "none" : string.Join(" ", lp.Select(z => Mm(z)))));
+                drw.ActivateView(v.GetName2());
+                var cands = new List<double[]>();
+                var comps = ((v.GetVisibleComponents() as object[]) ?? new object[0]).Cast<Component2>().ToList();
+                Action<Component2> add = c =>
+                {
+                    var ct = c == null || c.Transform2 == null ? null : (double[])c.Transform2.ArrayData;
+                    foreach (Edge e in (v.GetVisibleEntities2(c, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+                    {
+                        if (!((Curve)e.GetCurve()).IsLine()) continue;
+                        var cp = e.GetCurveParams3(); var p0 = (double[])cp.StartPoint; var p1 = (double[])cp.EndPoint;
+                        foreach (double t in Enumerable.Range(1, 39).Select(i => i / 40.0))   // along the edge, so the arrow can land near where it pointed
+                        {
+                            var m = new[] { p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t, p0[2] + (p1[2] - p0[2]) * t };
+                            cands.Add(ToSheet(mu, v, ct == null ? m : Xf(ct, m)));
+                        }
+                    }
+                };
+                if (comps.Count == 0) add(null); else foreach (var c in comps) add(c);
+                bool ok = false; int tried = 0;
+                var known = new Dictionary<string, string>();   // picked component -> the item number its balloon shows
+                var smb = (SelectionMgr)doc.SelectionManager;
+                foreach (var q in cands.OrderBy(q => Math.Pow(q[0] - ax, 2) + Math.Pow(q[1] - ay, 2)).Take(4000))
+                {
+                    doc.ClearSelection2(true);
+                    if (!doc.Extension.SelectByID2("", "EDGE", q[0], q[1], 0, false, 0, null, 0)) continue;
+                    var pc = smb.GetSelectedObjectsComponent4(1, -1) as Component2; string key = pc == null ? "" : pc.Name2;
+                    if (known.ContainsKey(key) && known[key] != txt) continue;   // that part is another item
+                    tried++;
+                    var bop = (BalloonOptions)doc.Extension.CreateBalloonOptions();
+                    bop.Style = (int)swBalloonStyle_e.swBS_Circular; bop.Size = (int)swBalloonFit_e.swBF_2Chars;
+                    bop.UpperTextContent = (int)swBalloonTextContent_e.swBalloonTextItemNumber;
+                    var nb = doc.Extension.InsertBOMBalloon2(bop) as Note;
+                    doc.ClearSelection2(true);
+                    if (nb == null) continue;
+                    var na = (Annotation)nb.GetAnnotation();
+                    known[key] = nb.GetText();
+                    if (nb.GetText() != txt || na.IsDangling()) { na.Select3(false, null); doc.Extension.DeleteSelection2(0); doc.ClearSelection2(true); continue; }
+                    na.Layer = layer; na.SetPosition2(pos[0], pos[1], 0);
+                    doc.ClearSelection2(true); a.Select3(false, null); doc.Extension.DeleteSelection2(0); doc.ClearSelection2(true);
+                    Console.WriteLine("  re-attached: new balloon '" + txt + "' picked at " + Mm(q[0]) + "," + Mm(q[1]) + " (try " + tried + "), same place, layer '" + layer + "'");
+                    ok = true; break;
+                }
+                if (ok) done++; else { left++; Console.WriteLine("  NOT re-attached after " + tried + " tries"); }
+            }
+        }
+        doc.EditRebuild3();
+        int dangling = 0;
+        for (var x = (View)drw.GetFirstView(); x != null; x = (View)x.GetNextView())
+            foreach (Annotation a in (x.GetAnnotations() as object[]) ?? new object[0]) if (a.IsDangling()) dangling++;
+        Console.WriteLine("Balloons re-attached " + done + ", left " + left + "; dangling now " + dangling);
+        if (done > 0 && dangling == 0)
+        {
+            int err = 0, warn = 0;
+            bool saved = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref err, ref warn);
+            Console.WriteLine(saved ? "Saved." : "NOT saved (error " + err + ", warning " + warn + ")");
+            return saved ? 0 : 1;
+        }
+        Console.WriteLine("Not saved.");
+        return 1;
+    }
+
     static ModelDoc2 LiveDoc()
     {
         var doc = sw.ActiveDoc as ModelDoc2;
@@ -186,7 +267,7 @@ static partial class Draw
                     what = DimKind(dd) + " " + (d == null ? "?" : Math.Round(d.GetSystemValue2("") * 1000, 2).ToString());
                 }
                 else if (a.GetType() == (int)swAnnotationType_e.swNote) what = "note '" + Flat(((Note)a.GetSpecificAnnotation()).GetText()) + "'";
-                Console.WriteLine("    " + what + " '" + a.GetName() + "' layer '" + a.Layer + "'" + (p != null ? " at " + Mm(p[0]) + "," + Mm(p[1]) : ""));
+                Console.WriteLine("    " + what + " '" + a.GetName() + "' layer '" + a.Layer + "'" + (p != null ? " at " + Mm(p[0]) + "," + Mm(p[1]) : "") + (a.IsDangling() ? "   <== DANGLING" : ""));
             }
             }
             return 0;

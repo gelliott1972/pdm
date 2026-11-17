@@ -110,3 +110,12 @@ Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08
 - Not solved by program: a slot-centre mark, or a midpoint pick, for slots that arrive with an inserted part (the angles here). It took about 25 minutes of trying on his open drawing, which was too long; next time hand it back after two refusals.
 - Slot in the part checked: 13 x 23, half-round ends r 6.5, centres 115 and 285 across, 70 up. Plate holes are 13.5 dia, slots 13 wide: for James to confirm.
 - Open: the midpoint pick by program; `live` tools for ordinates on any view, balloons and layout moves; tests of `live` on a copy.
+
+## 17 Nov late morning: Grant reviewed DW11-DW26
+
+- Accepted and in the vault (load folder block-C, loaded by App): DW11, 13, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26. DW18 (08C04-SFP-03) filed as Grant saved it in block-C2, with App.
+- DW16 (08BXX-MSW-01) has no cut list: the model is not a weldment. Admin asked to have SW convert it; then add the cut list (Draw.exe live cutlist).
+- Problem, DW12 (08A04-HBW-06): "This part should have weldment pieces (we did a previous one)". Problem, DW14 (08B04-SFP-01): "Same as DW12 - this is a welded assembly I think - check 08C04-SFP-03 - should be the same". Not started; waiting for Grant's go.
+- Problem, DW19 (08X04-BKP-07): "This one is on a strange angle - I think we need to re-orientate the part first and then redo". With Admin for SW.
+- Draw got this wrong: it held DW18 back and began writing a balloon fix for a drawing Grant had accepted. Grant stopped it. Rule now in the skill: his edited or accepted drawings are filed as saved; checks are reported, not acted on.
+- New commands: Draw.exe live (info, slots, cutlist, remove, part-slots) and fix-balloons (tested on a copy only; not for Grant's accepted drawings).

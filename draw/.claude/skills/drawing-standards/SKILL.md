@@ -172,3 +172,12 @@ Grant, 17 Nov: "a mechanism for me to ask you what to do with what I have open m
 - **Be quick or hand it back.** If SOLIDWORKS refuses something twice, stop experimenting on his open drawing: say what is in, what is not, and give him the hand steps. Experiments belong on a copy, later.
 - **Slots that arrive with an inserted part** (08B04-BKP-01: the angles are "Stock" features, the slots come in with them): SOLIDWORKS makes no slot-centre mark for them. The automatic insert says yes and adds nothing; by hand, "Slot Centers" marks the two ends. A row that picks such a mark reads the slot END (75, not 70): the value check catches it. What works, by hand: right-click the row's 0 > Add To Ordinate, right-click a straight side of the slot > Select Midpoint. By program the midpoint pick is not solved yet (SelectByRay with swSelMIDPOINTS selected nothing).
 - Which edges go in a row: Grant's own row on that view was plate bottom, plate top, slot centre, top of the angle (0, 12, 70, 112). He left out the angle's leg thickness and the fillet tangent lines. That is one drawing, not a rule.
+
+## A drawing Grant has edited or accepted is his (17 Nov)
+
+Grant, 17 Nov, when Draw started re-attaching a balloon on a drawing he had pressed Done on: "Why are you trying to fix a document I have edited?" and "You are getting stuck in loops!"
+
+- Once Grant has edited a drawing or pressed Done, Draw changes nothing on it. File it exactly as saved.
+- If a check flags something on it (dangling, slot check, overlap), tell Grant in one line and file it as it is unless he says otherwise. Do not hold it back and do not write a fix.
+- That day's case: a balloon he placed by hand to point at a hidden end cap counted as dangling. He fixed it himself by adding a cropped isometric of the other end.
+- More widely: when a small thing fails twice, stop and say so. Do not build a tool for a one-off while Grant waits.

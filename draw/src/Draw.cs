@@ -48,13 +48,14 @@ static partial class Draw
         for (int i = 0; i < pos.Count; i++)
         {
             if ((cmd == "make-plate" || cmd == "make-basic" || cmd == "make-overview" || cmd == "make-section" || cmd == "make-assembly" || cmd == "views" || cmd == "measure-member" || cmd == "remove-note" || cmd == "add-projection" || cmd == "move-view" || cmd == "delete-view" || cmd == "hole-dims" || cmd == "slot-dims" || cmd == "copy-layout") && i >= 1) continue;   // configuration name
+            if (cmd == "live") continue;   // no paths: works on the active drawing, which Live checks is inside the test folder
             string full;
             try { full = Path.GetFullPath(pos[i]); } catch (Exception ex) { Console.Error.WriteLine("Bad path: " + ex.Message); return 2; }
             if (!full.StartsWith(TestRoot + "\\", StringComparison.OrdinalIgnoreCase))
             { Console.Error.WriteLine("REFUSED: Draw works only inside " + TestRoot + ": " + full); return 2; }
             pos[i] = full;
         }
-        string gate = Gate();
+        string gate = Gate(cmd == "live");
         if (gate != null) { Console.Error.WriteLine(gate); return 5; }
         try { sw = Attach(); }
         catch (Exception ex) { Console.Error.WriteLine("Could not reach SOLIDWORKS 2026: " + ex.Message); return 3; }
@@ -92,6 +93,7 @@ static partial class Draw
                 case "check": if (pos.Count != 1) return Usage(); rc = CheckDrawing(pos[0]); break;
                 case "slot-check": if (pos.Count < 1) return Usage(); rc = 0; foreach (var d in pos) rc = Math.Max(rc, SlotCheck(d)); break;
                 case "close-mine": rc = CloseMine(); break;
+                case "live": if (pos.Count < 1) return Usage(); rc = Live(pos, flags); break;
                 case "measure-member": if (pos.Count != 2) return Usage(); rc = MeasureMember(pos[0], pos[1]); break;
                 case "weld-probe": if (pos.Count != 1) return Usage(); rc = WeldProbe(pos[0]); break;
                 case "pdf": if (pos.Count != 2) return Usage(); rc = Pdf(pos[0], pos[1]); break;
@@ -113,7 +115,7 @@ static partial class Draw
     }
 
     // ---------- lock: Draw must hold the SwCmd round lock; Grant's pause stops everything ----------
-    static string Gate()
+    static string Gate(bool live = false)
     {
         string desk = System.Environment.GetEnvironmentVariable("PDM_DESK_DIR");
         string dir = Path.Combine(string.IsNullOrEmpty(desk) ? @"C:\code\pdm\desk" : desk, "sw");
@@ -123,6 +125,7 @@ static partial class Draw
         string t = File.ReadAllText(lf);
         var h = System.Text.RegularExpressions.Regex.Match(t, "\"holder\"\\s*:\\s*\"([^\"]*)\"");
         var k = System.Text.RegularExpressions.Regex.Match(t, "\"kind\"\\s*:\\s*\"([^\"]*)\"");
+        if (live && h.Success && h.Groups[1].Value.ToLowerInvariant() == "grant") return null;   // Grant has the drawing open and asked Draw to work on it (live: never opens, closes or saves)
         if (!h.Success || h.Groups[1].Value.ToLowerInvariant() != "draw" || !k.Success || k.Groups[1].Value != "round")
             return "IN USE: the SOLIDWORKS lock is not a Draw round (" + t.Trim() + "). Nothing done.";
         return null;

@@ -145,3 +145,34 @@ Nothing of Draw's is running or open in SOLIDWORKS; the lock is not Draw's. All 
 - My first try (set the columns "like 08B11-MSA-01") blanked DESCRIPTION on the scratch copy; discarded (`scratch/draw-test/msa01-17nov/try1-blank`). `Draw.exe bom-columns` is now look-only (`--hold=<part>`, `--set=col:prop` trials; never saves) and shows hidden columns.
 - For Grant: the two sister drawings print different lists. 08BXX-MSA-01: "DESCRIPTION | PartNo", plate row 08BXX-PLP-01. 08B11-MSA-01: "PART NUMBER | DESCRIPTION", plate row 08BXX-MSW-01. Making them alike changes a released PDF; not touched.
 - Note: SwBomDiag starts a hidden SOLIDWORKS when none is running; Draw.exe can't attach to that one. Start SOLIDWORKS with Draw.exe or SwCmd first.
+
+## Learned from James (18 Nov, for Grant to review; nothing goes into the generator without his OK)
+
+Read-only comparison of the 8 drawings James checked in on 17 Nov (22:38 NZ) that began as Draw first passes. Files: `scratch\draw-test\james-compare` (dump, PDF and PNG of each version; James's copies from App in `scratch\draw-test\james-17nov`).
+
+Limits: James's drawings were opened against the older models on this PC, so a changed VALUE may be a model change, and many of his dimensions came out white in my PDFs (read from the dumps instead). 08C04-SFA-01 opened with views off the sheet, so its layout was not judged. 08A04-SFA-5B is on the list of files hit by the accidental load of 18 Nov 00:07; the copy looks like James's work (DRAFT layer empty, welds added) but is unconfirmed. 08X04-BKP-06 looks unfinished (CHECK note left, still 0A*).
+
+| Drawing | Scale | Views | Dimensions (draft -> James) | Other |
+| --- | --- | --- | --- | --- |
+| 08A04-SFA-5B | 1:30 -> 1:25 | Base Front -> Back; bottom plan deleted; isometric from a named view at sheet scale | 26 -> 21: elevation row 4 -> 9 stops, moved left; horizontal row and overall 639 deleted | 4 weld symbols; balloons 7 -> 12, one per instance beside the part; CHECK deleted; BOM off DRAFT |
+| 08B04-SFA-5B, 08C04-SFA-5B | 1:30 -> 1:25 | As above, plus a second isometric (named view) | 28 -> 23 / 22: as above, plus linear 354, 460, 279, 80 inside the views | 4 weld symbols; 12 balloons; CHECK deleted though BOM row 1 is still blank (balloon reads "?"); 08B04 BOM still on DRAFT |
+| 08C04-SFA-01 | 1:15 -> 1:10 | Looks rebuilt: base is the right end view, dimetric pictorial | 25 -> 25: three ordinate runs plus linear 210, 210, 374 | 3 weld symbols incl. a stitch weld; balloons 5 -> 11 |
+| 08C04-HBP-01, -02 | 1:2 | Same three views, moved up | 7 -> 4: side-view ordinates deleted, one plain linear 210; end view 40, 40, 4 kept | CHECK (RHS vs SHS) deleted |
+| 08X04-BKP-06 | 1:5 -> 1:8 | Plate face flipped; 2 auxiliary views added (one with hidden lines); pictorial from a named view | 14 -> 34: plate ordinates kept with 90, 210, 103.7 added; side-view 450.3, 103.7, 246.8 deleted, ordinates along the tube axis added | "2 x dia 22 THRU ALL" added; cut list off DRAFT and widened |
+| 08X04-PLP-06 | 1:1 | Third view deleted; base changed to the hole face; hidden lines on the profile | 14 -> 7: no ordinates; 50, 25, 25 and 50, 50, 5 | Hole callout: "THRU" removed; centre mark and centreline added; "Finish: Refer Assembly" line removed; CHECK deleted |
+
+Patterns seen in two or more drawings (observations, not rules):
+
+1. Small subframes go one scale step bigger (1:30 -> 1:25, 1:15 -> 1:10).
+2. A view the draft added is deleted: bottom plan on the three SFA-5B, third view on PLP-06.
+3. On simple parts ordinates are replaced by a few plain linear dimensions (HBP-01, HBP-02, PLP-06) and there are fewer of them. Ordinates stay on assemblies and on the BKP-06 plate, with more stops (4 -> 9 on the SFA-5B elevations).
+4. On the SFA-5B the horizontal ordinate row and the overall 639 are deleted.
+5. The main view is flipped to another face on 6 of 8.
+6. Weld symbols with TYP are added by hand on all four SFA (Draw adds none).
+7. Balloons: one per instance, beside the part, not in rows (four SFA).
+8. Isometrics at sheet scale, with the "Isometric scale" line removed; a second isometric on two; named views used on four.
+9. The note block is moved to sit above or left of the isometric on all 8; dimension runs are moved to the other side of the view on 7.
+10. CHECK notes are deleted in 7 of 8, in three cases without the thing they flag being changed in the drawing (blank BOM row 1 on 08B04/08C04-SFA-5B, title on PLP-06).
+11. Kept items are taken off DRAFT (6 drawings at zero); 0A* becomes 0A in 7 of 8.
+
+Questions this raises for Grant (not acted on): whether Draw should drop the bottom plan on subframes; use linear dimensions on simple plates and short members; pick the next bigger scale; place balloons per instance; and whether a CHECK note that James deletes without a fix should go to a list for Grant instead of the sheet.

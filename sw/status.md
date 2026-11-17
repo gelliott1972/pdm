@@ -8,6 +8,12 @@ Result table and the 27 parts left unchanged: `sw\profiles\survey.md` section 3.
 - **08X04-BKP plate label**, tested on scratch copies only, steps sent to James via Admin. A typed cut-list Description is shared by all configurations. The expression `PLATE, 10 x 140 x "D2@Sketch3@08X04-BKP.SLDPRT"`, with D2's unit precision set to None, reads 150 or 180 per configuration and in drawings 08X04-BKP-02..05. Tool: `tools\sw-macros\SwDescTest.cs`.
 - **FAST-HST3-R-M12x125-A4**: Material set to AISI 316 Annealed Stainless Steel Bar (SS), plus the file Material property. Shape and assemblies unchanged; checked in.
 - **The 3 PANELS parts** need no Material (Grant).
+- **08BXX-MSW-01 weldment** (Grant yes, via Admin): rehearsed on a copy (`scratch\profiles\msw01\`), **stopped before the real run**; vault file untouched, not checked out.
+  - Copy: Weldment added. Default becomes Default<As Machined>/<As Welded>; PLATE ONLY keeps its name; PartNos carried over. Volumes, box and mass are the same (8.491 / 6.195 kg).
+  - Labels on the copy: "PLATE, 10 x 200 x 400"; "EA100x100x8" with LENGTH 100. The angle MATERIAL text didn't set: same rewrite as 08B04-BKP-01.
+  - Users (12): every assembly has 0 errors; DW16 has 24 dims, 0 dangling; 08BXX-PLP-01 has 10 dims, 0 dangling. Fails on one: released **08BXX-MSA-01.SLDDRW (0A)** parts-list row 1 PART NUMBER "08BXX-MSW-01" goes blank. 08B11-MSA-01.SLDDRW, same layout, keeps it.
+  - Cause found with `tools\sw-macros\SwBomDiag.cs`: that drawing's PART NUMBER column carries custom property "Description" and its DESCRIPTION column "PartNo". The other drawing's columns are normal.
+  - Waiting on Admin/Grant.
 
 ### Earlier (16 Nov): step 0 survey
 

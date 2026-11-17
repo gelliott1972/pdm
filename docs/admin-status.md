@@ -79,7 +79,7 @@ In order. Only one thing can use SOLIDWORKS at a time (the SwCmd lock), so the p
 3. Draw adds the DW16 cut list (Desk).
 4. SW sets the 08X04-BKP plate label (James didn't).
 5. SW adds a named view to 08X04-BKP-07; Draw drafts DW19 (Desk).
-6. SW preps the 27 plus 08X04-SFP-03 on copies (sw\profiles	he-27.md).
+6. SW preps the 27 plus 08X04-SFP-03 on copies (`sw\profiles\the-27.md`).
 7. Draw learns from James's check-ins (read-only).
 8. App rehearses the D13 cases on a scratch vault.
 Morning with Grant: File Locations, the 27, and the Desk.

@@ -12,8 +12,24 @@ Result table and the 27 parts left unchanged: `sw\profiles\survey.md` section 3.
   - Copy: Weldment added. Default becomes Default<As Machined>/<As Welded>; PLATE ONLY keeps its name; PartNos carried over. Volumes, box and mass are the same (8.491 / 6.195 kg).
   - Labels on the copy: "PLATE, 10 x 200 x 400"; "EA100x100x8" with LENGTH 100. The angle MATERIAL text didn't set: same rewrite as 08B04-BKP-01.
   - Users (12): every assembly has 0 errors; DW16 has 24 dims, 0 dangling; 08BXX-PLP-01 has 10 dims, 0 dangling. Fails on one: released **08BXX-MSA-01.SLDDRW (0A)** parts-list row 1 PART NUMBER "08BXX-MSW-01" goes blank. 08B11-MSA-01.SLDDRW, same layout, keeps it.
-  - Cause found with `tools\sw-macros\SwBomDiag.cs`: that drawing's PART NUMBER column carries custom property "Description" and its DESCRIPTION column "PartNo". The other drawing's columns are normal.
-  - Options with Grant: A go ahead (blank part number until the drawing is fixed); B Draw fixes that parts-list column first, then the weldment (Admin recommends B); C leave the part as it is. Waiting on Grant via Admin.
+  - ~~Cause: crossed columns~~ **Corrected by Draw (18 Nov):** the columns aren't crossed. PART NUMBER is a hidden column; every printed cell stays the same. SwBomDiag now lists hidden columns.
+
+## Overnight 17-18 Nov (Admin's queue)
+
+**Incident (about 00:10, 18 Nov): I ran an accidental real `pdm load`.**
+- I typed `pdm load --help`; pdm treats the unknown flag as a plain load, with no --dry and no note.
+- It uploaded 25 stale local files (older than James's check-ins) before I killed it. List: `scratch\profiles\msw01\loaded-by-accident.txt`.
+- Reported to Admin and App at once; App is restoring them.
+- Rule from Admin: never run pdm without --dry, except for an agreed load or check-in.
+
+Also: my first scratch run started while Draw held the SOLIDWORKS lock (my lock request was refused; the script didn't check). Killed within a minute; nothing saved. The scripts now stop unless the lock is ours.
+
+| # | Job | State |
+| --- | --- | --- |
+| 1 | 08BXX-MSW-01 weldment (Grant B; Admin: allowed difference = 08BXX-MSA-01 hidden PART NUMBER row 1 blank) | **Done on P:\, every check passed; still checked out, NOT checked in** (vault on hold). Allowed difference only. Backup `scratch\profiles\msw01\backup.SLDPRT` |
+| 2 | 08X04-BKP plate label | On hold (Admin) |
+| 3 | 08X04-BKP-07 named view "PLATE FRONT" | On hold (Admin). Tool `tools\sw-macros\SwNamedView.cs` built, not yet tried |
+| 4 | Prep for the 27 and 08X04-SFP-03 | Done, scratch only: `sw\profiles\the-27.md`. All 27 auto-fixable (59/59 drawings back to the same values, 0 dangling). On paper: labels change; 4 drawings need decimals set; the profile dims print black, not grey. 52 of the 59 drawings are released 0A. SFP-03: older profile copy differs by 0.016 mm3 only |
 
 ### Earlier (16 Nov): step 0 survey
 

@@ -36,11 +36,16 @@ static class SwFix
 {
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
     static string Mm(double v) { return (v * 1000).ToString("0.##", Inv); }
+    static string VolFmt = "0.#";
     static List<string> problems = new List<string>();
     static List<string> skips = new List<string>();   // a Description left alone (listed for Grant); does not stop the save
 
     static int Main(string[] args)
     {
+        // --vol-digits=N (N >= 1): print and compare body volumes to N decimals instead of 1. Only ever stricter; used
+        // 18 Nov to see how big 08X04-SFP-03's "0.1 mm3" difference really is.
+        var vd = args.FirstOrDefault(a => a.StartsWith("--vol-digits="));
+        if (vd != null) { int n = Math.Max(1, int.Parse(vd.Substring(13))); VolFmt = "0." + new string('0', n); }
         var pos = args.Where(a => !a.StartsWith("--")).ToList();
         bool save = args.Contains("--save"), checkedOut = args.Contains("--checked-out");
         if (pos.Count != 2) { Console.Error.WriteLine("Usage: SwFix <part> <jobs.tsv> [--save] [--checked-out]"); return 2; }
@@ -415,7 +420,7 @@ static class SwFix
         foreach (Body2 b in ((object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]))
         {
             var mp = b.GetMassProperties(1) as double[];
-            vols.Add(mp == null ? "?" : (mp[3] * 1e9).ToString("0.#", Inv));
+            vols.Add(mp == null ? "?" : (mp[3] * 1e9).ToString(VolFmt, Inv));
             var bb = (double[])b.GetBodyBox();
             if (box == null) box = (double[])bb.Clone();
             else for (int i = 0; i < 3; i++) { box[i] = Math.Min(box[i], bb[i]); box[3 + i] = Math.Max(box[3 + i], bb[3 + i]); }

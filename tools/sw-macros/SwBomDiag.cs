@@ -43,12 +43,14 @@ static class SwBomDiag
                 foreach (BomTableAnnotation bt in (object[])bf.GetTableAnnotations())
                 {
                     var ta = (TableAnnotation)bt;
-                    for (int c = 0; c < ta.ColumnCount; c++)
-                        Console.WriteLine("COLUMN\t" + c + "\t" + ta.GetColumnTitle2(c, true) + "\ttype " + (swTableColumnTypes_e)ta.GetColumnType2(c, true) + "\tprop " + bt.GetColumnCustomProperty(c) + "\ttitle-as-partno " + bt.GetColumnUseTitleAsPartNumber(c));
+                    // All columns, hidden ones included (Draw, 18 Nov). Tried on 08BXX-MSA-01.SLDDRW: the last argument true
+                    // indexes all columns (hidden included), false only the shown ones; ColumnCount counts shown columns only.
+                    for (int c = 0; c < ta.TotalColumnCount; c++)
+                        Console.WriteLine("COLUMN\t" + c + "\t" + ta.GetColumnTitle2(c, true) + "\t" + (ta.ColumnHidden[c] ? "HIDDEN" : "shown") + "\ttype " + (swTableColumnTypes_e)ta.GetColumnType2(c, true));
                     foreach (var cfg in cfgs)
                         for (int r = 0; r < ta.RowCount; r++)
                         {
-                            string text = string.Join(" | ", Enumerable.Range(0, ta.ColumnCount).Select(c => ta.Text2[r, c, true]));
+                            string text = string.Join(" | ", Enumerable.Range(0, ta.TotalColumnCount).Select(c => (ta.ColumnHidden[c] ? "(hidden) " : "") + ta.Text2[r, c, true]));
                             string itemNo, partNo;
                             bt.GetComponentsCount2(r, cfg, out itemNo, out partNo);
                             var comps = (object[])bt.GetComponents2(r, cfg);

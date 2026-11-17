@@ -127,10 +127,89 @@ static partial class Draw
         return selected;
     }
 
+    // NOTE 17 Nov night: look-only now. 08BXX-MSA-01 has 5 columns, PART NUMBER hidden; the column indexes of
+    // Get/SetColumnCustomProperty skip the hidden column, so "PART NUMBER reads Description" was a misreading.
+    // bom-columns <drawing> [--dry] [--hold=<part>]: a parts list whose PART NUMBER column carries a custom property, or
+    // whose DESCRIPTION column reads something other than Description, is set like 08B11-MSA-01: PART NUMBER = the
+    // part number, DESCRIPTION = Description. Nothing else changes. --dry: look only. --hold: open that part read-only
+    // first (a rehearsal copy with the same file name) and look only. (08BXX-MSA-01, 17 Nov, Grant's B.)
     // fix-balloons <drawing>: a balloon that has come loose from its part (dangling) is replaced by a fresh one picked
     // on the nearest visible edge that gives the same item number, at the same place and on the same layer. Saves only
     // when nothing in the drawing is dangling afterwards. (08C04-SFP-03, 17 Nov: one loose balloon in a drawing Grant
     // had accepted.)
+    static int BomColumns(string drawing, HashSet<string> flags)
+    {
+        string hold = flags.Where(f => f.StartsWith("hold=")).Select(f => f.Substring(5)).FirstOrDefault();
+        bool dry = true;   // look only: the 17 Nov premise (crossed columns) was a misreading of a hidden column; this command never saves
+        // --set=2:Description;3:PartNo : trial of given column properties (look only, never saved)
+        Dictionary<int, string> trial = null;
+        string setArg = System.Environment.GetCommandLineArgs().Where(a => a.StartsWith("--set=")).Select(a => a.Substring(6)).FirstOrDefault();
+        if (setArg != null) { trial = setArg.Split(';').ToDictionary(x => int.Parse(x.Split(':')[0]), x => x.Split(':')[1]); }
+        if (hold != null)
+        {
+            int he = 0, hw = 0;
+            var h = sw.OpenDoc6(hold, (int)swDocumentTypes_e.swDocPART, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_ReadOnly), "", ref he, ref hw);
+            Console.WriteLine("Held open first (read-only): " + hold + (h == null ? " FAILED " + he : ""));
+            if (h == null) return 1;
+        }
+        var doc = OpenDoc(drawing, null, dry || trial != null); var drw = (DrawingDoc)doc;
+        doc.ForceRebuild3(false);
+        int changed = 0, tables = 0; bool bad = false;
+        for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature())
+        {
+            if (f.GetTypeName2() != "BomFeat") continue;
+            var bf = (BomFeature)f.GetSpecificFeature2();
+            foreach (BomTableAnnotation bt in (bf.GetTableAnnotations() as object[]) ?? new object[0])
+            {
+                tables++;
+                var ta = (TableAnnotation)bt;
+                Action<string> rows = label =>
+                {
+                    for (int r = 0; r < ta.RowCount; r++)
+                        Console.WriteLine("  " + label + " row " + r + ": " + string.Join(" | ", Enumerable.Range(0, ta.TotalColumnCount).Select(c => (ta.ColumnHidden[c] ? "(hidden) " : "") + ta.Text2[r, c, true])));
+                };
+                rows("before");
+                Console.WriteLine("  columns " + ta.ColumnCount + ", with hidden " + ta.TotalColumnCount);
+                for (int c = 0; c < ta.TotalColumnCount; c++)
+                    Console.WriteLine("    all-columns " + c + ": '" + ta.GetColumnTitle2(c, true) + "' / visible-index title '" + (c < ta.ColumnCount ? ta.GetColumnTitle2(c, false) : "-") + "' type " + (swTableColumnTypes_e)ta.GetColumnType2(c, true) + " hidden " + ta.ColumnHidden[c] + " width " + Mm(ta.GetColumnWidth(c)) + " property '" + bt.GetColumnCustomProperty(c) + "'");
+                for (int c = 0; c < ta.ColumnCount; c++)
+                {
+                    string title = (ta.GetColumnTitle2(c, true) ?? "").Trim().ToUpperInvariant();
+                    int type = ta.GetColumnType2(c, true); string prop = bt.GetColumnCustomProperty(c) ?? "";
+                    Console.WriteLine("  column " + c + " '" + title + "' type " + (swTableColumnTypes_e)type + " property '" + prop + "'");
+                    string want = null;
+                    if (title == "PART NUMBER" && type == (int)swTableColumnTypes_e.swBomTableColumnType_PartNumber && prop != "") want = "";
+                    else if (title == "DESCRIPTION" && type == (int)swTableColumnTypes_e.swTableColumnType_UserDefined && prop != "Description") want = "Description";
+                    else if (title == "PART NUMBER" && type != (int)swTableColumnTypes_e.swBomTableColumnType_PartNumber) { bad = true; Console.WriteLine("    PART NUMBER column is not a part-number column: left alone"); }
+                    if (trial != null) { want = trial.ContainsKey(c) ? trial[c] : null; if (want == null) continue; }
+                    else if (want == null || dry) continue;
+                    if (want == "@pn") { Console.WriteLine("    type set to part number: " + ta.SetColumnType2(c, (int)swTableColumnTypes_e.swBomTableColumnType_PartNumber, true)); continue; }
+                    bool ok = bt.SetColumnCustomProperty(c, want);
+                    string now = bt.GetColumnCustomProperty(c) ?? "";
+                    Console.WriteLine("    set to '" + want + "': " + ok + ", reads '" + now + "'");
+                    if (now != want) bad = true; else changed++;
+                }
+                doc.ForceRebuild3(false);
+                rows("after");
+                if (Enumerable.Range(0, ta.RowCount).Any(r => Enumerable.Range(0, ta.ColumnCount).Any(c => string.IsNullOrWhiteSpace(ta.Text2[r, c, true])))) { bad = true; Console.WriteLine("  a cell is blank after the change"); }
+            }
+        }
+        int dims = 0, dangling = 0;
+        for (var x = (View)drw.GetFirstView(); x != null; x = (View)x.GetNextView())
+            foreach (Annotation a in (x.GetAnnotations() as object[]) ?? new object[0])
+            {
+                if (a.IsDangling()) dangling++;
+                if (a.GetType() == (int)swAnnotationType_e.swDisplayDimension) dims++;
+            }
+        Console.WriteLine("Parts lists " + tables + "; columns changed " + changed + "; dimensions " + dims + "; dangling " + dangling);
+        if (dry || hold != null || trial != null) { Console.WriteLine("Not saved (look only)."); return bad ? 1 : 0; }
+        if (bad || changed == 0 || dangling != 0) { Console.WriteLine("Not saved."); return 1; }
+        int err = 0, warn = 0;
+        bool saved = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref err, ref warn);
+        Console.WriteLine(saved ? "Saved." : "NOT saved (error " + err + ", warning " + warn + ")");
+        return saved ? 0 : 1;
+    }
+
     static int FixBalloons(string drawing)
     {
         var doc = OpenDoc(drawing, null, false); var drw = (DrawingDoc)doc;

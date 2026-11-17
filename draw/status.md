@@ -138,3 +138,10 @@ Nothing of Draw's is running or open in SOLIDWORKS; the lock is not Draw's. All 
 - **DW19:** a trial of drawing from a named view on a scratch copy is allowed when SOLIDWORKS is free; nothing is to be posted until James has re-oriented or released the part.
 - **Session names after restart:** admin, dev, sw, app, draw. Message "admin".
 - **Not asked for, noted only:** a midpoint pick by program for slots from inserted parts; tests of `live` on copies (`--centre=midpoint` does not work); more `live` tools.
+
+## 17-18 Nov night: Admin's overnight queue
+
+- **Item 1, 08BXX-MSA-01 parts list: no change made, none needed.** The table has 5 columns with PART NUMBER hidden: ITEM NO. | QTY. | (hidden) PART NUMBER | DESCRIPTION | PartNo. The 0A PDF prints "DESCRIPTION | PartNo". SwBomDiag read 4 columns and the custom-property indexes skip the hidden one, which made the columns look crossed; they are not. With SW's rehearsal weldment held open only the hidden part-number cell of row 1 goes blank; every printed cell is unchanged; 12 dimensions, 0 dangling. Vault file untouched. Told Admin and SW; lock released.
+- My first try (set the columns "like 08B11-MSA-01") blanked DESCRIPTION on the scratch copy; discarded (`scratch/draw-test/msa01-17nov/try1-blank`). `Draw.exe bom-columns` is now look-only (`--hold=<part>`, `--set=col:prop` trials; never saves) and shows hidden columns.
+- For Grant: the two sister drawings print different lists. 08BXX-MSA-01: "DESCRIPTION | PartNo", plate row 08BXX-PLP-01. 08B11-MSA-01: "PART NUMBER | DESCRIPTION", plate row 08BXX-MSW-01. Making them alike changes a released PDF; not touched.
+- Note: SwBomDiag starts a hidden SOLIDWORKS when none is running; Draw.exe can't attach to that one. Start SOLIDWORKS with Draw.exe or SwCmd first.

@@ -96,6 +96,37 @@ static partial class Draw
         for (var x = (View)((View)drw.GetFirstView()).GetNextView(); x != null; x = (View)x.GetNextView()) yield return x;
     }
 
+    // One row of ordinates over edges and midpoints (a double[] is a sheet point: the middle of an edge there is picked,
+    // as a person does with right-click > Select Midpoint). First item is the zero. Returns how many were selected.
+    static int LiveRow(ModelDoc2 doc, View v, List<object> items, int kind, double x, double y, string what)
+    {
+        doc.ClearSelection2(true);
+        ((DrawingDoc)doc).ActivateView(v.GetName2());
+        var sm = (SelectionMgr)doc.SelectionManager;
+        var sd = (SelectData)sm.CreateSelectData(); sd.View = v;
+        int selected = 0;
+        foreach (var it in items)
+        {
+            bool ok;
+            if (it is double[])
+            {
+                var q = (double[])it; int n0 = sm.GetSelectedObjectCount2(-1);
+                ok = doc.Extension.SelectByRay(q[0], q[1], 0.05, 0, 0, -1, 0.0003, (int)swSelectType_e.swSelMIDPOINTS, selected > 0, 0, 0);
+                int n1 = sm.GetSelectedObjectCount2(-1);
+                ok = ok && n1 > n0 && sm.GetSelectedObjectType3(n1, -1) == (int)swSelectType_e.swSelMIDPOINTS;
+                Console.WriteLine("    pick midpoint at " + Mm(q[0]) + "," + Mm(q[1]) + ": " + ok + (n1 > n0 ? " (type " + sm.GetSelectedObjectType3(n1, -1) + ")" : ""));
+                if (!ok && n1 > n0) sm.DeSelect2(n1, -1);
+            }
+            else ok = ((Entity)it).Select4(selected > 0, sd);
+            if (ok) selected++;
+        }
+        if (selected != items.Count) { Console.WriteLine("Ordinate " + what + ": only " + selected + " of " + items.Count + " could be selected; row not made"); doc.ClearSelection2(true); return selected; }
+        int r = doc.Extension.AddOrdinateDimension(kind, x, y, 0);
+        EndOrdinate(doc);
+        Console.WriteLine("Ordinate " + what + ": " + selected + " of " + items.Count + " selected, result " + r);
+        return selected;
+    }
+
     static ModelDoc2 LiveDoc()
     {
         var doc = sw.ActiveDoc as ModelDoc2;
@@ -157,6 +188,41 @@ static partial class Draw
                 else if (a.GetType() == (int)swAnnotationType_e.swNote) what = "note '" + Flat(((Note)a.GetSpecificAnnotation()).GetText()) + "'";
                 Console.WriteLine("    " + what + " '" + a.GetName() + "' layer '" + a.Layer + "'" + (p != null ? " at " + Mm(p[0]) + "," + Mm(p[1]) : ""));
             }
+            }
+            return 0;
+        }
+        if (pos[0] == "part-slots")
+        {
+            // read-only: how each slot seen in the view is made in the part (feature, sketch, true slot or lines and arcs)
+            if (v == null) { Console.Error.WriteLine("No view selected."); return 1; }
+            var g1 = LiveRead(mu, v);
+            for (int i = 0; i < g1.Slots.Count; i++)
+            {
+                var sl = g1.Slots[i]; var ends = g1.SlotEnds[i];
+                double sep = Math.Sqrt(Math.Pow(ends[0].Item2[0] - ends[1].Item2[0], 2) + Math.Pow(ends[0].Item2[1] - ends[1].Item2[1], 2)) / v.ScaleDecimal;
+                var sides = g1.Ver.Concat(g1.Hor).Where(h => h.Item3 < (sl.Item5 ? sl.Item1[1] : sl.Item1[0]) && h.Item4 > (sl.Item5 ? sl.Item1[1] : sl.Item1[0]) && Math.Abs(Math.Abs(h.Item2 - (sl.Item5 ? sl.Item1[0] : sl.Item1[1])) - sl.Item2 / 2 * v.ScaleDecimal) < 1e-5).ToList();
+                Console.WriteLine("Slot " + (i + 1) + ": width " + Mm(sl.Item2) + ", length " + Mm(sl.Item3) + ", end centres " + Mm(sep) + " apart, straight sides seen " + sides.Count + (sides.Count > 0 ? " (each " + string.Join("/", sides.Select(h => Mm((h.Item4 - h.Item3) / v.ScaleDecimal))) + " long)" : ""));
+                foreach (var end in ends)
+                {
+                    var cpm = end.Item1.GetCurveParams3(); var cq = (double[])((Curve)end.Item1.GetCurve()).CircleParams;
+                    foreach (object fo in (end.Item1.GetTwoAdjacentFaces2() as object[]) ?? new object[0])
+                    {
+                        var f = fo as Face2; if (f == null) continue;
+                        var sf = (Surface)f.GetSurface();
+                        string kind = sf.IsCylinder() ? "cylinder r " + Mm(((double[])sf.CylinderParams)[6]) : sf.IsPlane() ? "flat" : "other";
+                        var feat = f.GetFeature() as Feature;
+                        string fs = feat == null ? "no feature" : "'" + feat.Name + "' (" + feat.GetTypeName2() + ")";
+                        if (feat != null)
+                            for (var sub = feat.GetFirstSubFeature() as Feature; sub != null; sub = sub.GetNextSubFeature() as Feature)
+                            {
+                                var sk = sub.GetSpecificFeature2() as Sketch;
+                                if (sk == null) { fs += "; sub '" + sub.Name + "' (" + sub.GetTypeName2() + ")"; continue; }
+                                var segs = (sk.GetSketchSegments() as object[]) ?? new object[0];
+                                fs += "; sketch '" + sub.Name + "': " + sk.GetSketchSlotCount() + " slot entit(ies), " + segs.Length + " segment(s)";
+                            }
+                        Console.WriteLine("    end arc r " + Mm(cq[6]) + ": face " + kind + ", made by " + fs);
+                    }
+                }
             }
             return 0;
         }
@@ -226,15 +292,26 @@ static partial class Draw
                         if (e == null) { Console.WriteLine("CHECK: no flat edge " + mm + " mm up; left out"); rc = 1; continue; }
                         rowItems.Add(Tuple.Create(mm, (object)e));
                     }
-                    // one slot per height, the one nearest the row
+                    // one slot per height, the one nearest the row. --centre=midpoint: the middle of the slot's straight
+                    // side nearest the row (an upright slot), where SOLIDWORKS makes no slot-centre mark (08B04-BKP-01)
+                    bool mid = flags.Contains("centre=midpoint");
                     foreach (var grp in g.Slots.GroupBy(s => Math.Round(s.Item1[1] * 1e5)))
                     {
                         var s0 = grp.OrderBy(s => Math.Abs(s.Item1[0] - sideX)).First();
-                        rowItems.Add(Tuple.Create(Math.Round((s0.Item1[1] - y0) / vs * 1000, 2), (object)s0.Item1));
+                        object pick = s0.Item1;
+                        if (mid)
+                        {
+                            var side = g.Ver.Where(h => Math.Abs(Math.Abs(h.Item2 - s0.Item1[0]) - s0.Item2 / 2 * vs) < 1e-5 && h.Item3 < s0.Item1[1] && h.Item4 > s0.Item1[1] && Math.Abs((h.Item3 + h.Item4) / 2 - s0.Item1[1]) < 1e-6)
+                                .OrderBy(h => Math.Abs(h.Item2 - sideX)).FirstOrDefault();
+                            if (side == null) { Console.WriteLine("CHECK: no straight side found for the slot at " + Math.Round((s0.Item1[1] - y0) / vs * 1000, 2) + " up (a lying slot?); left out"); rc = 1; continue; }
+                            pick = new[] { side.Item2, (side.Item3 + side.Item4) / 2 };
+                        }
+                        rowItems.Add(Tuple.Create(Math.Round((s0.Item1[1] - y0) / vs * 1000, 2), pick));
                     }
                     rowItems = rowItems.OrderBy(t => t.Item1).ToList();
                     expect = rowItems.Select(t => t.Item1).ToList();
-                    Ordinate2(doc, selMgr, v, rowItems.Select(t => t.Item2).ToList(), (int)swAddOrdinateDims_e.swVerticalOrdinate, sideX, y0, "up the " + (left ? "left" : "right"));
+                    if (mid) { lastMissed = new List<double[]>(); LiveRow(doc, v, rowItems.Select(t => t.Item2).ToList(), (int)swAddOrdinateDims_e.swVerticalOrdinate, sideX, y0, "up the " + (left ? "left" : "right")); }
+                    else Ordinate2(doc, selMgr, v, rowItems.Select(t => t.Item2).ToList(), (int)swAddOrdinateDims_e.swVerticalOrdinate, sideX, y0, "up the " + (left ? "left" : "right"));
                     foreach (var q in lastMissed) { double mv = Math.Round((q[1] - y0) / vs * 1000, 2); expect.Remove(mv); Console.WriteLine("CHECK: slot centre " + mv + " up could not be picked; not dimensioned"); rc = 1; }
                     doc.ClearSelection2(true);
                 }

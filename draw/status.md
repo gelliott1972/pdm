@@ -102,3 +102,11 @@ Not a blind test: I looked at James's PLP-06 PDF while picking the plate. His 08
 - **Grant decided (A):** the "CHECK: MODEL HAS NO MATERIAL PROPERTY" notes stay on the four loaded block-B drawings; James deletes them as he works. Nothing for Draw to do.
 - DW8 closed on the Desk with a note about the rename. Lock released, 0 documents open.
 - App loaded block-B2 on 17 Nov: 08X04-SFP-03.SLDDRW is checked in at _Shared. All six of Grant's approved drawings are now in the vault.
+
+## 17 Nov morning: working on Grant's open drawing (DW26, 08B04-BKP-01)
+
+- Grant asked for tweaks on the drawing he had open, and for a way to do that instead of rebuilding from scratch. New: `src/Live.cs`, command `Draw.exe live` (info, slots, remove, part-slots). It runs under Grant's Desk lock, never opens, closes or saves. Notes in the drawing-standards skill.
+- Done on his new projected view (Drawing View5): right-hand ordinates 0, 12, 112 and the note "2 x 13.0 X 23 THRU", on DRAFT. Grant added the 70 to the slot centre himself (Add To Ordinate, then Select Midpoint on a straight side).
+- Not solved by program: a slot-centre mark, or a midpoint pick, for slots that arrive with an inserted part (the angles here). It took about 25 minutes of trying on his open drawing, which was too long; next time hand it back after two refusals.
+- Slot in the part checked: 13 x 23, half-round ends r 6.5, centres 115 and 285 across, 70 up. Plate holes are 13.5 dia, slots 13 wide: for James to confirm.
+- Open: the midpoint pick by program; `live` tools for ordinates on any view, balloons and layout moves; tests of `live` on a copy.

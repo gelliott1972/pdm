@@ -161,3 +161,14 @@ Number checks miss layout faults. Before a draft goes to the Desk: render the PD
 | Balloons close to the isometric (first clear spot stepping out from the part), placed again after a change of scale, never on the revision table | 16 Nov drafts |
 | Room on the sheet is used before anything is shrunk: the views move up before the isometric gets smaller | Grant 16 Nov ("a layout tweak is all that is needed as there is plenty of room on the page") |
 | A cut-list row with no description gets "CHECK: CUT LIST ITEM n HAS NO DESCRIPTION IN THE MODEL"; the fix is in the model (end caps: "END CAP 72x32x5", done by SW 17 Nov) | Grant 16 Nov |
+
+## Working on the drawing Grant has open (`Draw.exe live`, 17 Nov)
+
+Grant, 17 Nov: "a mechanism for me to ask you what to do with what I have open might be a great idea - at the moment rebuilding from scratch is slowing us down a lot". And, after a slot took 25 minutes: "this is taking too long for something SO SIMPLE".
+
+- `Draw.exe live info [--all] [--view=NAME]` reads the active drawing and the selected view (edges, slots, holes, every annotation with its layer and place). Read-only. Run it first, every time.
+- `Draw.exe live slots [--edges=12,112] [--side=left] [--no-marks] [--no-rows] [--no-callout]` adds to the selected view: slot centre marks, a row of vertical ordinates beside it (zero at the bottom edge), one "n x W X L THRU" note under the view. Only what it adds goes on DRAFT. `live remove --names=D7,D8` takes back DRAFT items by name. `live part-slots` shows how the slots are made in the part.
+- It runs under Grant's own Desk lock (he asked in the Draw window), never opens, closes or saves, and only on a drawing inside the test folder. Tell Grant not to click while a step runs.
+- **Be quick or hand it back.** If SOLIDWORKS refuses something twice, stop experimenting on his open drawing: say what is in, what is not, and give him the hand steps. Experiments belong on a copy, later.
+- **Slots that arrive with an inserted part** (08B04-BKP-01: the angles are "Stock" features, the slots come in with them): SOLIDWORKS makes no slot-centre mark for them. The automatic insert says yes and adds nothing; by hand, "Slot Centers" marks the two ends. A row that picks such a mark reads the slot END (75, not 70): the value check catches it. What works, by hand: right-click the row's 0 > Add To Ordinate, right-click a straight side of the slot > Select Midpoint. By program the midpoint pick is not solved yet (SelectByRay with swSelMIDPOINTS selected nothing).
+- Which edges go in a row: Grant's own row on that view was plate bottom, plate top, slot centre, top of the angle (0, 12, 70, 112). He left out the angle's leg thickness and the fillet tangent lines. That is one drawing, not a rule.

@@ -61,6 +61,18 @@ In order. Only one thing can use SOLIDWORKS at a time (the SwCmd lock), so the p
 - File Locations steps: `sw\profiles\file-locations.md`.
 - BOM changes: `scratch\profiles\bom-changes.tsv`.
 
+**Resume here (17 Nov ~11:40, Grant shut the laptop):**
+- All 15 drawings Grant accepted on 17 Nov are in the vault.
+- 08X04-SFP-03 drawing filed (James's rename).
+- FAST-HST3 is stainless 316. The 3 LED panel parts need no Material.
+- James has the 08X04-BKP per-configuration label steps.
+- Open, for Grant:
+  - (1) 08BXX-MSW-01 weldment: A/B/C. SW's rehearsal passed, but the released 08BXX-MSA-01.SLDDRW parts list has crossed PART NUMBER/DESCRIPTION columns, and its plate part number would go blank. Admin recommends B: Draw fixes that parts list first, stays 0A. After the weldment, Draw adds the DW16 cut list and posts it on the Desk.
+  - (2) File Locations on Grant's PC: Weldment Profiles = only `P:\_Shared\_Profiles` (Grant chose: delete `M:\DLAPEX_Members` and the built-in ProgramData folder). Referenced Documents stays empty. Then James's PC: check his Get latest has `P:\_Shared\_Profiles` first.
+  - (3) The 27 unchanged parts plus 08X04-SFP-03, with Grant.
+  - (4) DW19 08X04-BKP-07: saved view square to the plate; waits for James's check-in. Draw may trial it on a copy.
+- Sessions now start with fixed names: admin, dev, sw, app, draw (`start-pdm.cmd`).
+
 ### 2. James (this week)
 | # | Item | Who |
 | --- | --- | --- |

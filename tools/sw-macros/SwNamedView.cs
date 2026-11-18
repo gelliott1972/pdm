@@ -89,7 +89,16 @@ static class SwNamedView
             flats = flats.OrderByDescending(x => x.Area).ToList();
             foreach (var x in flats.Take(8))
                 Console.WriteLine("FACE\t" + x.Body + "\tarea " + F(x.Area * 1e6) + " mm2\tnormal " + V(x.Normal) + "\tlongest edge " + F(x.EdgeLen * 1000) + " mm along " + (x.Edge == null ? "-" : V(x.Edge)));
-            if (name == null) { Console.WriteLine("Look pass: nothing changed."); return 0; }
+            if (name == null)
+            {
+                foreach (string vn in (string[])doc.GetModelViewNames() ?? new string[0])
+                {
+                    var r = (double[])doc.Extension.GetNamedViewRotation(vn);
+                    Console.WriteLine("NAMED\t" + vn + "\t" + (r == null ? "-" : string.Join(" ", r.Take(9).Select(F))));
+                }
+                Console.WriteLine("Look pass: nothing changed.");
+                return 0;
+            }
             if (flats.Count == 0 || flats[0].Edge == null) { Console.Error.WriteLine("no flat face with a straight edge"); return 3; }
 
             var z = flats[0].Normal;
@@ -98,6 +107,9 @@ static class SwNamedView
             int k = Enumerable.Range(0, 3).OrderByDescending(i => Math.Abs(xa[i])).First();
             if (xa[k] < 0) xa = new[] { -xa[0], -xa[1], -xa[2] };
             var ya = Unit(Cross(z, xa));
+            // Keep model +Y pointing up on screen where the face allows it, as SOLIDWORKS' own *Front does (18 Nov: the
+            // 08X04-BKP-07 rehearsal came out upside down with the rule above alone).
+            if (ya[1] < -1e-6) { xa = new[] { -xa[0], -xa[1], -xa[2] }; ya = Unit(Cross(z, xa)); }
             xa = Unit(Cross(ya, z));
             var cur = (double[])view.Orientation3.ArrayData;
             var d = (double[])cur.Clone();

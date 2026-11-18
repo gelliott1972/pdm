@@ -2,8 +2,8 @@
 // Sets <property> on cut-list folder <item> to <value> (typed as given, e.g. PLATE, 10 x 140 x "D2@Sketch3@part.SLDPRT"),
 // optionally sets the display precision of one model dimension (--precision <dim full name> <decimals>),
 // then shows every configuration and prints each cut-list folder's raw and evaluated value. Saves only with --save.
-// Refuses anything outside C:\code\pdm\scratch\.
-// Usage: SwDescTest.exe <part> <item> <property> <value> [--precision D2@Sketch3 0] [--save]
+// Scratch copies, or a checked-out (writable) vault file with --checked-out. Refuses anything else.
+// Usage: SwDescTest.exe <part> <item> <property> <value> [--precision D2@Sketch3 0] [--save] [--checked-out]
 // Build: csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwDescTest.exe SwDescTest.cs
 
 using System;
@@ -17,13 +17,17 @@ static class SwDescTest
     static int Main(string[] a)
     {
         var args = a.ToList();
-        bool save = args.Remove("--save");
+        bool save = args.Remove("--save"), checkedOut = args.Remove("--checked-out");
         string precDim = null; int precN = -1;
         int pi = args.IndexOf("--precision");
         if (pi >= 0) { precDim = args[pi + 1]; precN = int.Parse(args[pi + 2]); args.RemoveRange(pi, 3); }
         if (args.Count != 4) { Console.Error.WriteLine("Usage: SwDescTest <part> <item> <property> <value> [--precision dim n] [--save]"); return 2; }
         string file = Path.GetFullPath(args[0]), item = args[1], prop = args[2], value = args[3];
-        if (!file.StartsWith(@"C:\code\pdm\scratch\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("refused: scratch copies only"); return 2; }
+        // Scratch copies; or (18 Nov, Admin's go for the real 08X04-BKP change) a vault file that is checked out and writable.
+        bool vault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
+        if (file.IndexOf(@"\.pdm\", StringComparison.OrdinalIgnoreCase) >= 0) { Console.Error.WriteLine("refused: .pdm"); return 2; }
+        if (vault && (!checkedOut || (File.GetAttributes(file) & FileAttributes.ReadOnly) != 0)) { Console.Error.WriteLine("refused: a vault file only when checked out (--checked-out, writable)"); return 2; }
+        if (!vault && !file.StartsWith(@"C:\code\pdm\scratch\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("refused: scratch copies or checked-out vault files only"); return 2; }
         var sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application.34"));
         if (!sw.RevisionNumber().StartsWith("34.")) { Console.Error.WriteLine("Not SOLIDWORKS 2026"); return 2; }
         int e = 0, w = 0;

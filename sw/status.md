@@ -27,8 +27,8 @@ Also: my first scratch run started while Draw held the SOLIDWORKS lock (my lock 
 | # | Job | State |
 | --- | --- | --- |
 | 1 | 08BXX-MSW-01 weldment (Grant B; Admin: allowed difference = 08BXX-MSA-01 hidden PART NUMBER row 1 blank) | **Done and checked in** (18 Nov, by App on Admin's instruction, after the vault repair; note "Made a weldment so the cut list forms (Grant 17 Nov)"). Draw told for DW16. Allowed difference only. Backup `scratch\profiles\msw01\backup.SLDPRT` |
-| 2 | 08X04-BKP plate label | On hold (Admin) |
-| 3 | 08X04-BKP-07 named view "PLATE FRONT" | On hold (Admin). Tool `tools\sw-macros\SwNamedView.cs` built, not yet tried |
+| 2 | 08X04-BKP plate label | **Done and checked in 18 Nov** (Admin's go; pdm get, check-out, rehearsal on copies, real, dry load 2 changed, `pdm checkin`, dry load 0 changed). Cut-list Description `PLATE, 10 x 140 x "D2@Sketch3@08X04-BKP.SLDPRT"`, D2 no decimals: 150/180 right in all 8 configurations; 08X04-BKP-02..05 plate row blank -> the label, nothing else changed (14 dims, 0 dangling); masses same; 08X04-BKA 0 errors. The 13 KBP parts built from it: Descriptions and masses same; they rebuild on next open (inserted body names change). Data `scratch\profileskp-1118\`, scripts `sw\profileskp-1118*.py` |
+| 3 | 08X04-BKP-07 named view "PLATE FRONT" | **Done and checked in 18 Nov** with item 2. Square to the 400x300 plate, model +Y up (SwNamedView fixed: first rehearsal was upside down). Mass and bodies same; 08A04-KBA-06, 08B04-KBA-02, 08C04-KBA-02 0 errors. Draw told (DW19) |
 | 4 | Prep for the 27 and 08X04-SFP-03 | Done, scratch only: `sw\profiles\the-27.md`. All 27 auto-fixable (59/59 drawings back to the same values, 0 dangling). On paper: labels change; 4 drawings need decimals set; the profile dims print black, not grey. 52 of the 59 drawings are released 0A. SFP-03: older profile copy differs by 0.016 mm3 only |
 
 ### Earlier (16 Nov): step 0 survey

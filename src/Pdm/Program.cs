@@ -12,6 +12,14 @@ Velopack.VelopackApp.Build() // first: lets the installer and updater run their 
 var settings = Settings.Load();
 var command = args.Length > 0 ? args[0].ToLowerInvariant() : "page";
 
+// An option the command doesn't know stops it before it does anything (18 Nov: "pdm load --help" ran a real load).
+if (args.Skip(1).FirstOrDefault(a => (a.StartsWith('-') || a.StartsWith('/')) && a.Length > 1 && !a.Contains('\\') && !a.Contains(':')
+        && !Options(command).Contains(a, StringComparer.OrdinalIgnoreCase) && !IsOptionValue(args, a)) is { } unknown)
+{
+    Console.WriteLine($"Unknown option {unknown} for \"{command}\": nothing done. \"pdm help\" lists the commands and their options.");
+    return 2;
+}
+
 try
 {
     switch (command)
@@ -228,6 +236,30 @@ static List<string> Files(Settings s, string[] args, Func<Round.Row, bool>? pick
         named = pick == null ? Round.Held(file) : Round.Read(file).Where(pick).Select(r => r.Old).ToList();
     }
     return named.Select(f => Path.IsPathRooted(f) ? f : Path.Combine(s.LocalRoot, f.Replace('/', '\\'))).ToList();
+}
+
+// The options each command takes; anything else starting with - or / is refused before the command runs.
+static string[] Options(string command) => command switch
+{
+    "page" => ["--no-open"],
+    "load" => ["--dry", "--note"],
+    "move" or "remove" => ["--note", "--dry"],
+    "checkout" or "unlock" or "release-folders" => ["--dry"],
+    "release-file" => ["--dry", "--incomplete", "--reissue", "--only"],
+    "activity" => ["--days", "--before"],
+    "activity-backfill" => ["--dry", "--since"],
+    "release" => ["--dry", "--with-shared", "--shared-to", "--no-export", "--as", "--only", "--reissue",
+        "--accept-checkout", "--accept-rev", "--accept-partno", "--accept-shaft", "--accept-white"],
+    _ => [] // shell, get, inspect, map, coverage, and unknown commands (which print the usage)
+};
+
+// The word after an option that takes a value (--note "...") is that value, whatever it starts with.
+static bool IsOptionValue(string[] args, string a)
+{
+    string[] withValue = ["--note", "--reissue", "--only", "--days", "--before", "--since", "--as", "--shared-to",
+        "--accept-checkout", "--accept-rev", "--accept-partno", "--accept-shaft", "--accept-white"];
+    var i = Array.IndexOf(args, a);
+    return i > 1 && withValue.Contains(args[i - 1], StringComparer.OrdinalIgnoreCase);
 }
 
 static string? Arg(string[] args, string name)

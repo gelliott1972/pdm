@@ -41,6 +41,21 @@ try
                 foreach (var f in Files(settings, args, r => r.Action == "retired")) await engine.RemoveAsync(f, note, args.Contains("--dry"));
                 return 0;
             });
+        case "restore" when args.Length >= 2:
+            return await Admin(settings, async (index, vault, engine) =>
+            {
+                foreach (var f in Files(settings, args, null)) await engine.RestoreAsync(f);
+                return 0;
+            });
+        case "checkin" when args.Length >= 2:
+            // Only the files named (a load would also check in every other file this login has out here).
+            return await Admin(settings, async (index, vault, engine) =>
+            {
+                var note = Arg(args, "--note")?.Trim() ?? "";
+                if (note == "") { Console.WriteLine("Give a note (--note \"...\"): it's recorded with the new version."); return 2; }
+                foreach (var f in Files(settings, args, null)) await engine.CheckInAsync(f, note);
+                return 0;
+            });
         case "checkout" when args.Length >= 2:
             return await Admin(settings, async (index, vault, engine) =>
             {
@@ -115,6 +130,8 @@ try
             Console.WriteLine("       pdm move <list.txt> --note \"...\" [--dry]");
             Console.WriteLine("                        admin: move vault files, one \"old path -> new path\" per line; all lines checked first");
             Console.WriteLine("       pdm remove <file> [<file> ...] --note \"why\" [--dry]   admin: remove from the vault (Restore brings back)");
+            Console.WriteLine("       pdm restore <file> [<file> ...]   admin: bring removed files back into the vault (get puts them on this PC)");
+            Console.WriteLine("       pdm checkin <file> [<file> ...] --note \"...\"   admin: check in just these files, checked out here as the admin login");
             Console.WriteLine("       pdm get          admin: Download latest for this PC's root, with the admin login");
             Console.WriteLine("       pdm checkout <file> [<file> ...] [--dry]   admin: check out here, as the admin login");
             Console.WriteLine("       pdm unlock <file> [<file> ...] [--dry]     admin: release those check-outs, files left as they are");
@@ -244,6 +261,7 @@ static string[] Options(string command) => command switch
     "page" => ["--no-open"],
     "load" => ["--dry", "--note"],
     "move" or "remove" => ["--note", "--dry"],
+    "checkin" => ["--note"],
     "checkout" or "unlock" or "release-folders" => ["--dry"],
     "release-file" => ["--dry", "--incomplete", "--reissue", "--only"],
     "activity" => ["--days", "--before"],

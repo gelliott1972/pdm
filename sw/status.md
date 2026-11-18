@@ -26,7 +26,7 @@ Also: my first scratch run started while Draw held the SOLIDWORKS lock (my lock 
 
 | # | Job | State |
 | --- | --- | --- |
-| 1 | 08BXX-MSW-01 weldment (Grant B; Admin: allowed difference = 08BXX-MSA-01 hidden PART NUMBER row 1 blank) | **Done on P:\, every check passed; still checked out, NOT checked in** (vault on hold). Allowed difference only. Backup `scratch\profiles\msw01\backup.SLDPRT` |
+| 1 | 08BXX-MSW-01 weldment (Grant B; Admin: allowed difference = 08BXX-MSA-01 hidden PART NUMBER row 1 blank) | **Done and checked in** (18 Nov, by App on Admin's instruction, after the vault repair; note "Made a weldment so the cut list forms (Grant 17 Nov)"). Draw told for DW16. Allowed difference only. Backup `scratch\profiles\msw01\backup.SLDPRT` |
 | 2 | 08X04-BKP plate label | On hold (Admin) |
 | 3 | 08X04-BKP-07 named view "PLATE FRONT" | On hold (Admin). Tool `tools\sw-macros\SwNamedView.cs` built, not yet tried |
 | 4 | Prep for the 27 and 08X04-SFP-03 | Done, scratch only: `sw\profiles\the-27.md`. All 27 auto-fixable (59/59 drawings back to the same values, 0 dangling). On paper: labels change; 4 drawings need decimals set; the profile dims print black, not grey. 52 of the 59 drawings are released 0A. SFP-03: older profile copy differs by 0.016 mm3 only |

@@ -200,3 +200,10 @@ Questions this raises for Grant (not acted on): whether Draw should drop the bot
 - Repointed copy for App (DmEdit replace-ref only): `scratch\draw-test\dw19-18nov\check-repoint\08X04-BKP-07.SLDDRW` -> vault part; same 31 dimensions, 0 dangling, PDF matches the as-saved one. App holds until Admin has Grant's word that the file is final.
 - Open: the scratch part copy `dw19-18nov\08X04-BKP-07.SLDPRT` was re-saved at 13:53 while Grant worked and differs from the vault part (294 KB vs 194 KB). Unknown whether he changed the model on purpose. Asked through Admin.
 - Still open for Grant: the five "learned from James" questions above.
+
+## 18 Nov evening: DW19 version 4 posted; part comparison
+
+- Grant (through Admin): post the repointed copy as a new DW19 version for his check. Done: DW19 version 4 open on the Desk, file `scratch\draw-test\dw19-18nov\check-repoint\08X04-BKP-07.SLDDRW`. After Done, App checks it in.
+- Grant could not remember whether he changed the part. Compared the scratch part (re-saved 13:53) with the vault part on copies, read-only: named views, configurations, features and suppression, properties, mass, bodies, cut list, dimensions all identical (`dw19-18nov\cmp-vault.txt`, `cmp-scratch.txt`). The bigger file is SOLIDWORKS saving along. No ticket; told Admin.
+- New look-only command `Draw.exe part-facts <part>` (Live.cs): named views, configurations, features, properties. PowerShell could not drive SOLIDWORKS by late binding on this PC (element not found), so use Draw.exe or SwCmd.
+- Still open for Grant: the five "learned from James" questions above.

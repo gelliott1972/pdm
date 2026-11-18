@@ -137,6 +137,47 @@ static partial class Draw
     // on the nearest visible edge that gives the same item number, at the same place and on the same layer. Saves only
     // when nothing in the drawing is dangling afterwards. (08C04-SFP-03, 17 Nov: one loose balloon in a drawing Grant
     // had accepted.)
+    // part-facts <part>: look only. Named views, configurations, features, properties of a part, for comparing two copies.
+    static int PartFacts(string file)
+    {
+        var doc = OpenDoc(file, null, true);
+        Console.WriteLine("ACTIVE-CONFIG " + ((Configuration)doc.GetActiveConfiguration()).Name);
+        var vn = doc.GetModelViewNames() as object[];
+        if (vn != null) foreach (var v in vn) Console.WriteLine("VIEW " + v);
+        var cn = ((string[])doc.GetConfigurationNames()).OrderBy(x => x).ToList();
+        foreach (var c in cn)
+        {
+            var cf = (Configuration)doc.GetConfigurationByName(c);
+            Console.WriteLine("CONFIG " + c + " | description '" + cf.Description + "' | derived " + cf.IsDerived());
+        }
+        var f = (Feature)doc.FirstFeature();
+        while (f != null)
+        {
+            string sup = "";
+            try { var b = f.IsSuppressed2((int)swInConfigurationOpts_e.swAllConfiguration, null) as bool[]; if (b != null) sup = string.Join(",", b.Select(x => x ? "1" : "0")); } catch (Exception) { }
+            Console.WriteLine("FEATURE " + f.Name + " | " + f.GetTypeName2() + " | suppressed " + sup);
+            var sf = (Feature)f.GetFirstSubFeature();
+            while (sf != null) { Console.WriteLine("  SUB " + sf.Name + " | " + sf.GetTypeName2()); sf = (Feature)sf.GetNextSubFeature(); }
+            f = (Feature)f.GetNextFeature();
+        }
+        var all = new List<string> { "" }; all.AddRange(cn);
+        foreach (var c in all)
+        {
+            var cpm = doc.Extension.CustomPropertyManager[c];
+            var names = cpm.GetNames() as object[];
+            if (names == null) continue;
+            foreach (var n in names.Select(x => (string)x).OrderBy(x => x))
+            {
+                string val, res; bool was;
+                cpm.Get5(n, false, out val, out res, out was);
+                Console.WriteLine("PROP [" + c + "] " + n + " = " + val + " -> " + res);
+            }
+        }
+        sw.CloseDoc(doc.GetTitle());
+        Console.WriteLine("Closed without saving.");
+        return 0;
+    }
+
     static int BomColumns(string drawing, HashSet<string> flags)
     {
         string hold = flags.Where(f => f.StartsWith("hold=")).Select(f => f.Substring(5)).FirstOrDefault();

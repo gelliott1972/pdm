@@ -176,3 +176,10 @@ Patterns seen in two or more drawings (observations, not rules):
 11. Kept items are taken off DRAFT (6 drawings at zero); 0A* becomes 0A in 7 of 8.
 
 Questions this raises for Grant (not acted on): whether Draw should drop the bottom plan on subframes; use linear dimensions on simple plates and short members; pick the next bigger scale; place balloons per instance; and whether a CHECK note that James deletes without a fix should go to a list for Grant instead of the sheet.
+
+## 18 Nov: DW16 cut list posted
+
+- 08BXX-MSW-01 is a weldment in the vault (SW, checked in by App). Grant's accepted drawing copied from `load\block-C` to `scratch\draw-test\dw16-18nov`, opened against the P:\ part, `Draw.exe live cutlist`: cut list (PLATE, 10 x 200 x 400; EA100x100x8 x 2, length 100) and 2 balloons, DRAFT layer. Result saved as `dw16-18nov\out\08BXX-MSW-01.SLDDRW`.
+- Checked: 24 dimensions, same values, 0 dangling (slot check still flags the 100 in View2, as on Grant's own). PDF text before/after: only the cut list and balloon numbers are new. Config name now prints Default<As Machined> (from the part).
+- Desk: DW16 version 2 open for Grant's look. Not loaded. After Done: App takes it in by check-out and check-in as a new version.
+- DW19 still waits for the named view PLATE FRONT on 08X04-BKP-07.

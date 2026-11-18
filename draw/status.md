@@ -191,3 +191,12 @@ Questions this raises for Grant (not acted on): whether Draw should drop the bot
 - Trial 1: view square, only 0/300 dimensioned. Trial 2 (posted): 0, 40, 360, 400 across; 0, 40, 260, 300 up; 4 x dia 11; cut list 3 rows; 3 balloons; all values checked, 0 dangling. `dw19-18nov\t2`.
 - Not done: side view dimensions (tube length, 2 tube holes, plate thickness); hole label sits at an angle; isometric small. Said so in the ticket.
 - Desk: DW19 version 3 open. Overnight queue (Admin, 17-18 Nov) finished: items 1-4 done, nothing for item 5.
+
+## 18 Nov afternoon: DW16 loaded, DW19 with Grant
+
+- DW16 (08BXX-MSW-01 drawing, version 2): Grant pressed Done; App checked it in as a new version.
+- DW19: Grant reworked the views himself (5 views now) and asked in the Draw window for the details block on his new isometric. New command `live details [--view=NAME] [--at=x,y]` (Live.cs, commit 632a94b): Filename / Config name / Material / Weight / Finish note attached to a view of the open drawing, DRAFT layer, never saves. Put on Drawing View6.
+- Grant pressed Done at 13:56 (PC clock) with a cut-off note; the drawing was saved at 14:21 and contains the block. Checked on copies: 31 dimensions, 0 dangling. CHECK line, 0A* and DRAFT items left as he saved them.
+- Repointed copy for App (DmEdit replace-ref only): `scratch\draw-test\dw19-18nov\check-repoint\08X04-BKP-07.SLDDRW` -> vault part; same 31 dimensions, 0 dangling, PDF matches the as-saved one. App holds until Admin has Grant's word that the file is final.
+- Open: the scratch part copy `dw19-18nov\08X04-BKP-07.SLDPRT` was re-saved at 13:53 while Grant worked and differs from the vault part (294 KB vs 194 KB). Unknown whether he changed the model on purpose. Asked through Admin.
+- Still open for Grant: the five "learned from James" questions above.

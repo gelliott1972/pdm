@@ -386,6 +386,41 @@ static partial class Draw
             }
             return 0;
         }
+        if (pos[0] == "details")
+        {
+            // live details --view=NAME [--at=x,y]: the Filename / Config / Material / Weight / Finish block, attached to
+            // that view (so it reads the view's model), right of the view, on DRAFT. Never saves. (08X04-BKP-07, 18 Nov:
+            // Grant replaced the isometric and the block went with the old one.)
+            var dv = LiveView(doc, flags.Where(f => f.StartsWith("view=")).Select(f => f.Substring(5)).FirstOrDefault());
+            if (dv == null) { Console.Error.WriteLine("no view"); return 1; }
+            var lmd = (LayerMgr)doc.GetLayerManager(); string wasd = lmd.GetCurrentLayer() as string ?? "";
+            if (lmd.GetLayer(DraftLayer) == null) lmd.AddLayer(DraftLayer, "Placed by the machine, not yet checked", Magenta, (int)swLineStyles_e.swLineCONTINUOUS, (int)swLineWeights_e.swLW_NORMAL);
+            lmd.SetCurrentLayer(DraftLayer);
+            doc.ClearSelection2(true);
+            drw.ActivateView(dv.GetName2());
+            string text = "<FONT size=8PTS>Filename:         <FONT size=3.5>$PRPVIEW:\"SW-File Name(File Name)\"\n"
+                + "<FONT size=8PTS>Config name:  <FONT size=3.5>$PRPVIEW:\"SW-Configuration Name(Configuration Name)\"\n"
+                + "<FONT size=8PTS>Material:          <FONT size=12PTS>$PRPVIEW:\"Material\"<FONT size=8PTS>\n"
+                + "<FONT size=8PTS>Weight (kg):     <FONT size=12PTS>$PRPVIEW:\"Weight\"<FONT size=8PTS>\n"
+                + "Finish:                 <FONT size=12PTS>$PRPVIEW:\"Finish\"";
+            var note = doc.InsertNote(text) as Note;
+            lmd.SetCurrentLayer(wasd);
+            if (note == null) { Console.Error.WriteLine("note not made"); return 1; }
+            var an = (Annotation)note.GetAnnotation();
+            var o = (double[])dv.GetOutline();
+            double nx = o[2] + 0.005, ny = (o[1] + o[3]) / 2 + 0.010;
+            string atd = flags.Where(f => f.StartsWith("at=")).Select(f => f.Substring(3)).FirstOrDefault();
+            if (atd != null) { var xy = atd.Split(',').Select(t => double.Parse(t, System.Globalization.CultureInfo.InvariantCulture) / 1000).ToArray(); nx = xy[0]; ny = xy[1]; }
+            an.SetPosition2(nx, ny, 0);
+            var tf = (TextFormat)an.GetTextFormat(0);
+            tf.TypeFaceName = "Century Gothic"; tf.CharHeight = 0.00212;
+            an.SetTextFormat(0, false, tf);
+            an.Layer = DraftLayer;
+            doc.ClearSelection2(true); doc.GraphicsRedraw2();
+            Console.WriteLine("Details block on " + dv.GetName2() + " at " + Mm(nx) + "," + Mm(ny) + ", layer " + an.Layer + ": " + note.GetText().Replace("\n", " | "));
+            Console.WriteLine("Not saved.");
+            return 0;
+        }
         if (pos[0] == "cutlist")
         {
             // live cutlist: the weldment cut-list table (top left, James's template) and its balloons on the isometric

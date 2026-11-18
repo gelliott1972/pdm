@@ -183,3 +183,11 @@ Questions this raises for Grant (not acted on): whether Draw should drop the bot
 - Checked: 24 dimensions, same values, 0 dangling (slot check still flags the 100 in View2, as on Grant's own). PDF text before/after: only the cut list and balloon numbers are new. Config name now prints Default<As Machined> (from the part).
 - Desk: DW16 version 2 open for Grant's look. Not loaded. After Done: App takes it in by check-out and check-in as a new version.
 - DW19 still waits for the named view PLATE FRONT on 08X04-BKP-07.
+
+## 18 Nov: DW19 redrawn from a named view
+
+- SW added the named view PLATE FRONT to 08X04-BKP-07 (checked in). Part copied from P:\ to `scratch\draw-test\dw19-18nov`.
+- New: `make-basic ... "--view=PLATE FRONT"` uses a named model view as the main view; with it, the general dimension rows test face and hole directions on the sheet instead of along the model axes (General.cs, only when --view is given, so the standard routes are unchanged; regression set not rerun for that reason).
+- Trial 1: view square, only 0/300 dimensioned. Trial 2 (posted): 0, 40, 360, 400 across; 0, 40, 260, 300 up; 4 x dia 11; cut list 3 rows; 3 balloons; all values checked, 0 dangling. `dw19-18nov\t2`.
+- Not done: side view dimensions (tube length, 2 tube holes, plate thickness); hole label sits at an angle; isometric small. Said so in the ticket.
+- Desk: DW19 version 3 open. Overnight queue (Admin, 17-18 Nov) finished: items 1-4 done, nothing for item 5.

@@ -11,6 +11,7 @@ using SolidWorks.Interop.swconst;
 
 static partial class Draw
 {
+    static string BasicView;
     static int MakeBasic(string partFile, string config, string output, string template)
     {
         if (File.Exists(output)) { Console.Error.WriteLine("REFUSED: already exists, not overwritten: " + output); return 2; }
@@ -61,6 +62,15 @@ static partial class Draw
             var exts = new[] { ex, ey, ez };
             int thin = Enumerable.Range(0, 3).OrderBy(i => exts[i]).First();
             bool unique = exts.Count(e => Math.Abs(e - exts[thin]) < 1e-6) == 1;
+            // --view=NAME (08X04-BKP-07, 18 Nov): a named view saved in the model, square to a face that sits skewed
+            // to the standard views, is the main view
+            if (BasicView != null)
+            {
+                main = drw.CreateDrawViewFromModelView3(partFile, BasicView, 0.250, 0.190, 0);
+                if (main == null) { Console.Error.WriteLine("REFUSED: the model has no view named '" + BasicView + "'"); return 2; }
+                Console.WriteLine("Face view: named view '" + BasicView + "'");
+            }
+            else
             foreach (var name in new[] { pick.Item1 }.Concat(choices.Select(c => c.Item1)).Distinct())
             {
                 var v = drw.CreateDrawViewFromModelView3(partFile, name, 0.250, 0.190, 0);

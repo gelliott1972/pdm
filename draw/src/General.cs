@@ -67,8 +67,17 @@ static partial class Draw
     static int GeneralDims(ModelDoc2 doc, SelectionMgr sm, MathUtility mu, View v, List<Body2> bodies, List<double> expected)
     {
         int hAx = SheetAxis(mu, v, 0), vAx = SheetAxis(mu, v, 1);
-        if (hAx == vAx) return 0;
-        int nAx = 3 - hAx - vAx;
+        // a named view square to a skewed face (make-basic --view=, 08X04-BKP-07): directions are tested on the sheet,
+        // not along the model's axes. Standard views keep the old axis test.
+        bool byView = BasicView != null;
+        Func<double, double, double, double[]> vd = (x, y, z) =>
+        {
+            var mv = (MathVector)mu.CreateVector(new[] { x, y, z }); mv = (MathVector)mv.MultiplyTransform(v.ModelToViewTransform);
+            var d = (double[])mv.ArrayData; double l = Math.Sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+            return l < 1e-12 ? new[] { 0.0, 0.0, 0.0 } : new[] { d[0] / l, d[1] / l, d[2] / l };
+        };
+        if (hAx == vAx && !byView) return 0;
+        int nAx = byView ? 0 : 3 - hAx - vAx;
         double vs = v.ScaleDecimal;
         // the model: flat faces square to each sheet direction, and round holes along the view direction
         var px = new List<double>(); var py = new List<double>(); var cyls = new List<double[]>();
@@ -80,13 +89,14 @@ static partial class Draw
                 {
                     var pp = (double[])s.PlaneParams;
                     var q = ToSheet(mu, v, new[] { pp[3], pp[4], pp[5] });
-                    if (Math.Abs(Math.Abs(pp[hAx]) - 1) < 1e-6) px.Add(q[0]);
+                    if (byView) { var n = vd(pp[0], pp[1], pp[2]); if (Math.Abs(Math.Abs(n[0]) - 1) < 1e-6) px.Add(q[0]); else if (Math.Abs(Math.Abs(n[1]) - 1) < 1e-6) py.Add(q[1]); }
+                    else if (Math.Abs(Math.Abs(pp[hAx]) - 1) < 1e-6) px.Add(q[0]);
                     else if (Math.Abs(Math.Abs(pp[vAx]) - 1) < 1e-6) py.Add(q[1]);
                 }
                 else if (s.IsCylinder() && f.GetLoopCount() == 2)
                 {
                     var cp = (double[])s.CylinderParams;
-                    if (Math.Abs(Math.Abs(cp[3 + nAx]) - 1) > 1e-6) continue;
+                    if (byView ? Math.Abs(Math.Abs(vd(cp[3], cp[4], cp[5])[2]) - 1) > 1e-6 : Math.Abs(Math.Abs(cp[3 + nAx]) - 1) > 1e-6) continue;
                     var q = ToSheet(mu, v, new[] { cp[0], cp[1], cp[2] });
                     cyls.Add(new[] { q[0], q[1], 2 * cp[6] });
                 }
@@ -114,7 +124,7 @@ static partial class Draw
             var c = (Curve)e.GetCurve();
             if (!c.IsCircle() || e.GetStartVertex() != null) continue;   // full circles only (a slot's end is an arc)
             var cp = (double[])c.CircleParams;
-            if (Math.Abs(Math.Abs(cp[3 + nAx]) - 1) > 1e-6) continue;
+            if (byView ? Math.Abs(Math.Abs(vd(cp[3], cp[4], cp[5])[2]) - 1) > 1e-6 : Math.Abs(Math.Abs(cp[3 + nAx]) - 1) > 1e-6) continue;
             var q = ToSheet(mu, v, new[] { cp[0], cp[1], cp[2] });
             double d = 2 * cp[6];
             if (!cyls.Any(cy => Near(cy[0], q[0]) && Near(cy[1], q[1]) && Math.Abs(cy[2] - d) < 1e-7)) continue;   // a hole in the model, not a chamfer or counterbore edge

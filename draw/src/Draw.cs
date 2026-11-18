@@ -80,7 +80,7 @@ static partial class Draw
                 case "view-boxes": if (pos.Count != 1) return Usage(); rc = ViewBoxes(pos[0]); break;
                 case "add-projection": if (pos.Count != 3) return Usage(); rc = AddProjection(pos[0], pos[1], pos[2]); break;
                 case "make-overview": if (pos.Count != 4) return Usage(); rc = MakeOverview(pos[0], pos[1], pos[2], pos[3]); break;
-                case "make-basic": if (pos.Count != 4) return Usage(); rc = MakeBasic(pos[0], pos[1], pos[2], pos[3]); break;
+                case "make-basic": if (pos.Count != 4) return Usage(); BasicView = args.Where(x => x.StartsWith("--view=")).Select(x => x.Substring(7)).FirstOrDefault(); rc = MakeBasic(pos[0], pos[1], pos[2], pos[3]); break;
                 case "slot-dims": if (pos.Count != 2) return Usage(); SlotCalloutOnly = flags.Contains("callout-only"); rc = SlotDimsCmd(pos[0], pos[1]); break;
                 case "hole-dims": if (pos.Count != 2) return Usage(); rc = HoleDims(pos[0], pos[1]); break;
                 case "place-flags": if (pos.Count != 1) return Usage(); rc = PlaceFlagsCmd(pos[0], args.Where(a => a.StartsWith("--check=")).Select(a => a.Substring(8)).ToList()); break;

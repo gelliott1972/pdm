@@ -17,7 +17,8 @@ public sealed class Mover(Settings s, Index index, Vault vault, string email, st
         note = note.Trim();
         if (note == "") { say("Give a note (--note \"...\"): it's recorded with each move."); return 2; }
         var all = await index.AllAsync();
-        var byPath = all.ToDictionary(r => r.Path, StringComparer.OrdinalIgnoreCase);
+        var byPath = all.GroupBy(r => r.Path, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var twice = Index.Duplicates(all).Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var state = LocalState.Load(root);
         var lines = Parse(listFile);
         if (lines.Count == 0) { say($"No moves in {listFile}."); return 2; }
@@ -28,6 +29,7 @@ public sealed class Mover(Settings s, Index index, Vault vault, string email, st
             if (l.Problems.Count > 0) continue;
             byPath.TryGetValue(l.From, out var f);
             var p = l.Problems;
+            if (twice.Contains(l.From) || twice.Contains(l.To)) p.Add("the vault has two records at this path; tell App");
             if (f == null) p.Add("not in the vault");
             else if (f.Removed) p.Add($"removed from the vault ({f.RemovedByName}); restore it first");
             else if (f.LockedBy != null && !(f.LockedBy == email && f.LockMachine == machine)) p.Add($"checked out by {f.LockedByName} on {f.LockMachine}");

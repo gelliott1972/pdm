@@ -40,7 +40,9 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         var wanted = only?.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var state = LocalState.Load(root);
         int fetched = 0, current = 0, cleared = 0, moved = 0;
-        foreach (var f in (await AllAsync()).Where(f => f.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && (wanted == null || wanted.Contains(f.Path))).OrderBy(f => f.Path))
+        var twice = Index.Duplicates(await AllAsync()).Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in twice.Where(p => p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))) say($"Skipped {p}: the vault has two records at this path. Tell Grant.");
+        foreach (var f in (await AllAsync()).Where(f => !twice.Contains(f.Path)).Where(f => f.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && (wanted == null || wanted.Contains(f.Path))).OrderBy(f => f.Path))
         {
             var local = Paths.LocalOf(root, f.Path);
             if (f.Removed) { if (ClearRemoved(f, local, state)) cleared++; continue; }
@@ -408,6 +410,11 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             UpdatedAt = Index.Now(), UpdatedBy = name, Note = note,
             LockedBy = existing?.LockedBy, Moves = existing?.Moves ?? new(), ReleaseSet = existing?.ReleaseSet
         };
+        if (existing == null && await Time.Of("index reads", () => index.AtPathAsync(key)) is { } taken)
+        {
+            say($"Not added: {taken.UpdatedBy} has just added {key} to the vault{(taken.Removed ? " (since removed)" : "")}. Move your copy aside and Download latest, then decide which to keep.");
+            return;
+        }
         Time.Of("Document Manager", () => { Describe(record, local, all); return 0; });
 
         var clashes = await Time.Of("PartNo checks", () => index.PartNoClashesAsync(record));
@@ -487,7 +494,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
     {
         record.Refs.Clear(); record.MissingRefs.Clear(); record.PartNos.Clear();
         if (!DocReader.IsSolidWorks(local)) return;
-        var byPath = all.Where(r => !r.Removed).ToDictionary(r => r.Path, r => r.FileId, StringComparer.OrdinalIgnoreCase); // a reference to a removed file counts as missing
+        var byPath = all.Where(r => !r.Removed).GroupBy(r => r.Path, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().FileId, StringComparer.OrdinalIgnoreCase); // a reference to a removed file counts as missing
         var info = Reader.Read(local);
         foreach (var r in info.References)
         {

@@ -66,6 +66,23 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
         return r.Item is { Count: > 0 } ? FromItem(r.Item) : null;
     }
 
+    // A record already at this path (removed ones too), read fresh through the by-path index; null if none.
+    // Checked just before a new file is written, so two people adding the same path don't make two records
+    // (D13 rehearsal, 18 Nov). The by-path index can lag a write by a moment, so this narrows the gap rather than closing it.
+    public async Task<FileRecord?> AtPathAsync(string path)
+    {
+        var r = await db.QueryAsync(new QueryRequest
+        {
+            TableName = s.FilesTable, IndexName = "by-path", KeyConditionExpression = "#p = :p",
+            ExpressionAttributeNames = new() { ["#p"] = "path" }, ExpressionAttributeValues = new() { [":p"] = S(path) }
+        });
+        return r.Items.Count > 0 ? FromItem(r.Items[0]) : null;
+    }
+
+    // Paths held by more than one record (shouldn't happen; see AtPathAsync), with their records.
+    public static List<IGrouping<string, FileRecord>> Duplicates(IEnumerable<FileRecord> all) =>
+        all.GroupBy(r => r.Path, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).ToList();
+
     // Whole-record write.
     public Task PutAsync(FileRecord f) => db.PutItemAsync(new PutItemRequest { TableName = s.FilesTable, Item = ToItem(f) });
 

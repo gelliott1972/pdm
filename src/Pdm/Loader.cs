@@ -12,7 +12,17 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
     public async Task RunAsync(bool dryRun, string? note = null)
     {
         var root = s.LocalRoot;
-        var existing = (await index.AllAsync()).ToDictionary(r => r.Path, StringComparer.OrdinalIgnoreCase);
+        var indexed = await index.AllAsync();
+        // Two records at one path (someone added it while another load or check-in did): say which, and stop.
+        if (Index.Duplicates(indexed) is { Count: > 0 } twice)
+        {
+            foreach (var g in twice)
+                say($"TWO RECORDS: {g.Key}: {string.Join("; ", g.Select(r => $"id {r.FileId}, {r.UpdatedBy} {Engine.Local(r.UpdatedAt)}{(r.Removed ? ", removed" : "")}"))}");
+            say("Stopped: the index has more than one record at the path(s) above. Tell App; nothing was read or written.");
+            return;
+        }
+        var existing = indexed.ToDictionary(r => r.Path, StringComparer.OrdinalIgnoreCase);
+        var byId = indexed.ToDictionary(r => r.FileId);
         var files = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
             .Select(f => (Local: f, Key: Paths.KeyOf(root, f)))
             .Where(f => !Paths.IsIgnored(f.Key) && !Junk.Contains(Path.GetFileName(f.Local)))
@@ -48,6 +58,9 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
                 releasedHere++;
             }
             if (upload && old != null && Refuse(old, state) is { } why) refused.Add((old.Path, why));
+            // A file this PC got from the vault that has since moved: it isn't new. Get first (the D13 rehearsal, 18 Nov).
+            if (old == null && state.Files.TryGetValue(key, out var got) && byId.TryGetValue(got.FileId, out var now) && !now.Path.Equals(key, StringComparison.OrdinalIgnoreCase))
+                refused.Add((key, $"this PC got it from the vault, which now has it at {now.Path}{(now.Removed ? " (removed)" : "")}. Get first (pdm get); loading would add it back as a new file."));
             records.Add((record, local, upload));
         }
 
@@ -108,6 +121,11 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
             if (upload && old != null && await index.GetAsync(record.FileId) is var cur && !SameAsRead(cur, old))
             {
                 leftAlone.Add($"{record.Path}: {ChangedHow(cur, old)} during the load, so this copy wasn't uploaded");
+                continue;
+            }
+            if (old == null && await index.AtPathAsync(record.Path) is { } taken)
+            {
+                leftAlone.Add($"{record.Path}: {taken.UpdatedBy} added a file at this path during the load, so this copy wasn't uploaded");
                 continue;
             }
             if (upload)

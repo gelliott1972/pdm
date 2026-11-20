@@ -148,6 +148,12 @@ public sealed class Page(Settings s)
                 await Send(ctx, 200, await Coverage.ComputeAsync(s, await new Index(db!, s).AllAsync(), new Vault(s3!, s),
                     Path.Combine(s.LocalRoot, ".pdm", "activity-cache.json"), Path.Combine(s.LocalRoot, ".pdm", "titleblock-cache.json")));
                 return;
+            case "/api/pdf-check":
+            case "/api/pdf-start":
+            case "/api/pdf-status":
+                if (!Activity.IsAdmin(session!.Email)) { await Send(ctx, 403, new { error = "Make PDFs is for the admin only." }); return; }
+                await PdfAsync(ctx, path, Strs("paths"), body.ValueKind == JsonValueKind.Object && body.TryGetProperty("useLocal", out var ul) && ul.ValueKind == JsonValueKind.True, engine);
+                return;
             case "/api/get":
                 var only = Strs("paths");
                 await engine.GetAsync(null, only.Count > 0 ? only : null);
@@ -177,6 +183,48 @@ public sealed class Page(Settings s)
         foreach (var l in log.Where(l => l.StartsWith("Couldn't") || l.StartsWith("Skipped") || l.StartsWith("Not ")))
             Console.WriteLine($"{path[5..]}: {l}");
         await Send(ctx, 200, new { log, timing = engine.Time.Snapshot() });
+    }
+
+    // Make PDFs only (Grant, 20 Nov). check: the drawings named and which of their files aren't the vault's latest here.
+    // start: takes SOLIDWORKS and copies the files out of P:\ within this request, then exports in the background.
+    // status: the background run's progress, and its result when it's done.
+    sealed class PdfJob { public int N, Total; public string Name = ""; public volatile bool Running = true; public List<string> Log = new(); public string? Folder; }
+    PdfJob? pdfJob;
+
+    async Task PdfAsync(HttpListenerContext ctx, string path, List<string> paths, bool useLocal, Engine engine)
+    {
+        if (path == "/api/pdf-status")
+        {
+            var j = pdfJob;
+            await Send(ctx, 200, j == null ? new { running = false } : new { running = j.Running, n = j.N, total = j.Total, name = j.Name, log = j.Running ? null : j.Log, folder = j.Folder });
+            return;
+        }
+        if (pdfJob is { Running: true }) { await Send(ctx, 409, new { error = "PDFs are already being made; wait for that run to finish." }); return; }
+        var log = new List<string>();
+        var run = new PdfRun(s, await new Index(db!, s).AllAsync(), log.Add);
+        var items = run.Plan(paths);
+        if (path == "/api/pdf-check")
+        {
+            await Send(ctx, 200, new { drawings = items.Count, notLatest = PdfRun.NotLatest(items, s, engine.Mine), log });
+            return;
+        }
+        var job = await run.StartAsync(items, useLocal);
+        if (job == null) { await Send(ctx, 200, new { started = false, log }); return; }
+        var state = pdfJob = new PdfJob { Total = items.Count(i => i.Skip == null), Log = log, Folder = job.RunFolder };
+        Interlocked.Increment(ref working); // the tray's Update and Exit ask first while it runs
+        _ = Task.Run(async () =>
+        {
+            try { await run.FinishAsync(job, (n, total, name) => { state.N = n; state.Total = total; state.Name = name; }); }
+            catch (Exception ex) { Console.WriteLine($"Make PDFs: {ex}"); log.Add("Error: " + ex.Message); }
+            finally
+            {
+                foreach (var l in log.Where(l => l.StartsWith("Skipped") || l.StartsWith("Error"))) Console.WriteLine($"Make PDFs: {l}");
+                try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{job.RunFolder}\"") { UseShellExecute = true }); } catch (Exception) { }
+                state.Running = false; lastWork = DateTime.UtcNow;
+                Interlocked.Decrement(ref working);
+            }
+        });
+        await Send(ctx, 200, new { started = true, total = state.Total, folder = job.RunFolder });
     }
 
     async Task LoginAsync(HttpListenerContext ctx, string email, string password, string newPassword)

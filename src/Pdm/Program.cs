@@ -120,6 +120,22 @@ try
             // One-off fill of the activity log from the vault's history (S3 versions, moves, removals); --since yyyy-mm-dd.
             return await Admin(settings, (index, vault, engine) => new ActivityBackfill(settings, index, vault, Console.WriteLine)
                 .RunAsync(args.Contains("--dry"), Arg(args, "--since") is { } since ? DateTime.SpecifyKind(DateTime.Parse(since), DateTimeKind.Utc) : null));
+        case "pdf" when args.Length >= 2:
+            // Make PDFs only, no release (Grant, 20 Nov): pdm pdf <drawing, model or folder/> ... [--local]. Nothing is
+            // written to P:\ or the vault. Without --local, a drawing whose files on this PC aren't the vault's latest is skipped.
+            return await Admin(settings, async (index, vault, engine) =>
+            {
+                var run = new PdfRun(settings, await index.AllAsync(), Console.WriteLine);
+                var keys = args.Skip(1).TakeWhile(a => !a.StartsWith("--")).Select(a => a.Replace('\\', '/')).ToList();
+                var items = run.Plan(keys);
+                Console.WriteLine($"{items.Count} drawing(s).");
+                foreach (var i in items.Where(i => i.NotLatest.Count > 0))
+                    Console.WriteLine($"Not the vault's latest on this PC, for {i.Name}: {string.Join(", ", i.NotLatest.Select(f => f.Path))}");
+                var job = await run.StartAsync(items, args.Contains("--local"));
+                if (job == null) return 1;
+                await run.FinishAsync(job, (n, total, name) => Console.WriteLine($"({n} of {total}) {name}"));
+                return 0;
+            });
         case "release" when args.Length >= 3:
             return await ReleaseDry(settings, args);
         default:
@@ -133,6 +149,7 @@ try
             Console.WriteLine("       pdm restore <file> [<file> ...]   admin: bring removed files back into the vault (get puts them on this PC)");
             Console.WriteLine("       pdm checkin <file> [<file> ...] --note \"...\"   admin: check in just these files, checked out here as the admin login");
             Console.WriteLine("       pdm get          admin: Download latest for this PC's root, with the admin login");
+            Console.WriteLine("       pdm pdf <drawing|model|folder/> ... [--local]   admin: PDFs only, no release, into Documents\\PDM PDFs (nothing written to P:\\ or the vault)");
             Console.WriteLine("       pdm checkout <file> [<file> ...] [--dry]   admin: check out here, as the admin login");
             Console.WriteLine("       pdm unlock <file> [<file> ...] [--dry]     admin: release those check-outs, files left as they are");
             Console.WriteLine("                        move, remove, checkout and unlock also take a round list (round.csv: action,old_path,new_path,...)");
@@ -264,6 +281,7 @@ static string[] Options(string command) => command switch
     "checkin" => ["--note"],
     "checkout" or "unlock" or "release-folders" => ["--dry"],
     "release-file" => ["--dry", "--incomplete", "--reissue", "--only"],
+    "pdf" => ["--local"],
     "activity" => ["--days", "--before"],
     "activity-backfill" => ["--dry", "--since"],
     "release" => ["--dry", "--with-shared", "--shared-to", "--no-export", "--as", "--only", "--reissue",

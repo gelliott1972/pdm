@@ -42,6 +42,10 @@
   .links td:first-child { padding-right: 24px; }
   .links a { color: var(--mine); text-decoration: none; }
   .links a:hover { text-decoration: underline; }
+  .boxbg { position: fixed; inset: 0; background: rgba(0,0,0,.25); display: flex; align-items: center; justify-content: center; z-index: 10; }
+  .box { background: #fff; padding: 14px 16px; border-radius: 4px; max-width: 680px; max-height: 70vh; overflow: auto; box-shadow: 0 2px 12px rgba(0,0,0,.2); }
+  .box p { margin: 0 0 8px; }
+  .box table { margin-bottom: 10px; }
   details.remove { margin-top: 18px; border-top: 1px solid #e3e3e3; padding-top: 8px; }
   details.remove summary { cursor: pointer; color: var(--bad); font-size: 12px; }
   details.remove p { margin: 6px 0; }
@@ -121,6 +125,7 @@
         <button id="tabIn">Check in</button>
         <button id="tabWho">Who has what</button>
         <button id="tabNew">Changes</button>
+        <button id="tabPdf" hidden title="PDFs of vault drawings, for a look only: no release, no revision change, nothing checked out or in, nothing written to P:\ or the vault. For the admin only.">PDFs</button>
         <button id="tabAct" hidden title="What was checked in, added, removed, moved and released each day (NZ dates). For the admin only.">Activity</button>
       </div>
       <div id="result" hidden><span id="resultText"></span> <a href="#" id="resultMore">Details</a><pre id="resultLines" hidden></pre><progress id="progress" hidden></progress></div>
@@ -168,7 +173,7 @@ function status(f) {
 function showLogin() {
   me = null; $('app').hidden = true; $('login').hidden = false; $('email').focus();
   if (typeof act !== 'undefined') { act.data = null; act.err = ''; act.open.clear(); act.days = 14; act.cov = null; act.covErr = ''; } // the next login may not be the admin
-  if (tab === 'act') tab = 'out';
+  if (tab === 'act' || tab === 'pdf') tab = 'out';
 }
 async function login() {
   $('loginErr').textContent = '';
@@ -213,9 +218,11 @@ const done = [['Checked out ', 'Checked out'], ['Checked in ', 'Checked in'], ['
 // fraction (0..1) shows the progress bar while working.
 function showResult(lines, working, fraction) {
   const kind = l => done.find(([p]) => l.startsWith(p));
-  const problems = working ? [] : lines.filter(l => !kind(l) && !l.startsWith('Get done') && !l.startsWith('  Note') && !l.startsWith('  Time'));
+  const made = lines.filter(l => l.startsWith('Made ')); // Make PDFs: "Made 5 PDFs in <folder>"
+  const problems = working ? [] : lines.filter(l => !kind(l) && !made.includes(l) && !l.startsWith('Get done') && !l.startsWith('  Note') && !l.startsWith('  Time'));
   const parts = [];
   if (problems.length) parts.push(problems.length === 1 ? problems[0] : problems.length + ' problems');
+  parts.push(...made);
   for (let [p, label, after = ''] of done) {
     let mine = lines.filter(l => l.startsWith(p)), n = mine.length;
     if (p === 'Removed ') {
@@ -503,6 +510,81 @@ function drawIn() {
     + `<label class="nw"><input type="checkbox" data-all="in"> Tick all</label></div>${rows}`;
 }
 
+// ---- right: PDFs only, no release (Grant, 20 Nov; admin only). The drawings of what's picked on the left (a folder:
+// all its drawings; a part or assembly: its drawing), each ticked. The app copies each drawing and its models out of
+// P:\ and makes the PDFs from the copies into Documents\PDM PDFs\<date>_PDF_Run, with list.xlsx.
+function drawPdf() {
+  const v = outRows();
+  if (!v) return '<span class="muted">Pick drawings, parts or assemblies on the left (Ctrl-click or Shift-click for several), or double-click a folder for all its drawings.</span>';
+  const drawings = v.rows.map(r => r.f).filter(f => /\.slddrw$/i.test(f.path) && !f.isNew);
+  if (!drawings.length) return `<h2>${esc(v.title)}</h2><span class="muted">No drawings here in the vault.</span>`;
+  const rows = drawings.map(f => {
+    let note = '';
+    if (f.mine) note = `<span class="tag mine">checked out to you${f.changed ? ', changed' : ''}</span>`;
+    else if (f.lockedByName) note = `<span class="tag other">${esc(holder(f))}</span>`;
+    if (f.newer && !f.mine) note += ' <span class="tag newer">newer in vault</span>';
+    return `<div class="row" title="${esc(f.path)}"><input type="checkbox" data-pdf="${esc(f.path)}" checked><span class="name">${esc(base(f.path))}</span>${note}</div>`;
+  }).join('');
+  return `<h2>PDFs of ${esc(v.title)}</h2><p class="muted">For a look only: no release and no revision change, nothing is checked out or in, and nothing is written to P:\\ or the vault. `
+    + `The PDFs go in Documents\\PDM PDFs\\&lt;date&gt;_PDF_Run, with list.xlsx. SOLIDWORKS must be free (no documents open).</p>`
+    + `<div class="bar"><button class="main" id="pdfBtn">Make PDFs of ticked</button><label class="nw"><input type="checkbox" data-all="pdf"> Tick all</label><span class="muted" id="pdfCount"></span></div>${rows}`;
+}
+
+// A box over the page with some text and buttons; resolves with the key of the button pressed.
+function askBox(html, buttons) {
+  return new Promise(resolve => {
+    const bg = document.createElement('div');
+    bg.className = 'boxbg';
+    bg.innerHTML = `<div class="box">${html}<div class="bar">` + buttons.map(([k, label, main]) => `<button data-k="${k}"${main ? ' class="main"' : ''}>${esc(label)}</button>`).join('') + '</div></div>';
+    bg.addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) { bg.remove(); resolve(b.dataset.k); } });
+    document.body.appendChild(bg);
+  });
+}
+
+async function makePdfs(paths) {
+  if (busy) return;
+  busy = true; document.querySelectorAll('button').forEach(b => b.disabled = true);
+  const before = [];
+  try {
+    showResult(['Checking the drawings…'], true);
+    const c = await api('pdf-check', { paths });
+    if (!c.drawings) { showResult(c.log?.length ? c.log : ['No drawings to make PDFs of.']); return; }
+    let useLocal = false;
+    if (c.notLatest.length) {
+      const n = c.notLatest.length;
+      const list = '<table>' + c.notLatest.map(x => `<tr><td>${esc(x.path)}</td><td class="muted">${esc(x.why)}</td>`
+        + `<td class="muted">${/\.slddrw$/i.test(x.path) && x.usedBy.length === 1 ? '' : 'for ' + esc(x.usedBy.join(', '))}</td></tr>`).join('') + '</table>';
+      const k = await askBox(`<p><b>${n} file${n === 1 ? '' : 's'} on this PC ${n === 1 ? "isn't" : "aren't"} the vault's latest</b> (drawings, or models they show):</p>${list}`
+        + `<p class="muted">Update downloads the vault's latest of these to P:\\ first (not files checked out to you). Make PDFs of what I have uses this PC's copies; list.xlsx marks those drawings "local copy, not vault latest".</p>`,
+        [['update', 'Update and make PDFs', true], ['local', 'Make PDFs of what I have'], ['cancel', 'Cancel']]);
+      if (k === 'cancel') { showResult(['Cancelled: no PDFs made.']); return; }
+      if (k === 'update') {
+        if (me?.tooOld) { showResult([me.tooOld]); return; }
+        const get = c.notLatest.filter(x => !x.why.startsWith('checked out to you')).map(x => x.path), run = String(Date.now());
+        for (let i = 0; i < get.length; i++) {
+          showResult([`Updating ${base(get[i])} (${i + 1} of ${get.length})…`], true, i / get.length);
+          try { const r = await api('get', { paths: [get[i]], run }); before.push(...(r.log || []).filter(l => !l.startsWith('Get done'))); }
+          catch (e) { before.push('Error: ' + e.message); if (!me) return; }
+        }
+      }
+      useLocal = true; // after Update, anything still not the latest (checked out to me, or couldn't update) is made from this PC's copy and marked
+    }
+    showResult(['Taking SOLIDWORKS and copying the files…'], true);
+    const s = await api('pdf-start', { paths, useLocal });
+    if (!s.started) { showResult([...before, ...(s.log || [])]); return; }
+    for (;;) {
+      await new Promise(r => setTimeout(r, 2000));
+      const st = await api('pdf-status');
+      if (!st.running) { showResult([...before, ...(st.log || [])]); break; }
+      showResult([st.n ? `Making PDFs: ${st.name} (${st.n} of ${st.total})…` : 'Making PDFs…'], true, st.total ? Math.max(0, st.n - 1) / st.total : 0);
+    }
+  } catch (e) { showResult([...before, 'Error: ' + e.message]); }
+  finally {
+    await load().catch(() => {});
+    busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false);
+  }
+}
+
 // ---- right: who has what
 function drawWho() {
   const held = files.filter(f => f.lockedByName).sort((a, b) => (a.lockedByName + a.path).localeCompare(b.lockedByName + b.path));
@@ -646,7 +728,7 @@ function drawActivity() {
 
 // Tab labels carry counts; Check in turns red while I have changed files not yet checked in.
 function drawTabs() {
-  for (const [id, t] of [['tabOut', 'out'], ['tabIn', 'in'], ['tabWho', 'who'], ['tabNew', 'new'], ['tabAct', 'act']]) $(id).classList.toggle('on', tab === t);
+  for (const [id, t] of [['tabOut', 'out'], ['tabIn', 'in'], ['tabWho', 'who'], ['tabNew', 'new'], ['tabPdf', 'pdf'], ['tabAct', 'act']]) $(id).classList.toggle('on', tab === t);
   $('settingsBtn').classList.toggle('on', tab === 'settings');
   const changed = files.filter(f => f.mine && f.changed).length, newer = files.filter(f => f.newer).length;
   const added = files.filter(f => f.isNew && (!f.shared || me.sharedEditor)).length;
@@ -657,7 +739,7 @@ function drawTabs() {
 }
 
 function drawPanel() {
-  $('panel').innerHTML = { out: drawOut, in: drawIn, who: drawWho, new: drawNew, act: drawActivity, settings: drawSettings }[tab]();
+  $('panel').innerHTML = { out: drawOut, in: drawIn, who: drawWho, new: drawNew, pdf: drawPdf, act: drawActivity, settings: drawSettings }[tab]();
   panelDirty = false;
   // "Tick all" ticks or clears every row that can be ticked, and shows ticked / part-ticked as the rows change.
   const boxes = k => [...$('panel').querySelectorAll(`[data-${k}]:not(:disabled)`)];
@@ -667,9 +749,10 @@ function drawPanel() {
       all.checked = b.length > 0 && on === b.length; all.indeterminate = on > 0 && on < b.length;
     }
     const c = $('outCount'); if (c) c.textContent = document.querySelectorAll('[data-out]:checked').length + ' ticked';
+    const pc = $('pdfCount'); if (pc) pc.textContent = document.querySelectorAll('[data-pdf]:checked').length + ' ticked';
   };
   sync();
-  $('panel').querySelectorAll('[data-out], [data-in]').forEach(c => c.addEventListener('change', sync));
+  $('panel').querySelectorAll('[data-out], [data-in], [data-pdf]').forEach(c => c.addEventListener('change', sync));
   $('panel').querySelectorAll('[data-all]').forEach(all => all.addEventListener('change', () => { boxes(all.dataset.all).forEach(c => c.checked = all.checked); sync(); }));
   $('outBtn')?.addEventListener('click', () => {
     const paths = [...document.querySelectorAll('[data-out]:checked')].map(c => c.dataset.out);
@@ -687,6 +770,10 @@ function drawPanel() {
     if (paths.length) runSteps([...steps('checkin', quick, quick.length || 1, 'Releasing unchanged:', body), ...steps('checkin', slow, 1, 'Checking in', body)]);
   });
   $('newGetBtn')?.addEventListener('click', getLatest);
+  $('pdfBtn')?.addEventListener('click', () => {
+    const paths = [...document.querySelectorAll('[data-pdf]:checked')].map(c => c.dataset.pdf);
+    if (paths.length) makePdfs(paths);
+  });
   const why = $('removeWhy'), rm = $('removeBtn');
   if (why && rm) {
     why.addEventListener('input', () => { rm.disabled = !why.value.trim(); });
@@ -705,6 +792,7 @@ $('tabOut').onclick = () => { tab = 'out'; hideResult(); drawTabs(); drawPanel()
 $('tabIn').onclick = () => { tab = 'in'; hideResult(); drawTabs(); drawPanel(); };
 $('tabWho').onclick = () => { tab = 'who'; hideResult(); drawTabs(); drawPanel(); };
 $('tabNew').onclick = () => { tab = 'new'; hideResult(); drawTabs(); drawPanel(); };
+$('tabPdf').onclick = () => { tab = 'pdf'; hideResult(); drawTabs(); drawPanel(); };
 $('tabAct').onclick = () => { tab = 'act'; hideResult(); drawTabs(); drawPanel(); };
 $('panel').addEventListener('click', e => {
   const g = e.target.closest('[data-goto]');
@@ -740,8 +828,8 @@ setInterval(() => {
 // Name, version, and an Update button once an update has downloaded (it restarts the app).
 function showMe() {
   $('who').textContent = me.name + (me.sharedEditor ? ' · shared editor' : '') + ' · v' + me.version;
-  $('tabAct').hidden = !me.admin;
-  if (!me.admin && tab === 'act') { tab = 'out'; drawTabs(); drawPanel(); }
+  $('tabAct').hidden = $('tabPdf').hidden = !me.admin;
+  if (!me.admin && (tab === 'act' || tab === 'pdf')) { tab = 'out'; drawTabs(); drawPanel(); }
   $('restartBtn').hidden = !me.updateReady;
   $('restartBtn').textContent = 'Update to ' + me.updateReady;
 }

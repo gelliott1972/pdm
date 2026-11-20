@@ -43,6 +43,7 @@ static partial class Draw
         string cmd = args[0].ToLowerInvariant();
         var pos = args.Skip(1).Where(a => !a.StartsWith("--")).Select(a => a).ToList();
         var flags = new HashSet<string>(args.Skip(1).Where(a => a.StartsWith("--")).Select(a => a.Substring(2).ToLowerInvariant()));
+        Classic = flags.Contains("classic");   // --classic: without the five points learned from James (Grant 20 Nov)
 
         // Every path must be inside the test folder: never P:\, M:\, C:\PDM-work or Dropbox.
         for (int i = 0; i < pos.Count; i++)

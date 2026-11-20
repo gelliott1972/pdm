@@ -244,17 +244,19 @@ static partial class Draw
         // views only, as James draws them (08X06-LMW-02); the plates and holes are dimensioned down its length.
         var sorted = ext.OrderByDescending(e => e).ToArray();
         bool longMember = sorted[0] >= LongRatio * sorted[1];
+        bool sfa = !Classic && !longMember && props["PartNo"].IndexOf("-SFA-", StringComparison.OrdinalIgnoreCase) >= 0;
+        if (sfa) { ChecksToList = true; Console.WriteLine("Subframe (as James finished the SFA drawings, Grant 20 Nov): no bottom plan, one balloon per instance beside its part, CHECK lines to a list"); }
         if (longMember) Console.WriteLine("Long member (" + (sorted[0] / sorted[1]).ToString("0.0") + " x): front, side and end views; plates and holes dimensioned down its length");
         Func<int, bool> projFits = d => longMember
             ? (zC + xA) / d + 3 * dimRoom <= pzX1 - pzX0 && (zC + yB) / d + 2 * dimRoom <= pzY1 - pzY0
-            : (2 * zC + xA) / d + 3 * dimRoom <= pzX1 - pzX0 && (2 * zC + yB) / d + 3 * dimRoomV <= pzY1 - pzY0;   // rows between the views and above the top view, 20 mm each, so the scale stays up (Grant 15 Nov, 08A04-SFA-5B: 1:30, not 1:40)
+            : (2 * zC + xA) / d + 3 * dimRoom <= pzX1 - pzX0 && ((sfa ? 1 : 2) * zC + yB) / d + (sfa ? 2 : 3) * dimRoomV <= pzY1 - pzY0;   // rows between the views and above the top view, 20 mm each, so the scale stays up (Grant 15 Nov, 08A04-SFA-5B: 1:30, not 1:40)
         int den = AsmScales.FirstOrDefault(projFits);
         if (isoDen == 0) { isoDen = AsmScales.Last(); problems.Add("isometric too big for the space under the BOM even at 1:" + isoDen); }
         if (den == 0) { den = AsmScales.Last(); problems.Add("projections too big even at 1:" + den); }
         double sA = xA / den, sB = yB / den, sC = zC / den;
-        double blockW = (longMember ? 1 : 2) * sC + sA + 3 * dimRoom, blockH = (longMember ? 1 : 2) * sC + sB + (longMember ? 2 * dimRoom : 3 * dimRoomV) + (longMember ? 0.012 : 0);   // long: room above the end view for its dimensions
+        double blockW = (longMember ? 1 : 2) * sC + sA + 3 * dimRoom, blockH = (longMember || sfa ? 1 : 2) * sC + sB + (longMember ? 2 * dimRoom : (sfa ? 2 : 3) * dimRoomV) + (longMember ? 0.012 : 0);   // long: room above the end view for its dimensions
         double fx = pzX0 + (pzX1 - pzX0 - blockW) / 2 + (longMember ? 0 : sC + dimRoom) + sA / 2;     // face view centre
-        double fy = pzY0 + (pzY1 - pzY0 - blockH) / 2 + (longMember ? 0 : sC + dimRoomV) + sB / 2;
+        double fy = pzY0 + (pzY1 - pzY0 - blockH) / 2 + (longMember || sfa ? 0 : sC + dimRoomV) + sB / 2;
         double ix = (izX0 + izX1) / 2 + (padL - padR) / 2, iy = (izY0 + izY1) / 2 - padT / 2;
         Console.WriteLine("[" + stamp() + "] plan: projections 1:" + den + " (block " + Mm(blockW) + " x " + Mm(blockH) + " mm in " + Mm(pzX1 - pzX0) + " x " + Mm(pzY1 - pzY0)
             + "), isometric 1:" + isoDen + " (" + Mm(isoW / isoDen) + " x " + Mm(isoH / isoDen) + " mm in " + Mm(izX1 - izX0) + " x " + Mm(izY1 - izY0) + ")");
@@ -276,7 +278,7 @@ static partial class Draw
         var left = longMember ? null : project(fx - sA / 2 - dimRoom - sC / 2, fy);
         var right = project(fx + sA / 2 + dimRoom + sC / 2, fy);
         var top = project(fx, fy + sB / 2 + (longMember ? dimRoom : dimRoomV) + sC / 2);
-        var bottom = longMember ? null : project(fx, fy - sB / 2 - dimRoomV - sC / 2);
+        var bottom = longMember || sfa ? null : project(fx, fy - sB / 2 - dimRoomV - sC / 2);
         main.UseSheetScale = 1;
         drwDoc.ForceRebuild3(false);
         geomCache.Clear(); geomScale.Clear();
@@ -362,7 +364,7 @@ static partial class Draw
             drwDoc.Extension.SelectByID2(isoF.GetName2(), "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
             var bo = drw.CreateAutoBalloonOptions();
             bo.Layout = (int)swBalloonLayoutType_e.swDetailingBalloonLayout_Circle;
-            bo.IgnoreMultiple = true;
+            bo.IgnoreMultiple = !sfa;   // subframes: a balloon on every instance (James, Grant 20 Nov)
             bo.Style = (int)swBalloonStyle_e.swBS_Circular;
             bo.Size = (int)swBalloonFit_e.swBF_2Chars;
             bo.UpperTextContent = (int)swBalloonTextContent_e.swBalloonTextItemNumber;
@@ -370,7 +372,8 @@ static partial class Draw
             balloonNotes = ((drw.AutoBalloon5(bo) as object[]) ?? new object[0]).Cast<Note>().ToList();
             drwDoc.ClearSelection2(true);
             // RetipBalloons: off (Grant 15 Nov: leave the balloons as SOLIDWORKS places them; James moves odd ones)
-            SpreadBalloons(drwDoc, isoF, balloonNotes, noteAnn);
+            if (sfa) PlaceBalloons(drwDoc, isoF, balloonNotes);   // beside each part, not in rows
+            else SpreadBalloons(drwDoc, isoF, balloonNotes, noteAnn);
         }
         Console.WriteLine("[" + stamp() + "] balloons: " + balloonNotes.Count + " for " + items + " BOM items");
         if (balloonNotes.Count < items) problems.Add((items - balloonNotes.Count) + " BOM items without a balloon");

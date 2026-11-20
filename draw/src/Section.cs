@@ -330,6 +330,35 @@ static partial class Draw
                 slotFlags.Add("CHECK: SLOT CENTRE ALONG THE MEMBER NOT DIMENSIONED (" + Math.Round(mv, 1) + ")");
             }
             };
+            // Learned from James (08C04-HBP-01, -02; Grant's yes 20 Nov): a short simple member gets a few plain linear
+            // dimensions, not ordinates: its length, and a single hole from the nearer end and from the heel. The
+            // section sizes are on the end view. Short: 300 mm or less; simple: no slots, one hole position at most.
+            bool shortSimple = !Classic && !upright && !anySlot && unseen.Count == 0 && length <= 0.3000001
+                && cutSheet.GroupBy(q => Math.Round(along(q) * 1e5)).Count() <= 1 && cutSheet.GroupBy(q => Math.Round(across(q) * 1e5)).Count() <= 1;
+            if (shortSimple)
+            {
+                ChecksToList = true;
+                Console.WriteLine("Short simple member: plain linear dimensions (no ordinates); CHECK lines to a list");
+                double sgn = across(toe.Item2) > across(heel.Item2) ? 1 : -1;
+                double far = across(toe.Item2) + sgn * 0.018, nearL = across(toe.Item2) + sgn * 0.010;
+                double midA = (along(end0.Item2) + along(end1.Item2)) / 2;
+                Dim2(drwDoc, selMgr, main, end0.Item1, end1.Item1, lenHoriz ? midA : far, lenHoriz ? far : midA, "length", along(end0.Item2), along(end1.Item2), lenHoriz);
+                expected.Add(Math.Abs(along(end1.Item2) - along(end0.Item2)) / vs * 1000);
+                if (tA.Count > 0)
+                {
+                    var h = tA[0];
+                    var nearEnd = Math.Abs(along(h.Item2) - along(end0.Item2)) <= Math.Abs(along(h.Item2) - along(end1.Item2)) ? end0 : end1;
+                    double mA = (along(h.Item2) + along(nearEnd.Item2)) / 2;
+                    Dim2(drwDoc, selMgr, main, nearEnd.Item1, (Edge)h.Item1, lenHoriz ? mA : nearL, lenHoriz ? nearL : mA, "hole from the end", along(nearEnd.Item2), along(h.Item2), lenHoriz);
+                    expected.Add(Math.Abs(along(h.Item2) - along(nearEnd.Item2)) / vs * 1000);
+                    var otherEnd = nearEnd == end0 ? end1 : end0;
+                    double endLine = along(otherEnd.Item2) + (along(otherEnd.Item2) >= along(nearEnd.Item2) ? 0.010 : -0.010);
+                    double mX = (across(h.Item2) + across(heel.Item2)) / 2;
+                    Dim2(drwDoc, selMgr, main, heel.Item1, (Edge)h.Item1, lenHoriz ? endLine : mX, lenHoriz ? mX : endLine, "hole from the heel", across(heel.Item2), across(h.Item2), !lenHoriz);
+                    expected.Add(Math.Abs(across(h.Item2) - across(heel.Item2)) / vs * 1000);
+                }
+            }
+            else
             if (alongNeedsPick) { doAlong(); doAcross(); } else { doAcross(); doAlong(); }
             // the member's length is a reference dimension: brackets on the last "along" ordinate
             foreach (Annotation a in (main.GetAnnotations() as object[]) ?? new object[0])
@@ -338,7 +367,7 @@ static partial class Draw
                 var dd = (DisplayDimension)a.GetSpecificAnnotation();
                 double v = ((Dimension)dd.GetDimension2(0)).GetSystemValue2("") * 1000;
                 bool isAlong = lenHoriz ? dd.GetType() == 7 || IsHorizOrd(dd, mu) : !IsHorizOrd(dd, mu);
-                if (Math.Abs(v - refDims[0]) < 0.01 && isAlong) { dd.ShowParenthesis = true; Console.WriteLine("  length " + Mm(length) + " shown as reference (in brackets)"); }
+                if (refDims.Count > 0 && Math.Abs(v - refDims[0]) < 0.01 && isAlong) { dd.ShowParenthesis = true; Console.WriteLine("  length " + Mm(length) + " shown as reference (in brackets)"); }
             }
         }
         drwDoc.ClearSelection2(true);
@@ -1052,6 +1081,7 @@ static partial class Draw
         }
         else if (slotBad.Count > 0) { problems.Add(slotBad.Count + " dimension(s) attached to a slot's end, side or edge: NOT saved"); return 1; }
         if (offDraft > 0) problems.Add(offDraft + " annotations not on the DRAFT layer");
+        ChecksOffSheet(drw, drwDoc, output);
         int err = 0, warn = 0;
         bool ok = drwDoc.Extension.SaveAs3(output, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)swSaveAsOptions_e.swSaveAsOptions_Silent, null, null, ref err, ref warn);
         Console.WriteLine(ok ? "Saved " + output : "NOT saved: error " + err + ", warning " + warn);

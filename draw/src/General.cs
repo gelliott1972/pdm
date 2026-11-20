@@ -61,6 +61,37 @@ static partial class Draw
 
     static bool Near(double a, double b) { return Math.Abs(a - b) < 2e-6; }
 
+    // Learned from James, Grant's yes 20 Nov (through Admin), for the drawing types where James did them:
+    // subframes (-SFA- through make-assembly): no bottom plan, so the largest scale that fits is a step bigger; one
+    // balloon per instance beside its part. Short simple members (make-section): plain linear dimensions.
+    // On those drawings the CHECK lines go to a list beside the drawing (<name>.checks.txt) for the Desk ticket, not
+    // onto the sheet. --classic turns all of it off.
+    static bool Classic, ChecksToList;
+
+    static void ChecksOffSheet(DrawingDoc drw, ModelDoc2 doc, string output)
+    {
+        if (!ChecksToList) return;
+        var lines = new List<string>(); var del = new List<Annotation>();
+        foreach (Annotation a in (((View)drw.GetFirstView()).GetAnnotations() as object[]) ?? new object[0])
+        {
+            if (a.GetType() != (int)swAnnotationType_e.swNote || a.Layer != DraftLayer) continue;
+            string tx = ((Note)a.GetSpecificAnnotation()).GetText() ?? "";
+            if (!tx.StartsWith("CHECK:")) continue;
+            foreach (var l in tx.Split('\n'))
+                foreach (var p in l.Split(new[] { "      " }, StringSplitOptions.RemoveEmptyEntries))
+                    if (p.Trim() != "") lines.Add(p.Trim());
+            del.Add(a);
+        }
+        string list = System.IO.Path.ChangeExtension(output, ".checks.txt");
+        System.IO.File.WriteAllLines(list, lines.ToArray());
+        int gone = 0;
+        foreach (var a in del) { doc.ClearSelection2(true); if (a.Select3(false, null) && doc.Extension.DeleteSelection2(0)) gone++; }
+        doc.ClearSelection2(true);
+        if (gone < del.Count) problems.Add("CHECK note could not be taken off the sheet");
+        Console.WriteLine("CHECK list (" + lines.Count + " line(s), not on the sheet): " + list);
+        foreach (var l in lines) Console.WriteLine("  " + l);
+    }
+
     // Ordinates and hole sizes on the face view. Returns the number of dimension rows and callouts made; the values
     // expected from the model are added to `expected`.
     static int GeneralRows;   // rows of ordinates the last GeneralDims call placed (0: hole sizes at most)

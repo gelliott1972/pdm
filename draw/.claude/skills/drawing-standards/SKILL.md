@@ -181,3 +181,18 @@ Grant, 17 Nov, when Draw started re-attaching a balloon on a drawing he had pres
 - If a check flags something on it (dangling, slot check, overlap), tell Grant in one line and file it as it is unless he says otherwise. Do not hold it back and do not write a fix.
 - That day's case: a balloon he placed by hand to point at a hidden end cap counted as dangling. He fixed it himself by adding a cropped isometric of the other end.
 - More widely: when a small thing fails twice, stop and say so. Do not build a tool for a one-off while Grant waits.
+
+## Learned from James's finished drawings (Grant's yes 20 Nov, through Admin)
+
+From comparing 8 drafts with what James checked in on 17 Nov (`draw\status.md`, "Learned from James"). Grant: they apply to new drafts of the drawing types where James did them. They are not a rule for every drawing. `--classic` on any make command turns them off.
+
+| Rule | Applies to | In the generator | Source |
+| --- | --- | --- | --- |
+| No bottom plan view | Small subframes (SFA) | make-assembly, part number with -SFA-, not a long member | James, 08A04/08B04/08C04-SFA-5B |
+| One scale step bigger (1:30 -> 1:25, 1:15 -> 1:10) | Small subframes (SFA) | Comes from the room the bottom plan gave back: the largest of James's scales that fits. Not forced past what fits | James, SFA-5B, 08C04-SFA-01 |
+| Balloons: one per instance, beside its part, not in rows or columns | Small subframes (SFA) | make-assembly: a balloon on every instance, each at the first clear spot out from its part | James, the four SFA |
+| A few plain linear dimensions instead of ordinates: the length; a single hole from the nearer end and from the heel; section sizes on the end view | Simple plates and short members | make-section: 300 mm or shorter, no slots, one hole position at most. Longer or busier members keep ordinates | James, 08C04-HBP-01, -02, 08X04-PLP-06 |
+| Ordinates stay | Assemblies, and plates like the BKP plates | Unchanged (make-plate, make-basic, make-assembly) | James, 08X04-BKP-06, SFA-5B |
+| CHECK items go on a list for Grant on the Desk ticket, not as a note on the sheet | The drawings above | The CHECK lines are written to `<drawing>.checks.txt` beside the drawing and taken off the sheet; put them in the ticket body when posting | James deleted the CHECK note on 7 of 8 |
+
+Not agreed, so not done: flipping the main view to another face, weld symbols, isometric at sheet scale or a second isometric, moving the note block, taking items off DRAFT.

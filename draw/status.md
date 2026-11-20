@@ -207,3 +207,11 @@ Questions this raises for Grant (not acted on): whether Draw should drop the bot
 - Grant could not remember whether he changed the part. Compared the scratch part (re-saved 13:53) with the vault part on copies, read-only: named views, configurations, features and suppression, properties, mass, bodies, cut list, dimensions all identical (`dw19-18nov\cmp-vault.txt`, `cmp-scratch.txt`). The bigger file is SOLIDWORKS saving along. No ticket; told Admin.
 - New look-only command `Draw.exe part-facts <part>` (Live.cs): named views, configurations, features, properties. PowerShell could not drive SOLIDWORKS by late binding on this PC (element not found), so use Draw.exe or SwCmd.
 - Still open for Grant: the five "learned from James" questions above.
+
+## 20 Nov: learned-from-James tests, paused
+
+- Code and skill committed as 04d9b26. Tests started, then paused: lock handed back to SW, then Grant took the PC. Hold until Grant says go (Admin).
+- Done: 10 plates and brackets and 3 members (GNRIC-LMW-01, -04, -06) remade and identical to the 17 Nov runs (`regress-20nov`, `regress-20nov-members`).
+- Still to run (needs SOLIDWORKS): trial drafts of 08A04-SFA-5B, 08C04-SFA-01 and one short member 08C04-HBP-01 (`scripts/james_20nov.sh new`, trim to those). 08B04-BRW-02 was cut off mid-run; not needed under the new rule.
+- New rules from Grant 20 Nov (through Admin): after a change rerun only the changed drawing type plus about 5 others, full regression only before drafts go to James; Document Manager before SOLIDWORKS; one example first.
+- Lesson: TaskStop did not stop the bash script; kill it by command line and check no Draw.exe is running before unlocking.

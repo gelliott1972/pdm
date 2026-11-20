@@ -71,9 +71,9 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
                 state.Record(f.Path, local, f.FileId, f.VersionId, f.ETag);
                 Paths.SetReadOnly(local, true);
             }
-            catch (IOException ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                say($"Couldn't update {f.Path} (open in SOLIDWORKS?): {ex.Message}");
+                say($"Couldn't update {f.Path}: {ex.Message}");
             }
         }
         state.Save(root);

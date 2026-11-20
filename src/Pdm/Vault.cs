@@ -96,8 +96,20 @@ public sealed class Vault(IAmazonS3 s3, Settings s)
         using (var r = await s3.GetObjectAsync(new GetObjectRequest { BucketName = s.Bucket, Key = key, VersionId = versionId }))
         await using (var file = File.Create(temp))
             await r.ResponseStream.CopyToAsync(file);
-        if (File.Exists(localPath)) File.SetAttributes(localPath, File.GetAttributes(localPath) & ~FileAttributes.ReadOnly);
-        File.Move(temp, localPath, overwrite: true);
+        var had = File.Exists(localPath);
+        try
+        {
+            if (had) File.SetAttributes(localPath, File.GetAttributes(localPath) & ~FileAttributes.ReadOnly);
+            File.Move(temp, localPath, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Replacing a file another program has open (SOLIDWORKS) fails with "Access to the path is denied." and no
+            // path (tested 20 Nov, .NET 8, any sharing mode): name the file, and leave it as it was.
+            try { File.Delete(temp); } catch (Exception) { }
+            try { if (had) File.SetAttributes(localPath, File.GetAttributes(localPath) | FileAttributes.ReadOnly); } catch (Exception) { }
+            throw new IOException($"the downloaded copy couldn't replace {localPath} ({ex.Message.TrimEnd('.')}): is it open in SOLIDWORKS or another program?", ex);
+        }
     }
 
     // Shares read and write, so a file SOLIDWORKS has open for editing can still be read.

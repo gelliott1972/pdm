@@ -53,7 +53,11 @@ public sealed class Page(Settings s)
         {
             var ctx = await listener.GetContextAsync();
             try { await HandleAsync(ctx); }
-            catch (Exception ex) { await Send(ctx, 500, new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error on {ctx.Request.Url?.AbsolutePath}: {ex}");
+                await Send(ctx, 500, new { error = ex.Message });
+            }
         }
     }
 
@@ -169,6 +173,9 @@ public sealed class Page(Settings s)
                 return;
         }
         if (run != "") (runId, runIndex) = (run, engine.Known);
+        // What went wrong goes in pdm-page.log too (Admin 20 Nov: three errors on a sync left nothing in the log).
+        foreach (var l in log.Where(l => l.StartsWith("Couldn't") || l.StartsWith("Skipped") || l.StartsWith("Not ")))
+            Console.WriteLine($"{path[5..]}: {l}");
         await Send(ctx, 200, new { log, timing = engine.Time.Snapshot() });
     }
 

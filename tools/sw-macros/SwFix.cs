@@ -1,7 +1,9 @@
 // SwFix: one open and one save per part for the sw-profiles overnight run (brief docs\briefs\sw-profiles.md, 16 Nov 2026):
 // repoint structural members to the vault profile library (step 6), cut-list labels (step 6), SOLIDWORKS material and the
 // Material property (step 9), plate Descriptions (step 10), end-cap Descriptions (step 12).
-// Usage: SwFix.exe <part> <jobs.tsv> [--save] [--checked-out]
+// Usage: SwFix.exe <part> <jobs.tsv> [--save] [--checked-out] [--vol-digits=N] [--accept-vol=<old>><new>]
+//   --accept-vol (with --vol-digits): Grant's exception for one part (08X04-SFP-03, 20 Nov): exactly that body volume,
+//   as printed, may change to exactly that one; every other shape difference still stops the save.
 // jobs.tsv lines (tab-separated; # comments):
 //   ROOT       <library root>                         P:\_Shared\_Profiles, or the staging copy for the rehearsal
 //   MAP        <old library-relative file or full path> <old size> <new library-relative file> <new size>
@@ -37,6 +39,7 @@ static class SwFix
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
     static string Mm(double v) { return (v * 1000).ToString("0.##", Inv); }
     static string VolFmt = "0.#";
+    static string[] AcceptVol;   // --accept-vol: old and new volume text of the one body change Grant accepted
     static List<string> problems = new List<string>();
     static List<string> skips = new List<string>();   // a Description left alone (listed for Grant); does not stop the save
 
@@ -46,6 +49,12 @@ static class SwFix
         // 18 Nov to see how big 08X04-SFP-03's "0.1 mm3" difference really is.
         var vd = args.FirstOrDefault(a => a.StartsWith("--vol-digits="));
         if (vd != null) { int n = Math.Max(1, int.Parse(vd.Substring(13))); VolFmt = "0." + new string('0', n); }
+        var av = args.FirstOrDefault(a => a.StartsWith("--accept-vol="));
+        if (av != null)
+        {
+            AcceptVol = av.Substring(13).Split('>');
+            if (AcceptVol.Length != 2 || vd == null) { Console.Error.WriteLine("--accept-vol=<old>><new> needs --vol-digits=N, with both volumes as printed"); return 2; }
+        }
         var pos = args.Where(a => !a.StartsWith("--")).ToList();
         bool save = args.Contains("--save"), checkedOut = args.Contains("--checked-out");
         if (pos.Count != 2) { Console.Error.WriteLine("Usage: SwFix <part> <jobs.tsv> [--save] [--checked-out]"); return 2; }
@@ -265,7 +274,14 @@ static class SwFix
                 int st; var mpv = doc.Extension.GetMassProperties2(1, out st, false) as double[];   // cx, cy, cz, volume, area, mass, ...
                 double mass = mpv == null ? 0 : mpv[5], dens = mpv != null && mpv[3] > 0 ? mpv[5] / mpv[3] : 0;
                 Console.WriteLine("AFTER\t" + c + "\t" + after[c] + "\terrors " + er + "\tmaterial " + (mat == "" ? "(none)" : mat) + string.Format(Inv, "\tmass {0:0.###} kg, density {1:0}", mass, dens));
-                if (after[c] != before[c]) problems.Add(c + ": shape changed: " + before[c] + " -> " + after[c]);
+                if (after[c] != before[c])
+                {
+                    // --accept-vol=<old>><new>: Grant's one-part exception (20 Nov, 08X04-SFP-03 only): exactly this body
+                    // volume (as printed) may change to exactly that one; everything else in the shape must still match.
+                    if (AcceptVol != null && after[c] == before[c].Replace(AcceptVol[0], AcceptVol[1]) && before[c].Contains(AcceptVol[0]))
+                        Console.WriteLine("ACCEPTED\t" + c + "\tbody volume " + AcceptVol[0] + " -> " + AcceptVol[1] + " mm3 (--accept-vol, Grant's exception)");
+                    else problems.Add(c + ": shape changed: " + before[c] + " -> " + after[c]);
+                }
                 if (er > beforeErr[c]) problems.Add(c + ": rebuild errors " + beforeErr[c] + " -> " + er);
                 if (matSet.Contains(c))
                 {

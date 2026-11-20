@@ -3,9 +3,11 @@
 // position, delete it, insert the model's dimensions into that view only (marked and not marked for drawing), keep the
 // new ones with the same names and move them to the old positions, and delete every other dimension the insert added.
 // --hold <part>: the repointed part copy, opened read-only first so the drawing uses it.
-// Prints DELETED / KEPT / EXTRA / MISSING lines. Saves the drawing copy only with --save. Refuses anything outside
-// C:\code\pdm\scratch\.
-// Usage: SwRedim.exe <drawing copy> --hold <part copy> [--save]
+// Prints DELETED / KEPT / EXTRA / MISSING lines. Saves the drawing copy only with --save. Scratch copies, or (20 Nov,
+// Grant's go for the 27) a checked-out, writable vault drawing with --checked-out; the held part may then be the vault part.
+// --decimals <name>=<n> (repeatable): give the re-made dimension of that name n decimals (Grant 20 Nov: print as before,
+// e.g. Thickness=1 for 6.3, H_leg=0 for 40).
+// Usage: SwRedim.exe <drawing> --hold <part> [--decimals Name=N ...] [--save] [--checked-out]
 // Build: csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwRedim.exe SwRedim.cs
 
 using System;
@@ -20,6 +22,7 @@ static class SwRedim
 {
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
     static string F(double v) { return v.ToString("0.####", Inv); }
+    static string Owner(string fullName) { int i = fullName.LastIndexOf('@'); return i < 0 ? "" : fullName.Substring(i + 1).ToUpperInvariant(); }
 
     // What a dimension looks like, copied from the dangling original onto its replacement (the first run on 17-18 Nov
     // showed the re-inserted ones take default precision: 6.3 printed as 6, 40 as 40.0).
@@ -60,15 +63,30 @@ static class SwRedim
     static int Main(string[] a)
     {
         var args = a.ToList();
-        bool save = args.Remove("--save");
+        bool save = args.Remove("--save"), checkedOut = args.Remove("--checked-out");
+        var decimals = new Dictionary<string, int>();
+        for (int di = args.IndexOf("--decimals"); di >= 0; di = args.IndexOf("--decimals"))
+        {
+            var kv = args[di + 1].Split('=');
+            decimals[kv[0]] = int.Parse(kv[1]);
+            args.RemoveRange(di, 2);
+        }
         string hold = null;
         int hi = args.IndexOf("--hold");
         if (hi >= 0) { hold = args[hi + 1]; args.RemoveRange(hi, 2); }
         if (args.Count != 1 || hold == null) { Console.Error.WriteLine("Usage: SwRedim <drawing copy> --hold <part copy> [--save]"); return 2; }
         string drw = Path.GetFullPath(args[0]);
         const string Scratch = @"C:\code\pdm\scratch\";
-        if (!drw.StartsWith(Scratch, StringComparison.OrdinalIgnoreCase) || !Path.GetFullPath(hold).StartsWith(Scratch, StringComparison.OrdinalIgnoreCase))
-        { Console.Error.WriteLine("refused: scratch copies only"); return 2; }
+        bool vault = drw.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || drw.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
+        string hp = Path.GetFullPath(hold);
+        if (drw.IndexOf(@"\.pdm\", StringComparison.OrdinalIgnoreCase) >= 0 || hp.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || hp.StartsWith("M:", StringComparison.OrdinalIgnoreCase))
+        { Console.Error.WriteLine("refused"); return 2; }
+        if (vault)
+        {
+            if (!checkedOut || (File.GetAttributes(drw) & FileAttributes.ReadOnly) != 0) { Console.Error.WriteLine("refused: a vault drawing only when checked out (--checked-out, writable)"); return 2; }
+        }
+        else if (!drw.StartsWith(Scratch, StringComparison.OrdinalIgnoreCase) || !hp.StartsWith(Scratch, StringComparison.OrdinalIgnoreCase))
+        { Console.Error.WriteLine("refused: scratch copies or a checked-out vault drawing only"); return 2; }
 
         var sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application.34"));
         if (!sw.RevisionNumber().StartsWith("34.")) { Console.Error.WriteLine("Not SOLIDWORKS 2026"); return 2; }
@@ -117,10 +135,18 @@ static class SwRedim
                     {
                         var d = an.GetType() == (int)swAnnotationType_e.swDisplayDimension ? (DisplayDimension)an.GetSpecificAnnotation() : null;
                         var dm = d == null ? null : (Dimension)d.GetDimension2(0);
-                        var match = dm == null ? null : want.FirstOrDefault(l => l.Name == dm.Name);
+                        // Same name AND the same owning part (the last "@" part of the full name): in an assembly view several
+                        // parts have a V_leg (20 Nov: 08A04-SFA-01 took GNRIC-LMW's for 08A04-HBW-01's).
+                        var match = dm == null ? null : want.FirstOrDefault(l => l.Name == dm.Name && Owner(l.FullName) == Owner(dm.FullName));
                         if (match == null) { extra.Add(an); continue; }
                         want.Remove(match);
                         string how = Apply(d, an, match);
+                        int dec;
+                        if (decimals.TryGetValue(dm.Name, out dec))
+                        {
+                            int r = d.SetPrecision3(dec, -1, -1, -1);
+                            how += "; decimals set to " + dec + " (result " + r + "), now " + d.GetPrimaryPrecision2();
+                        }
                         Console.WriteLine("KEPT\t" + v.Name + "\t" + dm.FullName + "\tvalue " + F(dm.Value) + "\t" + how);
                     }
                     if (extra.Count > 0)
@@ -139,6 +165,7 @@ static class SwRedim
                 int se = 0, sw2 = 0;
                 bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref se, ref sw2);
                 Console.WriteLine(ok ? "SAVED\t" + drw : "SAVE FAILED " + se);
+                if (!ok) return 4;
             }
             else Console.WriteLine("Not saved (no --save).");
         }

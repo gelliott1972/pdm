@@ -1,5 +1,5 @@
 """Run SwRefCheck over a list of drawings/assemblies in batches, restarting SOLIDWORKS when memory runs low (17 Nov night).
-Usage: python sw/profiles/refcheck.py <list.txt> <out.txt>
+Usage: python sw/profiles/refcheck.py <list.txt> <out.txt> [--detail]
 """
 import subprocess, sys, time
 sys.path.insert(0, 'C:/code/pdm/sw/profiles')
@@ -18,6 +18,7 @@ def restart_sw():
     subprocess.Popen([r'C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\SLDWORKS.exe'])
     time.sleep(60)
 
+detail = ['--detail'] if '--detail' in sys.argv else []   # 20 Nov: DIM lines too, for the value compare
 files = [l.strip() for l in open(sys.argv[1]) if l.strip()]
 out = open(sys.argv[2], 'a', encoding='utf-8')
 for i in range(0, len(files), 15):
@@ -26,7 +27,7 @@ for i in range(0, len(files), 15):
         print(time.strftime('%H:%M:%S'), 'memory', m, 'restarting SOLIDWORKS', flush=True); restart_sw()
     batch = files[i:i + 15]
     try:
-        r = subprocess.run([X] + batch, capture_output=True, text=True, errors='replace', timeout=1800)
+        r = subprocess.run([X] + detail + batch, capture_output=True, text=True, errors='replace', timeout=1800)
         out.write(r.stdout); out.flush()
         if r.stderr.strip(): print(r.stderr.strip()[:500], flush=True)
     except subprocess.TimeoutExpired:

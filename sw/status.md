@@ -1,5 +1,22 @@
 # SW status
 
+## 20 Nov: the 27 parts + 08X04-SFP-03 (Grant's go) done; white balloons looked at on one drawing
+
+**Run (data `scratch\profiles\real-1120\`):** pdm get, inventory (28 parts used by 203 drawings and 100 assemblies), before checks with values, check-out, backups, SwFix, SwRedim, after checks, dry load exactly 86, `pdm checkin` with 3 notes, dry load 0 changed.
+
+| What | Result |
+| --- | --- |
+| Parts | 26 of 27 moved to the vault profiles and checked in; 08X04-SFP-03 too (only the accepted 93436.1589 -> 93436.1427 mm³ body, SwFix `--accept-vol`) |
+| 08X04-HBW-02 | **Not changed, released.** Its volume reads wobble about 0.014 mm³ between runs, so SwFix refused it; waiting on Grant (leave as is) |
+| Drawings | 59 redone with SwRedim and checked in. All 303 users pass (same values and counts, no new dangling or errors); 25 show new cut-list labels |
+| Decimals | 08X04-DBP-01, 08X06-DBP-01/-02 print as before; 08XXX-HBA-01 also needed H_leg = 1 decimal (original "120.0") besides the 6.3 |
+| 08A04-SFA-01.SLDDRW | New since the rehearsal (V_leg of 08A04-HBW-01). First pass took GNRIC-LMW's V_leg; restored from backup, SwRedim now matches name and part, redone, passes |
+| 08X04-DBP-01 | A hidden V_leg (not printed or counted) was not put back, as in the rehearsal |
+
+Scripts `sw\profiles\the27-{jobs,users,real-redim,redim-list,real-compare,decimals,words,checkin}.py`; refcheck.py `--detail`.
+
+**White balloons (Grant, high priority):** one drawing only, 08A04-SFA-01 (James's): all 12 balloons and 20 of 25 dimensions have their own colour set to white (255,255,255), overriding the default. No layer or template involved. Grant's system colours are black. Most likely James sees black because his paper is white (Grant's is beige R230 G230 B219); not tested. Fix (vault change): set those annotations' colour back to default. Tool `tools\sw-macros\SwAnnColor.cs` (read-only). Waiting on Grant via Admin: fix how, and whether to look wider.
+
 ## Weldment profiles into the vault (brief sw-profiles, 16-17 Nov 2026): night run done, 63 parts checked in 03:30
 
 Result table and the 27 parts left unchanged: `sw\profiles\survey.md` section 3. In short: rehearsal 90/92 passed; real run 90 saved; drawing checks failed on 59 drawings (3 profile-sketch dimensions each became dangling), so their 27 parts were restored from backup and released unchanged; 63 parts checked in (repoint to `P:\_Shared\_Profiles`, labels, end caps, plates, Material, 08B04-BKP-01 weldment). 13 released 0A drawings (LS-08X-06) now show changed BOM text; draft PDFs of 9 unreleased drawings in `C:\PDM-work\profiles-pdfs`. File Locations steps for Grant and James: `sw\profiles\file-locations.md`. Open for Grant (via Admin): the 27 parts, 08B04-KBP-01, 08C04-SFP-04, the 08X04-BKP plate label, re-issue of the 13 released drawings.

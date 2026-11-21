@@ -215,3 +215,11 @@ Questions this raises for Grant (not acted on): whether Draw should drop the bot
 - Still to run (needs SOLIDWORKS): trial drafts of 08A04-SFA-5B, 08C04-SFA-01 and one short member 08C04-HBP-01 (`scripts/james_20nov.sh new`, trim to those). 08B04-BRW-02 was cut off mid-run; not needed under the new rule.
 - New rules from Grant 20 Nov (through Admin): after a change rerun only the changed drawing type plus about 5 others, full regression only before drafts go to James; Document Manager before SOLIDWORKS; one example first.
 - Lesson: TaskStop did not stop the bash script; kill it by command line and check no Draw.exe is running before unlocking.
+
+## 21 Nov: Grant's three drawing fixes (through Admin), all checked in
+
+- 08A04-HBP-01 (View3: 2 centre marks; 20 dim from the bottom hole), 08A04-HBP-02 (View2: 2 centre marks; 20 dim from the RH hole), 08B04-BRW-01 (View1: 1 centre mark). Each approved by Grant from a PDF in `scratch\draw-fixes` before check-in.
+- Tool: `Draw.exe fix-holes <drawing> [pdf] --view=NAME [--dim=20]` (Fix.cs): centre marks on the view's holes, one dimension remade from the nearest hole in the same place, every other annotation compared before and after, saved only if all the same and nothing dangling.
+- Method: change made on a scratch copy; vault file checked out, confirmed byte-identical to the starting copy, fixed file copied over, checked in with `pdm checkin`. Writing into P: was allowed for these three fixes only (Grant: "yes for this time"); P: is read-only to Draw again.
+- Side effect Grant accepted: with a centre mark present, an extension line to the hole stops just short of the mark.
+- On hold until Grant says go: the three trial drafts for the learned-from-James points (`scripts/james_three.sh`).

@@ -40,4 +40,15 @@ with open(out, 'w', encoding='utf-8', newline='') as f:
         f.write('%s\t%s\t%s\t%s\n' % (p, rec.get('versionId', {}).get('S', ''), rec.get('updatedAt', {}).get('S', ''), ('used x%d' % u) if u else ''))
     notin = sorted(k for k in used if k not in {ntpath.basename(r['path']['S']).upper() for r in order})
     f.write('\nLoaded by SOLIDWORKS but not in the vault tree: %s\n' % (', '.join(notin) or 'none'))
+    # 21 Nov (Admin): the index can miss references (missingRefs after a check-in order), so list those loaded files too,
+    # found in the index by file name.
+    if notin:
+        byname = collections.defaultdict(list)
+        for i in items: byname[ntpath.basename(i['path']['S']).upper()].append(i)
+        f.write('\nThose files, found in the vault index by name (path, versionId, updatedAt, used):\n')
+        for k in notin:
+            for rec in byname.get(k, []) or [None]:
+                if rec is None: f.write('%s\t(not in the vault index)\t\tused x%d\n' % (k, used[k])); continue
+                f.write('%s\t%s\t%s\tused x%d%s\n' % (rec['path']['S'], rec.get('versionId', {}).get('S', ''), rec.get('updatedAt', {}).get('S', ''), used[k],
+                                                    '' if len(byname[k]) == 1 else '\t(name not unique in the vault)'))
 print(len(order), 'files;', len(missing), 'missing;', sum(1 for r in order if used.get(ntpath.basename(r['path']['S']).upper())), 'used;', 'not in tree:', notin)

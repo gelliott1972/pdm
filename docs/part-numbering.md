@@ -62,7 +62,7 @@ Number each part at the **lowest level that covers everywhere it is used**:
 1. One screen, one shaft: `08A11`
 2. One screen, B and C: `08Z11`
 3. One screen, all shafts: `08X11`
-4. Several screens in one scene: `08XXA` / `08XXZ` / `08XXX` (keep the shaft letter if it applies, e.g. `08BXX`)
+4. Several screens in one scene: `08AXX` / `08ZXX` / `08XXX` (keep the shaft letter if it applies, e.g. `08BXX`)
 5. More than one scene: `STOCK`
 
 ## Categories

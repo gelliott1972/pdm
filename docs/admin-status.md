@@ -117,8 +117,8 @@ Morning with Grant: File Locations, the 27, and the Desk.
 | --- | --- |
 | Da | **Grant 17 Nov: leave at 0A, no re-issue**; they update at their next revision. Released (0A) drawings whose BOM text changed with item 1: 13 drawings in LS-08X-06_0A: 08A06/08B06/08C06-HBW-01/-02/-03 and -SFW-01, plus 08X06-SFW-04 |
 | Dd | The 27 parts left on the Dropbox profiles. **Grant 17 Nov: work through them with him later**, so they will be fixed, not left. 59 drawings (most released 0A) dimension the profile sketch. |
-| De | SW's small items: the 08X04-BKP plate is 10x140x150 or 10x140x180 depending on the configuration, so it has no Description yet; the 08B04-BKP-01 angles' MATERIAL text; 4 parts with no sibling Material (200x250-MT-SC0806-SLAVE, 250x250_TRIANGLE_PANEL, DL_APEX, FAST-HST3-R-M12x125-A4) |
-| Db | Structure assemblies: a bigger sheet (A2/A1) or two A3 sheets? |
+| De | **Grant 21 Nov: B, rebuild the angles in 08B04-BKP-01 and 08BXX-MSW-01 as structural members (shaft B only; 2 parts, 16 users). Rehearsal on a copy of 08B04-BKP-01 first, then Grant approves each real change.** Was: the angle items' MATERIAL cut-list text on 08B04-BKP-01 and 08BXX-MSW-01 (SOLIDWORKS rewrites the link, SwCmd's read-back refuses it). Already done: 08X04-BKP plate label (expression, 150/180 per configuration, checked in 18 Nov); FAST-HST3 Material (17 Nov); the 3 PANELS parts need no Material (Grant 17 Nov). Admin re-raised the plate label by mistake on 21 Nov; cancelled. |
+| Db | **Grant 21 Nov: leave at A3; James does the top-level (structure) assembly drawings by hand.** Draw doesn't draft them. |
 | Dc | Draw's order: welded brackets first, or the other failures? |
 | D6 | Read-only survey of the vault for dangling dimensions? (unanswered) |
 

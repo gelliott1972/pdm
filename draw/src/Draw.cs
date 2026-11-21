@@ -95,6 +95,7 @@ static partial class Draw
                 case "slot-check": if (pos.Count < 1) return Usage(); rc = 0; foreach (var d in pos) rc = Math.Max(rc, SlotCheck(d)); break;
                 case "close-mine": rc = CloseMine(); break;
                 case "bom-columns": if (pos.Count != 1) return Usage(); rc = BomColumns(pos[0], flags); break;
+                case "fix-holes": if (pos.Count < 1 || pos.Count > 2) return Usage(); rc = FixHoles(pos, args); break;
                 case "part-facts": if (pos.Count != 1) return Usage(); rc = PartFacts(pos[0]); break;
                 case "fix-balloons": if (pos.Count != 1) return Usage(); rc = FixBalloons(pos[0]); break;
                 case "live": if (pos.Count < 1) return Usage(); rc = Live(pos, flags); break;

@@ -31,7 +31,13 @@ public sealed class FileRecord
     public List<MoveEntry> Moves { get; set; } = new();
     // A release PDF: the set it came from (JSON: code, set, at, by, drawing and model versions). See Release.FileAsync.
     public string? ReleaseSet { get; set; }
+    // A drawing only: "Needs drawing" rows marked seen (a model checked in after this drawing, judged not to need it
+    // changed). Each is for one version of the model. A new version of the drawing starts with none.
+    public List<SeenEntry> Seen { get; set; } = new();
 }
+
+// model: the model's fileId; version: its S3 version id when it was marked; by: a name; at: UTC.
+public sealed record SeenEntry(string Model, string Version, string By, string At);
 
 // One recorded move: from and to are vault keys; etag is the file as moved, so a copy left at the old path can be told apart.
 public sealed record MoveEntry(string From, string To, string At, string By, string Note, string ETag);
@@ -115,6 +121,49 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
         }
         catch (ConditionalCheckFailedException) { return false; }
     }
+
+    // References recorded as missing that now point at a file in the vault (a parent checked in before its new
+    // child, 21 Nov). Only while the record is still the version they were read from; false if it changed meanwhile.
+    public async Task<bool> RelinkAsync(FileRecord f, List<string> refs, List<string> missing)
+    {
+        try
+        {
+            await db.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName = s.FilesTable,
+                Key = new() { ["fileId"] = S(f.FileId) },
+                UpdateExpression = "SET refs = :r, missingRefs = :m",
+                ConditionExpression = "versionId = :v",
+                ExpressionAttributeValues = new()
+                {
+                    [":r"] = new() { L = refs.Select(S).ToList() }, [":m"] = new() { L = missing.Select(S).ToList() }, [":v"] = S(f.VersionId)
+                }
+            });
+            return true;
+        }
+        catch (ConditionalCheckFailedException) { return false; }
+    }
+
+    // A drawing's "Needs drawing" seen marks, written whole, only while the drawing is still the version read
+    // (a new version of the drawing clears them). False if it changed meanwhile.
+    public async Task<bool> SetSeenAsync(FileRecord d, List<SeenEntry> seen)
+    {
+        try
+        {
+            await db.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName = s.FilesTable,
+                Key = new() { ["fileId"] = S(d.FileId) },
+                UpdateExpression = "SET seen = :s",
+                ConditionExpression = "versionId = :v AND attribute_not_exists(removedAt)",
+                ExpressionAttributeValues = new() { [":s"] = new() { L = seen.Select(SeenItem).ToList() }, [":v"] = S(d.VersionId) }
+            });
+            return true;
+        }
+        catch (ConditionalCheckFailedException) { return false; }
+    }
+
+    static AttributeValue SeenItem(SeenEntry e) => new() { M = new() { ["model"] = S(e.Model), ["version"] = S(e.Version), ["by"] = S(e.By), ["at"] = S(e.At) } };
 
     // A new file only: refused if the fileId is already there.
     public Task AddAsync(FileRecord f) => db.PutItemAsync(new PutItemRequest
@@ -346,6 +395,7 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
         };
         if (f.ReleaseSet != null) item["release"] = S(f.ReleaseSet);
         if (f.Moves.Count > 0) item["moves"] = new() { L = f.Moves.Select(MoveItem).ToList() };
+        if (f.Seen.Count > 0) item["seen"] = new() { L = f.Seen.Select(SeenItem).ToList() };
         if (f.RemovedAt != null)
         {
             item["removedAt"] = S(f.RemovedAt);
@@ -382,6 +432,9 @@ public sealed class Index(IAmazonDynamoDB db, Settings s)
             RemovedAt = Opt("removedAt"), RemovedBy = Opt("removedBy"), RemovedByName = Opt("removedByName"), RemovedReason = Opt("removedReason"),
             Moves = i.TryGetValue("moves", out var mv) && mv.L != null
                 ? mv.L.Select(x => { string M(string k) => x.M.TryGetValue(k, out var a) && a.S != null ? a.S : ""; return new MoveEntry(M("from"), M("to"), M("at"), M("by"), M("note"), M("etag")); }).ToList()
+                : new(),
+            Seen = i.TryGetValue("seen", out var sn) && sn.L != null
+                ? sn.L.Select(x => { string M(string k) => x.M.TryGetValue(k, out var a) && a.S != null ? a.S : ""; return new SeenEntry(M("model"), M("version"), M("by"), M("at")); }).ToList()
                 : new()
         };
     }

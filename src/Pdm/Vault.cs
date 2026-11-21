@@ -19,8 +19,15 @@ public sealed class Vault(IAmazonS3 s3, Settings s)
     }
 
     // Small text objects under .pdm/ (the activity log): written, listed and read whole.
-    public Task PutTextAsync(string key, string text) =>
-        s3.PutObjectAsync(new PutObjectRequest { BucketName = s.Bucket, Key = key, ContentBody = text, ContentType = "application/json" });
+    public Task PutTextAsync(string key, string text, string contentType = "application/json") =>
+        s3.PutObjectAsync(new PutObjectRequest { BucketName = s.Bucket, Key = key, ContentBody = text, ContentType = contentType });
+
+    // A small text object, or null when there isn't one.
+    public async Task<string?> GetTextOrNullAsync(string key)
+    {
+        try { return await GetTextAsync(key); }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound) { return null; }
+    }
 
     public async Task<List<string>> ListKeysAsync(string prefix)
     {

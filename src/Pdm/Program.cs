@@ -136,6 +136,24 @@ try
                 await run.FinishAsync(job, (n, total, name) => Console.WriteLine($"({n} of {total}) {name}"));
                 return 0;
             });
+        case "needs-drawing":
+            // The page's Needs drawing tab (Grant, 21 Nov), read-only: pdm needs-drawing
+            return await Admin(settings, async (index, vault, engine) =>
+            {
+                var r = NeedsDrawing.Compute(await index.AllAsync(), settings.LocalRoot, await vault.GetTextOrNullAsync(NeedsDrawing.RulesKey));
+                foreach (var l in NeedsDrawing.Summary(r)) Console.WriteLine(l);
+                return 0;
+            });
+        case "relink":
+            // One-off repair (21 Nov): references recorded as missing that now find a file in the vault. Shows what it
+            // would change; --write writes it.
+            return await Admin(settings, async (index, vault, engine) =>
+            {
+                var write = args.Contains("--write");
+                var n = await engine.RelinkAsync(null, dryRun: !write);
+                Console.WriteLine(write ? $"{n} reference(s) linked." : $"{n} reference(s) would be linked. Dry run: nothing written (--write writes it).");
+                return 0;
+            });
         case "release" when args.Length >= 3:
             return await ReleaseDry(settings, args);
         default:
@@ -150,6 +168,8 @@ try
             Console.WriteLine("       pdm checkin <file> [<file> ...] --note \"...\"   admin: check in just these files, checked out here as the admin login");
             Console.WriteLine("       pdm get          admin: Download latest for this PC's root, with the admin login");
             Console.WriteLine("       pdm pdf <drawing|model|folder/> ... [--local]   admin: PDFs only, no release, into Documents\\PDM PDFs (nothing written to P:\\ or the vault)");
+            Console.WriteLine("       pdm needs-drawing   admin: the Needs drawing lists (reads only)");
+            Console.WriteLine("       pdm relink [--write]   admin: references recorded as missing that are in the vault now (shows them; --write records them)");
             Console.WriteLine("       pdm checkout <file> [<file> ...] [--dry]   admin: check out here, as the admin login");
             Console.WriteLine("       pdm unlock <file> [<file> ...] [--dry]     admin: release those check-outs, files left as they are");
             Console.WriteLine("                        move, remove, checkout and unlock also take a round list (round.csv: action,old_path,new_path,...)");
@@ -282,6 +302,7 @@ static string[] Options(string command) => command switch
     "checkout" or "unlock" or "release-folders" => ["--dry"],
     "release-file" => ["--dry", "--incomplete", "--reissue", "--only"],
     "pdf" => ["--local"],
+    "relink" => ["--write"],
     "activity" => ["--days", "--before"],
     "activity-backfill" => ["--dry", "--since"],
     "release" => ["--dry", "--with-shared", "--shared-to", "--no-export", "--as", "--only", "--reissue",

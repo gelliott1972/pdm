@@ -11,6 +11,12 @@ public static class Paths
         return rel.Replace('\\', '/');
     }
 
+    // The vault key of a path, or null when it isn't under root (a reference to a file outside the vault).
+    public static string? KeyOrNull(string root, string path)
+    {
+        try { return KeyOf(root, path); } catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return null; }
+    }
+
     public static string LocalOf(string root, string key) => Path.Combine(root, key.Replace('/', '\\'));
 
     // Shared folders: any _Shared folder, and APEX/GNRIC. Matches the deny rule on the pdm-engineer role.

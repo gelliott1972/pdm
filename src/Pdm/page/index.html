@@ -87,6 +87,12 @@
   .act-sum .tot td { font-weight: 600; }
   .act-sum tr[data-cov] { cursor: pointer; }
   .act-sum tr[data-cov]:hover { background: #e8eef8; }
+  .nd td { padding: 2px 10px 2px 0; }
+  .nd a { color: var(--mine); text-decoration: none; }
+  .nd a:hover { text-decoration: underline; }
+  .nd tr.seen { color: #999; }
+  .nd-rules { margin: 4px 0 10px; }
+  .nd-rules textarea { width: 100%; min-height: 220px; font: 12px/1.4 Consolas, monospace; }
   .act-undrawn { white-space: normal !important; text-align: left !important; padding-left: 16px !important; }
 </style>
 </head>
@@ -125,6 +131,7 @@
         <button id="tabIn">Check in</button>
         <button id="tabWho">Who has what</button>
         <button id="tabNew">Changes</button>
+        <button id="tabNd" title="Parts and assemblies with no drawing yet, and drawings older than a model they show.">Needs drawing</button>
         <button id="tabPdf" hidden title="PDFs of vault drawings, for a look only: no release, no revision change, nothing checked out or in, nothing written to P:\ or the vault. For the admin only.">PDFs</button>
         <button id="tabAct" hidden title="What was checked in, added, removed, moved and released each day (NZ dates). For the admin only.">Activity</button>
       </div>
@@ -608,6 +615,72 @@ function drawNew() {
     + `<td class="muted">${esc(f.note)}</td></tr>`).join('') + '</table>' + drawRemoved();
 }
 
+// ---- right: Needs drawing (Grant, 21 Nov; everyone, for James). 1) Parts and assemblies no drawing references, less
+// the files the rules leave out (a short list in the vault; the admin changes it here). 2) Drawings older than a model
+// they show: a row can be marked Seen (a re-save that doesn't need the drawing changed), for that version of the model.
+const nd = { data: null, loading: false, err: '', showSeen: false, edit: false, msg: '' };
+async function loadNd() {
+  nd.loading = true; nd.err = '';
+  try { nd.data = await api('needs-drawing'); }
+  catch (e) { nd.err = e.message; }
+  finally { nd.loading = false; if (tab === 'nd' && !panelDirty) drawPanel(); }
+}
+function ndLink(p) { return byPath[p] ? `<a href="#" data-goto="${esc(p)}" title="${esc(p)}">${esc(base(p))}</a>` : esc(base(p)); }
+function drawNd() {
+  if (!nd.data && !nd.loading && !nd.err) loadNd();
+  const head = `<div class="bar"><button id="ndReload" title="Works the lists out again from the vault.">Reload</button>${nd.loading ? '<span class="muted">loading…</span>' : ''}${nd.msg ? `<span class="tag bad">${esc(nd.msg)}</span>` : ''}</div>`;
+  if (nd.err) return head + `<span class="tag bad">Can't work out the lists: ${esc(nd.err)}</span>`;
+  const d = nd.data;
+  if (!d) return head;
+  const out = [head];
+  // 1) New, no drawing
+  out.push(`<div class="act-h">New, no drawing (${d.noDrawing.length})</div>`);
+  out.push(d.noDrawing.length ? '<table class="nd">' + d.noDrawing.map(n => `<tr><td class="nw">${ndLink(n.path)}</td><td class="muted nw">${esc(n.by)} · ${esc(when(n.at))}</td><td class="muted">${esc(n.note)}</td></tr>`).join('') + '</table>'
+    : '<span class="muted">Every part and assembly has a drawing (apart from those left out below).</span>');
+  const left = d.rules.reduce((n, r) => n + r.count, 0);
+  out.push(`<details class="nd-rules"${nd.edit ? ' open' : ''}><summary class="muted">Left out: ${left} file${left === 1 ? '' : 's'}, by these rules</summary>`);
+  if (nd.edit) {
+    out.push(`<textarea id="ndText" spellcheck="false">${esc(d.text)}</textarea><div class="bar"><button class="main" id="ndSave">Save rules</button><button id="ndCancel">Cancel</button>`
+      + '<span class="muted">Saved in the vault for everyone. Clear it all and save to go back to the defaults.</span></div>');
+  } else {
+    out.push('<table class="nd">' + d.rules.map(r => `<tr><td class="nw"><code>${esc(r.pattern)}</code></td><td class="muted">${esc(r.why)}</td><td class="muted nw">${r.count}</td></tr>`).join('') + '</table>');
+    if (me.admin) out.push('<div class="bar"><button id="ndEdit">Change the rules</button></div>');
+  }
+  out.push('</details>');
+  // 2) Drawing older than its model
+  const seen = d.older.filter(o => o.seen).length, rows = d.older.filter(o => nd.showSeen || !o.seen);
+  out.push(`<div class="act-h">Drawing older than its model (${d.older.length - seen}${seen ? `, and ${seen} seen` : ''})</div>`);
+  out.push(`<div class="muted">A model the drawing shows was checked in after the drawing${d.from ? ` (model check-ins from ${esc(fmtDay(d.from, { day: 'numeric', month: 'short' }))} on)` : ''}. `
+    + 'If the drawing doesn\'t need changing (the model was only re-saved), press Seen; it shows again if the model changes again.</div>');
+  if (seen) out.push(`<div class="bar"><label class="nw"><input type="checkbox" id="ndShowSeen"${nd.showSeen ? ' checked' : ''}> Show seen</label></div>`);
+  out.push(rows.length ? '<table class="nd">' + rows.map(o => `<tr class="${o.seen ? 'seen' : ''}"><td class="nw">${ndLink(o.drawing)}<div class="muted">${esc(when(o.drawingAt))}</div></td>`
+    + `<td class="nw">${ndLink(o.model)}<div class="muted">${esc(o.modelBy)} · ${esc(when(o.modelAt))}</div></td><td class="muted">${esc(o.modelNote)}</td>`
+    + `<td class="nw">${o.seen ? `<span class="muted">seen by ${esc(o.seen.by)}, ${esc(when(o.seen.at))}</span> <button data-nd-undo="${esc(o.drawingId + '|' + o.modelId + '|' + o.modelVersion)}">Undo</button>`
+      : `<button data-nd-seen="${esc(o.drawingId + '|' + o.modelId + '|' + o.modelVersion)}" title="This drawing doesn't need changing for this version of the model.">Seen</button>`}</td></tr>`).join('') + '</table>'
+    : `<span class="muted">${d.older.length ? 'All seen.' : 'None: every drawing is newer than the models it shows.'}</span>`);
+  return out.join('');
+}
+async function ndClick(e) {
+  const id = e.target.id;
+  if (id === 'ndReload') { nd.msg = ''; loadNd(); drawPanel(); return; }
+  if (id === 'ndShowSeen') { nd.showSeen = e.target.checked; drawPanel(); return; }
+  if (id === 'ndEdit') { nd.edit = true; drawPanel(); return; }
+  if (id === 'ndCancel') { nd.edit = false; panelDirty = false; drawPanel(); return; }
+  if (id === 'ndSave') {
+    e.target.disabled = true;
+    try { await api('needs-drawing-rules', { text: $('ndText').value }); nd.edit = false; nd.msg = ''; panelDirty = false; await loadNd(); }
+    catch (err) { nd.msg = err.message; e.target.disabled = false; }
+    return;
+  }
+  const b = e.target.closest('[data-nd-seen], [data-nd-undo]');
+  if (!b) return;
+  const [drawing, model, version] = (b.dataset.ndSeen || b.dataset.ndUndo).split('|');
+  b.disabled = true;
+  try { await api('needs-drawing-seen', { drawing, model, version, undo: !!b.dataset.ndUndo }); nd.msg = ''; }
+  catch (err) { nd.msg = err.message; }
+  await loadNd();
+}
+
 // ---- right: settings (from the cog)
 function drawSettings() {
   return `<div id="settings"><h2>Settings</h2><span class="muted">${esc(me.email)} · v${esc(me.version)}</span>`
@@ -728,7 +801,7 @@ function drawActivity() {
 
 // Tab labels carry counts; Check in turns red while I have changed files not yet checked in.
 function drawTabs() {
-  for (const [id, t] of [['tabOut', 'out'], ['tabIn', 'in'], ['tabWho', 'who'], ['tabNew', 'new'], ['tabPdf', 'pdf'], ['tabAct', 'act']]) $(id).classList.toggle('on', tab === t);
+  for (const [id, t] of [['tabOut', 'out'], ['tabIn', 'in'], ['tabWho', 'who'], ['tabNew', 'new'], ['tabNd', 'nd'], ['tabPdf', 'pdf'], ['tabAct', 'act']]) $(id).classList.toggle('on', tab === t);
   $('settingsBtn').classList.toggle('on', tab === 'settings');
   const changed = files.filter(f => f.mine && f.changed).length, newer = files.filter(f => f.newer).length;
   const added = files.filter(f => f.isNew && (!f.shared || me.sharedEditor)).length;
@@ -739,7 +812,7 @@ function drawTabs() {
 }
 
 function drawPanel() {
-  $('panel').innerHTML = { out: drawOut, in: drawIn, who: drawWho, new: drawNew, pdf: drawPdf, act: drawActivity, settings: drawSettings }[tab]();
+  $('panel').innerHTML = { out: drawOut, in: drawIn, who: drawWho, new: drawNew, nd: drawNd, pdf: drawPdf, act: drawActivity, settings: drawSettings }[tab]();
   panelDirty = false;
   // "Tick all" ticks or clears every row that can be ticked, and shows ticked / part-ticked as the rows change.
   const boxes = k => [...$('panel').querySelectorAll(`[data-${k}]:not(:disabled)`)];
@@ -792,11 +865,13 @@ $('tabOut').onclick = () => { tab = 'out'; hideResult(); drawTabs(); drawPanel()
 $('tabIn').onclick = () => { tab = 'in'; hideResult(); drawTabs(); drawPanel(); };
 $('tabWho').onclick = () => { tab = 'who'; hideResult(); drawTabs(); drawPanel(); };
 $('tabNew').onclick = () => { tab = 'new'; hideResult(); drawTabs(); drawPanel(); };
+$('tabNd').onclick = () => { tab = 'nd'; hideResult(); drawTabs(); drawPanel(); };
 $('tabPdf').onclick = () => { tab = 'pdf'; hideResult(); drawTabs(); drawPanel(); };
 $('tabAct').onclick = () => { tab = 'act'; hideResult(); drawTabs(); drawPanel(); };
 $('panel').addEventListener('click', e => {
   const g = e.target.closest('[data-goto]');
   if (g) { e.preventDefault(); goTo(g.dataset.goto); return; }
+  if (tab === 'nd') { ndClick(e); return; }
   if (tab !== 'act') return;
   const w = e.target.closest('[data-act]');
   if (w) { const k = w.dataset.act; act.open.has(k) ? act.open.delete(k) : act.open.add(k); drawPanel(); return; }

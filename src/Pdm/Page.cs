@@ -148,6 +148,23 @@ public sealed class Page(Settings s)
                 await Send(ctx, 200, await Coverage.ComputeAsync(s, await new Index(db!, s).AllAsync(), new Vault(s3!, s),
                     Path.Combine(s.LocalRoot, ".pdm", "activity-cache.json"), Path.Combine(s.LocalRoot, ".pdm", "titleblock-cache.json")));
                 return;
+            case "/api/needs-drawing":
+                // Needs drawing (Grant, 21 Nov): for everyone. Reads the index and the rules only.
+                await Send(ctx, 200, NeedsDrawing.Compute(await new Index(db!, s).AllAsync(), s.LocalRoot, await new Vault(s3!, s).GetTextOrNullAsync(NeedsDrawing.RulesKey)));
+                return;
+            case "/api/needs-drawing-seen":
+            {
+                var why = await NeedsDrawing.MarkAsync(new Index(db!, s), Str("drawing"), Str("model"), Str("version"), session!.Name,
+                    body.ValueKind == JsonValueKind.Object && body.TryGetProperty("undo", out var u) && u.ValueKind == JsonValueKind.True);
+                await Send(ctx, why == null ? 200 : 409, why == null ? new { } : new { error = why });
+                return;
+            }
+            case "/api/needs-drawing-rules":
+                if (!Activity.IsAdmin(session!.Email)) { await Send(ctx, 403, new { error = "Only the admin changes the rules." }); return; }
+                await new Vault(s3!, s).PutTextAsync(NeedsDrawing.RulesKey, Str("text").Replace("\r\n", "\n"), "text/plain; charset=utf-8");
+                Console.WriteLine($"Needs drawing rules changed by {session.Name}.");
+                await Send(ctx, 200, new { });
+                return;
             case "/api/pdf-check":
             case "/api/pdf-start":
             case "/api/pdf-status":

@@ -211,6 +211,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         f.RemovedAt = f.RemovedBy = f.RemovedByName = f.RemovedReason = null;
         Remember(f);
         say($"Restored {key}. Download latest puts it back on this PC.");
+        await RelinkQuietlyAsync(f);
         await Activity.LogAsync(vault, new ActivityEvent(Index.Now(), name, "restored", key, f.FileId, Email: email), say);
     }
 
@@ -445,6 +446,48 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         await Activity.LogAsync(vault, new ActivityEvent(record.UpdatedAt, name, Activity.KindOf(record.Path, existing == null), record.Path, record.FileId,
             Email: email, VersionId: record.VersionId, Note: note, Sheets: sheets), say);
         foreach (var m in record.MissingRefs) say($"  Note: refers to {m}, which isn't in the vault.");
+        if (existing == null) await RelinkQuietlyAsync(record);
+    }
+
+    // References recorded as missing that now find a file in the vault. A parent checked in before its new child
+    // recorded the child as missing, and it stayed so after the child arrived (08A11-STA-01 -> 08A11-HBA-04, 21 Nov).
+    // target: only references to this file (just added or restored); null: every one (the one-off repair, pdm relink).
+    // Each record is read fresh and written only if it's still that version. Returns the references linked (or would be).
+    public async Task<int> RelinkAsync(FileRecord? target, bool dryRun)
+    {
+        var all = target == null ? await index.AllAsync() : await AllAsync();
+        var live = all.Where(r => !r.Removed).GroupBy(r => r.Path, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        if (target != null) live[target.Path] = target;
+        List<(string Raw, FileRecord To)> Hits(FileRecord f) => f.MissingRefs
+            .Select(m => (Raw: m, To: Paths.KeyOrNull(root, m) is { } k && live.TryGetValue(k, out var r) && r.FileId != f.FileId && (target == null || r.FileId == target.FileId) ? r : null))
+            .Where(x => x.To != null).Select(x => (x.Raw, x.To!)).ToList();
+        int n = 0;
+        foreach (var f in all.Where(f => !f.Removed && Hits(f).Count > 0).ToList())
+        {
+            var fresh = dryRun ? f : await index.GetAsync(f.FileId);
+            if (fresh == null || fresh.Removed) continue;
+            var hits = Hits(fresh);
+            if (hits.Count == 0) continue;
+            var refs = fresh.Refs.Concat(hits.Select(h => h.To.FileId)).ToList();
+            var missing = fresh.MissingRefs.Except(hits.Select(h => h.Raw)).ToList();
+            if (!dryRun && !await index.RelinkAsync(fresh, refs, missing))
+            {
+                say($"  Note: {fresh.Path} changed meanwhile, so its references weren't linked; its next check-in reads them again.");
+                continue;
+            }
+            foreach (var h in hits) say($"  {(dryRun ? "Would link" : "Note: linked")} {fresh.Path} -> {h.To.Path} (was recorded as missing)");
+            n += hits.Count;
+            if (!dryRun) { fresh.Refs = refs; fresh.MissingRefs = missing; Remember(fresh); }
+        }
+        return n;
+    }
+
+    // After an add or a restore: a failure here doesn't undo it (pdm relink catches up).
+    async Task RelinkQuietlyAsync(FileRecord f)
+    {
+        try { await RelinkAsync(f, dryRun: false); }
+        catch (Exception ex) when (ex is Amazon.Runtime.AmazonServiceException or HttpRequestException or IOException)
+        { say($"  Note: files that use {f.Path} weren't linked to it ({ex.Message}); pdm relink catches up."); }
     }
 
     // Releases my check-out without touching the file (an admin round that stops part way: a later load uploads

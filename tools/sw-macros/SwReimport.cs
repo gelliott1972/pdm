@@ -104,13 +104,49 @@ static class SwReimport
         }
     }
 
+
+    // Square corners (22 Nov): a tube's corner fillet face is a partial cylinder (radius up to 20 mm) with a straight edge
+    // at least 20 mm long running along its axis; a hole's face has no such edge (holes are short and round).
+    static bool IsCornerFillet(Face2 f)
+    {
+        var s = (Surface)f.GetSurface();
+        if (!s.IsCylinder()) return false;
+        var cp = (double[])s.CylinderParams;   // origin xyz, axis xyz, radius
+        if (cp[6] > 0.020) return false;
+        foreach (Edge e in (object[])f.GetEdges() ?? new object[0])
+        {
+            var c = (Curve)e.GetCurve();
+            if (!c.IsLine()) continue;
+            var cps = e.GetCurveParams3();
+            var a = (double[])cps.StartPoint; var b = (double[])cps.EndPoint;
+            double dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], len = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            if (len < 0.020) continue;
+            double dot = Math.Abs((dx * cp[3] + dy * cp[4] + dz * cp[5]) / len);
+            if (dot > 0.999) return true;
+        }
+        return false;
+    }
+
+    static int[] CountFaces(ModelDoc2 doc)
+    {
+        int fil = 0, cyl = 0;
+        foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
+            foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
+            {
+                if (IsCornerFillet(f)) fil++;
+                else if (((Surface)f.GetSurface()).IsCylinder()) cyl++;
+            }
+        return new[] { fil, cyl };
+    }
+
     static int Main(string[] a)
     {
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        if (!file.StartsWith(@"C:\PDM-work\reimport-test\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: test copy only (C:\\PDM-work\\reimport-test)"); return 2; }
+        if (!file.StartsWith(@"C:\PDM-work\reimport-test\", StringComparison.OrdinalIgnoreCase) && !file.StartsWith(@"C:\PDM-work\square-corners\", StringComparison.OrdinalIgnoreCase))
+        { Console.Error.WriteLine("REFUSED: test copies only (C:\\PDM-work\\reimport-test, C:\\PDM-work\\square-corners)"); return 2; }
         sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application.34"));
         if (!sw.RevisionNumber().StartsWith("34.")) { Console.Error.WriteLine("Not SOLIDWORKS 2026"); return 2; }
-        bool write = cmd == "setdim" || cmd == "extend" || cmd == "hole" || cmd == "matedist" || cmd == "movecomp" || cmd == "unmove";
+        bool write = cmd == "setdim" || cmd == "extend" || cmd == "hole" || cmd == "matedist" || cmd == "movecomp" || cmd == "unmove" || cmd == "square";
         var doc = Open(file, write);
         int rc = 0;
         try
@@ -286,6 +322,59 @@ static class SwReimport
                         Console.WriteLine("MATE	" + m.Name + "	" + (swMateType_e)mate.Type + (m.IsSuppressed() ? "	SUPPRESSED" : "") + "	" + string.Join("	", names));
                     }
                 }
+            }
+            else if (cmd == "square")
+            {
+                // square <part>: one Delete Face (delete and patch) feature on every corner fillet face, all configurations checked
+                string active = ((Configuration)doc.GetActiveConfiguration()).Name;
+                var cfgs = (string[])doc.GetConfigurationNames();
+                var holesBefore = new Dictionary<string, int>();
+                foreach (var c in cfgs)
+                {
+                    doc.ShowConfiguration2(c); doc.ForceRebuild3(false);
+                    var n = CountFaces(doc); holesBefore[c] = n[1];
+                    Console.WriteLine("BEFORE	" + c + "	" + Measure(doc) + "	corner fillet faces " + n[0] + "	other cylindrical faces " + n[1] + "	errors " + Errors(doc));
+                }
+                doc.ShowConfiguration2(active); doc.ForceRebuild3(false);
+                var sm = (SelectionMgr)doc.SelectionManager;
+                var sd = sm.CreateSelectData();
+                int made = 0, failed = 0, bodyNo = 0;
+                foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
+                {
+                    bodyNo++;
+                    var picks = ((object[])b.GetFaces() ?? new object[0]).Cast<Face2>().Where(IsCornerFillet).ToList();
+                    if (picks.Count == 0) continue;
+                    string bname = b.Name;
+                    doc.ClearSelection2(true);
+                    int sel = picks.Count(f => ((Entity)f).Select4(true, sd));
+                    bool one = sel > 0 && doc.Extension.InsertDeleteFace((int)swFaceDeleteOption_e.swFaceDelete_Patch);
+                    Feature last = null;
+                    for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature()) last = f;
+                    if (one && last != null && last.GetTypeName2() == "DelFace") { last.Name = "SQUARE-CORNERS " + bodyNo + " " + bname; made++; }
+                    else failed++;
+                    Console.WriteLine("DELETEFACE	body " + bname + "	" + sel + " of " + picks.Count + " faces	" + (one ? "OK" : "FAILED"));
+                    doc.ClearSelection2(true);
+                }
+                // new features can arrive suppressed in other configurations: switch every SQUARE-CORNERS feature on everywhere
+                int sq = 0;
+                for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature())
+                    if (f.Name.StartsWith("SQUARE-CORNERS") && ++sq > 0)
+                        Console.WriteLine("UNSUPPRESS ALL CONFIGS	" + f.Name + "	" + f.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swAllConfiguration, null));
+                bool ok = sq > 0 && failed == 0;
+                Console.WriteLine("DELETEFACE	" + made + " features made, " + failed + " failed");
+                doc.ClearSelection2(true);
+                bool good = ok;
+                foreach (var c in cfgs)
+                {
+                    doc.ShowConfiguration2(c); doc.ForceRebuild3(false);
+                    var n = CountFaces(doc); int er = Errors(doc);
+                    Console.WriteLine("AFTER	" + c + "	" + Measure(doc) + "	corner fillet faces " + n[0] + "	other cylindrical faces " + n[1] + "	errors " + er);
+                    if (er > 0) { good = false; Console.WriteLine("PROBLEM	" + c + ": rebuild errors"); }
+                    if (n[0] > 0) Console.WriteLine("NOTE	" + c + ": " + n[0] + " corner fillet faces left");
+                    if (n[1] != holesBefore[c]) Console.WriteLine("NOTE	" + c + ": other cylindrical faces " + holesBefore[c] + " -> " + n[1]);
+                }
+                doc.ShowConfiguration2(active);
+                if (!good || !Save(doc)) rc = 1;
             }
             else if (cmd == "matedist")
             {

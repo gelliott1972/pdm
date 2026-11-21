@@ -223,3 +223,7 @@ Questions this raises for Grant (not acted on): whether Draw should drop the bot
 - Method: change made on a scratch copy; vault file checked out, confirmed byte-identical to the starting copy, fixed file copied over, checked in with `pdm checkin`. Writing into P: was allowed for these three fixes only (Grant: "yes for this time"); P: is read-only to Draw again.
 - Side effect Grant accepted: with a centre mark present, an extension line to the hole stops just short of the mark.
 - On hold until Grant says go: the three trial drafts for the learned-from-James points (`scripts/james_three.sh`).
+
+## 21 Nov: decision Db (Grant, through Admin): structure drawings are James's
+
+- The structure / top-level assembly drawings (the -STA-01 kind) stay on A3 and James does them by hand ("these require the most work anyway"). Off Draw's list: no drafts, no A2/A1, no two-sheet versions.

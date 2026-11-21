@@ -66,6 +66,22 @@ public sealed class Vault(IAmazonS3 s3, Settings s)
         return list;
     }
 
+    // One key's versions (not delete markers), newest first.
+    public async Task<List<(string VersionId, DateTime At)>> VersionsAsync(string key)
+    {
+        var list = new List<(string, DateTime)>();
+        var req = new ListVersionsRequest { BucketName = s.Bucket, Prefix = key };
+        ListVersionsResponse r;
+        do
+        {
+            r = await s3.ListVersionsAsync(req);
+            foreach (var v in r.Versions ?? [])
+                if (v.Key == key && v.IsDeleteMarker != true) list.Add((v.VersionId, (v.LastModified ?? DateTime.MinValue).ToUniversalTime()));
+            req.KeyMarker = r.NextKeyMarker; req.VersionIdMarker = r.NextVersionIdMarker;
+        } while (r.IsTruncated == true);
+        return list.OrderByDescending(v => v.Item2).ToList();
+    }
+
     // Copies one version to a new key inside the bucket (a move): nothing goes through this PC. Keeps the fileId metadata.
     public async Task<(string VersionId, string ETag)> CopyAsync(string fromKey, string versionId, string toKey)
     {

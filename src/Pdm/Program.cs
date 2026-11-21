@@ -140,7 +140,9 @@ try
             // The page's Needs drawing tab (Grant, 21 Nov), read-only: pdm needs-drawing
             return await Admin(settings, async (index, vault, engine) =>
             {
-                var r = NeedsDrawing.Compute(await index.AllAsync(), settings.LocalRoot, await vault.GetTextOrNullAsync(NeedsDrawing.RulesKey));
+                var all = await index.AllAsync();
+                var r = NeedsDrawing.Compute(all, settings.LocalRoot, await vault.GetTextOrNullAsync(NeedsDrawing.RulesKey));
+                r = r with { Older = await Resaved.MarkAsync(r.Older, all, vault, settings.LocalRoot, Console.WriteLine) };
                 foreach (var l in NeedsDrawing.Summary(r)) Console.WriteLine(l);
                 return 0;
             });
@@ -450,6 +452,7 @@ static string ReadHidden(string prompt)
 // Who admin jobs run as: Grant's SSO login. Locks they take for a moment (move, remove) show this name.
 static partial class Program
 {
-    const string AdminEmail = "pdm-admin";
+    const string AdminEmail = AdminCliLogin;
+    public const string AdminCliLogin = "pdm-admin"; // the login the admin CLI's check-outs are under
     const string AdminName = "Grant Elliott";
 }

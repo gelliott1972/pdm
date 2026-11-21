@@ -36,7 +36,7 @@ public static class NeedsDrawing
     public sealed record Rule(string Pattern, string Why, int Count);
     public sealed record NoDrawing(string Path, string At, string By, string Note);
     public sealed record Older(string Drawing, string DrawingId, string DrawingAt, string DrawingBy,
-        string Model, string ModelId, string ModelVersion, string ModelAt, string ModelBy, string ModelNote, SeenEntry? Seen);
+        string Model, string ModelId, string ModelVersion, string ModelAt, string ModelBy, string ModelNote, SeenEntry? Seen, bool ResavedOnly = false);
     public sealed record Result(List<NoDrawing> NoDrawing, List<Older> Older, List<Rule> Rules, string? From, string Text, int Models, int Drawings);
 
     public static Result Compute(List<FileRecord> records, string root, string? rulesText)
@@ -129,6 +129,6 @@ public static class NeedsDrawing
         yield return $"Drawing older than its model{(r.From != null ? $" (model check-ins from {r.From} NZ)" : "")}: {r.Older.Count} ({open} not marked seen)";
         foreach (var o in r.Older)
             yield return $"  {Path.GetFileName(o.Drawing)} ({Engine.Local(o.DrawingAt)}) < {Path.GetFileName(o.Model)} ({o.ModelBy}, {Engine.Local(o.ModelAt)}{(o.ModelNote != "" ? ": " + o.ModelNote : "")})"
-                + (o.Seen != null ? $"  [seen by {o.Seen.By}, {Engine.Local(o.Seen.At)}]" : "");
+                + (o.ResavedOnly ? "  [re-saved only]" : "") + (o.Seen != null ? $"  [seen by {o.Seen.By}, {Engine.Local(o.Seen.At)}]" : "");
     }
 }

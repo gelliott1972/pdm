@@ -1,7 +1,8 @@
 namespace Pdm;
 
 // The PDM operations, for one logged-in user on this PC. Each method reports what it did through `say`.
-public sealed class Engine(Settings s, Index index, Vault vault, string email, string name, bool sharedEditor, Action<string> say)
+// alsoMine: another login whose check-outs on this PC count as this user's own (the admin's page: the admin CLI's).
+public sealed class Engine(Settings s, Index index, Vault vault, string email, string name, bool sharedEditor, Action<string> say, string? alsoMine = null)
 {
     readonly string root = s.LocalRoot;
     readonly string machine = Environment.MachineName;
@@ -183,7 +184,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             try { await index.LockAsync(fresh.FileId, email, name, machine); } // free: take it as part of removing it
             catch (LockTakenException ex) { say($"Not removed: {ex.Holder.LockedByName} has {key} checked out."); return; }
         }
-        await index.RemoveAsync(fresh.FileId, email, name, machine, reason);
+        await index.RemoveAsync(fresh.FileId, Mine(fresh) ? Holder(fresh) : email, name, machine, reason);
         if (fresh.PartNos.Count > 0) // its PartNos are free for other files while it's removed; Restore claims them back
             await index.UpdatePartNosAsync(new FileRecord { FileId = fresh.FileId, Path = fresh.Path }, fresh.PartNos);
         (fresh.RemovedAt, fresh.RemovedBy, fresh.RemovedByName, fresh.RemovedReason) = (Index.Now(), email, name, reason);
@@ -287,6 +288,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             Say($"{f.Path} was changed on this PC without a check-out. Move it aside first.");
             return;
         }
+        if (Mine(f) && f.LockedBy != email) { Say($"{f.Path} is already checked out to you here."); return; } // under the admin CLI: keep that lock
         try
         {
             await Time.Of("index writes", () => index.LockAsync(f.FileId, email, name, machine));
@@ -326,7 +328,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         {
             try
             {
-                await Time.Of("index writes", () => index.UnlockAsync(r.F.FileId, email, machine));
+                await Time.Of("index writes", () => index.UnlockAsync(r.F.FileId, Holder(r.F), machine));
                 r.F.LockedBy = r.F.LockedByName = r.F.LockedAt = r.F.LockMachine = null;
                 Paths.SetReadOnly(r.Local, true);
                 Say($"No changes in {r.F.Path}; released.");
@@ -373,7 +375,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             if (!Mine(existing)) { say($"You don't have {key} checked out on this PC."); return; }
             if (!Time.Of("file checks", () => state.IsChanged(existing.Path, local)))
             {
-                await Time.Of("index writes", () => index.UnlockAsync(existing.FileId, email, machine));
+                await Time.Of("index writes", () => index.UnlockAsync(existing.FileId, Holder(existing), machine));
                 existing.LockedBy = existing.LockedByName = existing.LockedAt = existing.LockMachine = null;
                 Remember(existing);
                 Paths.SetReadOnly(local, true);
@@ -432,7 +434,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             return;
         }
         record.Size = new FileInfo(local).Length;
-        if (existing != null) await Time.Of("index writes", () => index.CheckInAsync(record, email, machine));
+        if (existing != null) { var holder = Holder(existing); await Time.Of("index writes", () => index.CheckInAsync(record, holder, machine)); }
         else await Time.Of("index writes", () => index.PutAsync(record));
         Remember(record);
         await Time.Of("PartNo writes", () => index.UpdatePartNosAsync(record, existing?.PartNos ?? new()));
@@ -505,7 +507,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             var local = Paths.LocalOf(root, key);
             bool changed = File.Exists(local) && state.IsChanged(key, local);
             if (dryRun) { say($"  would release {key}{(changed ? " (changed here; stays writable)" : "")}"); continue; }
-            await index.UnlockAsync(f.FileId, email, machine);
+            await index.UnlockAsync(f.FileId, Holder(f), machine);
             f.LockedBy = f.LockedByName = f.LockedAt = f.LockMachine = null;
             if (!changed) Paths.SetReadOnly(local, true);
             say($"  Released {key}{(changed ? " (changed here; stays writable)" : "")}");
@@ -524,7 +526,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         var state = LocalState.Load(root);
         if (!File.Exists(local) || state.IsChanged(f.Path, local) || !state.Files.TryGetValue(f.Path, out var had) || had.VersionId != f.VersionId)
             await vault.DownloadAsync(f.Path, f.VersionId, local);
-        await index.UnlockAsync(f.FileId, email, machine);
+        await index.UnlockAsync(f.FileId, Holder(f), machine);
         f.LockedBy = f.LockedByName = f.LockedAt = f.LockMachine = null;
         state.Record(f.Path, local, f.FileId, f.VersionId, f.ETag);
         state.Save(root);
@@ -551,7 +553,10 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
     }
 
     // My lock means mine on this PC: the same person's check-out on another PC is that PC's working copy.
-    public bool Mine(FileRecord f) => f.LockedBy == email && f.LockMachine == machine;
+    public bool Mine(FileRecord f) => f.LockMachine == machine && f.LockedBy != null && (f.LockedBy == email || f.LockedBy == alsoMine);
+
+    // The login a lock of mine is held under (for the conditional writes that end it): its own, or mine.
+    string Holder(FileRecord f) => Mine(f) ? f.LockedBy! : email;
 
     string PrefixOf(string? folder) =>
         string.IsNullOrWhiteSpace(folder) ? "" : Paths.KeyOf(root, folder).TrimEnd('/') + "/";

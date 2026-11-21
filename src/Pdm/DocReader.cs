@@ -112,6 +112,53 @@ public sealed class DocReader
         catch { return null; }
     }
 
+    // What a model is, as far as the Document Manager can see without SOLIDWORKS, one line each: its references (by
+    // file name), configurations, custom properties (file and each configuration, evaluated), each configuration's
+    // mass properties (as last saved; geometry; without them, null), and an assembly's components (file, configuration, suppressed,
+    // position). Two versions with the same lines differ only in things a drawing doesn't show: a re-save
+    // (Needs drawing, Grant 21 Nov). Null when something can't be read, so the caller doesn't guess.
+    public List<string>? Fingerprint(string path)
+    {
+        var doc = app.GetDocument(path, TypeOf(path), true, out _) as ISwDMDocument31;
+        if (doc == null) return null;
+        try
+        {
+            var lines = new List<string>();
+            lines.AddRange(References(doc).Select(r => "ref " + Path.GetFileName(r.Replace('/', '\\')).ToUpperInvariant()).Order(StringComparer.Ordinal));
+            lines.AddRange(Props("", (out object n, out object t, out object l, out object v) => doc.GetAllCustomPropertyNamesAndValues(out n, out t, out l, out v)));
+            foreach (var cn in ((string[])doc.ConfigurationManager.GetConfigurationNames()).Order(StringComparer.Ordinal))
+            {
+                if (doc.ConfigurationManager.GetConfigurationByName(cn) is not ISwDMConfiguration18 cfg) return null;
+                lines.Add($"config {cn}");
+                lines.AddRange(Props(cn, (out object n, out object t, out object l, out object v) => cfg.GetAllCustomPropertyNamesAndValues(out n, out t, out l, out v)));
+                var mass = cfg.GetMassProperties(out var err) as double[];
+                if (err != SwDmMassPropError.swDmMassPropErrorNone || mass == null) return null; // no geometry to compare: not decided
+                lines.Add($"mass[{cn}] {Nums(mass)}");
+                foreach (var c in ((cfg.GetComponents() as object[]) ?? []).OfType<ISwDMComponent10>()
+                    .Select(c => $"comp[{cn}] {c.Name2} {Path.GetFileName(Convert.ToString(c.PathName)?.Replace('/', '\\') ?? "").ToUpperInvariant()} <{c.ConfigurationName}>"
+                        + $"{(c.IsSuppressed() ? " suppressed" : "")} at {(c.Transform is double[] t ? Nums(t) : "?")}").Order(StringComparer.Ordinal))
+                    lines.Add(c);
+            }
+            return lines;
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidCastException or InvalidOperationException) { return null; }
+        finally { try { doc.CloseDoc(); } catch { } }
+    }
+
+    delegate void AllProps(out object names, out object types, out object linkedTo, out object values);
+
+    static IEnumerable<string> Props(string config, AllProps read)
+    {
+        read(out var n, out _, out var l, out var v);
+        var names = n as string[] ?? [];
+        var linked = l as string[] ?? [];
+        var values = v as string[] ?? [];
+        return names.Select((x, i) => $"prop[{config}] {x} = {(i < linked.Length ? linked[i] : "")} -> {(i < values.Length ? values[i] : "")}").Order(StringComparer.Ordinal);
+    }
+
+    // Rounded, so the same geometry saved again reads the same (6 significant figures).
+    static string Nums(double[] a) => string.Join(" ", a.Select(x => (Math.Abs(x) < 1e-9 ? 0 : x).ToString("G6", System.Globalization.CultureInfo.InvariantCulture)));
+
     // The resolved reference list (what SOLIDWORKS loads), without virtual components.
     IEnumerable<string> References(ISwDMDocument31 doc)
     {

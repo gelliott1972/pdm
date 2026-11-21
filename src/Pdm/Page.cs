@@ -97,7 +97,10 @@ public sealed class Page(Settings s)
         await session.RefreshAsync();
 
         var log = new List<string>();
-        var engine = new Engine(s, new Index(db!, s), new Vault(s3!, s), session.Email, session.Name, session.SharedEditor, log.Add);
+        // The admin's page also counts a check-out made here by the admin CLI (pdm checkout, as pdm-admin) as his own
+        // (Grant, 21 Nov): Get keeps his copy, and the page can check it in or undo it. Nobody else's login changes.
+        var engine = new Engine(s, new Index(db!, s), new Vault(s3!, s), session.Email, session.Name, session.SharedEditor, log.Add,
+            alsoMine: Activity.IsAdmin(session.Email) ? Program.AdminCliLogin : null);
         var run = Str("run");
         engine.Known = run != "" && run == runId ? runIndex : null;
         if ((path is "/api/get" or "/api/checkout" or "/api/checkin" or "/api/undo" or "/api/remove" or "/api/restore") && Vault.TooOld(Updater.Version, minVersion))
@@ -152,6 +155,17 @@ public sealed class Page(Settings s)
                 // Needs drawing (Grant, 21 Nov): for everyone. Reads the index and the rules only.
                 await Send(ctx, 200, NeedsDrawing.Compute(await new Index(db!, s).AllAsync(), s.LocalRoot, await new Vault(s3!, s).GetTextOrNullAsync(NeedsDrawing.RulesKey)));
                 return;
+            case "/api/needs-drawing-resaved":
+            {
+                // The rows of "drawing older than its model" where the model was only re-saved (Resaved.cs). Asked after
+                // the lists, as it can take a minute the first time on a PC (it reads both versions of each model).
+                var all = await new Index(db!, s).AllAsync();
+                var vault = new Vault(s3!, s);
+                var r = NeedsDrawing.Compute(all, s.LocalRoot, await vault.GetTextOrNullAsync(NeedsDrawing.RulesKey));
+                var marked = await Resaved.MarkAsync(r.Older, all, vault, s.LocalRoot, Console.WriteLine);
+                await Send(ctx, 200, new { resaved = marked.Where(o => o.ResavedOnly).Select(o => $"{o.DrawingId}|{o.ModelId}|{o.ModelVersion}").ToList() });
+                return;
+            }
             case "/api/needs-drawing-seen":
             {
                 var why = await NeedsDrawing.MarkAsync(new Index(db!, s), Str("drawing"), Str("model"), Str("version"), session!.Name,

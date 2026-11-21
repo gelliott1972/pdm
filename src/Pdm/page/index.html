@@ -618,12 +618,21 @@ function drawNew() {
 // ---- right: Needs drawing (Grant, 21 Nov; everyone, for James). 1) Parts and assemblies no drawing references, less
 // the files the rules leave out (a short list in the vault; the admin changes it here). 2) Drawings older than a model
 // they show: a row can be marked Seen (a re-save that doesn't need the drawing changed), for that version of the model.
-const nd = { data: null, loading: false, err: '', showSeen: false, edit: false, msg: '' };
+const nd = { data: null, loading: false, err: '', showSeen: false, edit: false, msg: '', resaved: null, checking: false };
 async function loadNd() {
   nd.loading = true; nd.err = '';
-  try { nd.data = await api('needs-drawing'); }
+  try { nd.data = await api('needs-drawing'); loadResaved(); }
   catch (e) { nd.err = e.message; }
   finally { nd.loading = false; if (tab === 'nd' && !panelDirty) drawPanel(); }
+}
+// Which "older" rows are only a re-save of the model: asked after the lists, as the first time on a PC it reads
+// both versions of each model (up to a minute). Rows it can't decide stay unmarked.
+async function loadResaved() {
+  if (nd.checking) return;
+  nd.checking = true;
+  try { nd.resaved = new Set((await api('needs-drawing-resaved')).resaved); }
+  catch (e) { nd.resaved = null; }
+  finally { nd.checking = false; if (tab === 'nd' && !panelDirty) drawPanel(); }
 }
 function ndLink(p) { return byPath[p] ? `<a href="#" data-goto="${esc(p)}" title="${esc(p)}">${esc(base(p))}</a>` : esc(base(p)); }
 function drawNd() {
@@ -651,10 +660,12 @@ function drawNd() {
   const seen = d.older.filter(o => o.seen).length, rows = d.older.filter(o => nd.showSeen || !o.seen);
   out.push(`<div class="act-h">Drawing older than its model (${d.older.length - seen}${seen ? `, and ${seen} seen` : ''})</div>`);
   out.push(`<div class="muted">A model the drawing shows was checked in after the drawing${d.from ? ` (model check-ins from ${esc(fmtDay(d.from, { day: 'numeric', month: 'short' }))} on)` : ''}. `
-    + 'If the drawing doesn\'t need changing (the model was only re-saved), press Seen; it shows again if the model changes again.</div>');
+    + 'If the drawing doesn\'t need changing (the model was only re-saved), press Seen; it shows again if the model changes again. '
+    + '<b>re-saved only</b>: the model\'s components and their positions, configurations, properties, mass and references are the same as in the version the drawing was made from.'
+    + `${nd.checking ? ' <span class="muted">(checking for re-saves…)</span>' : ''}</div>`);
   if (seen) out.push(`<div class="bar"><label class="nw"><input type="checkbox" id="ndShowSeen"${nd.showSeen ? ' checked' : ''}> Show seen</label></div>`);
   out.push(rows.length ? '<table class="nd">' + rows.map(o => `<tr class="${o.seen ? 'seen' : ''}"><td class="nw">${ndLink(o.drawing)}<div class="muted">${esc(when(o.drawingAt))}</div></td>`
-    + `<td class="nw">${ndLink(o.model)}<div class="muted">${esc(o.modelBy)} · ${esc(when(o.modelAt))}</div></td><td class="muted">${esc(o.modelNote)}</td>`
+    + `<td class="nw">${ndLink(o.model)}<div class="muted">${esc(o.modelBy)} · ${esc(when(o.modelAt))}</div></td><td class="muted">${nd.resaved?.has(o.drawingId + '|' + o.modelId + '|' + o.modelVersion) ? '<span class="tag" title="Same components and positions, configurations, properties, mass and references as the version the drawing was made from.">re-saved only</span> ' : ''}${esc(o.modelNote)}</td>`
     + `<td class="nw">${o.seen ? `<span class="muted">seen by ${esc(o.seen.by)}, ${esc(when(o.seen.at))}</span> <button data-nd-undo="${esc(o.drawingId + '|' + o.modelId + '|' + o.modelVersion)}">Undo</button>`
       : `<button data-nd-seen="${esc(o.drawingId + '|' + o.modelId + '|' + o.modelVersion)}" title="This drawing doesn't need changing for this version of the model.">Seen</button>`}</td></tr>`).join('') + '</table>'
     : `<span class="muted">${d.older.length ? 'All seen.' : 'None: every drawing is newer than the models it shows.'}</span>`);

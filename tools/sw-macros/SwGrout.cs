@@ -1,12 +1,11 @@
-// SwGrout: the 10 mm member change for the grout (Grant via Admin, 22 Nov 2026: all shafts of LS-08X-11; GNRIC-LM
-// SPL-250+8M+670-FP1 2920 -> 2930, PL-395+5M+250-SPL 1895 -> 1905 and PL-395+3M+0-EC 1145 -> 1155, LED plate position
-// 395 -> 405 on the two top ones). Read-only commands work on copies under C:\PDM-work\; the one that saves works only
-// under C:\PDM-work\grout\ (the rehearsal), so never on P:\ or Dropbox.
-//   mates   <asm> [config]                      read-only: every mate of this assembly (its own level) with, for each entity,
-//                                               the component and the feature it belongs to (plane, sketch, face of ...)
-//   xforms  <asm> <config> <out.txt>            read-only: every active component and its position in the top, plus errors
-//   setdims <part> <config> <dim>=<mm> ...      in that configuration only: set each dimension, rebuild, list every
-//                                               configuration's errors, save (rehearsal copies only)
+// SwGrout: the no-grout 10 mm change on LS-08X-06 and LS-08X-11 (Grant via Admin, 22 Nov 2026): floor plates 10 lower,
+// roof plates 10 higher, screen unchanged. Read-only commands open P:\ files or copies under C:\PDM-work\. Commands
+// that save write only to copies under C:\PDM-work\grout\ (the rehearsal) or, with --checked-out, to a P:\ file that is
+// checked out here (writable); a read-only vault file is refused. Never M:\, Dropbox or .pdm.
+//   read-only: mates <asm> [config] | dims <file> [config] | xforms <asm> <config> <out.txt> | eq <file>
+//   saving:    setdims <file> <config|*> <dim>=<mm> ... | gv <part> <config> <global>=<value> ...
+//              plane <asm> <plane> <offset mm> | feet <part> <sketch> <dim>=<mm> ... | setcomp <asm> <config> <comp> <cfg>
+//              delcomp <asm> <file name> | matedist <asm> <mate> <add mm> | addcfg <part> <base config> <new config>
 // Build: csc /platform:x64 /r:bin\SolidWorks.Interop.sldworks.dll /r:bin\SolidWorks.Interop.swconst.dll /out:bin\SwGrout.exe SwGrout.cs
 
 using System;

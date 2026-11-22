@@ -73,7 +73,7 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props";
+        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave";
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
@@ -92,6 +92,57 @@ static class SwGrout
         if (cmd == "xforms" && !Path.GetFullPath(a[3]).StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: output only under C:\\PDM-work"); return 2; }
         sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application.34"));
         if (!sw.RevisionNumber().StartsWith("34.")) { Console.Error.WriteLine("Not SOLIDWORKS 2026"); return 2; }
+        if (cmd == "repoint")
+        {
+            // repoint <asm> <old path> <new path> [oldCfg=newCfg ...] [--checked-out] (anchors step, 22 Nov): every component
+            // of <old path> in <asm> becomes <new path>, each keeping its instance and getting its configuration renamed by the
+            // map. Read first (instance -> configuration), then SOLIDWORKS's ReplaceReferencedDocument on the closed file,
+            // then the configurations set per instance number, rebuilt and saved. Same write rule as the other commands.
+            string oldP = Path.GetFullPath(a[2]), newP = Path.GetFullPath(a[3]);
+            var map = a.Skip(4).Select(m => m.Split(new[] { '=' }, 2)).ToDictionary(q => q[0], q => q[1]);
+            int e1 = 0, w1 = 0;
+            var rd = sw.OpenDoc6(file, (int)swDocumentTypes_e.swDocASSEMBLY, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_ReadOnly), "", ref e1, ref w1);
+            if (rd == null) { Console.WriteLine("FAILED\topen " + e1); return 3; }
+            var cfgOf = new Dictionary<string, string>();
+            foreach (Component2 c in ((object[])((AssemblyDoc)rd).GetComponents(true) ?? new object[0]))
+                if (string.Equals(c.GetPathName(), oldP, StringComparison.OrdinalIgnoreCase) || string.Equals(Path.GetFileName(c.GetPathName()), Path.GetFileName(oldP), StringComparison.OrdinalIgnoreCase))
+                    cfgOf[c.Name2.Substring(c.Name2.LastIndexOf('-') + 1)] = c.ReferencedConfiguration;
+            sw.CloseDoc(rd.GetTitle());
+            Console.WriteLine("BEFORE\t" + cfgOf.Count + " instances: " + string.Join(", ", cfgOf.GroupBy(kv => kv.Value).Select(g => g.Count() + " x " + g.Key)));
+            if (cfgOf.Count == 0) { Console.WriteLine("FAILED\tno components of " + oldP); return 3; }
+            bool rr = sw.ReplaceReferencedDocument(file, oldP, newP);
+            Console.WriteLine("REPLACE REFERENCE\t" + rr);
+            if (!rr) return 3;
+            int e2 = 0, w2 = 0;
+            var wd = sw.OpenDoc6(file, (int)swDocumentTypes_e.swDocASSEMBLY, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight), "", ref e2, ref w2);
+            if (wd == null) { Console.WriteLine("FAILED\topen after replace " + e2); return 3; }
+            int prc = 0;
+            try
+            {
+                var wa = (AssemblyDoc)wd; wa.ResolveAllLightWeightComponents(false);
+                int set = 0, seen = 0;
+                foreach (Component2 c in ((object[])wa.GetComponents(true) ?? new object[0]))
+                {
+                    if (!string.Equals(c.GetPathName(), newP, StringComparison.OrdinalIgnoreCase)) continue;
+                    seen++;
+                    string num = c.Name2.Substring(c.Name2.LastIndexOf('-') + 1), oc, nc2;
+                    if (!cfgOf.TryGetValue(num, out oc)) { Console.WriteLine("PROBLEM\tno earlier configuration for " + c.Name2); prc = 1; continue; }
+                    if (!map.TryGetValue(oc, out nc2)) nc2 = oc;
+                    c.ReferencedConfiguration = nc2;
+                    if (c.ReferencedConfiguration == nc2) set++; else { Console.WriteLine("PROBLEM\t" + c.Name2 + " did not take " + nc2); prc = 1; }
+                }
+                wd.ForceRebuild3(false);
+                int er = Errors(wd, true);
+                var now = ((object[])wa.GetComponents(true) ?? new object[0]).Cast<Component2>().Where(c => string.Equals(c.GetPathName(), newP, StringComparison.OrdinalIgnoreCase)).GroupBy(c => c.ReferencedConfiguration).Select(g => g.Count() + " x " + g.Key);
+                int left = ((object[])wa.GetComponents(true) ?? new object[0]).Cast<Component2>().Count(c => string.Equals(Path.GetFileName(c.GetPathName()), Path.GetFileName(oldP), StringComparison.OrdinalIgnoreCase));
+                Console.WriteLine("AFTER\t" + seen + " instances of " + Path.GetFileName(newP) + ": " + string.Join(", ", now) + "\tconfigurations set " + set + "\told file left " + left + "\terrors " + er);
+                if (seen != cfgOf.Count || left > 0 || er > 0) prc = 1;
+                if (prc == 0) { int se = 0, swn = 0; bool ok = wd.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref se, ref swn); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + se); if (!ok) prc = 1; }
+                else Console.WriteLine("NOT SAVED");
+            }
+            finally { sw.CloseDoc(wd.GetTitle()); }
+            return prc;
+        }
         if (cmd == "import")
         {
             // import <file.step> <out.SLDPRT>: STEP into a part (one part, bodies kept), saved only under C:\PDM-work\grout\
@@ -124,7 +175,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -520,6 +571,171 @@ static class SwGrout
                 finally { sw.CloseDoc(refDoc.GetTitle()); }
                 bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w);
                 Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e);
+            }
+            else if (cmd == "kitseed")
+            {
+                // kitseed <kit> <seed> <new part> <config for new> <config for old> <new name for that> <new name for that>
+                // (anchors step, Grant 22 Nov, option A): a second seed of <new part> with copies of the seed's mates, added to
+                // the seed's sketch pattern; the old seed is suppressed in <config for new>, the new one in <config for old>;
+                // then both configurations are renamed. Checks: the new seed sits exactly where the old one does, and in each
+                // configuration the 4 anchor positions are the same as before, now of the right file.
+                var asm = (AssemblyDoc)doc;
+                string cNew = a[4], cOld = a[5], newPart = Path.GetFullPath(a[3]);
+                Func<string, List<string>> anchors = cfgName =>
+                {
+                    doc.ShowConfiguration2(cfgName); doc.ForceRebuild3(false);
+                    return ((object[])asm.GetComponents(true) ?? new object[0]).Cast<Component2>()
+                        .Where(c => c.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentSuppressed && Path.GetFileName(c.GetPathName()).StartsWith("FAST-HST3", StringComparison.OrdinalIgnoreCase))
+                        .Select(c => { var d = (double[])c.Transform2.ArrayData; return Path.GetFileName(c.GetPathName()) + " " + string.Join(" ", Enumerable.Range(0, 12).Select(i => Math.Round(d[i] * (i >= 9 ? 1000 : 1), 3).ToString("0.###", Inv))); })
+                        .OrderBy(x => x.Substring(x.IndexOf(' '))).ToList();
+                };
+                var before = new Dictionary<string, List<string>> { { cNew, anchors(cNew) }, { cOld, anchors(cOld) } };
+                foreach (var kv in before) foreach (var l in kv.Value) Console.WriteLine("BEFORE\t" + kv.Key + "\t" + l);
+                doc.ShowConfiguration2(cNew); doc.ForceRebuild3(false);
+                var seed = (Component2)asm.GetComponentByName(a[2]);
+                if (seed == null) throw new Exception("no component " + a[2]);
+                var seedXf = (MathTransform)seed.Transform2;
+                var seedT = (double[])seedXf.ArrayData;
+                string seedFile = Path.GetFileName(seed.GetPathName());
+                int pe = 0, pw = 0;
+                var partOpen = sw.OpenDoc6(newPart, (int)swDocumentTypes_e.swDocPART, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref pe, ref pw);   // AddComponent needs it in memory
+                sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref pe);
+                var mu = (MathUtility)sw.GetMathUtility();
+                var inv = (MathTransform)seedXf.Inverse();
+                string asmName = Path.GetFileNameWithoutExtension(file);
+                var sd = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
+                Feature mg = null; for (var g = (Feature)doc.FirstFeature(); g != null && mg == null; g = (Feature)g.GetNextFeature()) if (g.GetTypeName2() == "MateGroup") mg = g;
+                var toCopy = new List<Feature>();
+                for (var s = (Feature)mg.GetFirstSubFeature(); s != null; s = (Feature)s.GetNextSubFeature())
+                {
+                    var mt = s.GetSpecificFeature2() as Mate2; if (mt == null || s.IsSuppressed()) continue;
+                    bool has = false; for (int k = 0; k < mt.GetMateEntityCount(); k++) if (S(() => mt.MateEntity(k).ReferenceComponent.Name2) == seed.Name2) has = true;
+                    if (has) toCopy.Add(s);
+                }
+                // the sketch the seed's origin is mated to, and its points at this configuration's anchor positions. A sketch
+                // pattern for the new part could not be made through the API (22 Nov), so each new anchor gets the seed's 3 mates
+                // on its own sketch point: the positions still follow the sketch in each configuration.
+                SketchPoint seedPoint = null;
+                foreach (var s in toCopy)
+                {
+                    var mt = (Mate2)s.GetSpecificFeature2();
+                    for (int k = 0; k < 2; k++)
+                    {
+                        var r = mt.MateEntity(k).Reference as SketchPoint;
+                        if (r != null && S(() => mt.MateEntity(k).ReferenceComponent.Name2) != seed.Name2) seedPoint = r;
+                    }
+                }
+                if (seedPoint == null) throw new Exception("the seed origin is not mated to a sketch point");
+                var posSk = (Sketch)seedPoint.GetSketch();
+                var toModel = (MathTransform)posSk.ModelToSketchTransform.Inverse();
+                var anchorPos = ((object[])asm.GetComponents(true) ?? new object[0]).Cast<Component2>()
+                    .Where(c => c.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentSuppressed && Path.GetFileName(c.GetPathName()).StartsWith("FAST-HST3", StringComparison.OrdinalIgnoreCase))
+                    .Select(c => ((double[])c.Transform2.ArrayData).Skip(9).Take(3).ToArray()).ToList();
+                var targets = new List<SketchPoint>();
+                foreach (SketchPoint sp in (object[])posSk.GetSketchPoints2() ?? new object[0])
+                {
+                    var mp = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { sp.X, sp.Y, sp.Z })).MultiplyTransform(toModel)).ArrayData;
+                    if (anchorPos.Any(q => Math.Abs(q[0] - mp[0]) < 1e-6 && Math.Abs(q[1] - mp[1]) < 1e-6 && Math.Abs(q[2] - mp[2]) < 1e-6)
+                        && !targets.Any(t => Math.Abs(t.X - sp.X) < 1e-9 && Math.Abs(t.Y - sp.Y) < 1e-9)) targets.Add(sp);
+                }
+                Console.WriteLine("TARGETS\t" + targets.Count + " sketch points at the " + anchorPos.Count + " anchor positions");
+                if (targets.Count != anchorPos.Count) throw new Exception("sketch points and anchors do not match");
+                var newComps = new List<Component2>();
+                foreach (var tp in targets)
+                {
+                    var tm = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { tp.X, tp.Y, tp.Z })).MultiplyTransform(toModel)).ArrayData;
+                    var nc = asm.AddComponent5(newPart, (int)swAddComponentConfigOptions_e.swAddComponentConfigOptions_CurrentSelectedConfig, "", false, "", tm[0], tm[1], tm[2]);
+                    if (nc == null) throw new Exception("could not add " + newPart);
+                    var newPartDoc = (ModelDoc2)nc.GetModelDoc2();
+                    int made = 0;
+                    foreach (var s in toCopy)
+                    {
+                        var mt = (Mate2)s.GetSpecificFeature2();
+                        int k = S(() => mt.MateEntity(0).ReferenceComponent.Name2) == seed.Name2 ? 0 : 1;
+                        var mine = mt.MateEntity(k); var other = mt.MateEntity(1 - k);
+                        doc.ClearSelection2(true);
+                        var oref = other.Reference;
+                        bool o1 = oref is SketchPoint ? tp.Select4(true, sd) : oref is Feature ? ((Feature)oref).Select2(true, 0) : ((Entity)oref).Select4(true, sd);
+                        bool o2;
+                        if (mine.Reference is SketchPoint || mine.ReferenceType2 == (int)swSelectType_e.swSelEXTSKETCHPOINTS)
+                            o2 = doc.Extension.SelectByID2("Point1@Origin@" + nc.Name2 + "@" + asmName, "EXTSKETCHPOINT", 0, 0, 0, true, 0, null, 0);
+                        else
+                        {
+                            var ep = (double[])mine.EntityParams;   // plane: point xyz, normal xyz (assembly)
+                            var p = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { ep[0], ep[1], ep[2] })).MultiplyTransform(inv)).ArrayData;
+                            var nv = (double[])((MathVector)((MathVector)mu.CreateVector(new[] { ep[3], ep[4], ep[5] })).MultiplyTransform(inv)).ArrayData;
+                            Face2 match = null;
+                            foreach (Body2 b in (object[])((PartDoc)newPartDoc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
+                                foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
+                                {
+                                    var su = (Surface)f.GetSurface(); if (!su.IsPlane()) continue;
+                                    var pp = (double[])su.PlaneParams;
+                                    double dot = pp[0] * nv[0] + pp[1] * nv[1] + pp[2] * nv[2];
+                                    double off = (p[0] - pp[3]) * pp[0] + (p[1] - pp[4]) * pp[1] + (p[2] - pp[5]) * pp[2];
+                                    if (Math.Abs(Math.Abs(dot) - 1) < 1e-6 && Math.Abs(off) < 1e-6) { match = f; break; }
+                                }
+                            if (match == null) throw new Exception("no matching face on the new part for mate " + s.Name);
+                            var ent = (Entity)nc.GetCorrespondingEntity(match);
+                            o2 = ent != null && ent.Select4(true, sd);
+                        }
+                        int er;
+                        var nm = asm.AddMate5(mt.Type, mt.Alignment, false, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, out er);
+                        if (nm != null) made++;
+                        else Console.WriteLine("MATE FAILED\t" + nc.Name2 + "\t" + s.Name + "\t" + er + "\tselected " + o1 + "/" + o2);
+                    }
+                    doc.ClearSelection2(true);
+                    doc.ForceRebuild3(false);
+                    var nT = (double[])nc.Transform2.ArrayData;
+                    double drot = Enumerable.Range(0, 9).Max(i => Math.Abs(nT[i] - seedT[i]));
+                    double dpos = Enumerable.Range(0, 3).Max(i => Math.Abs(nT[9 + i] - tm[i])) * 1000;
+                    Console.WriteLine("ADDED\t" + nc.Name2 + "\tmates " + made + "/" + toCopy.Count + "\trotation vs seed " + drot.ToString("0.######", Inv) + "\tposition vs its sketch point " + dpos.ToString("0.###", Inv) + " mm");
+                    if (made != toCopy.Count || drot > 1e-6 || dpos > 1e-3) throw new Exception("a new anchor is not where it should be; nothing saved");
+                    newComps.Add(nc);
+                }
+                // suppress per configuration: the old seed and its sketch pattern (the pattern's own instances do not follow
+                // a suppressed seed, 22 Nov), in the configuration that now uses the new part
+                doc.ShowConfiguration2(cNew); doc.ForceRebuild3(false);
+                Console.WriteLine("SUPPRESS\t" + cNew + "\t" + seed.Name2 + "\t" + ((Component2)asm.GetComponentByName(seed.Name2)).SetSuppression2((int)swComponentSuppressionState_e.swComponentSuppressed));
+                for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature())
+                    if (f.GetTypeName2() == "LocalSketchPattern" && ((object[])f.GetParents() ?? new object[0]).Cast<Feature>().Any(q => q.Name == seed.Name2))
+                        Console.WriteLine("SUPPRESS\t" + cNew + "\t" + f.Name + "\t" + f.SetSuppression2((int)swFeatureSuppressionAction_e.swSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, null));
+                doc.ForceRebuild3(false);
+                doc.ShowConfiguration2(cOld); doc.ForceRebuild3(false);
+                foreach (var nc in newComps) Console.WriteLine("SUPPRESS\t" + cOld + "\t" + nc.Name2 + "\t" + ((Component2)asm.GetComponentByName(nc.Name2)).SetSuppression2((int)swComponentSuppressionState_e.swComponentSuppressed));
+                // check, then rename
+                var after = new Dictionary<string, List<string>> { { cNew, anchors(cNew) }, { cOld, anchors(cOld) } };
+                bool good = true;
+                foreach (var kv in after)
+                {
+                    foreach (var l in kv.Value) Console.WriteLine("AFTER\t" + kv.Key + "\t" + l);
+                    var bpos = before[kv.Key].Select(x => x.Substring(x.IndexOf(' '))).ToList();
+                    var apos = kv.Value.Select(x => x.Substring(x.IndexOf(' '))).ToList();
+                    string want = kv.Key == cNew ? Path.GetFileName(newPart) : seedFile;
+                    int right = kv.Value.Count(x => x.StartsWith(want, StringComparison.OrdinalIgnoreCase));
+                    bool same = bpos.Count == apos.Count && bpos.Zip(apos, (x, y) => x == y).All(z => z);
+                    Console.WriteLine("CHECK\t" + kv.Key + "\t" + kv.Value.Count + " anchors, " + right + " of " + want + "\tpositions same " + same + "\terrors " + Errors(doc, true));
+                    if (!same || right != kv.Value.Count || kv.Value.Count != before[kv.Key].Count) good = false;
+                }
+                if (!good) throw new Exception("check failed; nothing saved");
+                ((Configuration)doc.GetConfigurationByName(cNew)).Name = a[6];
+                ((Configuration)doc.GetConfigurationByName(cOld)).Name = a[7];
+                Console.WriteLine("CONFIGS\t" + string.Join(", ", (string[])doc.GetConfigurationNames()));
+                int er2 = 0; foreach (string c in (string[])doc.GetConfigurationNames()) { doc.ShowConfiguration2(c); doc.ForceRebuild3(false); er2 += Errors(doc, true); }
+                if (er2 > 0) throw new Exception("rebuild errors; nothing saved");
+                bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w);
+                Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e);
+                if (!sv) rc = 1;
+            }
+            else if (cmd == "resave")
+            {
+                // resave <asm>: open, resolve, rebuild and save with SOLIDWORKS (after a Document Manager reference change,
+                // so assemblies above it see the change), only if there are no rebuild errors
+                if (type == (int)swDocumentTypes_e.swDocASSEMBLY) ((AssemblyDoc)doc).ResolveAllLightWeightComponents(false);
+                doc.ForceRebuild3(false);
+                int er = Errors(doc, true);
+                Console.WriteLine("REBUILT\terrors " + er);
+                if (er == 0) { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!ok) rc = 1; }
+                else { Console.WriteLine("NOT SAVED"); rc = 1; }
             }
             else if (cmd == "plane")
             {

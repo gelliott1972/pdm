@@ -288,8 +288,14 @@ def tidy_run(rd):
                     p = os.path.join(dp, f)
                     freed += os.path.getsize(p)
                     os.chmod(p, 0o666)
-            shutil.rmtree(d)
-    say('TIDY', rd, 'sandbox copy removed,', freed // (1 << 20), 'MB freed')
+            try:
+                shutil.rmtree(d)
+            except OSError:
+                # SOLIDWORKS can keep the last folder it used open for a while; whatever is left goes at the next tidy
+                time.sleep(5)
+                shutil.rmtree(d, ignore_errors=True)
+    left = [s for s in ('model', 'staging') if os.path.isdir(os.path.join(rd, s))]
+    say('TIDY', rd, 'sandbox copy removed,' if not left else 'partly removed (in use, try "tidy" later),', freed // (1 << 20), 'MB')
 
 
 def cmd_tidy(a):

@@ -392,10 +392,14 @@ static class SwSestp
         var lines = new List<string>();
         double[] lo = { double.MaxValue, double.MaxValue, double.MaxValue }, hi = { double.MinValue, double.MinValue, double.MinValue };
         var normals = new Dictionary<string, int>();
+        var glo = new Dictionary<string, double[]>(); var ghi = new Dictionary<string, double[]>();   // envelope per facing
         bool firstDone = false;
         foreach (var k in tiles)
         {
             var t = k.Transform2;
+            var td = (double[])t.ArrayData;
+            string facing = string.Join(" ", new[] { td[6], td[7], td[8] }.Select(v => Math.Round(v, 3).ToString("0.###", Inv)));
+            if (!glo.ContainsKey(facing)) { glo[facing] = new[] { double.MaxValue, double.MaxValue, double.MaxValue }; ghi[facing] = new[] { double.MinValue, double.MinValue, double.MinValue }; }
             object info;
             foreach (Body2 b in (object[])k.GetBodies3((int)swBodyType_e.swSolidBody, out info) ?? new object[0])
             {
@@ -403,7 +407,11 @@ static class SwSestp
                 for (int i = 0; i < 8; i++)
                 {
                     var p = Xf(mu, t, (i & 1) == 0 ? bb[0] : bb[3], (i & 2) == 0 ? bb[1] : bb[4], (i & 4) == 0 ? bb[2] : bb[5]);
-                    for (int j = 0; j < 3; j++) { lo[j] = Math.Min(lo[j], p[j]); hi[j] = Math.Max(hi[j], p[j]); }
+                    for (int j = 0; j < 3; j++)
+                    {
+                        lo[j] = Math.Min(lo[j], p[j]); hi[j] = Math.Max(hi[j], p[j]);
+                        glo[facing][j] = Math.Min(glo[facing][j], p[j]); ghi[facing][j] = Math.Max(ghi[facing][j], p[j]);
+                    }
                 }
                 if (!firstDone)
                 {
@@ -430,11 +438,18 @@ static class SwSestp
         lines.Insert(0, "TILES\t" + tiles.Count + " DL_APEX components");
         lines.Insert(1, "ENVELOPE\tin the top assembly's axes (mm): X " + Mm(lo[0]) + ".." + Mm(hi[0]) + "\tY " + Mm(lo[1]) + ".." + Mm(hi[1]) + "\tZ " + Mm(lo[2]) + ".." + Mm(hi[2]));
         foreach (var kv in normals) lines.Add("TILE PART Z AXIS IN TOP\t(" + kv.Key + ")\t" + kv.Value + " tiles");
-        // APEX-A49: the bottom-left corner of the LED face seen from the front. Confirmed by Grant 22 Nov: the LED face is the
-        // tile's full flat face (part +Z) and Y is up. Viewer looks along -n; right = (-n) x up.
-        if (normals.Count == 1)
+        // APEX-A49: the bottom-left corner of the LED face seen from the front. Grant 22 Nov: the LED face is the tile's full flat
+        // face (part +Z), Y is up, and on a screen that wraps round, use the FRONT-FACING tiles (the way most tiles face) and
+        // their face closest to the front. Viewer looks along -n; right = (-n) x up.
+        if (normals.Count > 0)
         {
-            var n = normals.Keys.First().Split(' ').Select(s => double.Parse(s, Inv)).ToArray();
+            string front = normals.OrderByDescending(kv => kv.Value).First().Key;
+            if (normals.Count > 1)
+            {
+                lo = glo[front]; hi = ghi[front];
+                lines.Add("FRONT-FACING\t" + normals[front] + " of " + tiles.Count + " tiles face (" + front + "); their envelope: X " + Mm(lo[0]) + ".." + Mm(hi[0]) + "\tY " + Mm(lo[1]) + ".." + Mm(hi[1]) + "\tZ " + Mm(lo[2]) + ".." + Mm(hi[2]));
+            }
+            var n = front.Split(' ').Select(s => double.Parse(s, Inv)).ToArray();
             double[] up = { 0, 1, 0 };
             double[] fwd = { -n[0], -n[1], -n[2] };
             double[] right = { fwd[1] * up[2] - fwd[2] * up[1], fwd[2] * up[0] - fwd[0] * up[2], fwd[0] * up[1] - fwd[1] * up[0] };
@@ -448,10 +463,10 @@ static class SwSestp
                 else aligned = false;
             }
             lines.Add(aligned
-                ? "LED CORNER\tbottom-left of the LED face seen from the front (Y up), top assembly axes (mm): X " + Mm(corner[0]) + "\tY " + Mm(corner[1]) + "\tZ " + Mm(corner[2])
+                ? "LED CORNER\tbottom-left of the " + (normals.Count > 1 ? "front-facing " : "") + "LED face seen from the front (Y up), top assembly axes (mm): X " + Mm(corner[0]) + "\tY " + Mm(corner[1]) + "\tZ " + Mm(corner[2])
                 : "LED CORNER\tnot worked out: the screen is not square to the axes");
         }
-        else lines.Add("LED CORNER\tnot worked out: the tiles face different ways");
+        else lines.Add("LED CORNER\tnot worked out: no tiles");
         File.WriteAllLines(outTxt, lines);
         foreach (var l in lines) Console.WriteLine(l);
     }

@@ -37,7 +37,7 @@ static class SwSestp
         int e = 0, w = 0;
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         var t0 = DateTime.Now;
-        var doc = sw.OpenDoc6(file, type, (int)swOpenDocOptions_e.swOpenDocOptions_Silent | (int)swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight
+        var doc = sw.OpenDoc6(file, type, (int)swOpenDocOptions_e.swOpenDocOptions_Silent | (int)swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight | (int)swOpenDocOptions_e.swOpenDocOptions_LoadExternalReferencesInMemory
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), config ?? "", ref e, ref w);
         if (doc == null) throw new Exception("could not open " + file + ", error " + e);
         if (!string.Equals(doc.GetPathName(), file, StringComparison.OrdinalIgnoreCase))
@@ -66,6 +66,74 @@ static class SwSestp
         foreach (Feature f in (object[])b.GetFeatures() ?? new object[0])
             if (f.GetTypeName2() == "WeldMemberFeat") return true;
         return false;
+    }
+
+    static readonly Dictionary<string, bool> tubeFile = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+    // a body brought in by Insert Part from a part that has structural members (22 Nov: 08X06-SFW-04 inserts 08X06-SFP-03,
+    // and the inserted body does not follow the squared 08X06-SFP-03, so it is squared where it is)
+    static bool IsInsertedTube(Body2 b)
+    {
+        foreach (Feature f in (object[])b.GetFeatures() ?? new object[0])
+        {
+            if (f.GetTypeName2() != "Stock") continue;
+            object models, feats, data, status, ents, comps, extra; int cfgOpt; string cfgName;
+            f.ListExternalFileReferences2(out models, out feats, out data, out status, out ents, out comps, out extra, out cfgOpt, out cfgName);
+            foreach (var m in models as string[] ?? new string[0])
+            {
+                bool t;
+                if (!tubeFile.TryGetValue(m, out t))
+                {
+                    // only when SOLIDWORKS already has the source loaded; never opened here (22 Nov test: opening it
+                    // from its stored path brought a second copy of the inserted body into the part)
+                    var src = sw.GetOpenDocumentByName(m) as ModelDoc2;
+                    t = false;
+                    if (src != null)
+                        for (var g = (Feature)src.FirstFeature(); g != null && !t; g = (Feature)g.GetNextFeature())
+                            if (g.GetTypeName2() == "WeldMemberFeat") t = true;
+                    tubeFile[m] = t;
+                    Console.WriteLine("INSERTED PART\t" + f.Name + "\t" + m + "\t" + (src == null ? "not loaded: left as it is" : t ? "has tube members" : "no tube members"));
+                }
+                if (t) return true;
+            }
+        }
+        return false;
+    }
+
+    static bool Squarable(Body2 b) { return IsMemberBody(b) || IsInsertedTube(b); }
+
+    static int BodyCount(ModelDoc2 doc) { return ((object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]).Length; }
+
+    // In the configuration shown, each SQUARE-CORNERS feature made so far is tried on, one at a time, and kept on only if it
+    // rebuilds without error and the body count stays what the configuration had before squaring (22 Nov, 08X06-SFW-04: a
+    // feature made for a body of another configuration rebuilt without error here but added a second copy of a body).
+    static void Settle(ModelDoc2 doc, List<string> names, int bodies)
+    {
+        string cfg = ((Configuration)doc.GetActiveConfiguration()).Name;
+        foreach (var n in names)
+        {
+            var f = (Feature)((PartDoc)doc).FeatureByName(n);
+            // never switch it on where a parent is off: SOLIDWORKS would switch the parent on too (22 Nov, 08X06-SFW-04:
+            // the tube member used only in other configurations came back as an extra body)
+            var offParent = ((object[])f.GetParents() ?? new object[0]).Cast<Feature>()
+                .FirstOrDefault(p => { var s = p.IsSuppressed2((int)swInConfigurationOpts_e.swThisConfiguration, null) as bool[]; return s != null && s.Length > 0 && s[0]; });
+            if (offParent != null)
+            {
+                f.SetSuppression2((int)swFeatureSuppressionAction_e.swSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, null);
+                Console.WriteLine("OFF IN\t" + cfg + "\t" + n + "\t(" + offParent.Name + " is off here)");
+                continue;
+            }
+            f.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, null);
+            doc.ForceRebuild3(false);
+            bool warn; int code = f.GetErrorCode2(out warn);
+            int nb = BodyCount(doc);
+            if ((code != 0 && !warn) || nb != bodies)
+            {
+                f.SetSuppression2((int)swFeatureSuppressionAction_e.swSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, null);
+                doc.ForceRebuild3(false);
+                Console.WriteLine("OFF IN\t" + cfg + "\t" + n + "\t(" + (code != 0 && !warn ? "error " + code : "bodies " + bodies + " -> " + nb) + ": its body is not in this configuration)");
+            }
+        }
     }
 
     // 0 = not a corner, 1 = 21 Nov rule only, 2 = both rules
@@ -109,7 +177,7 @@ static class SwSestp
         foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
         {
             nb++;
-            bool member = IsMemberBody(b);
+            bool member = Squarable(b);
             if (member) mem++;
             foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
             {
@@ -143,7 +211,17 @@ static class SwSestp
             doc.ShowConfiguration2(c); doc.ForceRebuild3(false);
             var n = Count(doc);
             Console.WriteLine("COUNT\t" + c + "\t" + n[4] + " bodies, " + n[3] + " tube bodies\tcorner faces: 21 Nov rule " + n[0] + ", new rule " + n[1] + "\tother cylindrical faces " + n[2]);
-            if (n[0] != n[1]) { Console.WriteLine("DIFFERENT\t" + c + ": the two rules disagree"); rc = 1; }
+            if (n[0] != n[1])
+            {
+                Console.WriteLine("DIFFERENT\t" + c + ": the two rules disagree"); rc = 1;
+                foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
+                {
+                    int o = 0, q = 0;
+                    foreach (Face2 f in (object[])b.GetFaces() ?? new object[0]) { int k = Corner(f); if (k >= 1) o++; if (k == 2) q++; }
+                    Console.WriteLine("  BODY\t" + b.Name + "\tsquarable " + Squarable(b) + "\t21 Nov rule " + o + ", quarter-round " + q + "\tfeatures: "
+                        + string.Join(", ", ((object[])b.GetFeatures() ?? new object[0]).Cast<Feature>().Select(f => f.Name + " (" + f.GetTypeName2() + ")")));
+                }
+            }
         }
         doc.ShowConfiguration2(active);
         return rc;
@@ -154,51 +232,57 @@ static class SwSestp
         string active = ((Configuration)doc.GetActiveConfiguration()).Name;
         var cfgs = (string[])doc.GetConfigurationNames();
         var holesBefore = new Dictionary<string, int>();
+        var bodiesBefore = new Dictionary<string, int>();
         foreach (var c in cfgs)
         {
             doc.ShowConfiguration2(c); doc.ForceRebuild3(false);
-            var n = Count(doc); holesBefore[c] = n[2];
+            var n = Count(doc); holesBefore[c] = n[2]; bodiesBefore[c] = n[4];
             Console.WriteLine("BEFORE\t" + c + "\t" + Volumes(doc) + "\tcorner faces " + n[1] + " (21 Nov rule " + n[0] + ")\tother cylindrical faces " + n[2] + "\terrors " + Errors(doc, false));
         }
-        doc.ShowConfiguration2(active); doc.ForceRebuild3(false);
+        // Configuration by configuration (22 Nov: in 08X06-SFW-04 one tube body exists only in some configurations): in each,
+        // the features made so far are settled first (on where they rebuild, off where their body is not there), then the
+        // corner faces still left get one Delete Face feature per body.
         var sd = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
-        int made = 0, failed = 0, bodyNo = 0;
-        foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
+        var madeNames = new List<string>();
+        int made = 0, failed = 0;
+        for (int ci = 0; ci < cfgs.Length; ci++)
         {
-            bodyNo++;
-            if (!IsMemberBody(b)) continue;
-            var picks = ((object[])b.GetFaces() ?? new object[0]).Cast<Face2>().Where(f => Corner(f) == 2).ToList();
-            if (picks.Count == 0) continue;
-            string bname = b.Name;
-            doc.ClearSelection2(true);
-            int sel = picks.Count(f => ((Entity)f).Select4(true, sd));
-            bool one = sel == picks.Count && doc.Extension.InsertDeleteFace((int)swFaceDeleteOption_e.swFaceDelete_Patch);
-            Feature last = null;
-            for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature()) last = f;
-            if (one && last != null && last.GetTypeName2() == "DelFace") { last.Name = "SQUARE-CORNERS " + bodyNo + " " + bname; made++; }
-            else failed++;
-            Console.WriteLine("DELETEFACE\tbody " + bname + "\t" + sel + " of " + picks.Count + " faces\t" + (one ? "OK" : "FAILED"));
-            doc.ClearSelection2(true);
-        }
-        // new features can arrive suppressed in other configurations: switch every SQUARE-CORNERS feature on everywhere
-        int sq = 0;
-        for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature())
-            if (f.Name.StartsWith("SQUARE-CORNERS"))
+            doc.ShowConfiguration2(cfgs[ci]); doc.ForceRebuild3(false);
+            Settle(doc, madeNames, bodiesBefore[cfgs[ci]]);
+            int bodyNo = 0;
+            foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
             {
-                sq++;
-                bool on = f.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swAllConfiguration, null);
-                if (!on) failed++;
-                Console.WriteLine("ON IN ALL CONFIGURATIONS\t" + f.Name + "\t" + on);
+                bodyNo++;
+                if (!Squarable(b)) continue;
+                var picks = ((object[])b.GetFaces() ?? new object[0]).Cast<Face2>().Where(f => Corner(f) == 2).ToList();
+                if (picks.Count == 0) continue;
+                string bname = b.Name;
+                doc.ClearSelection2(true);
+                int sel = picks.Count(f => ((Entity)f).Select4(true, sd));
+                bool one = sel == picks.Count && doc.Extension.InsertDeleteFace((int)swFaceDeleteOption_e.swFaceDelete_Patch);
+                Feature last = null;
+                for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature()) last = f;
+                if (one && last != null && last.GetTypeName2() == "DelFace")
+                {
+                    last.Name = "SQUARE-CORNERS " + (ci + 1) + "-" + bodyNo + " " + bname;
+                    madeNames.Add(last.Name); made++;
+                }
+                else failed++;
+                Console.WriteLine("DELETEFACE\t" + cfgs[ci] + "\tbody " + bname + "\t" + sel + " of " + picks.Count + " faces\t" + (one ? "OK" : "FAILED"));
+                doc.ClearSelection2(true);
             }
+        }
         Console.WriteLine("DELETEFACE\t" + made + " features made, " + failed + " failed");
         bool good = failed == 0;
         foreach (var c in cfgs)
         {
             doc.ShowConfiguration2(c); doc.ForceRebuild3(false);
+            Settle(doc, madeNames, bodiesBefore[c]);
             var n = Count(doc); int er = Errors(doc, false);
             Console.WriteLine("AFTER\t" + c + "\t" + Volumes(doc) + "\tcorner faces " + n[1] + "\tother cylindrical faces " + n[2] + "\terrors " + er);
             if (er > 0) { good = false; Console.WriteLine("PROBLEM\t" + c + ": rebuild errors"); }
             if (n[1] > 0) { good = false; Console.WriteLine("PROBLEM\t" + c + ": " + n[1] + " corner faces left"); }
+            if (n[4] != bodiesBefore[c]) { good = false; Console.WriteLine("PROBLEM	" + c + ": bodies " + bodiesBefore[c] + " -> " + n[4]); }
             if (n[2] != holesBefore[c]) { good = false; Console.WriteLine("PROBLEM\t" + c + ": other cylindrical faces " + holesBefore[c] + " -> " + n[2]); }
         }
         doc.ShowConfiguration2(active);
@@ -346,6 +430,28 @@ static class SwSestp
         lines.Insert(0, "TILES\t" + tiles.Count + " DL_APEX components");
         lines.Insert(1, "ENVELOPE\tin the top assembly's axes (mm): X " + Mm(lo[0]) + ".." + Mm(hi[0]) + "\tY " + Mm(lo[1]) + ".." + Mm(hi[1]) + "\tZ " + Mm(lo[2]) + ".." + Mm(hi[2]));
         foreach (var kv in normals) lines.Add("TILE PART Z AXIS IN TOP\t(" + kv.Key + ")\t" + kv.Value + " tiles");
+        // APEX-A49: the bottom-left corner of the LED face seen from the front. Confirmed by Grant 22 Nov: the LED face is the
+        // tile's full flat face (part +Z) and Y is up. Viewer looks along -n; right = (-n) x up.
+        if (normals.Count == 1)
+        {
+            var n = normals.Keys.First().Split(' ').Select(s => double.Parse(s, Inv)).ToArray();
+            double[] up = { 0, 1, 0 };
+            double[] fwd = { -n[0], -n[1], -n[2] };
+            double[] right = { fwd[1] * up[2] - fwd[2] * up[1], fwd[2] * up[0] - fwd[0] * up[2], fwd[0] * up[1] - fwd[1] * up[0] };
+            var corner = new double[3];
+            bool aligned = true;
+            for (int j = 0; j < 3; j++)
+            {
+                if (Math.Abs(n[j]) > 0.999) corner[j] = n[j] > 0 ? hi[j] : lo[j];             // the front plane
+                else if (Math.Abs(up[j]) > 0.999) corner[j] = lo[j];                            // bottom
+                else if (Math.Abs(right[j]) > 0.999) corner[j] = right[j] > 0 ? lo[j] : hi[j]; // left
+                else aligned = false;
+            }
+            lines.Add(aligned
+                ? "LED CORNER\tbottom-left of the LED face seen from the front (Y up), top assembly axes (mm): X " + Mm(corner[0]) + "\tY " + Mm(corner[1]) + "\tZ " + Mm(corner[2])
+                : "LED CORNER\tnot worked out: the screen is not square to the axes");
+        }
+        else lines.Add("LED CORNER\tnot worked out: the tiles face different ways");
         File.WriteAllLines(outTxt, lines);
         foreach (var l in lines) Console.WriteLine(l);
     }

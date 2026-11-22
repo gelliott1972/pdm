@@ -12,6 +12,9 @@ Usage (SOLIDWORKS lock held by sw: tools\\SwCmd\\bin\\SwCmd.exe lock --as sw --p
   python sw/sestp/sestp.py run  --top <P:\\...\\top.SLDASM> --config <name> --ls <LS-08A-11> [--count]
   python sw/sestp/sestp.py seed --from <old sandbox model folder> --index <vault index json at that pin> --parts A,B,C
   python sw/sestp/sestp.py tubes <folder>        (no SOLIDWORKS: the tube parts in a folder)
+  python sw/sestp/sestp.py tidy                  (remove the sandbox model copies of every run; STEPs, notes, cache stay)
+A good run removes its own sandbox model copy unless --keep-model; a bad run keeps it for a look.
+The run checks every file it used against the vault's latest (SSO login, read-only) and writes <LS>_SESTP notes.txt.
 --count: before squaring, check on the unsquared copies that the new corner rule finds exactly the faces the 21 Nov rule
 did (needed once for parts squared by the 21 Nov rule; slower).
 """
@@ -186,6 +189,11 @@ def cmd_run(a):
         say('STOPPED: Pack and Go failed'); return 1
 
     t = time.time()
+    vault = vault_check(model, rd)
+    say('VAULT', vault)
+    times['Vault check'] = time.time() - t
+
+    t = time.time()
     tubes = tubes_in(model)
     plan = []
     for p in tubes:
@@ -238,11 +246,77 @@ def cmd_run(a):
         s = os.path.join(rd, a.ls + f + '.STEP')
         if os.path.exists(s):
             say('FILE', s, os.path.getsize(s) // 1024, 'KB')
+    good = export_ok and not moved
+    if good and not a.keep_model:
+        t = time.time()
+        tidy_run(rd)
+        times['Tidy up'] = time.time() - t
     times['Total'] = time.time() - T0
     say('TIMES', ' | '.join('%s %d s' % kv for kv in times.items()))
-    good = export_ok and not moved
-    say('RESULT', 'OK' if good else 'PROBLEMS (see log.txt)')
+    say('RESULT', 'OK' if good else 'PROBLEMS (see log.txt; the sandbox model is kept for a look)')
+    write_notes(rd, a, vault, plan, before, moved, good, times)
     return 0 if good else 1
+
+
+def vault_check(model, rd):
+    """Every file in the sandbox came from P:\\; compare those P:\\ files with the vault's latest (SSO login, read-only)."""
+    idx = os.path.join(rd, 'vault-index.json')
+    with open(idx, 'w') as f:
+        p = subprocess.run(['aws', 'dynamodb', 'scan', '--table-name', 'pdm-files', '--profile', 'pdm-admin', '--region', 'ap-east-1',
+                            '--output', 'json'], stdout=f, stderr=subprocess.PIPE, text=True, timeout=300)
+    if p.returncode != 0:
+        return 'NOT CHECKED (vault sign-in: %s)' % (p.stderr.strip().splitlines() or ['?'])[-1]
+    items = [i for i in json.load(open(idx, encoding='utf-8'))['Items'] if 'removedAt' not in i]
+    etag = {i['path']['S'].upper().replace('/', '\\'): i['etag']['S'] for i in items}
+    latest = max(i.get('updatedAt', {}).get('S', '') for i in items)
+    files = [os.path.relpath(os.path.join(dp, f), model) for dp, _, fs in os.walk(model) for f in fs]
+    diff = [r for r in files if not os.path.exists('P:\\' + r) or etag.get(r.upper()) != md5('P:\\' + r)]
+    os.remove(idx)
+    return ('P:\\ matches the vault for all %d files used (vault latest check-in %s)' % (len(files), latest)) if not diff else \
+        ('P:\\ DIFFERS from the vault for %d of %d files: %s' % (len(diff), len(files), ', '.join(diff[:10])))
+
+
+def tidy_run(rd):
+    """Remove the sandbox model and staging copies of a run (the STEPs, notes, log and position files stay; the kept
+    squared parts in the cache stay)."""
+    freed = 0
+    for sub in ('model', 'staging'):
+        d = os.path.join(rd, sub)
+        if os.path.isdir(d):
+            for dp, _, fs in os.walk(d):
+                for f in fs:
+                    p = os.path.join(dp, f)
+                    freed += os.path.getsize(p)
+                    os.chmod(p, 0o666)
+            shutil.rmtree(d)
+    say('TIDY', rd, 'sandbox copy removed,', freed // (1 << 20), 'MB freed')
+
+
+def cmd_tidy(a):
+    for r in sorted(os.listdir(RUNS)):
+        tidy_run(os.path.join(RUNS, r))
+
+
+def write_notes(rd, a, vault, plan, before, moved, good, times):
+    led = os.path.join(rd, a.ls + '_LED.txt')
+    corner = [l.split('\t', 1)[1] for l in open(led, encoding='utf-8') if l.startswith(('LED CORNER', 'ENVELOPE'))] if os.path.exists(led) else []
+    L = ['%s square-edge STEP (SESTP), %s, made by SW (SOLIDWORKS 2026)' % (a.ls, os.path.basename(rd)[len(a.ls) + 1:]),
+         '',
+         'Result: ' + ('OK' if good else 'PROBLEMS, see log.txt'),
+         'Two STEP files (AP203) from the same top assembly, %s (configuration %s), in the same axes, so they overlay:' % (a.top, a.config),
+         '  %s_STR.STEP   the structure, every tube and angle corner square (Revit SHAPE ONLY: not for mass or weight)' % a.ls,
+         '  %s_LED.STEP   the DL_APEX tiles, as in the vault (not squared)' % a.ls,
+         'Source: ' + vault,
+         'Sandbox only: nothing checked out, nothing written to P:\\ or the vault.',
+         '',
+         'Tube and angle parts: %d (%d kept squared copies used, %d squared in this run)' % (len(plan), sum(1 for x in plan if x[4]), sum(1 for x in plan if not x[4])),
+         '  ' + ', '.join(x[0] for x in plan),
+         'Positions: %d active components; %d moved while squaring or exporting.' % (len(before), len(moved)),
+         '',
+         'LED face (APEX-A49):'] + ['  ' + c.strip() for c in corner] + [
+         '',
+         'Times: ' + ' | '.join('%s %d s' % kv for kv in times.items())]
+    open(os.path.join(rd, a.ls + '_SESTP notes.txt'), 'w', encoding='utf-8').write('\n'.join(L) + '\n')
 
 
 def main():
@@ -250,12 +324,14 @@ def main():
     sp = ap.add_subparsers(dest='cmd', required=True)
     r = sp.add_parser('run'); r.add_argument('--top', required=True); r.add_argument('--config', required=True)
     r.add_argument('--ls', required=True); r.add_argument('--count', action='store_true')
+    r.add_argument('--keep-model', action='store_true', help='keep the sandbox model after a good run (it is always kept after a bad one)')
     s = sp.add_parser('seed'); s.add_argument('--from', required=True); s.add_argument('--index', required=True); s.add_argument('--parts', required=True)
     t = sp.add_parser('tubes'); t.add_argument('folder')
+    sp.add_parser('tidy', help='remove the sandbox model copies of every run (STEPs, notes and the cache stay)')
     a = ap.parse_args()
     if a.cmd == 'run' and not a.top.upper().startswith('P:\\'):
         sys.exit('--top must be a P:\\ file')
-    sys.exit({'run': cmd_run, 'seed': cmd_seed, 'tubes': cmd_tubes}[a.cmd](a) or 0)
+    sys.exit({'run': cmd_run, 'seed': cmd_seed, 'tubes': cmd_tubes, 'tidy': cmd_tidy}[a.cmd](a) or 0)
 
 
 if __name__ == '__main__':

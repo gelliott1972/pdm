@@ -16,6 +16,7 @@ public sealed class Settings
     public int PagePort { get; set; } = 5170;
     public string ReleasesBucket { get; set; } = "";
     public string OutputsBucket { get; set; } = "";   // PDM Outputs (Outputs.cs); empty: not set up
+    public string OutputsMirror { get; set; } = "";   // the admin PC's Dropbox copy of the outputs; empty or missing: none
 
     public static Settings Load()
     {

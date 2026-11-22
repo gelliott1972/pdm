@@ -8,5 +8,6 @@
   "identityPoolId": "ap-east-1:e6866600-7344-486c-b450-f4aca45bdb49",
   "localRoot": "P:\\",
   "releasesBucket": "pdm-releases",
-  "outputsBucket": "pdm-outputs"
+  "outputsBucket": "pdm-outputs",
+  "outputsMirror": "%USERPROFILE%\\Dropbox\\Unilumin Shared\\PDM_Outputs"
 }

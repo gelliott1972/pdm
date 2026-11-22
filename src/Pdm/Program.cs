@@ -163,8 +163,15 @@ try
                 switch (args[1].ToLowerInvariant())
                 {
                     case "add" when args.Length >= 4:
-                        return await outputs.AddAsync(args[2], Arg(args, "--pin") ?? "", Arg(args, "--kind") ?? "",
-                            args.Skip(3).TakeWhile(a => !a.StartsWith("--")).ToList(), Arg(args, "--note") ?? "", AdminName, args.Contains("--dry"), Console.WriteLine) == null ? 1 : 0;
+                    {
+                        var added = await outputs.AddAsync(args[2], Arg(args, "--pin") ?? "", Arg(args, "--kind") ?? "",
+                            args.Skip(3).TakeWhile(a => !a.StartsWith("--")).ToList(), Arg(args, "--note") ?? "", AdminName, args.Contains("--dry"), Console.WriteLine);
+                        if (added != null && !args.Contains("--dry")) await outputs.MirrorAsync(settings.OutputsMirror, added, false, Console.WriteLine);
+                        return added == null ? 1 : 0;
+                    }
+                    case "mirror":
+                        await outputs.MirrorAsync(settings.OutputsMirror, null, args.Contains("--dry"), Console.WriteLine);
+                        return 0;
                     case "list":
                         var sets = await outputs.ListAsync(args.Length >= 3 && !args[2].StartsWith("--") ? args[2].ToUpperInvariant() : null);
                         if (sets.Count == 0) Console.WriteLine("No output sets.");
@@ -173,11 +180,16 @@ try
                                 + (x.RemovedAt != null ? $"  [REMOVED by {x.RemovedBy}, {Engine.Local(x.RemovedAt)}: {x.RemovedReason}]" : ""));
                         return 0;
                     case "remove" when args.Length >= 3:
-                        return await outputs.RemoveAsync(args[2], Arg(args, "--pin") ?? "", Arg(args, "--kind") ?? "", Arg(args, "--reason") ?? "", AdminName, args.Contains("--dry"), Console.WriteLine) == null ? 1 : 0;
+                    {
+                        var gone = await outputs.RemoveAsync(args[2], Arg(args, "--pin") ?? "", Arg(args, "--kind") ?? "", Arg(args, "--reason") ?? "", AdminName, args.Contains("--dry"), Console.WriteLine);
+                        if (gone != null && !args.Contains("--dry")) await outputs.MirrorAsync(settings.OutputsMirror, gone, false, Console.WriteLine);
+                        return gone == null ? 1 : 0;
+                    }
                 }
                 Console.WriteLine("pdm output add <screen> <file> [<file> ...] --pin <UTC> --kind STEP|Revit|Calc --note \"...\" [--dry]");
                 Console.WriteLine("pdm output list [<screen>]");
                 Console.WriteLine("pdm output remove <screen> --pin <UTC> --kind <kind> --reason \"...\" [--dry]");
+                Console.WriteLine("pdm output mirror [--dry]");
                 return 2;
             });
         case "release" when args.Length >= 3:
@@ -203,6 +215,7 @@ try
             Console.WriteLine("                        admin: add an output set (files made from the vault at that pin); a set is never changed");
             Console.WriteLine("       pdm output list [<screen>]   admin: the output sets");
             Console.WriteLine("       pdm output remove <screen> --pin <UTC> --kind <kind> --reason \"...\" [--dry]   admin: mark a set removed (files kept)");
+            Console.WriteLine("       pdm output mirror [--dry]   admin: bring the Dropbox copy (outputsMirror) up to date; add and remove do it for their set");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
             Console.WriteLine("       pdm release <folder> [<folder> ...] <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role] [--only a,b|list.txt]");
             Console.WriteLine("                        [--accept-checkout|--accept-rev|--accept-partno|--accept-shaft|--accept-white \"NAME=reason\"]   Grant's exceptions, recorded in the set");

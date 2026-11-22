@@ -226,5 +226,66 @@ public sealed class Outputs(IAmazonS3 s3, string bucket)
         return keys;
     }
 
+    // The Dropbox copy (stage 3; Admin's answers, 22 Nov): the PDM is the master, the mirror a read-only copy with the
+    // tab's layout, <mirror>\<screen>\<pin>\<kind>\<files>. Writes only inside the mirror folder (which must already
+    // exist) and never deletes a file: a removed set's copy is moved to <mirror>\_removed\<screen>\<pin>\<kind>\.
+    // Files in the mirror that no set has are left alone and listed. only: just this set (after an add or remove).
+    public async Task<int> MirrorAsync(string mirror, OutputSet? only, bool dryRun, Action<string> say)
+    {
+        if (mirror == "") { say("No mirror folder set (outputsMirror in pdm.settings.json): nothing copied."); return 0; }
+        var root = Path.GetFullPath(Environment.ExpandEnvironmentVariables(mirror)).TrimEnd('\\');
+        if (!Directory.Exists(root)) { say($"The mirror folder {root} isn't on this PC: nothing copied."); return 0; }
+        string Inside(params string[] parts)
+        {
+            var full = Path.GetFullPath(Path.Combine([root, .. parts]));
+            if (!full.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"{full} is outside the mirror folder.");
+            return full;
+        }
+        var sets = only != null ? [only] : await ListAsync();
+        int copied = 0, same = 0, moved = 0;
+        foreach (var set in sets)
+        {
+            var folder = Inside(set.Screen, PinFolder(set.Pin), set.Kind);
+            if (set.RemovedAt != null)
+            {
+                if (!Directory.Exists(folder)) continue;
+                var to = Inside("_removed", set.Screen, PinFolder(set.Pin), set.Kind);
+                if (Directory.Exists(to)) { say($"  Not moved: {folder} (removed), as {to} is already there. Look at both."); continue; }
+                say($"  {(dryRun ? "would move" : "moved")} {set.Screen} {set.Pin} {set.Kind} (removed: {set.RemovedReason}) to _removed");
+                if (!dryRun)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+                    Directory.Move(folder, to);
+                    foreach (var up in new[] { Path.GetDirectoryName(folder)!, Path.GetDirectoryName(Path.GetDirectoryName(folder)!)! }) // the pin and screen folders, if now empty
+                        if (Directory.Exists(up) && !Directory.EnumerateFileSystemEntries(up).Any()) Directory.Delete(up);
+                }
+                moved++;
+                continue;
+            }
+            foreach (var f in set.Files)
+            {
+                var local = Inside(set.Screen, PinFolder(set.Pin), set.Kind, f.Name);
+                if (File.Exists(local) && new FileInfo(local).Length == f.Size && Vault.Md5(local).Equals(f.Md5, StringComparison.OrdinalIgnoreCase)) { same++; continue; }
+                say($"  {(dryRun ? "would copy" : "copied")} {set.Screen} {set.Pin} {set.Kind} {f.Name}{(File.Exists(local) ? " (the copy there was different)" : "")}");
+                if (!dryRun)
+                {
+                    await DownloadAsync(set, f, local);
+                    File.SetAttributes(local, File.GetAttributes(local) | FileAttributes.ReadOnly);
+                }
+                copied++;
+            }
+        }
+        if (only == null)
+        {
+            var known = sets.Where(x => x.RemovedAt == null).SelectMany(x => x.Files.Select(f => Inside(x.Screen, PinFolder(x.Pin), x.Kind, f.Name))).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var removedDir = Inside("_removed") + "\\";
+            foreach (var stray in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                .Where(f => !known.Contains(f) && !f.StartsWith(removedDir, StringComparison.OrdinalIgnoreCase) && !f.EndsWith(".pdm-download", StringComparison.OrdinalIgnoreCase)))
+                say($"  Not from the PDM (left alone): {stray}");
+        }
+        say($"Mirror {root}: {(dryRun ? "would copy" : "copied")} {copied} file(s), {same} already the same, {(dryRun ? "would move" : "moved")} {moved} removed set(s).{(dryRun ? " Dry run: nothing written." : "")}");
+        return copied + moved;
+    }
+
     public static string Size(long bytes) => bytes >= 1 << 20 ? $"{bytes / 1048576.0:0.0} MB" : bytes >= 1024 ? $"{bytes / 1024.0:0} KB" : $"{bytes} B";
 }

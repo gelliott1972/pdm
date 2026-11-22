@@ -73,7 +73,7 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist";
+        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename";
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
@@ -410,6 +410,45 @@ static class SwGrout
                 Console.WriteLine("MATEDIST\t" + a[2] + "\t" + Mm(old) + " -> " + Mm(((DistanceMateFeatureData)mf.GetDefinition()).Distance) + "\t" + ok + "\terrors " + er);
                 if (ok && er == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); }
                 else { rc = 1; Console.WriteLine("NOT SAVED"); }
+            }
+            else if (cmd == "rename")
+            {
+                // rename <part> <old config> <new config> <file that uses it> ...: the users are opened first (so SOLIDWORKS
+                // updates their references when the configuration is renamed), then the part; all are saved. Each user
+                // must pass the same write rule as the part.
+                var users = new List<ModelDoc2>();
+                foreach (var u in a.Skip(4))
+                {
+                    string up = Path.GetFullPath(u);
+                    bool uv = up.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase);
+                    if (uv ? (!checkedOut || (File.GetAttributes(up) & FileAttributes.ReadOnly) != 0) : !up.StartsWith(@"C:\PDM-work\grout\", StringComparison.OrdinalIgnoreCase))
+                        throw new Exception("not writable here: " + up);
+                    int ut = up.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : up.EndsWith(".SLDDRW", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocDRAWING : (int)swDocumentTypes_e.swDocPART;
+                    int ue = 0, uw = 0;
+                    var ud = sw.OpenDoc6(up, ut, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref ue, ref uw);
+                    if (ud == null || !string.Equals(ud.GetPathName(), up, StringComparison.OrdinalIgnoreCase)) throw new Exception("could not open " + up);
+                    users.Add(ud);
+                    Console.WriteLine("USER OPEN\t" + up);
+                }
+                try
+                {
+                    var cfg = (Configuration)doc.GetConfigurationByName(cfgArg);
+                    if (cfg == null) throw new Exception("no configuration " + cfgArg);
+                    cfg.Name = a[3];
+                    Console.WriteLine("RENAMED\t" + cfgArg + " -> " + cfg.Name);
+                    if (cfg.Name != a[3]) throw new Exception("rename not taken");
+                    bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w);
+                    Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e);
+                    foreach (var ud in users)
+                    {
+                        ud.ForceRebuild3(false);
+                        int ue = 0, uw = 0;
+                        bool uok = ud.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref ue, ref uw);
+                        Console.WriteLine((uok ? "SAVED\t" : "SAVE FAILED\t") + ud.GetPathName() + "\terrors " + Errors(ud, true));
+                        if (!uok) rc = 1;
+                    }
+                }
+                finally { foreach (var ud in users) sw.CloseDoc(ud.GetTitle()); }
             }
             else if (cmd == "plane")
             {

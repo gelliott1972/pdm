@@ -68,10 +68,27 @@ static class SwGrout
     static int Main(string[] a)
     {
         if (a.Length < 2) { Console.Error.WriteLine("Usage: SwGrout mates <asm> [config] | xforms <asm> <config> <out> | setdims <part> <config> <dim>=<mm> ..."); return 2; }
+        // --checked-out (the live change, only after Grant's go): a command that saves may also write a P:\ vault file, but
+        // only one that is checked out here (the PDM makes it writable; a read-only vault file is refused, as SwCmd does).
+        // Read-only commands may open P:\ files. Never M:\ / Dropbox, never .pdm.
+        bool checkedOut = a.Contains("--checked-out");
+        a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
         bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist";
-        string root = write ? @"C:\PDM-work\grout\" : @"C:\PDM-work\";
-        if (!file.StartsWith(root, StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: only copies under " + root); return 2; }
+        if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
+        { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
+        bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
+        if (write)
+        {
+            if (inVault)
+            {
+                if (!checkedOut) { Console.Error.WriteLine("REFUSED: a vault file is written only with --checked-out: " + file); return 2; }
+                if (!File.Exists(file)) { Console.Error.WriteLine("REFUSED: no such vault file: " + file); return 2; }
+                if ((File.GetAttributes(file) & FileAttributes.ReadOnly) != 0) { Console.Error.WriteLine("REFUSED: the vault file is read-only, so it is not checked out: " + file); return 2; }
+            }
+            else if (!file.StartsWith(@"C:\PDM-work\grout\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: writes only to C:\\PDM-work\\grout copies or checked-out P:\\ files"); return 2; }
+        }
+        else if (!inVault && !file.StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: only P:\\ or copies under C:\\PDM-work"); return 2; }
         if (cmd == "xforms" && !Path.GetFullPath(a[3]).StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: output only under C:\\PDM-work"); return 2; }
         sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application.34"));
         if (!sw.RevisionNumber().StartsWith("34.")) { Console.Error.WriteLine("Not SOLIDWORKS 2026"); return 2; }

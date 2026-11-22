@@ -69,7 +69,7 @@ static class SwGrout
     {
         if (a.Length < 2) { Console.Error.WriteLine("Usage: SwGrout mates <asm> [config] | xforms <asm> <config> <out> | setdims <part> <config> <dim>=<mm> ..."); return 2; }
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv";
+        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist";
         string root = write ? @"C:\PDM-work\grout\" : @"C:\PDM-work\";
         if (!file.StartsWith(root, StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: only copies under " + root); return 2; }
         if (cmd == "xforms" && !Path.GetFullPath(a[3]).StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: output only under C:\\PDM-work"); return 2; }
@@ -78,7 +78,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -285,6 +285,115 @@ static class SwGrout
                 doc.ShowConfiguration2(cfgArg);
                 bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w);
                 Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e);
+            }
+            else if (cmd == "feet")
+            {
+                // feet <part> <sketch> <top dim>=<mm> <other dim>=<mm>: the 08x06-SFW-01 layout (22 Nov): the feet sit on the
+                // origin (one foot coincident to it, the others horizontal to that foot). Hold the TOP instead: drop the
+                // foot-to-origin relation, add a vertical dimension origin -> the top of that foot's leg (its present value),
+                // then set the leg dimensions, so only the feet move. Rehearsal copies only.
+                var feat = FeatureNamed(doc, a[2]);
+                var sk = (Sketch)feat.GetSpecificFeature2();
+                doc.ClearSelection2(true);
+                feat.Select2(false, -1);
+                doc.EditSketch();
+                var rm = sk.RelationManager;
+                SketchPoint origin = null, foot = null; double fx = 0, fy = 0;
+                foreach (SketchRelation r in (object[])rm.GetRelations((int)swSketchRelationFilterType_e.swExternal) ?? new object[0])
+                {
+                    if (r.GetRelationType() != (int)swConstraintType_e.swConstraintType_COINCIDENT) continue;
+                    var defs = (object[])r.GetDefinitionEntities2() ?? new object[0];
+                    var ents = (object[])r.GetEntities() ?? new object[0];
+                    origin = defs.OfType<SketchPoint>().FirstOrDefault(p => S(() => ((Feature)p.GetSketch()).Name) != a[2]);
+                    foot = ents.OfType<SketchPoint>().FirstOrDefault(p => S(() => ((Feature)p.GetSketch()).Name) == a[2]) ?? defs.OfType<SketchPoint>().FirstOrDefault(p => S(() => ((Feature)p.GetSketch()).Name) == a[2]);
+                    if (origin != null && foot != null) { fx = foot.X; fy = foot.Y; Console.WriteLine("DELETE RELATION\tfoot (" + Mm(foot.X) + ", " + Mm(foot.Y) + ") coincident to the origin\t" + rm.DeleteRelation(r)); break; }
+                }
+                if (origin == null || foot == null) throw new Exception("no foot-to-origin relation found");
+                // the relation's objects are gone after the delete: look the points up again by position
+                SketchPoint top = null;
+                foot = ((object[])sk.GetSketchPoints2()).Cast<SketchPoint>().First(q => Math.Abs(q.X - fx) < 1e-6 && Math.Abs(q.Y - fy) < 1e-6);
+                foreach (SketchSegment sg in (object[])sk.GetSketchSegments() ?? new object[0])
+                {
+                    var ln = sg as SketchLine; if (ln == null) continue;
+                    var p0 = (SketchPoint)ln.GetStartPoint2(); var p1 = (SketchPoint)ln.GetEndPoint2();
+                    if (Math.Abs(p0.X - foot.X) < 1e-6 && Math.Abs(p0.Y - foot.Y) < 1e-6 && Math.Abs(p1.X - foot.X) < 1e-6) top = p1;
+                    if (Math.Abs(p1.X - foot.X) < 1e-6 && Math.Abs(p1.Y - foot.Y) < 1e-6 && Math.Abs(p0.X - foot.X) < 1e-6) top = p0;
+                }
+                if (top == null) throw new Exception("no vertical leg at the foot");
+                var sd = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
+                doc.ClearSelection2(true);
+                bool s1 = doc.Extension.SelectByID2("Point1@Origin", "EXTSKETCHPOINT", 0, 0, 0, false, 0, null, 0), s2 = top.Select4(true, sd);
+                // no "Modify" box when the dimension is added (it waits for a click: the 22 Nov hang); put back after
+                bool inputOn = sw.GetUserPreferenceToggle((int)swUserPreferenceToggle_e.swInputDimValOnCreate);
+                sw.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swInputDimValOnCreate, false);
+                DisplayDimension dd;
+                try { dd = doc.AddVerticalDimension2(top.X + 0.1, top.Y / 2, 0) as DisplayDimension; }
+                finally { sw.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swInputDimValOnCreate, inputOn); }
+                Console.WriteLine("HOLD TOP\tvertical dimension origin -> (" + Mm(top.X) + ", " + Mm(top.Y) + ")\tselected " + s1 + "/" + s2 + "\t" + (dd == null ? "FAILED" : dd.GetDimension2(0).FullName + " = " + Mm(dd.GetDimension2(0).SystemValue) + " driven state " + dd.GetDimension2(0).DrivenState));
+                if (dd == null) { doc.InsertSketch2(false); throw new Exception("could not add the holding dimension"); }
+                // keep the leg on the origin's vertical too (the deleted relation also held X)
+                doc.ClearSelection2(true);
+                doc.Extension.SelectByID2("Point1@Origin", "EXTSKETCHPOINT", 0, 0, 0, false, 0, null, 0); top.Select4(true, sd);
+                doc.SketchAddConstraints("sgVERTICALPOINTS2D");
+                doc.ClearSelection2(true);
+                foreach (var kv in a.Skip(3))
+                {
+                    var p = kv.Split('=');
+                    var dim = (Dimension)doc.Parameter(p[0]);
+                    double old = dim.SystemValue;
+                    dim.SetSystemValue3(double.Parse(p[1], Inv) / 1000.0, (int)swInConfigurationOpts_e.swAllConfiguration, null);
+                    Console.WriteLine("SET\t" + p[0] + "\t" + Mm(old) + " -> " + Mm(dim.SystemValue));
+                }
+                doc.ClearSelection2(true);
+                doc.InsertSketch2(true);
+                doc.ForceRebuild3(false);
+                foreach (SketchSegment sg in (object[])sk.GetSketchSegments() ?? new object[0])
+                {
+                    var ln = sg as SketchLine; if (ln == null) continue;
+                    var p0 = (SketchPoint)ln.GetStartPoint2(); var p1 = (SketchPoint)ln.GetEndPoint2();
+                    Console.WriteLine("LINE\t(" + Mm(p0.X) + ", " + Mm(p0.Y) + ") -> (" + Mm(p1.X) + ", " + Mm(p1.Y) + ")");
+                }
+                Console.WriteLine("SKETCH\t" + Enum.GetName(typeof(swConstrainedStatus_e), sk.GetConstrainedStatus()));
+                int er = 0;
+                foreach (string c in (string[])doc.GetConfigurationNames()) { doc.ShowConfiguration2(c); doc.ForceRebuild3(false); int x = Errors(doc, true); er += x; Console.WriteLine("CONFIG\t" + c + "\terrors " + x); }
+                if (er == 0) { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e); }
+                else { Console.WriteLine("NOT SAVED\terrors"); rc = 1; }
+            }
+            else if (cmd == "delcomp")
+            {
+                // delcomp <asm> <file name>: delete every top-level component of <asm> that uses that file (rehearsal copies only)
+                var asm = (AssemblyDoc)doc;
+                asm.ResolveAllLightWeightComponents(false);
+                var top = (Component2)((Configuration)doc.GetActiveConfiguration()).GetRootComponent3(true);
+                var kill = ((object[])top.GetChildren() ?? new object[0]).Cast<Component2>()
+                    .Where(c => string.Equals(Path.GetFileName(c.GetPathName()), a[2], StringComparison.OrdinalIgnoreCase)).ToList();
+                var sd = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
+                doc.ClearSelection2(true);
+                int sel = kill.Count(c => c.Select4(true, sd, false));
+                bool del = sel > 0 && doc.Extension.DeleteSelection2((int)swDeleteSelectionOptions_e.swDelete_Absorbed);
+                doc.ForceRebuild3(false);
+                int left = ((object[])top.GetChildren() ?? new object[0]).Cast<Component2>().Count(c => string.Equals(Path.GetFileName(c.GetPathName()), a[2], StringComparison.OrdinalIgnoreCase));
+                int er = Errors(doc, true);
+                Console.WriteLine("DELETED\t" + a[2] + "\t" + sel + " selected of " + kill.Count + "\tdelete " + del + "\tleft " + left + "\terrors " + er);
+                if (left == 0 && er == 0) { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e); }
+                else { Console.WriteLine("NOT SAVED"); rc = 1; }
+            }
+            else if (cmd == "matedist")
+            {
+                // matedist <asm> <mate> <add mm>: add to a distance mate's value (rehearsal copies only)
+                Feature m = null; for (var g = (Feature)doc.FirstFeature(); g != null && m == null; g = (Feature)g.GetNextFeature()) if (g.GetTypeName2() == "MateGroup") m = g;
+                Feature mf = null;
+                for (var s = (Feature)m.GetFirstSubFeature(); s != null; s = (Feature)s.GetNextSubFeature()) if (s.Name == a[2]) mf = s;
+                if (mf == null) throw new Exception("no mate " + a[2]);
+                var md = (DistanceMateFeatureData)mf.GetDefinition();
+                double old = md.Distance;
+                md.Distance = old + double.Parse(a[3], Inv) / 1000.0;
+                bool ok = mf.ModifyDefinition(md, doc, null);
+                doc.ForceRebuild3(false);
+                int er = Errors(doc, true);
+                Console.WriteLine("MATEDIST\t" + a[2] + "\t" + Mm(old) + " -> " + Mm(((DistanceMateFeatureData)mf.GetDefinition()).Distance) + "\t" + ok + "\terrors " + er);
+                if (ok && er == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); }
+                else { rc = 1; Console.WriteLine("NOT SAVED"); }
             }
             else if (cmd == "plane")
             {

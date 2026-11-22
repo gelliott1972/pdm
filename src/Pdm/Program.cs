@@ -156,6 +156,30 @@ try
                 Console.WriteLine(write ? $"{n} reference(s) linked." : $"{n} reference(s) would be linked. Dry run: nothing written (--write writes it).");
                 return 0;
             });
+        case "output" when args.Length >= 2:
+            // PDM Outputs (brief docs\briefs\outputs.md, 22 Nov): admin adds, lists and removes output sets.
+            return await AdminOutputs(settings, async outputs =>
+            {
+                switch (args[1].ToLowerInvariant())
+                {
+                    case "add" when args.Length >= 4:
+                        return await outputs.AddAsync(args[2], Arg(args, "--pin") ?? "", Arg(args, "--kind") ?? "",
+                            args.Skip(3).TakeWhile(a => !a.StartsWith("--")).ToList(), Arg(args, "--note") ?? "", AdminName, args.Contains("--dry"), Console.WriteLine) == null ? 1 : 0;
+                    case "list":
+                        var sets = await outputs.ListAsync(args.Length >= 3 && !args[2].StartsWith("--") ? args[2].ToUpperInvariant() : null);
+                        if (sets.Count == 0) Console.WriteLine("No output sets.");
+                        foreach (var x in sets)
+                            Console.WriteLine($"{x.Screen}  pin {x.Pin}  {x.Kind,-5}  {x.Files.Count} file(s), {Outputs.Size(x.Files.Sum(f => f.Size))}  added by {x.AddedBy}, {Engine.Local(x.AddedAt)}: {x.Note}"
+                                + (x.RemovedAt != null ? $"  [REMOVED by {x.RemovedBy}, {Engine.Local(x.RemovedAt)}: {x.RemovedReason}]" : ""));
+                        return 0;
+                    case "remove" when args.Length >= 3:
+                        return await outputs.RemoveAsync(args[2], Arg(args, "--pin") ?? "", Arg(args, "--kind") ?? "", Arg(args, "--reason") ?? "", AdminName, args.Contains("--dry"), Console.WriteLine) == null ? 1 : 0;
+                }
+                Console.WriteLine("pdm output add <screen> <file> [<file> ...] --pin <UTC> --kind STEP|Revit|Calc --note \"...\" [--dry]");
+                Console.WriteLine("pdm output list [<screen>]");
+                Console.WriteLine("pdm output remove <screen> --pin <UTC> --kind <kind> --reason \"...\" [--dry]");
+                return 2;
+            });
         case "release" when args.Length >= 3:
             return await ReleaseDry(settings, args);
         default:
@@ -175,6 +199,10 @@ try
             Console.WriteLine("       pdm checkout <file> [<file> ...] [--dry]   admin: check out here, as the admin login");
             Console.WriteLine("       pdm unlock <file> [<file> ...] [--dry]     admin: release those check-outs, files left as they are");
             Console.WriteLine("                        move, remove, checkout and unlock also take a round list (round.csv: action,old_path,new_path,...)");
+            Console.WriteLine("       pdm output add <screen> <file> [<file> ...] --pin <UTC> --kind STEP|Revit|Calc --note \"...\" [--dry]");
+            Console.WriteLine("                        admin: add an output set (files made from the vault at that pin); a set is never changed");
+            Console.WriteLine("       pdm output list [<screen>]   admin: the output sets");
+            Console.WriteLine("       pdm output remove <screen> --pin <UTC> --kind <kind> --reason \"...\" [--dry]   admin: mark a set removed (files kept)");
             Console.WriteLine("       pdm map <folder> admin: map P: to <folder> permanently (run as administrator)");
             Console.WriteLine("       pdm release <folder> [<folder> ...] <code> --dry [--with-shared] [--shared-to scene|own] [--no-export] [--as role] [--only a,b|list.txt]");
             Console.WriteLine("                        [--accept-checkout|--accept-rev|--accept-partno|--accept-shaft|--accept-white \"NAME=reason\"]   Grant's exceptions, recorded in the set");
@@ -305,6 +333,7 @@ static string[] Options(string command) => command switch
     "release-file" => ["--dry", "--incomplete", "--reissue", "--only"],
     "pdf" => ["--local"],
     "relink" => ["--write"],
+    "output" => ["--pin", "--kind", "--note", "--reason", "--dry"],
     "activity" => ["--days", "--before"],
     "activity-backfill" => ["--dry", "--since"],
     "release" => ["--dry", "--with-shared", "--shared-to", "--no-export", "--as", "--only", "--reissue",
@@ -315,7 +344,7 @@ static string[] Options(string command) => command switch
 // The word after an option that takes a value (--note "...") is that value, whatever it starts with.
 static bool IsOptionValue(string[] args, string a)
 {
-    string[] withValue = ["--note", "--reissue", "--only", "--days", "--before", "--since", "--as", "--shared-to",
+    string[] withValue = ["--note", "--pin", "--kind", "--reason", "--reissue", "--only", "--days", "--before", "--since", "--as", "--shared-to",
         "--accept-checkout", "--accept-rev", "--accept-partno", "--accept-shaft", "--accept-white"];
     var i = Array.IndexOf(args, a);
     return i > 1 && withValue.Contains(args[i - 1], StringComparer.OrdinalIgnoreCase);
@@ -342,6 +371,20 @@ static async Task<int> Admin(Settings s, Func<Pdm.Index, Vault, Engine, Task<int
     var vault = new Vault(s3, s);
     Console.WriteLine($"Vault: {s.Bucket}, {s.FilesTable}; local root {s.LocalRoot}");
     return await job(index, vault, new Engine(s, index, vault, AdminEmail, AdminName, true, Console.WriteLine));
+}
+
+// Output sets with Grant's SSO login (profile pdm-admin).
+static async Task<int> AdminOutputs(Settings s, Func<Outputs, Task<int>> job)
+{
+    if (s.OutputsBucket == "") { Console.WriteLine("Outputs aren't set up for this vault (no outputsBucket in pdm.settings.json)."); return 1; }
+    if (!new CredentialProfileStoreChain().TryGetAWSCredentials("pdm-admin", out AWSCredentials credentials))
+    {
+        Console.WriteLine("No pdm-admin profile on this PC.");
+        return 1;
+    }
+    using var s3 = new AmazonS3Client(credentials, RegionEndpoint.GetBySystemName(s.Region));
+    Console.WriteLine($"Outputs: {s.OutputsBucket}");
+    return await job(new Outputs(s3, s.OutputsBucket));
 }
 
 // Admin load with Grant's SSO login (profile pdm-admin). Run "aws sso login --profile pdm-admin" first.

@@ -15,6 +15,7 @@ public sealed class Settings
     public string LocalRoot { get; set; } = "";
     public int PagePort { get; set; } = 5170;
     public string ReleasesBucket { get; set; } = "";
+    public string OutputsBucket { get; set; } = "";   // PDM Outputs (Outputs.cs); empty: not set up
 
     public static Settings Load()
     {

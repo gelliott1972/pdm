@@ -73,7 +73,7 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry"));
+        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
@@ -175,7 +175,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -252,6 +252,22 @@ static class SwGrout
                     var box = (double[])((PartDoc)doc).GetPartBox(true);
                     Console.WriteLine("BOX\t" + Mm(box[0]) + ".." + Mm(box[3]) + ", " + Mm(box[1]) + ".." + Mm(box[4]) + ", " + Mm(box[2]) + ".." + Mm(box[5]));
                 }
+            }
+            else if (cmd == "holes")
+            {
+                // holes <part> [config] <diameter mm>: the axis points of every cylindrical face of that diameter (part axes)
+                double dia = double.Parse(a[a.Length - 1], Inv) / 1000.0;
+                var seen = new List<string>();
+                foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
+                    foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
+                    {
+                        var su = (Surface)f.GetSurface(); if (!su.IsCylinder()) continue;
+                        var cp = (double[])su.CylinderParams; if (Math.Abs(cp[6] * 2 - dia) > 1e-6) continue;
+                        var bx = (double[])f.GetBox();
+                        string s = "axis (" + string.Join(", ", cp.Skip(3).Take(3).Select(v => Math.Round(v, 3).ToString(Inv))) + ")\tface box centre (" + Mm((bx[0] + bx[3]) / 2) + ", " + Mm((bx[1] + bx[4]) / 2) + ", " + Mm((bx[2] + bx[5]) / 2) + ")";
+                        if (!seen.Contains(s)) { seen.Add(s); Console.WriteLine("HOLE\t" + s); }
+                    }
+                Console.WriteLine("HOLES\t" + seen.Count);
             }
             else if (cmd == "xforms")
             {
@@ -836,6 +852,193 @@ static class SwGrout
                 int er = Errors(doc, true);
                 Console.WriteLine("REMATE\tre-attached " + fixedN + "\tfailed " + failed + "\terrors " + er);
                 if (!dry && fixedN > 0 && failed == 0 && er == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
+                else if (!dry) { Console.WriteLine("NOT SAVED"); rc = 1; }
+            }
+            else if (cmd == "kitcfg")
+            {
+                // kitcfg <kit> <base config> <new config> <dim>=<mm> ... : a copy of <base config> (same components and
+                // suppression), then the dimensions set in the new configuration only; lists the anchor positions of both
+                var cm = doc.ConfigurationManager;
+                doc.ShowConfiguration2(cfgArg);
+                if (((Configuration)doc.GetActiveConfiguration()).Name != cfgArg) throw new Exception("no configuration " + cfgArg);
+                var nc = cm.AddConfiguration2(a[3], "", "", 0, "", "", true);
+                if (nc == null) throw new Exception("could not add " + a[3]);
+                doc.ShowConfiguration2(a[3]);
+                foreach (var kv in a.Skip(4))
+                {
+                    var p = kv.Split('=');
+                    var dim = (Dimension)doc.Parameter(p[0]);
+                    if (dim == null) throw new Exception("no dimension " + p[0]);
+                    dim.SetSystemValue3(double.Parse(p[1], Inv) / 1000.0, (int)swInConfigurationOpts_e.swThisConfiguration, null);
+                }
+                doc.ForceRebuild3(false);
+                var asm = (AssemblyDoc)doc;
+                int er = 0;
+                foreach (string c in (string[])doc.GetConfigurationNames())
+                {
+                    doc.ShowConfiguration2(c); doc.ForceRebuild3(false); er += Errors(doc, true);
+                    var pos = ((object[])asm.GetComponents(true) ?? new object[0]).Cast<Component2>()
+                        .Where(k => k.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentSuppressed)
+                        .Select(k => { var d = (double[])k.Transform2.ArrayData; return Path.GetFileNameWithoutExtension(k.GetPathName()) + " (" + Mm(d[9]) + ", " + Mm(d[10]) + ", " + Mm(d[11]) + ")"; });
+                    Console.WriteLine("CONFIG\t" + c + "\t" + string.Join("  ", pos));
+                }
+                if (er == 0) { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!ok) rc = 1; }
+                else { Console.WriteLine("NOT SAVED\terrors"); rc = 1; }
+            }
+            else if (cmd == "placekits")
+            {
+                // placekits <asm> <kit> <kit config> <plate file> <plate config|*> <concrete up|down> <hole dia mm> [dry]
+                // (LS-08A-11 anchors, Grant 22 Nov): one kit on every <plate file> component (in that configuration) that has
+                // no kit yet: kit Top Plane coincident with the plate face on the nut side (away from the concrete), and two
+                // diagonal points of the kit's Anchor_Position_Sketch concentric with the matching holes. Mated only to the
+                // kit's own sketch and plane, never to anchor instances. Checks every kit lands exactly on its 4 holes.
+                bool dry = a.Length > 8 && a[8] == "dry";
+                var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
+                var mu = (MathUtility)sw.GetMathUtility();
+                string kitPath = Path.GetFullPath(a[2]), kitCfg = a[3], plateFile = a[4], plateCfg = a[5];
+                double[] away = a[6] == "down" ? new[] { 0.0, 1.0, 0.0 } : new[] { 0.0, -1.0, 0.0 };   // concrete below: nut side faces up
+                double holeR = double.Parse(a[7], Inv) / 2000.0;
+                int ke = 0, kw = 0;
+                var kitDoc = sw.OpenDoc6(kitPath, (int)swDocumentTypes_e.swDocASSEMBLY, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, kitCfg, ref ke, ref kw);
+                if (kitDoc == null) throw new Exception("could not open the kit " + kitPath);
+                kitDoc.ShowConfiguration2(kitCfg); kitDoc.ForceRebuild3(false);
+                // the kit's anchor points (kit axes) in that configuration, from its position sketch
+                Feature skf = null; for (var f = (Feature)kitDoc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature()) if (f.Name == "Anchor_Position_Sketch") skf = f;
+                var ksk = (Sketch)skf.GetSpecificFeature2();
+                var kToModel = (MathTransform)ksk.ModelToSketchTransform.Inverse();
+                var anchorsInKit = ((object[])((AssemblyDoc)kitDoc).GetComponents(true) ?? new object[0]).Cast<Component2>()
+                    .Where(k => k.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentSuppressed && Path.GetFileName(k.GetPathName()).StartsWith("FAST-HST3", StringComparison.OrdinalIgnoreCase))
+                    .Select(k => ((double[])k.Transform2.ArrayData).Skip(9).Take(3).ToArray()).ToList();
+                var kpts = new List<SketchPoint>(); var kxyz = new List<double[]>();
+                foreach (SketchPoint sp in (object[])ksk.GetSketchPoints2() ?? new object[0])
+                {
+                    var mp = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { sp.X, sp.Y, sp.Z })).MultiplyTransform(kToModel)).ArrayData;
+                    if (anchorsInKit.Any(q => Math.Abs(q[0] - mp[0]) < 1e-7 && Math.Abs(q[1] - mp[1]) < 1e-7 && Math.Abs(q[2] - mp[2]) < 1e-7) && !kxyz.Any(q => Math.Abs(q[0] - mp[0]) < 1e-7 && Math.Abs(q[2] - mp[2]) < 1e-7)) { kpts.Add(sp); kxyz.Add(mp); }
+                }
+                // the sketch points' selection names in the kit ("PointN@Anchor_Position_Sketch"), found by trying the IDs
+                var kNames = new List<string>();
+                foreach (var sp in kpts)
+                {
+                    string found = null;
+                    var ids = (int[])sp.GetID();
+                    foreach (var cand in ids.Select(i => "Point" + i).Distinct())
+                    {
+                        kitDoc.ClearSelection2(true);
+                        if (!kitDoc.Extension.SelectByID2(cand + "@Anchor_Position_Sketch", "SKETCHPOINT", 0, 0, 0, false, 0, null, 0)) continue;
+                        var got = ((SelectionMgr)kitDoc.SelectionManager).GetSelectedObject6(1, -1) as SketchPoint;
+                        if (got != null && Math.Abs(got.X - sp.X) < 1e-9 && Math.Abs(got.Y - sp.Y) < 1e-9) { found = cand; break; }
+                    }
+                    kitDoc.ClearSelection2(true);
+                    if (found == null) throw new Exception("no selection name for a kit sketch point (IDs " + string.Join(",", ids) + ")");
+                    kNames.Add(found);
+                }
+                Console.WriteLine("KIT POINTS\t" + string.Join(", ", kNames));
+                Console.WriteLine("KIT\t" + kitCfg + "\tanchor points " + string.Join("  ", kxyz.Select(q => "(" + Mm(q[0]) + ", " + Mm(q[1]) + ", " + Mm(q[2]) + ")")));
+                if (kxyz.Count != 4 || anchorsInKit.Count != 4) throw new Exception("the kit configuration does not show 4 anchors on 4 sketch points");
+                sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref ke);
+                string staName = Path.GetFileNameWithoutExtension(file);
+                var all = ((object[])asm.GetComponents(false) ?? new object[0]).Cast<Component2>().ToList();
+                var kitsHere = all.Where(c => Path.GetFileName(c.GetPathName()).Equals(Path.GetFileName(kitPath), StringComparison.OrdinalIgnoreCase)).ToList();
+                var plates = all.Where(c => c.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentSuppressed
+                    && Path.GetFileName(c.GetPathName()).Equals(plateFile, StringComparison.OrdinalIgnoreCase)
+                    && (plateCfg == "*" || c.ReferencedConfiguration == plateCfg)).ToList();
+                Console.WriteLine("PLATES\t" + plates.Count + " x " + plateFile + " <" + plateCfg + ">\tkits already in the assembly " + kitsHere.Count);
+                var sd = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
+                int placed = 0, failed = 0, skipped = 0;
+                foreach (var pl in plates)
+                {
+                    var T = (MathTransform)pl.Transform2;
+                    object info;
+                    var bodies = (object[])pl.GetBodies3((int)swBodyType_e.swSolidBody, out info) ?? new object[0];
+                    var holes = new List<Tuple<Face2, double[]>>();   // face, centre (asm)
+                    var faces = new List<Face2>();
+                    foreach (Body2 b in bodies) foreach (Face2 f in (object[])b.GetFaces() ?? new object[0]) faces.Add(f);
+                    Func<double[], double[]> P = q => (double[])((MathPoint)((MathPoint)mu.CreatePoint(q)).MultiplyTransform(T)).ArrayData;
+                    Func<double[], double[]> V = q => (double[])((MathVector)((MathVector)mu.CreateVector(q)).MultiplyTransform(T)).ArrayData;
+                    foreach (var f in faces)
+                    {
+                        var su = (Surface)f.GetSurface(); if (!su.IsCylinder()) continue;
+                        var cp = (double[])su.CylinderParams; if (Math.Abs(cp[6] - holeR) > 1e-6) continue;
+                        var ax = V(new[] { cp[3], cp[4], cp[5] });
+                        if (Math.Abs(Math.Abs(ax[0] * away[0] + ax[1] * away[1] + ax[2] * away[2]) - 1) > 1e-6) continue;
+                        var bx = (double[])f.GetBox();
+                        holes.Add(Tuple.Create(f, P(new[] { (bx[0] + bx[3]) / 2, (bx[1] + bx[4]) / 2, (bx[2] + bx[5]) / 2 })));
+                    }
+                    // the nut-side face: planar, outward normal = away, the holes pass through it
+                    Face2 nutFace = null; double[] nutPt = null;
+                    foreach (var f in faces)
+                    {
+                        var su = (Surface)f.GetSurface(); if (!su.IsPlane()) continue;
+                        var pp = (double[])su.PlaneParams;
+                        var n = V(new[] { pp[0], pp[1], pp[2] }); double sg = f.FaceInSurfaceSense() ? -1 : 1;
+                        n = n.Select(v => v * sg).ToArray();
+                        if (Math.Abs(n[0] * away[0] + n[1] * away[1] + n[2] * away[2] - 1) > 1e-6) continue;
+                        var p0 = P(new[] { pp[3], pp[4], pp[5] });
+                        if (holes.Count == 0) continue;
+                        double dmax = holes.Max(h => Math.Abs((h.Item2[0] - p0[0]) * away[0] + (h.Item2[1] - p0[1]) * away[1] + (h.Item2[2] - p0[2]) * away[2]));
+                        int touching = 0;
+                        foreach (Edge ed in (object[])f.GetEdges() ?? new object[0]) foreach (var h in holes) if (((object[])h.Item1.GetEdges() ?? new object[0]).Contains(ed)) touching++;
+                        if (dmax < 0.011 && touching >= 4) { nutFace = f; nutPt = p0; }
+                    }
+                    string pname = pl.Name2;
+                    if (holes.Count != 4 || nutFace == null) { Console.WriteLine("PROBLEM\t" + pname + "\tholes " + holes.Count + "\tnut face " + (nutFace != null)); failed++; continue; }
+                    // centre of the hole pattern on the nut face
+                    var c0 = new double[3]; foreach (var h in holes) for (int i = 0; i < 3; i++) c0[i] += h.Item2[i] / 4;
+                    double off = (c0[0] - nutPt[0]) * away[0] + (c0[1] - nutPt[1]) * away[1] + (c0[2] - nutPt[2]) * away[2];
+                    for (int i = 0; i < 3; i++) c0[i] -= off * away[i];
+                    // a kit already on this plate?
+                    if (kitsHere.Any(k => { var d = (double[])k.Transform2.ArrayData; return Math.Abs(d[9] - c0[0]) < 1e-4 && Math.Abs(d[10] - c0[1]) < 1e-4 && Math.Abs(d[11] - c0[2]) < 1e-4; }))
+                    { Console.WriteLine("SKIP\t" + pname + "\ta kit is already there"); skipped++; continue; }
+                    // kit axes: Y = away; X one of the horizontal directions so that the 4 kit points land on the 4 holes
+                    double[] Y = away; double[] X = null, Z = null;
+                    foreach (var xc in new[] { new[] { 1.0, 0, 0 }, new[] { 0, 0, 1.0 }, new[] { -1.0, 0, 0 }, new[] { 0, 0, -1.0 } })
+                    {
+                        var zc = new[] { xc[1] * Y[2] - xc[2] * Y[1], xc[2] * Y[0] - xc[0] * Y[2], xc[0] * Y[1] - xc[1] * Y[0] };
+                        bool all4 = kxyz.All(k => holes.Any(h => Enumerable.Range(0, 3).All(i => Math.Abs(c0[i] + k[0] * xc[i] + k[1] * Y[i] + k[2] * zc[i] - (h.Item2[i] - ((h.Item2[0] - c0[0]) * away[0] + (h.Item2[1] - c0[1]) * away[1] + (h.Item2[2] - c0[2]) * away[2]) * away[i])) < 2e-4)));
+                        if (all4) { X = xc; Z = zc; break; }
+                    }
+                    if (X == null) { Console.WriteLine("PROBLEM\t" + pname + "\tthe kit's 4 anchor points do not fit these 4 holes in any orientation"); failed++; continue; }
+                    if (dry) { Console.WriteLine("WOULD PLACE\t" + pname + "\tat (" + Mm(c0[0]) + ", " + Mm(c0[1]) + ", " + Mm(c0[2]) + ")"); placed++; continue; }
+                    var kc = asm.AddComponent5(kitPath, (int)swAddComponentConfigOptions_e.swAddComponentConfigOptions_CurrentSelectedConfig, "", false, kitCfg, c0[0], c0[1], c0[2]);
+                    if (kc == null) { Console.WriteLine("PROBLEM\t" + pname + "\tcould not add the kit"); failed++; continue; }
+                    var arr = new double[] { X[0], X[1], X[2], Y[0], Y[1], Y[2], Z[0], Z[1], Z[2], c0[0], c0[1], c0[2], 1, 0, 0, 0 };
+                    kc.Transform2 = (MathTransform)mu.CreateTransform(arr);
+                    if (kc.ReferencedConfiguration != kitCfg) kc.ReferencedConfiguration = kitCfg;
+                    // mates: plane to nut face, and two diagonal sketch points concentric with their holes
+                    int made = 0;
+                    doc.ClearSelection2(true);
+                    bool s1 = doc.Extension.SelectByID2("Top Plane@" + kc.Name2 + "@" + staName, "PLANE", 0, 0, 0, false, 0, null, 0);
+                    bool s2 = ((Entity)nutFace).Select4(true, sd);
+                    int er;
+                    var m1 = asm.AddMate5((int)swMateType_e.swMateCOINCIDENT, (int)swMateAlign_e.swMateAlignCLOSEST, false, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, out er);
+                    if (m1 != null) made++; else Console.WriteLine("  MATE FAILED\tplane\t" + er + "\t" + s1 + "/" + s2);
+                    var diag = new[] { 0, Enumerable.Range(1, 3).OrderByDescending(j => Math.Pow(kxyz[j][0] - kxyz[0][0], 2) + Math.Pow(kxyz[j][2] - kxyz[0][2], 2)).First() };
+                    foreach (int j in diag)
+                    {
+                        var kw3 = Enumerable.Range(0, 3).Select(i => c0[i] + kxyz[j][0] * X[i] + kxyz[j][1] * Y[i] + kxyz[j][2] * Z[i]).ToArray();
+                        var hole = holes.OrderBy(h => Enumerable.Range(0, 3).Sum(i => Math.Pow(h.Item2[i] - kw3[i] - ((h.Item2[0] - kw3[0]) * away[0] + (h.Item2[1] - kw3[1]) * away[1] + (h.Item2[2] - kw3[2]) * away[2]) * away[i], 2))).First();
+                        object ent = null;
+                        doc.ClearSelection2(true);
+                        bool t1 = doc.Extension.SelectByID2(kNames[j] + "@Anchor_Position_Sketch@" + kc.Name2 + "@" + staName, "EXTSKETCHPOINT", 0, 0, 0, false, 0, null, 0);
+                        bool t2 = ((Entity)hole.Item1).Select4(true, sd);
+                        var m2 = asm.AddMate5((int)swMateType_e.swMateCONCENTRIC, (int)swMateAlign_e.swMateAlignCLOSEST, false, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, out er);
+                        if (m2 != null) made++; else Console.WriteLine("  MATE FAILED\tpoint " + j + "\t" + er + "\t" + t1 + "/" + t2 + "\t" + kNames[j]);
+                    }
+                    doc.ClearSelection2(true);
+                    doc.ForceRebuild3(false);
+                    var d2 = (double[])kc.Transform2.ArrayData;
+                    double dev = Enumerable.Range(0, 12).Max(i => Math.Abs(d2[i] - arr[i]) * (i >= 9 ? 1000 : 1));
+                    // the kit's anchors on the plate's holes
+                    int onHole = 0;
+                    foreach (var k in kxyz) { var kw2 = Enumerable.Range(0, 3).Select(i => d2[9 + i] + k[0] * d2[i] + k[1] * d2[3 + i] + k[2] * d2[6 + i]).ToArray(); if (holes.Any(h => Enumerable.Range(0, 3).All(i => Math.Abs(h.Item2[i] - kw2[i] - ((h.Item2[0] - kw2[0]) * away[0] + (h.Item2[1] - kw2[1]) * away[1] + (h.Item2[2] - kw2[2]) * away[2]) * away[i]) < 2e-4))) onHole++; }
+                    Console.WriteLine("PLACED\t" + kc.Name2 + " <" + kc.ReferencedConfiguration + ">\ton " + pname + "\tmates " + made + "/3\tmoved by the mates " + dev.ToString("0.###", Inv) + "\tanchors on holes " + onHole + "/4\tat (" + Mm(d2[9]) + ", " + Mm(d2[10]) + ", " + Mm(d2[11]) + ")");
+                    if (made == 3 && dev < 0.01 && onHole == 4) placed++; else failed++;
+                }
+                sw.CloseDoc(kitDoc.GetTitle());
+                doc.ForceRebuild3(false);
+                int er2 = Errors(doc, true);
+                Console.WriteLine("PLACEKITS\tplaced " + placed + "\tskipped " + skipped + "\tfailed " + failed + "\terrors " + er2);
+                if (!dry && placed > 0 && failed == 0 && er2 == 0) { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!ok) rc = 1; }
                 else if (!dry) { Console.WriteLine("NOT SAVED"); rc = 1; }
             }
             else if (cmd == "plane")

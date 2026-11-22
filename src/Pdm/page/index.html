@@ -81,6 +81,12 @@
   .act-who:hover { background: #e8eef8; }
   .act-files { margin: 2px 0 6px 16px; width: calc(100% - 16px); }
   .act-h { margin: 14px 0 4px; font-weight: 600; }
+  .op-pin { margin: 12px 0 4px; font: 600 14px/1.4 Consolas, monospace; }
+  .op-set { margin: 0 0 10px 12px; }
+  .op-set table { width: 100%; max-width: 640px; table-layout: fixed; }
+  .op-set td { padding: 1px 10px 1px 0; overflow-wrap: anywhere; }
+  .op-set td:nth-child(2) { width: 80px; }
+  .op-set td:nth-child(3) { width: 90px; }
   .act-sum td, .act-sum th { padding: 1px 8px 1px 0; text-align: right; white-space: nowrap; }
   .act-sum td:first-child, .act-sum th:first-child { text-align: left; }
   .act-sum .grp td { font-weight: 600; padding-top: 6px; }
@@ -132,6 +138,7 @@
         <button id="tabWho">Who has what</button>
         <button id="tabNew">Changes</button>
         <button id="tabNd" title="Parts and assemblies with no drawing yet, and drawings older than a model they show.">Needs drawing</button>
+        <button id="tabOp" title="Files made from the vault (square-edge STEPs, Revit files, calcs), by screen and pin. Download only.">Outputs</button>
         <button id="tabPdf" hidden title="PDFs of vault drawings, for a look only: no release, no revision change, nothing checked out or in, nothing written to P:\ or the vault. For the admin only.">PDFs</button>
         <button id="tabAct" hidden title="What was checked in, added, removed, moved and released each day (NZ dates). For the admin only.">Activity</button>
       </div>
@@ -692,6 +699,63 @@ async function ndClick(e) {
   await loadNd();
 }
 
+// ---- right: Outputs (brief docs\briefs\outputs.md, 22 Nov). Files made from the vault, for everyone, download
+// only: by screen, then pin (newest first), each pin shown plainly so nobody pairs a new STEP with an old calc.
+// Downloads go to Documents\PDM Outputs\<screen>\<pin>\<kind>\, never P:\. Only the admin adds or removes (pdm output).
+const op = { data: null, loading: false, err: '', msg: '', busy: '' };
+async function loadOp() {
+  op.loading = true; op.err = '';
+  try { op.data = await api('outputs'); }
+  catch (e) { op.err = e.message; }
+  finally { op.loading = false; if (tab === 'op' && !panelDirty) drawPanel(); }
+}
+function opKey(s) { return esc(s.screen + '|' + s.pin + '|' + s.kind); }
+function opSize(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'; }
+function drawOp() {
+  if (!op.data && !op.loading && !op.err) loadOp();
+  const head = `<div class="bar"><button id="opReload">Reload</button>${op.loading ? '<span class="muted">loading…</span>' : ''}${op.busy ? `<span class="muted">${esc(op.busy)}</span>` : ''}${op.msg ? `<span class="tag">${esc(op.msg)}</span>` : ''}</div>`;
+  if (op.err) return head + `<span class="tag bad">Can't list the outputs: ${esc(op.err)}</span>`;
+  const d = op.data;
+  if (!d) return head;
+  if (!d.setUp) return head + '<span class="muted">Outputs aren\'t set up for this vault yet.</span>';
+  if (!d.sets.length) return head + '<span class="muted">No outputs yet.</span>';
+  const out = [head, `<div class="muted">Files made from the vault at a pin (the vault as it was at that moment, UTC). Use files from the same pin together. Downloads go to ${esc(d.root)}.</div>`];
+  const screens = [...new Set(d.sets.map(s => s.screen))];
+  for (const sc of screens) {
+    out.push(`<div class="act-h">${esc(sc)}</div>`);
+    const sets = d.sets.filter(s => s.screen === sc), pins = [...new Set(sets.map(s => s.pin))];
+    pins.forEach((pin, i) => {
+      if (i === 1) out.push(`<details><summary class="muted">Older pins (${pins.length - 1})</summary>`);
+      out.push(`<div class="op-pin">Pin ${esc(pin)}${i === 0 ? ' <span class="tag">newest</span>' : ''} <span class="muted" style="font-weight:normal">(${esc(when(pin))} here)</span></div>`);
+      for (const s of sets.filter(x => x.pin === pin)) {
+        const all = s.files.every(f => f.here), any = s.files.some(f => f.here);
+        out.push(`<div class="op-set"><b>${esc(s.kind)}</b> <span class="muted">${esc(s.note)} · added by ${esc(s.addedBy)}, ${esc(when(s.addedAt))}</span>`
+          + `<div class="bar"><button data-op-get="${opKey(s)}"${op.busy ? ' disabled' : ''}>${all ? 'Downloaded' : 'Download all'}</button>`
+          + `${any ? `<button data-op-open="${opKey(s)}">Open folder</button>` : ''}</div>`
+          + '<table>' + s.files.map(f => `<tr><td>${esc(f.name)}</td><td class="muted nw">${opSize(f.size)}</td><td class="nw">${f.here ? '<span class="tag">on this PC</span>'
+            : `<a href="#" data-op-file="${esc(f.name)}" data-op-set="${opKey(s)}">download</a>`}</td></tr>`).join('') + '</table></div>');
+      }
+    });
+    if (pins.length > 1) out.push('</details>');
+  }
+  return out.join('');
+}
+async function opClick(e) {
+  if (e.target.id === 'opReload') { op.msg = ''; loadOp(); drawPanel(); return; }
+  const b = e.target.closest('[data-op-get], [data-op-open], [data-op-file]');
+  if (!b || op.busy) return;
+  e.preventDefault();
+  const [screen, pin, kind] = (b.dataset.opGet || b.dataset.opOpen || b.dataset.opSet).split('|');
+  if (b.dataset.opOpen) { try { await api('outputs-open', { screen, pin, kind }); } catch (err) { op.msg = err.message; drawPanel(); } return; }
+  op.busy = `Downloading ${b.dataset.opFile || screen + ' ' + kind}…`; op.msg = ''; drawPanel();
+  try {
+    const r = await api('outputs-download', { screen, pin, kind, file: b.dataset.opFile || '' });
+    op.msg = r.got ? `Downloaded ${r.got} file${r.got === 1 ? '' : 's'} to ${r.folder}` : 'Already on this PC.';
+  } catch (err) { op.msg = err.message; }
+  op.busy = '';
+  await loadOp();
+}
+
 // ---- right: settings (from the cog)
 function drawSettings() {
   return `<div id="settings"><h2>Settings</h2><span class="muted">${esc(me.email)} · v${esc(me.version)}</span>`
@@ -812,7 +876,7 @@ function drawActivity() {
 
 // Tab labels carry counts; Check in turns red while I have changed files not yet checked in.
 function drawTabs() {
-  for (const [id, t] of [['tabOut', 'out'], ['tabIn', 'in'], ['tabWho', 'who'], ['tabNew', 'new'], ['tabNd', 'nd'], ['tabPdf', 'pdf'], ['tabAct', 'act']]) $(id).classList.toggle('on', tab === t);
+  for (const [id, t] of [['tabOut', 'out'], ['tabIn', 'in'], ['tabWho', 'who'], ['tabNew', 'new'], ['tabNd', 'nd'], ['tabOp', 'op'], ['tabPdf', 'pdf'], ['tabAct', 'act']]) $(id).classList.toggle('on', tab === t);
   $('settingsBtn').classList.toggle('on', tab === 'settings');
   const changed = files.filter(f => f.mine && f.changed).length, newer = files.filter(f => f.newer).length;
   const added = files.filter(f => f.isNew && (!f.shared || me.sharedEditor)).length;
@@ -823,7 +887,7 @@ function drawTabs() {
 }
 
 function drawPanel() {
-  $('panel').innerHTML = { out: drawOut, in: drawIn, who: drawWho, new: drawNew, nd: drawNd, pdf: drawPdf, act: drawActivity, settings: drawSettings }[tab]();
+  $('panel').innerHTML = { out: drawOut, in: drawIn, who: drawWho, new: drawNew, nd: drawNd, op: drawOp, pdf: drawPdf, act: drawActivity, settings: drawSettings }[tab]();
   panelDirty = false;
   // "Tick all" ticks or clears every row that can be ticked, and shows ticked / part-ticked as the rows change.
   const boxes = k => [...$('panel').querySelectorAll(`[data-${k}]:not(:disabled)`)];
@@ -877,12 +941,14 @@ $('tabIn').onclick = () => { tab = 'in'; hideResult(); drawTabs(); drawPanel(); 
 $('tabWho').onclick = () => { tab = 'who'; hideResult(); drawTabs(); drawPanel(); };
 $('tabNew').onclick = () => { tab = 'new'; hideResult(); drawTabs(); drawPanel(); };
 $('tabNd').onclick = () => { tab = 'nd'; hideResult(); drawTabs(); drawPanel(); };
+$('tabOp').onclick = () => { tab = 'op'; hideResult(); drawTabs(); drawPanel(); };
 $('tabPdf').onclick = () => { tab = 'pdf'; hideResult(); drawTabs(); drawPanel(); };
 $('tabAct').onclick = () => { tab = 'act'; hideResult(); drawTabs(); drawPanel(); };
 $('panel').addEventListener('click', e => {
   const g = e.target.closest('[data-goto]');
   if (g) { e.preventDefault(); goTo(g.dataset.goto); return; }
   if (tab === 'nd') { ndClick(e); return; }
+  if (tab === 'op') { opClick(e); return; }
   if (tab !== 'act') return;
   const w = e.target.closest('[data-act]');
   if (w) { const k = w.dataset.act; act.open.has(k) ? act.open.delete(k) : act.open.add(k); drawPanel(); return; }

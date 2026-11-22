@@ -179,6 +179,56 @@ public sealed class Page(Settings s)
                 Console.WriteLine($"Needs drawing rules changed by {session.Name}.");
                 await Send(ctx, 200, new { });
                 return;
+            case "/api/outputs":
+            {
+                // Outputs tab (brief docs\briefs\outputs.md, stage 2): for everyone, read only. Removed sets aren't shown.
+                if (s.OutputsBucket == "") { await Send(ctx, 200, new { setUp = false, sets = Array.Empty<object>() }); return; }
+                var sets = (await new Outputs(s3!, s.OutputsBucket).ListAsync()).Where(x => x.RemovedAt == null).ToList();
+                await Send(ctx, 200, new
+                {
+                    setUp = true, root = OutputsRoot(),
+                    sets = sets.Select(x => new
+                    {
+                        x.Screen, x.Pin, x.Kind, x.Note, x.AddedBy, x.AddedAt, folder = OutputFolder(x),
+                        files = x.Files.Select(f => new { f.Name, f.Size, here = HaveOutput(x, f) })
+                    })
+                });
+                return;
+            }
+            case "/api/outputs-download":
+            case "/api/outputs-open":
+            {
+                // One file (file given) or the whole set, into Documents\PDM Outputs\<screen>\<pin>\<kind>\ (never P:\).
+                if (s.OutputsBucket == "") { await Send(ctx, 409, new { error = "Outputs aren't set up." }); return; }
+                var outputs = new Outputs(s3!, s.OutputsBucket);
+                string screen = Str("screen"), pin = Str("pin"), kind = Str("kind");
+                if (Outputs.CheckScreen(ref screen) != null || Outputs.CheckPin(ref pin) != null || Outputs.CheckKind(ref kind) != null)
+                { await Send(ctx, 400, new { error = "Not a set." }); return; }
+                var set = (await outputs.ListAsync(screen)).FirstOrDefault(x => x.Pin == pin && x.Kind == kind && x.RemovedAt == null);
+                if (set == null) { await Send(ctx, 404, new { error = $"No set {screen} {pin} {kind} (removed meanwhile?)." }); return; }
+                var folder = OutputFolder(set);
+                if (path == "/api/outputs-open")
+                {
+                    if (!Directory.Exists(folder)) { await Send(ctx, 409, new { error = "Nothing downloaded from this set yet." }); return; }
+                    try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true }); } catch (Exception) { }
+                    await Send(ctx, 200, new { folder });
+                    return;
+                }
+                var file = Str("file");
+                var want = set.Files.Where(f => file == "" || f.Name == file).ToList();
+                if (want.Count == 0) { await Send(ctx, 404, new { error = $"{file} isn't in that set." }); return; }
+                int got = 0, had = 0;
+                foreach (var f in want)
+                {
+                    if (HaveOutput(set, f)) { had++; continue; }
+                    var local = Path.Combine(folder, f.Name);
+                    await outputs.DownloadAsync(set, f, local);
+                    File.SetAttributes(local, File.GetAttributes(local) | FileAttributes.ReadOnly); // a copy of the output: not for editing
+                    got++;
+                }
+                await Send(ctx, 200, new { folder, got, had });
+                return;
+            }
             case "/api/pdf-check":
             case "/api/pdf-start":
             case "/api/pdf-status":
@@ -288,6 +338,16 @@ public sealed class Page(Settings s)
     // Every file with its state for me on this PC: held here (changed or not), held elsewhere, newer in the vault,
     // and SOLIDWORKS files on this PC that aren't in the vault yet (isNew), which check-in adds.
     // usedBy lists the files that use it, so the page can count the ones outside what's being checked out.
+    // Where downloaded outputs go on this PC: Documents\PDM Outputs\<screen>\<pin, no colons>\<kind>\.
+    static string OutputsRoot() => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "PDM Outputs");
+    static string OutputFolder(Outputs.OutputSet x) => Path.Combine(OutputsRoot(), x.Screen, Outputs.PinFolder(x.Pin), x.Kind);
+    static bool HaveOutput(Outputs.OutputSet x, Outputs.OutputFile f)
+    {
+        var local = Path.Combine(OutputFolder(x), f.Name);
+        try { return File.Exists(local) && new FileInfo(local).Length == f.Size && Vault.Md5(local).Equals(f.Md5, StringComparison.OrdinalIgnoreCase); }
+        catch (IOException) { return false; }
+    }
+
     async Task<object> FilesAsync(Engine engine)
     {
         var all = await new Index(db!, s).AllAsync();

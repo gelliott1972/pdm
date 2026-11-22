@@ -73,7 +73,7 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave";
+        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry"));
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
@@ -175,7 +175,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -736,6 +736,107 @@ static class SwGrout
                 Console.WriteLine("REBUILT\terrors " + er);
                 if (er == 0) { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!ok) rc = 1; }
                 else { Console.WriteLine("NOT SAVED"); rc = 1; }
+            }
+            else if (cmd == "breaklink")
+            {
+                // breaklink <part>: break the link of every 3D Interconnect (imported) feature to its source file, save
+                int n = 0;
+                for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature())
+                    if (f.Is3DInterconnectFeature) { int b = f.BreakLink(true, true); Console.WriteLine("BREAK LINK\t" + f.Name + "\tresult " + b); n++; }
+                doc.ForceRebuild3(false);
+                int er = Errors(doc, true);
+                Console.WriteLine("LINKS BROKEN\t" + n + "\terrors " + er);
+                if (er == 0) { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!ok) rc = 1; }
+                else { rc = 1; Console.WriteLine("NOT SAVED"); }
+            }
+            else if (cmd == "remate")
+            {
+                // remate <asm> <kit component> <old anchor file> <new anchor file> [dry] (anchors step, 22 Nov): every mate of
+                // <asm> that holds an <old anchor file> instance inside <kit component> is moved to the <new anchor file>
+                // instance at the same place in that kit, on the face with the same geometry (part axes). "dry" only lists.
+                bool dry = a.Length > 5 && a[5] == "dry";
+                var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
+                var mu = (MathUtility)sw.GetMathUtility();
+                var all = ((object[])asm.GetComponents(false) ?? new object[0]).Cast<Component2>().ToList();
+                var newInKit = all.Where(c => c.Name2.StartsWith(a[2] + "/", StringComparison.OrdinalIgnoreCase) && Path.GetFileName(c.GetPathName()).Equals(a[4], StringComparison.OrdinalIgnoreCase)
+                    && c.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentSuppressed).ToList();
+                Console.WriteLine("NEW ANCHORS IN KIT\t" + newInKit.Count);
+                Feature mg = null; for (var g = (Feature)doc.FirstFeature(); g != null && mg == null; g = (Feature)g.GetNextFeature()) if (g.GetTypeName2() == "MateGroup") mg = g;
+                int fixedN = 0, failed = 0;
+                var plan = new List<object[]>();
+                for (var s = (Feature)mg.GetFirstSubFeature(); s != null; s = (Feature)s.GetNextSubFeature())
+                {
+                    var mt = s.GetSpecificFeature2() as Mate2; if (mt == null) continue;
+                    int k = -1;
+                    for (int i = 0; i < mt.GetMateEntityCount(); i++)
+                    {
+                        string cn = S(() => mt.MateEntity(i).ReferenceComponent.Name2);
+                        if (cn.StartsWith(a[2] + "/", StringComparison.OrdinalIgnoreCase) && cn.Substring(a[2].Length + 1).StartsWith(Path.GetFileNameWithoutExtension(a[3]), StringComparison.OrdinalIgnoreCase)) k = i;
+                    }
+                    if (k < 0) continue;
+                    var me = mt.MateEntity(k);
+                    var oldComp = me.ReferenceComponent;
+                    var ep = me.EntityParams as double[];
+                    Console.WriteLine("MATE\t" + s.Name + "\t" + (swMateType_e)mt.Type + "\ton " + S(() => oldComp.Name2) + "\tentity type " + me.ReferenceType2 + "\tparams " + (ep == null ? "none" : string.Join(" ", ep.Select(v => Math.Round(v * 1000, 3).ToString(Inv)))));
+                    if (ep == null) { failed++; continue; }
+                    var oT = (double[])oldComp.Transform2.ArrayData;
+                    var target = newInKit.FirstOrDefault(c => { var t = (double[])c.Transform2.ArrayData; return Enumerable.Range(0, 12).All(i => Math.Abs(t[i] - oT[i]) < 1e-6); });
+                    if (target == null) { Console.WriteLine("  PROBLEM\tno new anchor at the same place"); failed++; continue; }
+                    var inv = (MathTransform)((MathTransform)oldComp.Transform2).Inverse();   // the mate's stored geometry is in the old anchor's place; both parts share one frame
+                    var p = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { ep[0], ep[1], ep[2] })).MultiplyTransform(inv)).ArrayData;
+                    var nv = (double[])((MathVector)((MathVector)mu.CreateVector(new[] { ep[3], ep[4], ep[5] })).MultiplyTransform(inv)).ArrayData;
+                    double rad = ep.Length > 6 ? ep[6] : 0;
+                    Face2 match = null;
+                    foreach (Body2 b in (object[])((PartDoc)target.GetModelDoc2()).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
+                        foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
+                        {
+                            var su = (Surface)f.GetSurface();
+                            if (su.IsPlane() && me.ReferenceType2 == (int)swSelectType_e.swSelFACES && rad == 0)
+                            {
+                                var pp = (double[])su.PlaneParams;
+                                double dot = pp[0] * nv[0] + pp[1] * nv[1] + pp[2] * nv[2];
+                                double off = (p[0] - pp[3]) * pp[0] + (p[1] - pp[4]) * pp[1] + (p[2] - pp[5]) * pp[2];
+                                if (Math.Abs(Math.Abs(dot) - 1) < 1e-6 && Math.Abs(off) < 1e-6) { match = f; break; }
+                            }
+                            if (su.IsCylinder() && rad > 0)
+                            {
+                                var cp = (double[])su.CylinderParams;
+                                double dot = cp[3] * nv[0] + cp[4] * nv[1] + cp[5] * nv[2];
+                                double[] d = { p[0] - cp[0], p[1] - cp[1], p[2] - cp[2] };
+                                double along = d[0] * cp[3] + d[1] * cp[4] + d[2] * cp[5];
+                                double dist = Math.Sqrt(Math.Max(0, d[0] * d[0] + d[1] * d[1] + d[2] * d[2] - along * along));
+                                if (Math.Abs(Math.Abs(dot) - 1) < 1e-6 && dist < 1e-6 && Math.Abs(cp[6] - rad) < 1e-6) { match = f; break; }
+                            }
+                        }
+                    if (match == null) { Console.WriteLine("  PROBLEM\tno face with the same geometry on " + target.Name2); failed++; continue; }
+                    var ent = target.GetCorrespondingEntity(match);
+                    Console.WriteLine("  TARGET\t" + target.Name2 + "\t" + (match.GetSurface() as Surface).IsCylinder());
+                    if (dry) continue;
+                    plan.Add(new object[] { s, mt.MateEntity(1 - k).Reference, mt.Type, mt.Alignment, ent });
+                }
+                // changing a mate's entities through its definition faulted (22 Nov): each mate is replaced by a new one of the
+                // same type and alignment between the same plate entity and the new anchor's face
+                var sdx = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
+                foreach (var pl in plan)
+                {
+                    var s = (Feature)pl[0]; string oldName = s.Name;
+                    doc.ClearSelection2(true);
+                    bool del = s.Select2(false, 0) && doc.Extension.DeleteSelection2((int)swDeleteSelectionOptions_e.swDelete_Absorbed);
+                    doc.ClearSelection2(true);
+                    var oref = pl[1];
+                    bool o1 = oref is Feature ? ((Feature)oref).Select2(true, 0) : ((Entity)oref).Select4(true, sdx);
+                    bool o2 = ((Entity)pl[4]).Select4(true, sdx);
+                    int er0;
+                    var nm = ((AssemblyDoc)doc).AddMate5((int)pl[2], (int)pl[3], false, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, out er0);
+                    doc.ClearSelection2(true);
+                    Console.WriteLine("  REPLACED\t" + oldName + "\tdeleted " + del + "\tselected " + o1 + "/" + o2 + "\t" + (nm == null ? "FAILED " + er0 : "new " + ((Feature)nm).Name));
+                    if (del && nm != null) fixedN++; else failed++;
+                }
+                doc.ForceRebuild3(false);
+                int er = Errors(doc, true);
+                Console.WriteLine("REMATE\tre-attached " + fixedN + "\tfailed " + failed + "\terrors " + er);
+                if (!dry && fixedN > 0 && failed == 0 && er == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
+                else if (!dry) { Console.WriteLine("NOT SAVED"); rc = 1; }
             }
             else if (cmd == "plane")
             {

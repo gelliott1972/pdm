@@ -73,11 +73,12 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename";
+        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props";
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
-        if (write)
+        if (cmd == "import") { if (!file.StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: STEP only from C:\\PDM-work"); return 2; } }
+        else if (write)
         {
             if (inVault)
             {
@@ -91,10 +92,39 @@ static class SwGrout
         if (cmd == "xforms" && !Path.GetFullPath(a[3]).StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: output only under C:\\PDM-work"); return 2; }
         sw = (ISldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application.34"));
         if (!sw.RevisionNumber().StartsWith("34.")) { Console.Error.WriteLine("Not SOLIDWORKS 2026"); return 2; }
+        if (cmd == "import")
+        {
+            // import <file.step> <out.SLDPRT>: STEP into a part (one part, bodies kept), saved only under C:\PDM-work\grout\
+            string outp = Path.GetFullPath(a[2]);
+            if (!outp.StartsWith(@"C:\PDM-work\grout\", StringComparison.OrdinalIgnoreCase) || File.Exists(outp)) { Console.Error.WriteLine("REFUSED: output only new, under C:\\PDM-work\\grout"); return 2; }
+            var imp = (ImportStepData)sw.GetImportFileData(file);
+            if (imp != null) imp.MapConfigurationData = true;
+            int ie = 0;
+            var idoc = sw.LoadFile4(file, "r", imp, ref ie) as ModelDoc2;
+            if (idoc == null) { Console.WriteLine("FAILED\timport error " + ie); return 3; }
+            Console.WriteLine("IMPORTED\t" + idoc.GetTitle() + "\ttype " + idoc.GetType() + "\terror " + ie);
+            int irc = 0;
+            try
+            {
+                if (idoc.GetType() != (int)swDocumentTypes_e.swDocPART) { Console.WriteLine("PROBLEM\tthe STEP came in as an assembly, not one part"); irc = 1; }
+                else
+                {
+                    var bodies = (object[])((PartDoc)idoc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0];
+                    var box = (double[])((PartDoc)idoc).GetPartBox(true);
+                    Console.WriteLine("BODIES\t" + bodies.Length + "\tBOX\t" + Mm(box[0]) + ".." + Mm(box[3]) + ", " + Mm(box[1]) + ".." + Mm(box[4]) + ", " + Mm(box[2]) + ".." + Mm(box[5]));
+                    int se = 0, swn = 0;
+                    bool ok = idoc.Extension.SaveAs3(outp, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)swSaveAsOptions_e.swSaveAsOptions_Silent, null, null, ref se, ref swn);
+                    Console.WriteLine(ok ? "SAVED\t" + outp : "SAVE FAILED\t" + se);
+                    if (!ok) irc = 1;
+                }
+            }
+            finally { sw.CloseDoc(idoc.GetTitle()); }
+            return irc;
+        }
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -449,6 +479,47 @@ static class SwGrout
                     }
                 }
                 finally { foreach (var ud in users) sw.CloseDoc(ud.GetTitle()); }
+            }
+            else if (cmd == "props")
+            {
+                // props <part> <reference part> <old>=<new>: material and custom properties (file and each configuration of
+                // the same name) copied from the reference part, with <old> replaced by <new> in the values. A property whose
+                // reference value does not contain <old> keeps this part's own value if it has one.
+                var sub = a[3].Split('=');
+                int re = 0, rw = 0;
+                var refDoc = sw.OpenDoc6(Path.GetFullPath(a[2]), (int)swDocumentTypes_e.swDocPART, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_ReadOnly), "", ref re, ref rw);
+                if (refDoc == null) throw new Exception("could not open " + a[2]);
+                try
+                {
+                    string db;
+                    string mat = ((PartDoc)refDoc).GetMaterialPropertyName2("", out db);
+                    foreach (string c in (string[])doc.GetConfigurationNames())
+                    {
+                        ((PartDoc)doc).SetMaterialPropertyName2(c, db, mat);
+                        Console.WriteLine("MATERIAL\t" + c + "\t" + ((PartDoc)doc).GetMaterialPropertyName2(c, out db) + " (" + db + ")");
+                    }
+                    var scopes = new List<string> { "" };
+                    scopes.AddRange(((string[])refDoc.GetConfigurationNames()).Where(c => ((string[])doc.GetConfigurationNames()).Contains(c)));
+                    foreach (var sc in scopes)
+                    {
+                        var src = refDoc.Extension.CustomPropertyManager[sc];
+                        var dst = doc.Extension.CustomPropertyManager[sc];
+                        foreach (string n in (string[])src.GetNames() ?? new string[0])
+                        {
+                            string val, res; bool wasRes, linked;
+                            src.Get6(n, false, out val, out res, out wasRes, out linked);
+                            int ty = src.GetType2(n);
+                            string mine = null;
+                            if (((string[])dst.GetNames() ?? new string[0]).Contains(n)) { string r2; bool w2, l2; dst.Get6(n, false, out mine, out r2, out w2, out l2); }
+                            string v = val.Contains(sub[0]) ? val.Replace(sub[0], sub[1]) : (val.Contains("@" + Path.GetFileName(a[2])) ? val.Replace(Path.GetFileName(a[2]), Path.GetFileName(file)) : (mine ?? val));
+                            int ar = dst.Add3(n, ty, v, (int)swCustomPropertyAddOption_e.swCustomPropertyReplaceValue);
+                            Console.WriteLine("PROP\t" + (sc == "" ? "(file)" : sc) + "\t" + n + "\t= " + v + "\t(" + ar + ")");
+                        }
+                    }
+                }
+                finally { sw.CloseDoc(refDoc.GetTitle()); }
+                bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w);
+                Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e);
             }
             else if (cmd == "plane")
             {

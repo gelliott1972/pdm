@@ -5,9 +5,11 @@ using System.Net;
 using System.Text.Json.Nodes;
 using Desk;
 
-var Port = int.TryParse(Environment.GetEnvironmentVariable("PDM_DESK_PORT"), out var pp) ? pp : 5180; // the variable is for tests
+// settings.json beside the exe (or DESK_SETTINGS); PDM_DESK and PDM_DESK_PORT (for tests) override it. No file: as before.
+var settings = Settings.Load();
+var Port = settings.Port;
 var url = $"http://127.0.0.1:{Port}/";
-var root = Environment.GetEnvironmentVariable("PDM_DESK") is { Length: > 0 } r ? r : @"C:\code\pdm\desk";
+var root = settings.DataFolder;
 var openPage = !args.Contains("--no-browser");
 
 if (await AlreadyRunning()) { if (openPage) Open(); return; }
@@ -46,7 +48,7 @@ app.MapGet("/api/ping", () => Results.Ok(new { desk = true }));
 
 app.MapGet("/api/state", () =>
 {
-    var problems = new List<string>();
+    var problems = new List<string>(settings.Problems);
     var tickets = Tagged(store.Tickets, problems);
     var status = Tagged(store.Status, problems);
     var notes = Tagged(store.Inbox, problems)
@@ -169,7 +171,9 @@ app.MapPost("/api/draft/accept-batch", async (HttpRequest req) =>
     return Results.Ok(new { ok = true, accepted = n });
 });
 
-// The draft's PDF, shown on the page. Only a PDF under the repo's scratch or draw folders, named on a draft-review ticket.
+// The draft's PDF, shown on the page. Only a PDF under a fileRoots folder (default: the repo's scratch and draw
+// folders), named on a draft-review ticket.
+var fileRoots = settings.Roots().ToArray();
 app.MapGet("/api/pdf", (string? id) =>
 {
     if (!Store.IdOk(id)) return Results.NotFound();
@@ -177,7 +181,7 @@ app.MapGet("/api/pdf", (string? id) =>
     if (t == null || (string?)t["type"] != "draft-review" || (string?)t["pdf"] is not { Length: > 0 } pdf) return Results.NotFound();
     string full;
     try { full = Path.GetFullPath(pdf); } catch { return Results.NotFound(); }
-    var allowed = new[] { @"C:\code\pdm\scratch\", @"C:\code\pdm\draw\" };
+    var allowed = fileRoots;
     if (!Path.IsPathFullyQualified(pdf) || !allowed.Any(a => full.StartsWith(a, StringComparison.OrdinalIgnoreCase))
         || !full.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) || !File.Exists(full)) return Results.NotFound();
     return Results.File(full, "application/pdf", enableRangeProcessing: true);

@@ -1,0 +1,15 @@
+{
+  "deskName": "PDM Desk",
+  "dataFolder": "C:\\code\\pdm\\desk",
+  "port": 5180,
+  "listenAddresses": ["127.0.0.1"],
+  "allowedHosts": ["127.0.0.1", "localhost"],
+  "auth": { "mode": "none" },
+  "user": "grant",
+  "fileRoots": ["C:\\code\\pdm\\scratch\\", "C:\\code\\pdm\\draw\\"],
+  "sessionGroups": [
+    { "name": "PDM", "sessions": [
+      { "id": "admin", "label": "Admin" }, { "id": "dev", "label": "Dev" }, { "id": "sw", "label": "SW" },
+      { "id": "app", "label": "App" }, { "id": "draw", "label": "Draw" } ] }
+  ]
+}

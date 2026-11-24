@@ -13,5 +13,7 @@
     <EmbeddedResource Include="page\index.html" LogicalName="index.html" />
     <EmbeddedResource Include="page\review.html" LogicalName="review.html" />
     <Content Remove="page\**" />
+    <!-- The settings template: install.ps1 copies it to settings.json beside the exe only if that file is missing. -->
+    <Content Remove="settings.default.json" />
   </ItemGroup>
 </Project>

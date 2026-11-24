@@ -13,30 +13,74 @@ var root = settings.DataFolder;
 var fileRoots = settings.Roots().ToArray(); // the only folders the Desk serves files from
 var openPage = !args.Contains("--no-browser");
 
-if (await AlreadyRunning()) { if (openPage) Open(); return; }
+// Remote-ready, switched off (stage 2, item 8). The Desk listens on each of listenAddresses and always on 127.0.0.1
+// (Start again and the start scripts use it). Fail closed: an address that isn't this PC only, while auth.mode is "none",
+// or any auth mode but "none" (the only one built), and the Desk refuses to start, saying why in desk\desk-error.txt.
+var listen = new List<IPAddress> { IPAddress.Loopback };
+string? refuse = settings.AuthMode == "none" ? null : $"auth.mode \"{settings.AuthMode}\" isn't built; the only mode is \"none\" (this PC only)";
+foreach (var a in settings.ListenAddresses)
+{
+    if (a.Equals("localhost", StringComparison.OrdinalIgnoreCase)) continue;
+    if (!IPAddress.TryParse(a, out var ip)) { refuse ??= $"listenAddresses has \"{a}\", which isn't an IP address"; continue; }
+    if (!IPAddress.IsLoopback(ip) && settings.AuthMode == "none")
+        refuse ??= $"listenAddresses has {a}, which other computers could reach, and auth.mode is \"none\", so anyone reaching it could answer tickets";
+    else if (!listen.Contains(ip)) listen.Add(ip);
+}
+var errorFile = Path.Combine(root, "desk-error.txt");
+if (refuse != null)
+{
+    try { Directory.CreateDirectory(root); File.WriteAllText(errorFile, $"{Store.Now()} The Desk didn't start: {refuse}.{Environment.NewLine}Fix {(settings.File != null ? Path.GetFileName(settings.File) : "the settings")} beside PdmDesk.exe and start it again.{Environment.NewLine}"); } catch { }
+    return 2;
+}
+
+if (await AlreadyRunning()) { if (openPage) Open(); return 0; }
+try { File.Delete(errorFile); } catch { } // an old refusal no longer applies
 
 var store = new Store(root);
 store.Ensure();
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [], ContentRootPath = AppContext.BaseDirectory });
 builder.Logging.ClearProviders();
-builder.WebHost.ConfigureKestrel(k => k.Listen(IPAddress.Loopback, Port)); // this PC only
+builder.WebHost.ConfigureKestrel(k => { foreach (var ip in listen) k.Listen(ip, Port); }); // 127.0.0.1 unless settings say more
 var app = builder.Build();
 
-// Only this PC's own pages: the Host must be 127.0.0.1/localhost, and changes need the X-Desk header
-// (another web site can't send that header without a preflight, which this server never allows).
+// Every request: the Host must be one of allowedHosts (127.0.0.1/localhost), changes need the X-Desk header (another
+// web site can't send that header without a preflight, which this server never allows), then Authorise. No endpoint
+// does its own check.
+// The endpoints that drive SOLIDWORKS or the PDM app on this PC: Authorise allows them only from this PC.
+string[] LocalOnly = ["/api/sw/start", "/api/sw/step", "/api/sw/action", "/api/sw/finish", "/api/sw/pause", "/api/sw/handback"];
+var allowedHosts = settings.AllowedHosts.Select(h => h.ToLowerInvariant()).ToHashSet();
 app.Use(async (ctx, next) =>
 {
-    if (ctx.Request.Host.Host is not ("127.0.0.1" or "localhost")) { ctx.Response.StatusCode = 403; return; }
+    if (!allowedHosts.Contains(ctx.Request.Host.Host.ToLowerInvariant())) { ctx.Response.StatusCode = 403; return; }
     if (HttpMethods.IsPost(ctx.Request.Method) && ctx.Request.Headers["X-Desk"] != "1") { ctx.Response.StatusCode = 403; return; }
+    var (user, refusal) = Authorise(ctx);
+    if (user == null) { ctx.Response.StatusCode = 403; await ctx.Response.WriteAsJsonAsync(new { error = refusal }); return; }
+    ctx.Items["user"] = user;
     ctx.Response.Headers.CacheControl = "no-store";
     try { await next(); }
     catch (Exception ex) when (!ctx.Response.HasStarted)
     {
         ctx.Response.StatusCode = 500;
-        await ctx.Response.WriteAsJsonAsync(new { error = $"The Desk hit an error: {ex.GetType().Name}: {ex.Message}" });
+        await ctx.Response.WriteAsJsonAsync(new { error = NoPaths($"The Desk hit an error: {ex.GetType().Name}: {ex.Message}") });
     }
 });
+
+// The one authorisation point: the user, or why not. In mode "none" (the only one built) it is settings' user
+// ("grant") and nothing is refused, except that the this-PC-only actions need a connection from this PC.
+(string? User, string? Refusal) Authorise(HttpContext ctx)
+{
+    if (settings.AuthMode != "none") return (null, "Not signed in.");
+    var path = ctx.Request.Path.Value ?? "";
+    if (LocalOnly.Contains(path, StringComparer.OrdinalIgnoreCase))
+    {
+        var from = ctx.Connection.RemoteIpAddress;
+        if (from?.IsIPv4MappedToIPv6 == true) from = from.MapToIPv4();
+        if (from == null || !IPAddress.IsLoopback(from)) return (null, "This only works at the Desk's own PC.");
+    }
+    return (settings.User, null);
+}
+string Who(HttpRequest req) => req.HttpContext.Items["user"] as string ?? settings.User;
 
 // The Desk's name (settings deskName) is filled in on the server, so the page never shows the old name first.
 var page = Named(ReadPage("index.html"));
@@ -77,7 +121,16 @@ app.MapGet("/api/state", () =>
         if ((string?)t["owner"] is { } owner && prefixes.TryGetValue(owner, out var px) && !id.StartsWith(px, StringComparison.OrdinalIgnoreCase))
             warnings.Add($"Ticket {id} is from {owner}, but its id doesn't start with \"{px}\".");
     }
-    return Results.Ok(new { root, tickets, status, activity, sw, notes, problems, warnings, desk, now = Store.Now(), version = pageVersion });
+    // No local paths to the browser: a PDF or drawing is only flagged (the PDF is served by id), attachments lose their
+    // path. sw-job file paths stay: they are vault paths Grant reads on the card, and those jobs are this-PC-only.
+    foreach (var t in tickets)
+    {
+        foreach (var k in new[] { "pdf", "drawing" })
+            if (t[k] is JsonValue v && v.TryGetValue<string>(out var s) && s != "") t[k] = true;
+        foreach (var a in (t["attachments"] as JsonArray ?? []).OfType<JsonObject>()) a.Remove("path");
+    }
+    problems = problems.Select(NoPaths).ToList();
+    return Results.Ok(new { tickets, status, activity, sw, notes, problems, warnings, desk, now = Store.Now(), version = pageVersion });
 });
 
 // The board (stage 2, item 5): where each screen type is up to, read from the register in settings; polled by the
@@ -133,7 +186,7 @@ app.MapPost("/api/gate", async (HttpRequest req) =>
         answer["note"] = note;
         answer["pin"] = (string?)t["pin"];
         answer["screenPin"] = screenPin;
-        answer["by"] = settings.User;
+        answer["by"] = Who(req);
         t["answer"] = answer;
         t["answeredAt"] = Store.Now();
         t["status"] = "answered";
@@ -208,7 +261,7 @@ app.MapPost("/api/discuss", async (HttpRequest req) =>
         var status = (string?)t["status"] ?? "open";
         if (status is not ("open" or "answered" or "done" or "discuss")) return Fail($"This ticket is {status}.");
         if (t["thread"] is not JsonArray thread) { thread = []; t["thread"] = thread; }
-        thread.Add(new JsonObject { ["from"] = "grant", ["text"] = text, ["at"] = Store.Now() });
+        thread.Add(new JsonObject { ["from"] = Who(req), ["text"] = text, ["at"] = Store.Now() });
         t["status"] = "discuss";
         store.Write(file, t);
     }
@@ -242,7 +295,7 @@ app.MapPost("/api/draft", async (HttpRequest req) =>
             t.Remove("answer"); t.Remove("answeredAt");
             t["status"] = (t["thread"] as JsonArray)?.Count > 0 ? "discuss" : "open";
         }
-        else if (!DraftAnswer(t, action, text, out var refused)) return Fail(refused);
+        else if (!DraftAnswer(t, action, text, Who(req), out var refused)) return Fail(refused);
         store.Write(file, t);
     }
     return Results.Ok(new { ok = true });
@@ -261,7 +314,7 @@ app.MapPost("/api/draft/accept-batch", async (HttpRequest req) =>
             var t = store.Read(file, out _);
             if (t == null || (string?)t["type"] != "draft-review" || (string?)t["batch"] != batch) continue;
             if ((string?)t["status"] is not (null or "open" or "discuss")) continue;
-            if (DraftAnswer(t, "accept", "", out _)) { store.Write(file, t); n++; }
+            if (DraftAnswer(t, "accept", "", Who(req), out _)) { store.Write(file, t); n++; }
         }
     }
     return Results.Ok(new { ok = true, accepted = n });
@@ -517,10 +570,10 @@ app.MapPost("/api/sw/finish", async (HttpRequest req) =>
 
 // ---- Pause automatic work / Hand back (Desk v2): pause.json asks the sessions to stop at a safe point; SwCmd refuses
 // their commands (exit 4) while it exists, but not Grant's.
-app.MapPost("/api/sw/pause", () =>
+app.MapPost("/api/sw/pause", (HttpRequest req) =>
 {
     Directory.CreateDirectory(store.Sw);
-    if (!File.Exists(pauseFile)) store.Write(pauseFile, new JsonObject { ["requestedAt"] = Store.Now(), ["by"] = "grant" });
+    if (!File.Exists(pauseFile)) store.Write(pauseFile, new JsonObject { ["requestedAt"] = Store.Now(), ["by"] = Who(req) });
     return Results.Ok(new { ok = true });
 });
 app.MapPost("/api/sw/handback", async () =>
@@ -550,6 +603,7 @@ static string Last(string output)
 
 if (openPage) app.Lifetime.ApplicationStarted.Register(Open);
 app.Run();
+return 0;
 
 // Each object carries its file name as _file, so the page answers the file it was shown.
 List<JsonObject> Tagged(string dir, List<string> problems) => store.All(dir, problems);
@@ -559,11 +613,14 @@ static async Task<JsonNode?> Body(HttpRequest req)
     try { return await JsonNode.ParseAsync(req.Body); } catch { return null; }
 }
 
-static IResult Fail(string why) => Results.BadRequest(new { error = why });
+static IResult Fail(string why) => Results.BadRequest(new { error = NoPaths(why) });
+
+// A message without local folders: "C:\a\b\file.json" becomes "file.json" (error text can carry paths).
+static string NoPaths(string s) => System.Text.RegularExpressions.Regex.Replace(s, @"[A-Za-z]:\\(?:(?:(?!\.\s)[^\\/:*?""<>|()'\r\n])*\\)*", "");
 
 // Grant's answer on a draft-review ticket. accept / redo set "answered" (an earlier answer on the same version moves to
 // history, as Change answer does); comment adds to the thread and sets "discuss". Draw sets "done", or posts a new version.
-static bool DraftAnswer(JsonObject t, string action, string text, out string why)
+static bool DraftAnswer(JsonObject t, string action, string text, string user, out string why)
 {
     why = "";
     if ((string?)t["type"] != "draft-review") { why = "Only draft-review tickets take this."; return false; }
@@ -572,7 +629,7 @@ static bool DraftAnswer(JsonObject t, string action, string text, out string why
     if (action == "comment")
     {
         if (t["thread"] is not JsonArray thread) { thread = []; t["thread"] = thread; }
-        thread.Add(new JsonObject { ["from"] = "grant", ["text"] = text, ["at"] = Store.Now() });
+        thread.Add(new JsonObject { ["from"] = user, ["text"] = text, ["at"] = Store.Now() });
         t["status"] = "discuss";
         return true;
     }

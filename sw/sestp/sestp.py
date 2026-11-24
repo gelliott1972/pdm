@@ -268,11 +268,13 @@ def vault_check(model, rd):
         return 'NOT CHECKED (vault sign-in: %s)' % (p.stderr.strip().splitlines() or ['?'])[-1]
     items = [i for i in json.load(open(idx, encoding='utf-8'))['Items'] if 'removedAt' not in i]
     etag = {i['path']['S'].upper().replace('/', '\\'): i['etag']['S'] for i in items}
-    latest = max(i.get('updatedAt', {}).get('S', '') for i in items)
     files = [os.path.relpath(os.path.join(dp, f), model) for dp, _, fs in os.walk(model) for f in fs]
+    # the pin: the latest check-in among the files this model uses (not the whole vault's latest)
+    used = set(r.upper() for r in files)
+    latest = max((i.get('updatedAt', {}).get('S', '') for i in items if i['path']['S'].upper().replace('/', '\\') in used), default='?')
     diff = [r for r in files if not os.path.exists('P:\\' + r) or etag.get(r.upper()) != md5('P:\\' + r)]
     os.remove(idx)
-    return ('P:\\ matches the vault for all %d files used (vault latest check-in %s)' % (len(files), latest)) if not diff else \
+    return ('P:\\ matches the vault for all %d files used (pin: latest check-in among them %s)' % (len(files), latest)) if not diff else \
         ('P:\\ DIFFERS from the vault for %d of %d files: %s' % (len(diff), len(files), ', '.join(diff[:10])))
 
 

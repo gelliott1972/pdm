@@ -96,6 +96,7 @@ textarea:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(-
   #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 70vh auto; height: auto; }
   .bar { border-left: 0; border-top: 1px solid var(--line); }
 }
+.scr { font: 600 12px/1 ui-monospace, Consolas, monospace; border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; vertical-align: 3px; }
 </style>
 </head>
 <body>
@@ -217,7 +218,7 @@ function bar(t, left) {
     <div class="topline"><a href="/" title="Back to the Desk">← Desk</a><span class="pos">${cur + 1} of ${list.length}${left ? ` · ${left} left` : ' · none left'}</span>
       <span class="theme" id="theme"><button data-t="light">Light</button><button data-t="dark">Dark</button><button data-t="system">Auto</button></span></div>
     <div><div class="batch">${esc(t.batchTitle || (t.batch ? 'Batch ' + t.batch : ''))}</div>
-      <div class="pn">${esc(t.partNo || t._file)}</div><div class="desc">${esc(t.title || '')}</div>
+      <div class="pn">${esc(t.partNo || t._file)}${t.screen ? ` <span class="scr">${esc(t.screen)}</span>` : ''}</div><div class="desc">${esc(t.title || '')}</div>
       <div class="meta">Draft v${esc(v)} · ${esc(ago(t.postedAt || t.createdAt))} · ${esc(t._file)}</div></div>
     ${prev && prev.choice === 'redo' && v > (prev.version || 1) ? `<div class="redone">Redone after: ${esc(prev.note)}</div>` : ''}
     ${lines.length ? '<div class="body">' + lines.map(l => `<div${/^CHECK\b/i.test(l) ? ' class="check"' : ''}>${fmt(l)}</div>`).join('') + '</div>' : ''}

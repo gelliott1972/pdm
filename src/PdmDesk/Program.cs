@@ -51,6 +51,7 @@ app.MapGet("/", () => Results.Content(page, "text/html; charset=utf-8"));
 app.MapGet("/review", () => Results.Content(review, "text/html; charset=utf-8"));
 app.MapGet("/api/ping", () => Results.Ok(new { desk = true }));
 
+var prefixes = settings.Prefixes();
 app.MapGet("/api/state", () =>
 {
     var problems = new List<string>(settings.Problems);
@@ -65,7 +66,17 @@ app.MapGet("/api/state", () =>
     var sw = new { @lock = swLock, pause = store.ReadOptional(Path.Combine(store.Sw, "pause.json"), problems) };
     // The Desk's name and session groups from settings (labels and order; headings only when the file sets groups).
     var desk = new { name = settings.DeskName, groups = settings.SessionGroups, grouped = settings.GroupsFromFile };
-    return Results.Ok(new { root, tickets, status, activity, sw, notes, problems, desk, now = Store.Now(), version = pageVersion });
+    // The id rule (app\desk.md): a ticket from a session with a prefix in settings has an id starting with it.
+    // Only told, never enforced, and only for tickets still in play (existing tickets are never renamed).
+    var warnings = new List<string>();
+    foreach (var t in tickets)
+    {
+        var id = (string?)t["id"] ?? (string?)t["_file"] ?? "";
+        if ((string?)t["status"] is "done" or "dismissed") continue;
+        if ((string?)t["owner"] is { } owner && prefixes.TryGetValue(owner, out var px) && !id.StartsWith(px, StringComparison.OrdinalIgnoreCase))
+            warnings.Add($"Ticket {id} is from {owner}, but its id doesn't start with \"{px}\".");
+    }
+    return Results.Ok(new { root, tickets, status, activity, sw, notes, problems, warnings, desk, now = Store.Now(), version = pageVersion });
 });
 
 app.MapPost("/api/answer", async (HttpRequest req) =>

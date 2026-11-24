@@ -65,6 +65,11 @@ h2:first-child { margin-top: 4px; }
 .swstrip .msg { color: var(--red); font-size: 12px; width: 100%; }
 .swstrip .msg:empty { display: none; }
 .ref { display: inline-block; font: 600 12px/1 ui-monospace, Consolas, monospace; background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 4px 6px; margin-right: 6px; vertical-align: 1px; }
+button.ref.scr { border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; padding: 3px 6px; }
+button.ref.scr:hover { border-color: var(--accent); }
+button.ref.scr.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.filterbar { margin: 0 2px 10px; font-size: 13px; color: var(--muted); }
+.filterbar button.link { font-size: 13px; margin-left: 6px; }
 .pill { font-size: 11px; font-weight: 600; border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
 .pill.blocking { background: var(--red-soft); color: var(--red); }
 .pill.later { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
@@ -205,6 +210,7 @@ a.bigreview span { font-weight: 400; opacity: .85; }
   <main>
     <div id="reviewWrap"></div>
     <h2>Tickets</h2>
+    <div id="filterWrap"></div>
     <div id="tickets"></div>
     <div id="sentWrap"></div>
   </main>
@@ -301,6 +307,11 @@ function render() {
   const rv = nReview ? `<a class="bigreview" href="/review">Review drafts <span>(${nReview} waiting)</span></a>` : '';
   if ($('reviewWrap').dataset.h !== rv) { $('reviewWrap').innerHTML = rv; $('reviewWrap').dataset.h = rv; }
 
+  // A screen chip filters the open list to that screen; clicking it again (or Show all) clears it.
+  const fb = screenFilter ? `<div class="filterbar">Only <b>${esc(screenFilter)}</b> tickets (${open.filter(t => String(t.screen || '') === screenFilter).length} of ${open.length} open) <button class="link" data-screen="${esc(screenFilter)}">Show all</button></div>` : '';
+  if ($('filterWrap').dataset.h !== fb) { $('filterWrap').innerHTML = fb; $('filterWrap').dataset.h = fb; }
+  if (screenFilter) open.splice(0, open.length, ...open.filter(t => String(t.screen || '') === screenFilter));
+
   // Draft reviews stay together under their batch, at the place of the batch's first draft; drafts in a batch by PartNo.
   const grouped = [], seenBatch = new Set();
   for (const t of open) {
@@ -363,12 +374,23 @@ function render() {
   drawSessions(rows, by, acts);
 
   $('notes').innerHTML = (state.notes || []).slice(0, 3).map(n => `<div>${esc(n.text)}<br><small>${when(n.createdAt)}${n.readAt ? ' · read by Admin' : ''}</small></div>`).join('');
-  $('problems').innerHTML = (state.problems || []).map(p => 'Couldn\'t read ' + esc(p)).join('<br>');
+  $('problems').innerHTML = [...(state.problems || []).map(p => 'Couldn\'t read ' + esc(p)), ...(state.warnings || []).map(esc)].join('<br>');
 }
 
 // The ticket's ID first (SW5, A3 ...), as Admin and the sessions name it: the id's leading letters and number.
 const shortId = t => { const id = String(t.id || t._file); const m = id.match(/^[A-Za-z]+\d+/); return m ? m[0] : id; };
 const idChip = t => `<span class="ref">${esc(shortId(t))}</span>`;
+// The screen a ticket is about (optional field "screen", the register's ls value): a second chip that filters by it.
+let screenFilter = null;
+const scrChip = t => t.screen ? `<button type="button" class="ref scr${screenFilter === String(t.screen) ? ' on' : ''}" data-screen="${esc(t.screen)}" title="Show only ${esc(t.screen)} tickets (click again for all)">${esc(t.screen)}</button>` : '';
+document.addEventListener('click', e => {
+  const b = e.target.closest?.('[data-screen]'); if (!b) return;
+  e.preventDefault();
+  screenFilter = screenFilter === b.dataset.screen ? null : b.dataset.screen;
+  for (const [k, c] of cards) { c.el.remove(); cards.delete(k); } // chips redraw with the filter shown
+  $('sentWrap').dataset.h = '';
+  render();
+});
 const refNote = t => t.ref && t.ref !== shortId(t) ? ` <span class="refnote">${esc(t.ref)}</span>` : '';
 
 // SOLIDWORKS strip: who has it (desk\sw\lock.json, written by SwCmd, a session's round or the Desk), or Free.
@@ -412,7 +434,7 @@ function ticketCard(t) {
     : `<span class="pill ${t.priority === 'blocking' ? 'blocking' : 'later'}">${t.priority === 'blocking' ? 'Blocking' : 'Later'}</span>`;
   const from = [t.owner ? 'from ' + name(t.owner) : '', ago(draft && t.postedAt || t.createdAt)].filter(Boolean).join(' · ');
   const title = draft ? [t.partNo, t.title].filter(Boolean).join(' · ') : t.title;
-  let html = `<div class="top"><div class="title">${idChip(t)}${esc(title || t._file)}${refNote(t)}</div>${pill}</div>
+  let html = `<div class="top"><div class="title">${idChip(t)}${scrChip(t)}${esc(title || t._file)}${refNote(t)}</div>${pill}</div>
     <div class="meta">${esc(from)}</div>${t.body ? `<div class="body">${fmt(t.body)}</div>` : ''}`;
   if (type === 'decision') {
     const d = drafts[t._file] ??= editing.has(t._file) && t.answer ? { choice: t.answer.choice || '', note: t.answer.note || '' } : { choice: '', note: '' };
@@ -700,8 +722,9 @@ function sentRow(t) {
   const done = t.status === 'done' ? ` · done by ${esc(name(t.owner) || 'owner')}` : '';
   const change = t.type === 'decision' || t.type === 'sw-job' || t.type === 'draft-review' ? ` · <button class="link" data-change="${esc(t._file)}">Change answer</button>` : '';
   const title = t.type === 'draft-review' ? [t.partNo, t.title].filter(Boolean).join(' · ') : t.title;
-  return `<div class="row"><div class="what"><div>${idChip(t)}${esc(title || t._file)}${refNote(t)}</div>
-    <div class="ans">${ans}</div><div class="meta">${when(t.answeredAt)}${done}${change}</div></div></div>`;
+  const dec = t.decision ? ` · decision <b>${esc(t.decision)}</b>` : ''; // the decision this ticket produced
+  return `<div class="row"><div class="what"><div>${idChip(t)}${scrChip(t)}${esc(title || t._file)}${refNote(t)}</div>
+    <div class="ans">${ans}</div><div class="meta">${when(t.answeredAt)}${dec}${done}${change}</div></div></div>`;
 }
 
 // Live activity from each session's hooks (desk\activity\<role>.json): working (with what), idle, or needs-you.

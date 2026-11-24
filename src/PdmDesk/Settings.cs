@@ -119,6 +119,17 @@ public sealed class Settings
         Gates = Array("gates");
     }
 
+    // Session id -> ticket id prefix, for the sessions that have one in settings (the id rule in app\desk.md).
+    public Dictionary<string, string> Prefixes()
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var g in SessionGroups.OfType<JsonObject>())
+            foreach (var x in (g["sessions"] as JsonArray ?? []).OfType<JsonObject>())
+                if (x["id"] is JsonValue idv && idv.TryGetValue<string>(out var id) && x["prefix"] is JsonValue pv && pv.TryGetValue<string>(out var p) && p.Trim() != "")
+                    map[id.Trim()] = p.Trim();
+        return map;
+    }
+
     // A folder from fileRoots as a full path ending in a separator, so "C:\a\b" doesn't also allow "C:\a\bc".
     public IEnumerable<string> Roots() => FileRoots.Select(r =>
     {

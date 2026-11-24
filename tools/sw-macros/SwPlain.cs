@@ -48,7 +48,8 @@ static class SwPlain
         }
         lens.Sort();
         return "edges " + lens.Count + ", shortest " + string.Join(" ", lens.Take(3).Select(Mm)) + " mm, under 0.8 mm: " + lens.Count(l => l < 0.0008)
-            + ", smallest face " + Mm(((object[])b.GetFaces()).Cast<Face2>().Min(f => f.GetArea()) * 1000) + " mm2";
+            + ", smallest face " + Mm(((object[])b.GetFaces()).Cast<Face2>().Min(f => f.GetArea()) * 1000) + " mm2"
+            + ", volume " + (((double[])b.GetMassProperties(1.0))[3] * 1e9).ToString("0.0", Inv) + " mm3";
     }
 
     static void Move(Body2 b, double[] d)

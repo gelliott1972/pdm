@@ -232,6 +232,11 @@ def DEC_0804(x):
 #   weight_reads_other: old file -> where decided: its Weight formula reading another file is deliberate (a note)
 #   replaced_partnos: old file reused from the vault -> where decided: the copy's own PartNos were replaced by a
 #                     decision, so a copy PartNo that differs from the vault's is a note, not a stop
+#   skus:    old file -> where decided: a SKU assembly outside a SKUS folder (0807's SC08-07-CUSTOM-SKUSv2, one file with
+#            the SKUs as configurations): planned as a SKU (keeps its name, APEX\SC08\SKUS, no PartNo)
+#   files also renames a screen file (0807: LS-08A-07v2 -> LS-08A-07); its folder stays the screen folder.
+# Marked PROPOSED: Dev's placeholder so a dry run can be made, not a decision; Admin confirms or replaces it.
+PROPOSED_0807 = "PROPOSED by Dev (24 Nov), for Admin to confirm"
 DECIDED = {
     "LS-08A-06": {
         "files": {
@@ -335,6 +340,14 @@ DECIDED = {
     # docs\imports\LS-08X-04-decisions.md (Admin's calls 4 Nov; Grant can change). D1 (the file's PartNo wins, each
     # difference from the register flagged) is the plan's default. D2/D3 wait for SW's list of what the v4 tops use.
     **{f"LS-08{x}-04": DEC_0804(x) for x in "ABC"},
+    # docs\briefs\import-0807.md (Admin, 24 Nov): A planned alone from C:\PDM-work\0807-sweep (probe cut to A's top,
+    # cut_probe.py); register numbers for now; (a) 08A07 or 08X07 and (b) the SKUs are open with Grant.
+    "LS-08A-07": {
+        "combined": {"LS-08A-07v2 + STRUCTURE.SLDASM": PROPOSED_0807 + ": as 0804 D4 / 0811 D31, screen + structure top, LS-08A-07+STRUCTURE, no PartNo (the register's place tag 08A07 not used)"},
+        "screen_files": {"LS-08A-07v2.SLDASM": PROPOSED_0807 + ": as 0804 D22, the screen file, LS-08A-07 (v2 dropped), no PartNo"},
+        "files": {"LS-08A-07v2.SLDASM": ("LS-08A-07", None, PROPOSED_0807 + ": as 0804 D22, the screen file, LS-08A-07 (v2 dropped), no PartNo")},
+        "skus": {"SC08-07-CUSTOM-SKUSv2.SLDASM": PROPOSED_0807 + ": open point (b): as earlier screens' SKUs, keeps its name, APEX\\SC08\\SKUS, no PartNo"},
+    },
 }
 
 def load(name):
@@ -446,6 +459,7 @@ dec = DECIDED.get(screen, {})
 dec_files = {key(k): v for k, v in dec.get("files", {}).items()}
 dec_pn = {(key(f), c): v for (f, c), v in dec.get("partnos", {}).items()}
 dec_screen = {key(k): v for k, v in dec.get("screen_files", {}).items()}
+dec_skus = {key(k): v for k, v in dec.get("skus", {}).items()}
 _top_cfgs = collections.defaultdict(list)
 for c in cfgs:
     if not c["parent_config"]:
@@ -653,7 +667,7 @@ def base_class(f):
         return "fastener"
     if folder == "panels":
         return "panel"
-    if folder == "skus" or re.match(r"^\d+x\d+-sc\d", n):
+    if folder == "skus" or re.match(r"^\d+x\d+-sc\d", n) or n in dec_skus:
         return "sku"
     return None
 
@@ -836,6 +850,8 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
     elif cls in ("sku", "panel"):
         action, new_name, source = "import, keep name", s, "Grant's area"
         new_folder = r"APEX\SC08\SKUS" if cls == "sku" else r"APEX\PANELS"
+        if fk in dec_skus:
+            source = dec_skus[fk]
         flags.append(flag(fname, f"{cls}: folder is provisional until the panel and SKU rebuild decides where they live"))
     elif cls == "drawing":
         # D2 (0811): a drawing is named by the PartNo of the model configuration its views show. Name already
@@ -940,6 +956,8 @@ for f in sorted(files, key=lambda f: (classify(f) == "drawing", classify(f), f["
             flags.append(flag(fname, f"screen assembly (panels and SKUs only): becomes {screen}; its other screens' configurations must be removed first"))
     elif cls == "screen file":
         action, new_name, source = "import, keep name", s, dec_screen[fk]
+        if fk in dec_files:
+            action, new_name, source = "import", dec_files[fk][0], dec_files[fk][2]
         new_folder = rf"APEX\SC{scene_no}\LS-{scene_no}X-{screen_no}"
         if file_partno.get(fk) or any(ff == fk and v for (ff, _), v in cfg_partno.items()):
             action = "decide"

@@ -253,6 +253,30 @@ static class SwGrout
                     Console.WriteLine("BOX\t" + Mm(box[0]) + ".." + Mm(box[3]) + ", " + Mm(box[1]) + ".." + Mm(box[4]) + ", " + Mm(box[2]) + ".." + Mm(box[5]));
                 }
             }
+            else if (cmd == "faces")
+            {
+                // faces <part> [config]: every solid body's faces by surface type, and the features (thread check, 24 Nov)
+                foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
+                {
+                    var kinds = new Dictionary<string, int>();
+                    foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
+                    {
+                        var su = (Surface)f.GetSurface();
+                        string k = su.IsPlane() ? "plane" : su.IsCylinder() ? "cylinder" : su.IsCone() ? "cone" : su.IsTorus() ? "torus" : su.IsSphere() ? "sphere" : su.IsSwept() ? "swept" : su.IsRevolved() ? "revolved" : su.IsBlending() ? "blend" : su.IsOffset() ? "offset" : su.IsParametric() ? "bspline" : "other(" + su.Identity() + ")";
+                        kinds[k] = kinds.ContainsKey(k) ? kinds[k] + 1 : 1;
+                    }
+                    var bb = (double[])b.GetBodyBox();
+                    Console.WriteLine("BODY\t" + b.Name + "\tfaces " + string.Join(", ", kinds.OrderByDescending(kv => kv.Value).Select(kv => kv.Key + " " + kv.Value)) + "\tbox " + Mm(bb[0]) + ".." + Mm(bb[3]) + ", " + Mm(bb[1]) + ".." + Mm(bb[4]) + ", " + Mm(bb[2]) + ".." + Mm(bb[5]));
+                }
+                for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature())
+                {
+                    string tn = f.GetTypeName2();
+                    if (tn.EndsWith("Folder") || tn == "MaterialFolder" || tn == "HistoryFolder" || tn == "SensorFolder" || tn == "DocsFolder" || tn == "DetailCabinet" || tn == "SelectionSetFolder" || tn == "EqnFolder" || tn == "CommentsFolder" || tn == "FavoriteFolder") continue;
+                    Console.WriteLine("FEAT\t" + f.Name + "\t" + tn + (f.IsSuppressed() ? "\tSUPPRESSED" : ""));
+                    for (var s = (Feature)f.GetFirstSubFeature(); s != null; s = (Feature)s.GetNextSubFeature())
+                        Console.WriteLine("FEAT\t  " + s.Name + "\t" + s.GetTypeName2() + (s.IsSuppressed() ? "\tSUPPRESSED" : ""));
+                }
+            }
             else if (cmd == "holes")
             {
                 // holes <part> [config] <diameter mm>: the axis points of every cylindrical face of that diameter (part axes)

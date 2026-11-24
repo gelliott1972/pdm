@@ -307,7 +307,10 @@ def cmd_tidy(a):
 
 def write_notes(rd, a, vault, plan, before, moved, good, times):
     led = os.path.join(rd, a.ls + '_LED.txt')
-    corner = [l.split('\t', 1)[1] for l in open(led, encoding='utf-8') if l.startswith(('LED CORNER', 'ENVELOPE'))] if os.path.exists(led) else []
+    # LED CORNER and ENVELOPE without their label (the Revit import reads "bottom-left of the LED face seen from the front ...");
+    # APEX-A67's LED FACE (one per face on a wrap), AXES and END STEEL lines with theirs
+    corner = [l.split('\t', 1)[1] if l.startswith(('LED CORNER', 'ENVELOPE')) else l for l in open(led, encoding='utf-8')
+              if l.startswith(('LED CORNER', 'ENVELOPE', 'LED FACE', 'AXES', 'END STEEL'))] if os.path.exists(led) else []
     L = ['%s square-edge STEP (SESTP), %s, made by SW (SOLIDWORKS 2026)' % (a.ls, os.path.basename(rd)[len(a.ls) + 1:]),
          '',
          'Result: ' + ('OK' if good else 'PROBLEMS, see log.txt'),

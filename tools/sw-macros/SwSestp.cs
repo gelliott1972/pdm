@@ -385,8 +385,40 @@ static class SwSestp
         return (double[])((MathPoint)p.MultiplyTransform(t)).ArrayData;
     }
 
+    // APEX-A49 corner of one face: bottom-left seen from outside it (Y up); null if the face is not vertical or not square to the axes
+    static double[] LedCorner(string facing, double[] lo, double[] hi)
+    {
+        var n = facing.Split(' ').Select(s => double.Parse(s, Inv)).ToArray();
+        if (Math.Abs(n[1]) > 0.001) return null;
+        double[] up = { 0, 1, 0 }, fwd = { -n[0], -n[1], -n[2] };
+        double[] right = { fwd[1] * up[2] - fwd[2] * up[1], fwd[2] * up[0] - fwd[0] * up[2], fwd[0] * up[1] - fwd[1] * up[0] };
+        var c = new double[3];
+        for (int j = 0; j < 3; j++)
+        {
+            if (Math.Abs(n[j]) > 0.999) c[j] = n[j] > 0 ? hi[j] : lo[j];
+            else if (Math.Abs(up[j]) > 0.999) c[j] = lo[j];
+            else if (Math.Abs(right[j]) > 0.999) c[j] = right[j] > 0 ? lo[j] : hi[j];
+            else return null;
+        }
+        return c;
+    }
+
+    static string FacingName(string facing)
+    {
+        var n = facing.Split(' ').Select(s => double.Parse(s, Inv)).ToArray();
+        for (int j = 0; j < 3; j++) if (Math.Abs(n[j]) > 0.999) return (n[j] > 0 ? "+" : "-") + "XYZ"[j] + (j == 1 ? (n[j] > 0 ? " (up)" : " (down)") : "") + " (" + facing + ")";
+        return "(" + facing + ")";
+    }
+
+    static void Leaves(Component2 k, List<Component2> outList)
+    {
+        if (k.GetSuppression2() == (int)swComponentSuppressionState_e.swComponentSuppressed || IsTile(k)) return;
+        var ch = (object[])k.GetChildren() ?? new object[0];
+        if (ch.Length == 0) outList.Add(k); else foreach (Component2 c in ch) Leaves(c, outList);
+    }
+
     // the tiles' envelope in the top's axes, and the tile part's two big faces (the LED face is one of them)
-    static void LedReport(AssemblyDoc asm, List<Component2> tiles, string outTxt)
+    static void LedReport(AssemblyDoc asm, List<Component2> tiles, List<Component2> steelRoots, string outTxt)
     {
         var mu = (MathUtility)sw.GetMathUtility();
         var lines = new List<string>();
@@ -441,30 +473,97 @@ static class SwSestp
         // APEX-A49: the bottom-left corner of the LED face seen from the front. Grant 22 Nov: the LED face is the tile's full flat
         // face (part +Z), Y is up, and on a screen that wraps round, use the FRONT-FACING tiles (the way most tiles face) and
         // their face closest to the front. Viewer looks along -n; right = (-n) x up.
+        // APEX-A67 (24 Nov): the corner line keeps LS-08A-11's wording; on a wrap it is marked "majority facing, front not
+        // decided" and every face gets its own measured line; plus the axis convention and the end-steel distances.
         if (normals.Count > 0)
         {
+            bool wrap = normals.Count > 1;
             string front = normals.OrderByDescending(kv => kv.Value).First().Key;
-            if (normals.Count > 1)
+            var c = LedCorner(front, glo[front], ghi[front]);
+            lines.Add(c != null
+                ? "LED CORNER\tbottom-left of the LED face seen from the front (Y up), top assembly axes (mm): X " + Mm(c[0]) + "\tY " + Mm(c[1]) + "\tZ " + Mm(c[2])
+                  + (wrap ? "\t(majority facing " + FacingName(front) + ", " + normals[front] + " of " + tiles.Count + " tiles; front not decided)" : "")
+                : "LED CORNER\tnot worked out: the screen is not square to the axes, or its majority face is not vertical");
+            if (wrap)
+                foreach (var kv in normals.OrderByDescending(kv => kv.Value))
+                {
+                    double[] l = glo[kv.Key], h = ghi[kv.Key];
+                    var fc = LedCorner(kv.Key, l, h);
+                    lines.Add("LED FACE\tfacing " + FacingName(kv.Key) + "\t" + kv.Value + " tiles\tX " + Mm(l[0]) + ".." + Mm(h[0]) + "\tY " + Mm(l[1]) + ".." + Mm(h[1]) + "\tZ " + Mm(l[2]) + ".." + Mm(h[2])
+                        + "\t" + (fc != null ? "bottom-left seen from that side (Y up): X " + Mm(fc[0]) + "\tY " + Mm(fc[1]) + "\tZ " + Mm(fc[2]) : "no bottom-left (this face is not vertical)"));
+                }
+            if (c != null)
             {
-                lo = glo[front]; hi = ghi[front];
-                lines.Add("FRONT-FACING\t" + normals[front] + " of " + tiles.Count + " tiles face (" + front + "); their envelope: X " + Mm(lo[0]) + ".." + Mm(hi[0]) + "\tY " + Mm(lo[1]) + ".." + Mm(hi[1]) + "\tZ " + Mm(lo[2]) + ".." + Mm(hi[2]));
+                var n = front.Split(' ').Select(s => double.Parse(s, Inv)).ToArray();
+                double[] up = { 0, 1, 0 }, fwd = { -n[0], -n[1], -n[2] };
+                double[] right = { fwd[1] * up[2] - fwd[2] * up[1], fwd[2] * up[0] - fwd[0] * up[2], fwd[0] * up[1] - fwd[1] * up[0] };
+                int jr = Enumerable.Range(0, 3).First(j => Math.Abs(right[j]) > 0.999), jn = Enumerable.Range(0, 3).First(j => Math.Abs(n[j]) > 0.999);
+                string[] ax = { "x", "y", "z" };
+                // steel: every body of the components with no tile in them, under top-level components with no tile in them
+                var steel = new List<Component2>();
+                foreach (var r in steelRoots) Leaves(r, steel);
+                double plane = n[jn] > 0 ? ghi[front][jn] : glo[front][jn];
+                double slo = double.MaxValue, shi = double.MinValue;   // steel along the face normal axis
+                var boxes = new List<Tuple<Component2, Body2, double[], double[]>>();
+                foreach (var k in steel)
+                {
+                    object info;
+                    foreach (Body2 b in (object[])k.GetBodies3((int)swBodyType_e.swSolidBody, out info) ?? new object[0])
+                    {
+                        var bb = (double[])b.GetBodyBox();
+                        double[] bl = { double.MaxValue, double.MaxValue, double.MaxValue }, bh = { double.MinValue, double.MinValue, double.MinValue };
+                        for (int i = 0; i < 8; i++)
+                        {
+                            var p = Xf(mu, k.Transform2, (i & 1) == 0 ? bb[0] : bb[3], (i & 2) == 0 ? bb[1] : bb[4], (i & 4) == 0 ? bb[2] : bb[5]);
+                            for (int j = 0; j < 3; j++) { bl[j] = Math.Min(bl[j], p[j]); bh[j] = Math.Max(bh[j], p[j]); }
+                        }
+                        slo = Math.Min(slo, bl[jn]); shi = Math.Max(shi, bh[jn]);
+                        boxes.Add(Tuple.Create(k, b, bl, bh));
+                    }
+                }
+                string side = boxes.Count == 0 ? "no steel found" : (slo + shi) / 2 > plane ? "steel at larger " + ax[jn] + " than the LED face" : "steel at smaller " + ax[jn] + " than the LED face";
+                lines.Add("AXES\tseen from the front" + (wrap ? " (majority facing " + FacingName(front) + ")" : "") + ": " + ax[jr] + " increasing to the " + (right[jr] > 0 ? "right" : "left") + ", y up, " + side
+                    + ", the LED face looking toward " + (n[jn] > 0 ? "+" : "-") + ax[jn]);
+                // END STEEL: along the screen (the right direction), from each LED end to the outermost steel face, in a 1 mm slice
+                // just above the LED corner's height (within 2 mm); positive = the steel reaches beyond the LED end
+                double y0 = c[1], y1 = c[1] + 0.002, ymid = c[1] + 0.0005;
+                double uLo = double.MaxValue, uHi = double.MinValue; int cut = 0;
+                var modeler = (Modeler)sw.GetModeler();
+                double big = 0; for (int j = 0; j < 3; j++) big = Math.Max(big, Math.Max(Math.Abs(lo[j]), Math.Abs(hi[j])));
+                big = 4 * big + 20;
+                foreach (var t in boxes)
+                {
+                    if (t.Item4[1] < y0 || t.Item3[1] > y1) continue;   // body not at that height
+                    var inv = (MathTransform)t.Item1.Transform2.Inverse();
+                    var cp = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { 0.0, ymid, 0.0 })).MultiplyTransform(inv)).ArrayData;
+                    var av = (double[])((MathVector)((MathVector)mu.CreateVector(new[] { 0.0, 1.0, 0.0 })).MultiplyTransform(inv)).ArrayData;
+                    var slab = (Body2)modeler.CreateBodyFromBox3(new[] { cp[0], cp[1], cp[2], av[0], av[1], av[2], big, big, 0.001 });
+                    if (slab == null) continue;
+                    // a 1 mm slab (centred on, or starting at, ymid: either way within 2 mm above the corner)
+                    int err;
+                    var res = ((Body2)t.Item2.Copy()).Operations2((int)swBodyOperationType_e.SWBODYINTERSECT, slab, out err) as object[];
+                    if (res == null) continue;
+                    var rv = (double[])((MathVector)((MathVector)mu.CreateVector(new[] { right[0], right[1], right[2] })).MultiplyTransform(inv)).ArrayData;
+                    foreach (Body2 rb in res)
+                    {
+                        if (rb == null) continue;
+                        cut++;
+                        foreach (int sg in new[] { 1, -1 })
+                        {
+                            double ex, ey, ez;
+                            if (!rb.GetExtremePoint(sg * rv[0], sg * rv[1], sg * rv[2], out ex, out ey, out ez)) continue;
+                            var w = Xf(mu, t.Item1.Transform2, ex, ey, ez);
+                            double u = w[0] * right[0] + w[1] * right[1] + w[2] * right[2];
+                            uLo = Math.Min(uLo, u); uHi = Math.Max(uHi, u);
+                        }
+                    }
+                }
+                double ledLo = right[jr] > 0 ? glo[front][jr] : -ghi[front][jr], ledHi = right[jr] > 0 ? ghi[front][jr] : -glo[front][jr];
+                lines.Add(cut == 0
+                    ? "END STEEL\tnot measured: no steel in a 1 mm slice just above the LED corner's height (Y " + Mm(c[1]) + ")"
+                    : "END STEEL\talong the screen, from each LED end to the outermost steel face, in a 1 mm slice just above the LED corner's height (Y " + Mm(c[1]) + "), mm, positive = steel beyond the LED end: left " + Mm(ledLo - uLo) + "\tright " + Mm(uHi - ledHi)
+                      + (wrap ? "\t(majority face " + FacingName(front) + ")" : ""));
             }
-            var n = front.Split(' ').Select(s => double.Parse(s, Inv)).ToArray();
-            double[] up = { 0, 1, 0 };
-            double[] fwd = { -n[0], -n[1], -n[2] };
-            double[] right = { fwd[1] * up[2] - fwd[2] * up[1], fwd[2] * up[0] - fwd[0] * up[2], fwd[0] * up[1] - fwd[1] * up[0] };
-            var corner = new double[3];
-            bool aligned = true;
-            for (int j = 0; j < 3; j++)
-            {
-                if (Math.Abs(n[j]) > 0.999) corner[j] = n[j] > 0 ? hi[j] : lo[j];             // the front plane
-                else if (Math.Abs(up[j]) > 0.999) corner[j] = lo[j];                            // bottom
-                else if (Math.Abs(right[j]) > 0.999) corner[j] = right[j] > 0 ? lo[j] : hi[j]; // left
-                else aligned = false;
-            }
-            lines.Add(aligned
-                ? "LED CORNER\tbottom-left of the " + (normals.Count > 1 ? "front-facing " : "") + "LED face seen from the front (Y up), top assembly axes (mm): X " + Mm(corner[0]) + "\tY " + Mm(corner[1]) + "\tZ " + Mm(corner[2])
-                : "LED CORNER\tnot worked out: the screen is not square to the axes");
         }
         else lines.Add("LED CORNER\tnot worked out: no tiles");
         File.WriteAllLines(outTxt, lines);
@@ -523,7 +622,10 @@ static class SwSestp
             Console.WriteLine("LED PRODUCTS\t" + pl.Count + "\t" + string.Join(", ", pl.Keys.OrderBy(k => k)));
             if (ps.Keys.Any(k => k.StartsWith("DL_APEX", StringComparison.OrdinalIgnoreCase))) { Console.WriteLine("PROBLEM\tthe STR file still has DL_APEX tiles: hidden components were exported"); rc = 1; }
         }
-        LedReport(asm, tiles, Path.Combine(outDir, name + "_LED.txt"));
+        // steel for the axis and end-steel lines: top-level components with no tile in them
+        var steelRoots = ((object[])((Component2)((Configuration)doc.GetActiveConfiguration()).GetRootComponent3(true)).GetChildren() ?? new object[0]).Cast<Component2>()
+            .Where(k => k.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentSuppressed && !HasTile(k)).ToList();
+        LedReport(asm, tiles, steelRoots, Path.Combine(outDir, name + "_LED.txt"));
         return rc;
     }
 

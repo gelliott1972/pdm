@@ -38,6 +38,8 @@ try { File.Delete(errorFile); } catch { } // an old refusal no longer applies
 
 var store = new Store(root);
 store.Ensure();
+var notices = new Notices(store, settings); // the owning session is told of each answer (desk\notices\<session>\)
+notices.Prune();
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [], ContentRootPath = AppContext.BaseDirectory });
 builder.Logging.ClearProviders();
@@ -100,6 +102,7 @@ var prefixes = settings.Prefixes();
 app.MapGet("/api/state", () =>
 {
     var problems = new List<string>(settings.Problems);
+    problems.AddRange(notices.Problems());
     var tickets = Tagged(store.Tickets, problems);
     var status = Tagged(store.Status, problems);
     var notes = Tagged(store.Inbox, problems)
@@ -191,6 +194,7 @@ app.MapPost("/api/gate", async (HttpRequest req) =>
         t["answeredAt"] = Store.Now();
         t["status"] = "answered";
         store.Write(file, t);
+        notices.Tell(id!, t, Who(req));
     }
     return Results.Ok(new { ok = true });
 });
@@ -238,6 +242,7 @@ app.MapPost("/api/answer", async (HttpRequest req) =>
         t["answeredAt"] = Store.Now();
         t["status"] = "answered";
         store.Write(file, t);
+        notices.Tell(id!, t, Who(req));
     }
     return Results.Ok(new { ok = true });
 });
@@ -264,6 +269,7 @@ app.MapPost("/api/discuss", async (HttpRequest req) =>
         thread.Add(new JsonObject { ["from"] = Who(req), ["text"] = text, ["at"] = Store.Now() });
         t["status"] = "discuss";
         store.Write(file, t);
+        notices.Tell(id!, t, Who(req), text);
     }
     return Results.Ok(new { ok = true });
 });
@@ -297,6 +303,7 @@ app.MapPost("/api/draft", async (HttpRequest req) =>
         }
         else if (!DraftAnswer(t, action, text, Who(req), out var refused)) return Fail(refused);
         store.Write(file, t);
+        if (action != "undo") notices.Tell(id!, t, Who(req), action == "comment" ? text : null);
     }
     return Results.Ok(new { ok = true });
 });
@@ -314,7 +321,7 @@ app.MapPost("/api/draft/accept-batch", async (HttpRequest req) =>
             var t = store.Read(file, out _);
             if (t == null || (string?)t["type"] != "draft-review" || (string?)t["batch"] != batch) continue;
             if ((string?)t["status"] is not (null or "open" or "discuss")) continue;
-            if (DraftAnswer(t, "accept", "", Who(req), out _)) { store.Write(file, t); n++; }
+            if (DraftAnswer(t, "accept", "", Who(req), out _)) { store.Write(file, t); notices.Tell(Path.GetFileNameWithoutExtension(file), t, Who(req)); n++; }
         }
     }
     return Results.Ok(new { ok = true, accepted = n });
@@ -563,6 +570,7 @@ app.MapPost("/api/sw/finish", async (HttpRequest req) =>
         t["answeredAt"] = Store.Now();
         t["status"] = "answered";
         store.Write(file, t);
+        notices.Tell(id!, t, Who(req));
     }
     await HandBack(); // Done or Problem ends Grant's turn with SOLIDWORKS
     return Results.Ok(new { ok = true });

@@ -24,6 +24,9 @@ public sealed class Settings
     public bool GroupsFromFile { get; private set; }     // the page draws group headings only when the file sets groups
     public JsonArray? Steps { get; private set; }
     public JsonArray? Gates { get; private set; }
+    // Answer notices: a ticket owner -> the session told (an owner with no session on this PC, e.g. revit-fiona -> apex-admin).
+    // An owner not listed is told under its own name.
+    public Dictionary<string, string> NoticeRoutes { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public string? File { get; private set; }          // the file read, if there was one
     public string Text { get; private set; } = "";      // its text, for the page version (open tabs reload after a change)
@@ -117,6 +120,12 @@ public sealed class Settings
         if (Array("sessionGroups") is { } groups) { SessionGroups = groups; GroupsFromFile = true; }
         Steps = Array("steps");
         Gates = Array("gates");
+        if (o["noticeRoutes"] is { } routes)
+        {
+            if (routes is JsonObject ro && ro.All(kv => kv.Value?.GetValueKind() == JsonValueKind.String))
+                foreach (var kv in ro) NoticeRoutes[kv.Key.Trim()] = ((string?)kv.Value)!.Trim();
+            else Problems.Add($"{name}: \"noticeRoutes\" isn't a list of owner: session pairs; left out");
+        }
     }
 
     // Session id -> ticket id prefix, for the sessions that have one in settings (the id rule in app\desk.md).

@@ -27,6 +27,7 @@ The page is named from settings ("APEX Desk"). The exe, its folder, the data fol
 | `sessionGroups` | one group "PDM": admin, dev, sw, app, draw | `[{ name, sessions: [{ id, label, prefix?, remote?, via? }] }]`: the session list, in order, with headings |
 | `steps` | none | Board columns in order: `{ key, label, kind?, ruleBefore? }`. `kind`: `pin`, `gate`, or none (depends on the model). `ruleBefore` draws a light rule before the column |
 | `gates` | none | `{ key, label, outcomes: [{ key, label, passes?, noteRequired? }] }`, or a code gate `{ key, label, "input": "code", codes: [{ code, label, passes?, noteRequired? }] }` (WDI, APEX-A78: while `codes` is empty, any whole number is taken) |
+| `noticeRoutes` | none | `{ "owner": "session" }`: answer notices for an owner with no session on this PC go to that session (installed: `{"revit-fiona": "apex-admin"}`). See "Answer notices" below |
 
 Without `register`, `steps` and `gates` the board and gate answers aren't shown.
 
@@ -221,6 +222,21 @@ Set by the page (`POST /api/gate { id, choice, code?, note, confirmed }`): `answ
 ## Notices (stage 2, item 7)
 
 **Notices: off/on** in the header. Off until Grant presses it once (that click lets the browser play sound and asks for the notice permission). Then a new blocking ticket waiting for Grant, or a session turning to "Needs you", gives one short sound and a desktop notice (the Desk's name; id, screen, title). Clicking it brings the tab forward. Nothing on the first load; ids already announced are kept in the browser, so a reload doesn't repeat them. Limits: it works only while a Desk tab is open, and desktop notices need a page the browser counts as secure (127.0.0.1 is; a plain `http://` address over Tailscale later isn't).
+
+## Answer notices (24 Nov, Admin): the owner is told when Grant answers
+
+When Grant's action on the Desk sets a ticket to `answered` or `discuss`, the Desk writes one notice for the owning session. The actions are answer, gate, discuss, draft Accept/Redo/comment, Accept all remaining (one notice per ticket) and SOLIDWORKS job Done/Problem. A second discuss comment gives a second notice. Undo, dismiss and the owner's own edits give none.
+
+- **Where:** `notices\<session>\<yyyyMMddTHHmmssfff>Z-<ticket id>.json`, written whole (temp file, then rename). `<session>` is the ticket's `owner`, or its `noticeRoutes` entry (`revit-fiona` goes to `apex-admin`). An owner that isn't a plain session name (`a-z`, `0-9`, `-`) gets no notice and a line on the page's problems line; the answer itself is still saved.
+- **Fields:** `ticket`, `title`, `type`, `owner`, `session`, `status` (`answered` or `discuss`), `choice`, `choiceLabel` (the option's label, the gate outcome's label, `Code 3`, `Accepted`, `Redo`, `Done`, `Problem`), `code` (code gates), `note` (the answer's note, or the discuss comment), `by`, `at` (UTC), `screen`, `gate`, `summary` (one line, at most 400 characters).
+- **Never** in `/api` output, and no file paths in it.
+- **Watch (every session runs this once, with the Monitor tool; persistent):**
+
+  `powershell -NoProfile -ExecutionPolicy Bypass -File "C:/Users/grant/AppData/Local/PDM-Desk/desk-notices.ps1" -Session <your session id>`
+
+  It prints `Watching Desk notices for <session> ...`, then, every 5 seconds, one line per new notice, e.g. `Desk: A16 (Green light for LS-08A-06) answered by grant: Green light. Note: ...`. Each notice is moved into `notices\<session>\seen\` before it is printed, so it is told once, also with two watches running. The full notice stays in `seen\` to read. Options: `-Desk <folder>` (default: the installed settings' `dataFolder`), `-Every <seconds>`, `-Once` (one pass, then exit).
+- **After a notice:** read the ticket as before, act, set `done`.
+- **Housekeeping:** at start the Desk deletes `seen\` notices more than 30 days old.
 
 ## Remote later (stage 2, item 8: built, switched off)
 

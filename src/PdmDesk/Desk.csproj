@@ -15,5 +15,7 @@
     <Content Remove="page\**" />
     <!-- The settings template: install.ps1 copies it to settings.json beside the exe only if that file is missing. -->
     <Content Remove="settings.default.json" />
+    <!-- Answer notices: each session runs this with Monitor to be told when Grant answers its tickets. -->
+    <None Update="desk-notices.ps1" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

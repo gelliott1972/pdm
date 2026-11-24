@@ -2,7 +2,7 @@
 
 ## 24 Nov: square-edge exports (SESTP) of LS-08B-11, LS-08C-11, LS-08B-06, LS-08C-06 for SAP2000, all OK
 
-Admin's go. Before each export, a floor-plate check against its A screen (new read-only `SwGrout floor`, summary `sw\sestploorsum.py`; data `C:\PDM-work\sestploor-1124`). Nothing in the vault changed. Pin 2026-11-24T13:33:43Z for all four.
+Admin's go. Before each export, a floor-plate check against its A screen (new read-only `SwGrout floor`, summary `sw\sestp\floorsum.py`; data `C:\PDM-work\sestp\floor-1124`). Nothing in the vault changed. Pin 2026-11-24T13:33:43Z for all four.
 
 | Screen | Floor plates (as its A) | Run | END STEEL any / members |
 | --- | --- | --- | --- |

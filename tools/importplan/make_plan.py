@@ -234,7 +234,48 @@ def DEC_0804(x):
 #                     decision, so a copy PartNo that differs from the vault's is a note, not a stop
 #   skus:    old file -> where decided: a SKU assembly outside a SKUS folder (0807's SC08-07-CUSTOM-SKUSv2, one file with
 #            the SKUs as configurations): planned as a SKU (keeps its name, APEX\SC08\SKUS, no PartNo)
-#   files also renames a screen file (0807: LS-08A-07v2 -> LS-08X-07); its folder stays the screen folder.
+#   files also renames a screen file (0807: LS-08A-07v2 -> LS-08A-07); its folder stays the screen folder.
+
+# 0807 (APEX-A87, Grant 24 Nov, Desk apex-admin-16/-17; Admin 25 Nov): the five steel parts shared by A and B/C are
+# 08X07 family files, one PartNo per size. Numbers follow the file's configuration order (as 0804 R3), only the sizes
+# the two tops use; the bracket's 248L-MIRROR / 248R-MIRROR (B/C only) are 09 and 10, numbered with A's import.
+A87 = "APEX-A87 (Grant 24 Nov)"
+SHARED_0807 = {   # old file -> (family file, [configurations in order], first number)
+    "LS-08X-07-TIE_60x40.SLDPRT": ("08X07-BRP", ["460-HOLES_OFFSET<As Machined>", "460_HOLES_STANDARD<As Machined>", "LH-960_HOLES_STANDARD<As Machined>",
+        "460-NO_HOLES<As Machined>", "LH-960-NO HOLES<As Machined>", "310_HOLES_STANDARD<As Machined>", "310_NO_HOLES<As Machined>",
+        "LH-960_HOLES_OFFSET<As Machined>", "635_HOLES_STANDARD<As Machined>", "635_NO_HOLES<As Machined>"], 1),
+    "LS-08X-07-TIE_SHS40x40.SLDPRT": ("08X07-BRP-SHS", ["460<As Machined>", "960<As Machined>", "310<As Machined>", "635<As Machined>"], 11),
+    "LS-08X-07_CROSS_BRACE.SLDPRT": ("08X07-DBP", ["460x284<As Machined>", "480x284<As Machined><As Machined>", "310x284<As Machined>"], 1),
+    "LS-08X-07_EA40X40X5_BRACKETS.SLDPRT": ("08X07-BKP", ["454L<As Machined>", "454R<As Machined>", "460-LOWER-STEP<As Machined>", "960-LOWER-STEP<As Machined>",
+        "248R<As Machined>", "248L<As Machined>", "307.5-LOWER-STEP<As Machined>", "635-LOWER-STEP<As Machined>", "248L-MIRROR", "248R-MIRROR"], 1),
+    "LS-08X-07_STEP_FRAME.SLDPRT": ("08X07-SFP", ["Cantilever-500<As Machined>", "Floor Mount-500<As Machined>", "Cantilever-490<As Machined>",
+        "Floor Mount-500_04_07_SHARED<As Machined>"], 1),
+}
+SF_0807 = ["SF01 (SAE END)", "SF02 (SAE MIDDLE)", "SF03 (MIDDLE)", "SF04 (NON SAE END)"]
+
+def DEC_0807(x):
+    place = "08A07" if x == "A" else "08Z07"
+    top, scr = f"LS-08{x}-07v2 + STRUCTURE.SLDASM", f"LS-08{x}-07v2.SLDASM"
+    pn = {(f"LS-08{x}-07_{sf}.SLDASM", "@top"): (f"{place}-SFA-{i}X", True, A87 + ": subframe (register's 1X..4X format, Admin 24 Nov)")
+          for i, sf in enumerate(SF_0807, 1)}
+    pn[(f"{place}-STA-01.SLDASM", "Default")] = (f"{place}-STA-01", True, A87 + ": structure assembly, as 0806/0811")
+    files = {scr: (f"LS-08{x}-07", None, A87 + " / Admin 25 Nov: the screen file, v2 dropped, no PartNo")}
+    files.update({f"LS-08{x}-07_{sf}.SLDASM": (f"{place}-SFA-{i}X", None, A87 + ": subframe") for i, sf in enumerate(SF_0807, 1)})
+    d = {
+        "combined": {top: A87 + ": as 0806/0811, screen + " + place + "-STA-01, no PartNo"},
+        "screen_files": {scr: A87 + " / Admin 25 Nov: the screen file, v2 dropped, no PartNo"},
+        "files": files,
+        "partnos": pn,
+        "all_provisional": "as every import so far (numbers for James's review)",
+    }
+    if x == "A":   # the shared parts and the SKUs come in with A; B/C reuses them (--with A)
+        for f, (fam, order, first) in SHARED_0807.items():
+            files[f] = (fam, None, A87 + ": family file, place + category")
+            pn.update({(f, c): ("-".join(fam.split("-")[:2]) + f"-{n:02d}", True, A87 + ": one PartNo per size")
+                       for n, c in enumerate(order, first)})
+        d["name_differs_decided"] = {"LS-08X-07-TIE_SHS40x40.SLDPRT": ("08X07-BRP-SHS", A87 + " (ticket apex-admin-17): one series across both tie files, 08X07-BRP-11..14 in 08X07-BRP-SHS, as GNRIC-LM / GNRIC-LMW")}
+        d["skus"] = {"SC08-07-CUSTOM-SKUSv2.SLDASM": A87 + ": SKUs keep their names, APEX\\SC08\\SKUS, no PartNo"}
+    return d
 DECIDED = {
     "LS-08A-06": {
         "files": {
@@ -339,16 +380,8 @@ DECIDED = {
     # difference from the register flagged) is the plan's default. D2/D3 wait for SW's list of what the v4 tops use.
     **{f"LS-08{x}-04": DEC_0804(x) for x in "ABC"},
     # docs\briefs\import-0807.md (Admin, 24 Nov): A planned alone from C:\PDM-work\0807-sweep (probe cut to A's top,
-    # cut_probe.py); register numbers for now; (a) 08A07 or 08X07 and (c) one PartNo per configuration are with Grant.
-    # Admin's answers to Dev's three proposals (24 Nov): top as 0806/0811 (screen + 08A07-STA-01, which Admin forms in
-    # the work copy before -r1); screen file LS-08X-07 (as LS-08X-06); SKUs as proposed; SFA keeps the register's 1X..4X.
-    "LS-08A-07": {
-        "combined": {"LS-08A-07v2 + STRUCTURE.SLDASM": "Admin 24 Nov: as 0806/0811, LS-08A-07+STRUCTURE (screen + 08A07-STA-01), no PartNo"},
-        "screen_files": {"LS-08A-07v2.SLDASM": "Admin 24 Nov: the screen file LS-08X-07 (as LS-08X-06), no PartNo"},
-        "files": {"LS-08A-07v2.SLDASM": ("LS-08X-07", None, "Admin 24 Nov: the screen file LS-08X-07 (as LS-08X-06), no PartNo")},
-        "partnos": {("08A07-STA-01.SLDASM", "Default"): ("08A07-STA-01", True, "Admin 24 Nov: structure assembly, as 0806/0811 (file and configuration name to check when Admin has formed it)")},
-        "skus": {"SC08-07-CUSTOM-SKUSv2.SLDASM": "Admin 24 Nov (open point b): as earlier screens' SKUs, keeps its name, APEX\\SC08\\SKUS, no PartNo"},
-    },
+    # cut_probe.py, one probe per top); B/C (LS-08BC-07) planned with --with A: the shared parts are imported with A.
+    **{f"LS-08{x}-07": DEC_0807(x) for x in ("A", "BC")},
 }
 
 def load(name):

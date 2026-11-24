@@ -63,7 +63,9 @@ app.MapGet("/api/state", () =>
     // A one-command lock whose SwCmd process has gone is stale (SwCmd takes it over): show SOLIDWORKS as free.
     if (swLock != null && (string?)swLock["kind"] == "command" && (int?)swLock["pid"] is int pid && !Running(pid)) swLock = null;
     var sw = new { @lock = swLock, pause = store.ReadOptional(Path.Combine(store.Sw, "pause.json"), problems) };
-    return Results.Ok(new { root, tickets, status, activity, sw, notes, problems, now = Store.Now(), version = pageVersion });
+    // The Desk's name and session groups from settings (labels and order; headings only when the file sets groups).
+    var desk = new { name = settings.DeskName, groups = settings.SessionGroups, grouped = settings.GroupsFromFile };
+    return Results.Ok(new { root, tickets, status, activity, sw, notes, problems, desk, now = Store.Now(), version = pageVersion });
 });
 
 app.MapPost("/api/answer", async (HttpRequest req) =>

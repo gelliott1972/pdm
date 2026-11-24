@@ -21,6 +21,7 @@ public sealed class Settings
     public string? ScreenTypes { get; private set; }
     public string? Screens { get; private set; }
     public JsonArray SessionGroups { get; private set; } = DefaultGroups();
+    public bool GroupsFromFile { get; private set; }     // the page draws group headings only when the file sets groups
     public JsonArray? Steps { get; private set; }
     public JsonArray? Gates { get; private set; }
 
@@ -113,7 +114,7 @@ public sealed class Settings
             string? R(string key) => reg[key] is { } n && n.GetValueKind() == JsonValueKind.String && ((string?)n)?.Trim() is { Length: > 0 } v ? v : null;
             Workflow = R("workflow"); ScreenTypes = R("screenTypes"); Screens = R("screens");
         }
-        if (Array("sessionGroups") is { } groups) SessionGroups = groups;
+        if (Array("sessionGroups") is { } groups) { SessionGroups = groups; GroupsFromFile = true; }
         Steps = Array("steps");
         Gates = Array("gates");
     }

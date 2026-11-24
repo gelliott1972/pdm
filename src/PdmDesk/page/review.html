@@ -111,8 +111,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = s => esc(s).replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
 const DESK_NAME = {{deskNameJs}}; // filled in by the server from settings (deskName)
-const NAMES = { admin: 'Admin', dev: 'Dev', sw: 'SW', app: 'App', draw: 'Draw' };
-const name = s => NAMES[s] || (s ? s[0].toUpperCase() + s.slice(1) : '');
+let LABELS = {}; // session labels from settings (state.desk.groups)
+const name = s => LABELS[String(s ?? '').toLowerCase()] || (s ? s[0].toUpperCase() + s.slice(1) : '');
 function ago(iso) {
   const t = Date.parse(iso); if (!t) return '';
   const s = Math.max(0, (Date.now() - t) / 1000);
@@ -152,6 +152,8 @@ async function load() {
   if (text === lastJson) return;
   lastJson = text;
   const state = JSON.parse(text);
+  LABELS = {};
+  for (const g of state.desk?.groups || []) for (const x of g?.sessions || []) if (x?.id) LABELS[String(x.id).toLowerCase()] = x.label || x.id;
   version ??= state.version;
   if (state.version && state.version !== version && !$('note')?.value.trim()) { location.reload(); return; }
   tickets = Object.fromEntries((state.tickets || []).filter(isDraft).map(t => [t._file, t]));

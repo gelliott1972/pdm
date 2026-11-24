@@ -165,6 +165,7 @@ a.b:hover { border-color: var(--accent); }
 #sessions > div { border-top: 1px solid var(--line); padding: 9px 12px; cursor: pointer; }
 #sessions > div:first-child { border-top: 0; }
 #sessions > div:hover { background: var(--bg); }
+#sessions > div.sgroup { cursor: default; background: var(--bg); padding: 5px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .srow { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sname { font-weight: 600; min-width: 46px; }
 .srow .state { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; border-radius: 99px; padding: 1px 8px; }
@@ -221,13 +222,20 @@ a.bigreview span { font-weight: 400; opacity: .85; }
 </div>
 <script>
 const DESK_NAME = {{deskNameJs}}; // filled in by the server from settings (deskName)
-const SESSIONS = ['admin', 'dev', 'sw', 'app', 'draw'];
-const NAMES = { admin: 'Admin', dev: 'Dev', sw: 'SW', app: 'App', draw: 'Draw' };
+// Sessions, their labels and groups come from settings (state.desk.groups); see readGroups().
+let LABELS = {}, CONF = {};
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Plain text with **bold** and `code`; everything else is shown as typed.
 const fmt = s => esc(s).replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
-const name = s => NAMES[s] || (s ? s[0].toUpperCase() + s.slice(1) : '');
+const name = s => LABELS[String(s ?? '').toLowerCase()] || (s ? s[0].toUpperCase() + s.slice(1) : '');
+function readGroups() {
+  LABELS = {}; CONF = {};
+  for (const g of state.desk?.groups || []) for (const x of g?.sessions || []) {
+    const id = String(x?.id || '').toLowerCase(); if (!id) continue;
+    LABELS[id] = x.label || x.id; CONF[id] = x;
+  }
+}
 let state = null, lastSeen = 0, lastJson = '', pageVersion = null;
 const busyHere = () => running.size > 0 || pdmRunning.size > 0 || [...document.querySelectorAll('textarea')].some(t => t.value.trim());
 const drafts = {};          // ticket file -> { choice, note } while Grant is typing
@@ -279,6 +287,7 @@ const awaitingOwner = t => t.status === 'discuss' && lastPost(t)?.from === 'gran
 const rank = t => (awaitingOwner(t) ? 2 : t.priority === 'blocking' ? 0 : 1);
 
 function render() {
+  readGroups();
   const tickets = state.tickets || [];
   const open = tickets.filter(isOpen).sort((a, b) => rank(a) - rank(b) || String(a.createdAt).localeCompare(String(b.createdAt)));
   const mine = open.filter(t => !awaitingOwner(t)), talking = open.length - mine.length;
@@ -338,12 +347,20 @@ function render() {
   swStrip();
   const status = state.status || [];
   const by = Object.fromEntries(status.map(s => [String(s.name || s._file).toLowerCase(), s]));
-  const order = [...SESSIONS, ...Object.keys(by).filter(k => !SESSIONS.includes(k))];
   const acts = Object.fromEntries((state.activity || []).map(a => [String(a.name || a._file).toLowerCase(), a]));
   const needs = Object.keys(acts).filter(k => acts[k].activity === 'needs-you').map(name);
   if (needs.length) $('sum').textContent += ` · ${needs.join(', ')} ${needs.length === 1 ? 'needs' : 'need'} you`;
-  const order2 = [...order, ...Object.keys(acts).filter(k => !order.includes(k))];
-  drawSessions(order2, by, acts);
+  // Each group's sessions in settings order (a heading per group when settings set the groups); any other session with a
+  // status or activity file goes last, under "Other". Nothing is hidden.
+  const rows = [], listed = new Set(), heads = !!state.desk?.grouped;
+  for (const g of state.desk?.groups || []) {
+    if (heads) rows.push({ head: String(g?.name || '') });
+    for (const x of g?.sessions || []) { const k = String(x?.id || '').toLowerCase(); if (k && !listed.has(k)) { listed.add(k); rows.push(k); } }
+  }
+  const others = [...Object.keys(by), ...Object.keys(acts)].filter((k, i, a) => a.indexOf(k) === i && !listed.has(k));
+  if (others.length && heads) rows.push({ head: 'Other' });
+  rows.push(...others);
+  drawSessions(rows, by, acts);
 
   $('notes').innerHTML = (state.notes || []).slice(0, 3).map(n => `<div>${esc(n.text)}<br><small>${when(n.createdAt)}${n.readAt ? ' · read by Admin' : ''}</small></div>`).join('');
   $('problems').innerHTML = (state.problems || []).map(p => 'Couldn\'t read ' + esc(p)).join('<br>');
@@ -699,16 +716,18 @@ function activityLine(k, a) {
 }
 
 const sessionHtml = {}, sessionOpen = new Set();
-function drawSessions(order, by, acts) {
+function drawSessions(rows, by, acts) {
   const box = $('sessions');
-  order.forEach((k, i) => {
-    const html = sessionCard(k, by[k], acts[k], ownedOpen(k));
+  rows.forEach((row, i) => {
+    const head = typeof row === 'object', k = head ? '\u0000group:' + row.head : row;
+    const html = head ? esc(row.head) : sessionCard(k, by[k], acts[k], ownedOpen(k));
     let el = box.children[i];
     if (!el || el.dataset.k !== k) { el = document.createElement('div'); el.dataset.k = k; box.insertBefore(el, box.children[i] || null); }
     if (sessionHtml[k] !== html) { el.innerHTML = html; sessionHtml[k] = html; } // unchanged rows keep their pulse running
+    if (head) { el.className = 'sgroup'; el.onclick = null; return; }
     el.onclick = () => { sessionOpen.has(k) ? sessionOpen.delete(k) : sessionOpen.add(k); render(); };
   });
-  while (box.children.length > order.length) box.lastChild.remove();
+  while (box.children.length > rows.length) box.lastChild.remove();
 }
 
 const ownedOpen = k => (state.tickets || []).filter(t => isOpen(t) && String(t.owner || '').toLowerCase() === k).length;
@@ -721,8 +740,18 @@ function sessionCard(k, s, a, owned) {
   const age = a ? (Date.now() - Date.parse(a.at)) / 1000 : Infinity;
   const stAge = s?.updatedAt ? (Date.now() - Date.parse(s.updatedAt)) / 1000 : Infinity;
   const background = ['working', 'blocked'].includes(String(s?.state || '').toLowerCase()) && stAge < 600;
-  let pill, cls, live = '';
-  if (a?.activity === 'needs-you') [pill, cls] = ['Needs you', 'needs'];
+  const conf = CONF[k] || {};
+  let pill, cls, live = '', heardText = '';
+  // A session with no activity file (no hooks there yet): the pill is its status file's state, with its age.
+  // One marked remote with no files at all is reached by messages only.
+  if (!a && !s && conf.remote) { [pill, cls] = ['Messages only', 'none']; heardText = conf.via ? `through ${name(conf.via)}` : ''; }
+  else if (!a && s) {
+    const st = String(s.state || '').toLowerCase();
+    [pill, cls] = ({ working: ['Working', 'working'], waiting: ['Waiting', 'waiting'], blocked: ['Blocked', 'blocked'], idle: ['Idle', 'idle'] })[st]
+      || [st ? st[0].toUpperCase() + st.slice(1) : 'Idle', 'idle'];
+    heardText = s.updatedAt ? 'as of ' + ago(s.updatedAt) : 'no time on its status';
+  }
+  else if (a?.activity === 'needs-you') [pill, cls] = ['Needs you', 'needs'];
   else if (a?.running) { [pill, cls] = ['Running', 'working']; live = `Running ${dur(age)}: ${a.detail || 'a tool'}`; }
   else if (background) { [pill, cls] = ['Working (background)', 'working']; live = s.doing || ''; }
   else if (a?.activity === 'working' && age < 180) { [pill, cls] = ['Working', 'working']; live = a.detail || ''; }
@@ -732,9 +761,9 @@ function sessionCard(k, s, a, owned) {
   const openRow = sessionOpen.has(k);
   let h = `<div class="srow s-${cls}${openRow ? ' open' : ''}" title="Click for details">
     <span class="sname">${esc(name(s?.name || k))}</span>
-    <span class="state st-${cls}">${cls === 'working' ? '<span class="pulse" aria-hidden="true"></span>' : ''}${pill}</span>
+    <span class="state st-${cls}">${cls === 'working' && a ? '<span class="pulse" aria-hidden="true"></span>' : ''}${pill}</span>
     ${owned ? `<span class="owned" title="Open tickets from ${esc(name(k))}">${owned} ticket${owned === 1 ? '' : 's'}</span>` : ''}
-    <span class="heard">${heard ? ago(heard) : 'not heard from'}</span></div>`;
+    <span class="heard">${heardText ? esc(heardText) : heard ? ago(heard) : 'not heard from'}</span></div>`;
   if (live) h += `<div class="slive">${esc(live)}</div>`;
   if (a?.activity === 'needs-you') h += `<div class="act needs"><b>Needs you in the ${esc(name(k))} window</b>${a.detail ? `<span>${esc(a.detail)}</span>` : ''}</div>`;
   if (openRow) {

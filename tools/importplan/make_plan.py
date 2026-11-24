@@ -234,9 +234,7 @@ def DEC_0804(x):
 #                     decision, so a copy PartNo that differs from the vault's is a note, not a stop
 #   skus:    old file -> where decided: a SKU assembly outside a SKUS folder (0807's SC08-07-CUSTOM-SKUSv2, one file with
 #            the SKUs as configurations): planned as a SKU (keeps its name, APEX\SC08\SKUS, no PartNo)
-#   files also renames a screen file (0807: LS-08A-07v2 -> LS-08A-07); its folder stays the screen folder.
-# Marked PROPOSED: Dev's placeholder so a dry run can be made, not a decision; Admin confirms or replaces it.
-PROPOSED_0807 = "PROPOSED by Dev (24 Nov), for Admin to confirm"
+#   files also renames a screen file (0807: LS-08A-07v2 -> LS-08X-07); its folder stays the screen folder.
 DECIDED = {
     "LS-08A-06": {
         "files": {
@@ -341,12 +339,15 @@ DECIDED = {
     # difference from the register flagged) is the plan's default. D2/D3 wait for SW's list of what the v4 tops use.
     **{f"LS-08{x}-04": DEC_0804(x) for x in "ABC"},
     # docs\briefs\import-0807.md (Admin, 24 Nov): A planned alone from C:\PDM-work\0807-sweep (probe cut to A's top,
-    # cut_probe.py); register numbers for now; (a) 08A07 or 08X07 and (b) the SKUs are open with Grant.
+    # cut_probe.py); register numbers for now; (a) 08A07 or 08X07 and (c) one PartNo per configuration are with Grant.
+    # Admin's answers to Dev's three proposals (24 Nov): top as 0806/0811 (screen + 08A07-STA-01, which Admin forms in
+    # the work copy before -r1); screen file LS-08X-07 (as LS-08X-06); SKUs as proposed; SFA keeps the register's 1X..4X.
     "LS-08A-07": {
-        "combined": {"LS-08A-07v2 + STRUCTURE.SLDASM": PROPOSED_0807 + ": as 0804 D4 / 0811 D31, screen + structure top, LS-08A-07+STRUCTURE, no PartNo (the register's place tag 08A07 not used)"},
-        "screen_files": {"LS-08A-07v2.SLDASM": PROPOSED_0807 + ": as 0804 D22, the screen file, LS-08A-07 (v2 dropped), no PartNo"},
-        "files": {"LS-08A-07v2.SLDASM": ("LS-08A-07", None, PROPOSED_0807 + ": as 0804 D22, the screen file, LS-08A-07 (v2 dropped), no PartNo")},
-        "skus": {"SC08-07-CUSTOM-SKUSv2.SLDASM": PROPOSED_0807 + ": open point (b): as earlier screens' SKUs, keeps its name, APEX\\SC08\\SKUS, no PartNo"},
+        "combined": {"LS-08A-07v2 + STRUCTURE.SLDASM": "Admin 24 Nov: as 0806/0811, LS-08A-07+STRUCTURE (screen + 08A07-STA-01), no PartNo"},
+        "screen_files": {"LS-08A-07v2.SLDASM": "Admin 24 Nov: the screen file LS-08X-07 (as LS-08X-06), no PartNo"},
+        "files": {"LS-08A-07v2.SLDASM": ("LS-08X-07", None, "Admin 24 Nov: the screen file LS-08X-07 (as LS-08X-06), no PartNo")},
+        "partnos": {("08A07-STA-01.SLDASM", "Default"): ("08A07-STA-01", True, "Admin 24 Nov: structure assembly, as 0806/0811 (file and configuration name to check when Admin has formed it)")},
+        "skus": {"SC08-07-CUSTOM-SKUSv2.SLDASM": "Admin 24 Nov (open point b): as earlier screens' SKUs, keeps its name, APEX\\SC08\\SKUS, no PartNo"},
     },
 }
 

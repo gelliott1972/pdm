@@ -531,7 +531,9 @@ static class SwSestp
                 // END STEEL: along the screen (the right direction), from each LED end to the outermost steel face, in a 1 mm slice
                 // just above the LED corner's height (within 2 mm); positive = the steel reaches beyond the LED end
                 double y0 = c[1], y1 = c[1] + 0.002, ymid = c[1] + 0.0005;
-                double uLo = double.MaxValue, uHi = double.MinValue; int cut = 0;
+                // two figures per end (apex-admin 24 Nov): the outermost steel of any kind (on LS-08A-11 the GNRIC-LPP mounting
+                // plates) and the outermost structural member, tube or angle (WeldMemberFeat bodies; on LS-08A-11 the posts)
+                double uLo = double.MaxValue, uHi = double.MinValue, mLo = double.MaxValue, mHi = double.MinValue; int cut = 0, mcut = 0;
                 var modeler = (Modeler)sw.GetModeler();
                 double big = 0; for (int j = 0; j < 3; j++) big = Math.Max(big, Math.Max(Math.Abs(lo[j]), Math.Abs(hi[j])));
                 big = 4 * big + 20;
@@ -548,10 +550,11 @@ static class SwSestp
                     var res = ((Body2)t.Item2.Copy()).Operations2((int)swBodyOperationType_e.SWBODYINTERSECT, slab, out err) as object[];
                     if (res == null) continue;
                     var rv = (double[])((MathVector)((MathVector)mu.CreateVector(new[] { right[0], right[1], right[2] })).MultiplyTransform(inv)).ArrayData;
+                    bool member = IsMemberBody(t.Item2);
                     foreach (Body2 rb in res)
                     {
                         if (rb == null) continue;
-                        cut++;
+                        cut++; if (member) mcut++;
                         foreach (int sg in new[] { 1, -1 })
                         {
                             double ex, ey, ez;
@@ -559,13 +562,16 @@ static class SwSestp
                             var w = Xf(mu, t.Item1.Transform2, ex, ey, ez);
                             double u = w[0] * right[0] + w[1] * right[1] + w[2] * right[2];
                             uLo = Math.Min(uLo, u); uHi = Math.Max(uHi, u);
+                            if (member) { mLo = Math.Min(mLo, u); mHi = Math.Max(mHi, u); }
                         }
                     }
                 }
                 double ledLo = right[jr] > 0 ? glo[front][jr] : -ghi[front][jr], ledHi = right[jr] > 0 ? ghi[front][jr] : -glo[front][jr];
                 lines.Add(cut == 0
                     ? "END STEEL\tnot measured: no steel in a 1 mm slice just above the LED corner's height (Y " + Mm(c[1]) + ")"
-                    : "END STEEL\talong the screen, from each LED end to the outermost steel face, in a 1 mm slice just above the LED corner's height (Y " + Mm(c[1]) + "), mm, positive = steel beyond the LED end: left " + Mm(ledLo - uLo) + "\tright " + Mm(uHi - ledHi)
+                    : "END STEEL\talong the screen, from each LED end (left, right seen from the front) to the outermost steel face, in a 1 mm slice just above the LED corner's height (Y " + Mm(c[1]) + "), mm, positive = steel beyond the LED end, negative = inside it:"
+                      + "\tany steel: left " + Mm(ledLo - uLo) + "\tright " + Mm(uHi - ledHi)
+                      + "\tmembers (tube or angle): " + (mcut == 0 ? "none in the slice" : "left " + Mm(ledLo - mLo) + "\tright " + Mm(mHi - ledHi))
                       + (wrap ? "\t(front face " + FacingName(front) + ")" : ""));
             }
         }

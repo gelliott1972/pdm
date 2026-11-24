@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PDM Desk</title>
+<title>{{deskName}}</title>
 <script>
 // Light / dark / system, remembered on this PC; set before the page draws so it doesn't flash.
 try { const t = localStorage.getItem('desk-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
@@ -191,7 +191,7 @@ a.bigreview span { font-weight: 400; opacity: .85; }
 </head>
 <body>
 <header>
-  <h1>PDM Desk</h1>
+  <h1>{{deskName}}</h1>
   <span class="sum" id="sum"></span>
   <span class="ago" id="ago"></span>
   <span class="theme" id="theme" role="group" aria-label="Colours">
@@ -220,6 +220,7 @@ a.bigreview span { font-weight: 400; opacity: .85; }
   </aside>
 </div>
 <script>
+const DESK_NAME = {{deskNameJs}}; // filled in by the server from settings (deskName)
 const SESSIONS = ['admin', 'dev', 'sw', 'app', 'draw'];
 const NAMES = { admin: 'Admin', dev: 'Dev', sw: 'SW', app: 'App', draw: 'Draw' };
 const $ = id => document.getElementById(id);
@@ -266,7 +267,7 @@ async function load() {
       render();
     }
   } catch {
-    $('banner').innerHTML = '<div>The Desk server isn\'t answering. Open PDM Desk from the Start menu to start it again.</div>';
+    $('banner').innerHTML = `<div>The ${esc(DESK_NAME)} server isn't answering. Start it again from the Start menu (PDM Sessions).</div>`;
   }
   $('ago').textContent = lastSeen ? 'Updated ' + new Date(lastSeen).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
 }
@@ -284,7 +285,7 @@ function render() {
   const blocking = mine.filter(t => t.priority === 'blocking').length;
   $('sum').textContent = (mine.length ? `${mine.length} open${blocking ? ` · ${blocking} blocking` : ''}` : 'Nothing waiting for you')
     + (talking ? ` · ${talking} in discussion` : '');
-  document.title = mine.length ? `(${mine.length}) PDM Desk` : 'PDM Desk';
+  document.title = mine.length ? `(${mine.length}) ${DESK_NAME}` : DESK_NAME;
 
   // The draft Review screen (/review): one draft at a time with the PDF large. The button shows while any wait for Grant.
   const nReview = tickets.filter(t => t.type === 'draft-review' && waitingDraft(t) && !awaitingOwner(t)).length;

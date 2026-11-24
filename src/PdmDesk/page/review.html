@@ -110,6 +110,7 @@ textarea:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(-
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = s => esc(s).replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+const DESK_NAME = {{deskNameJs}}; // filled in by the server from settings (deskName)
 const NAMES = { admin: 'Admin', dev: 'Dev', sw: 'SW', app: 'App', draw: 'Draw' };
 const name = s => NAMES[s] || (s ? s[0].toUpperCase() + s.slice(1) : '');
 function ago(iso) {
@@ -147,7 +148,7 @@ async function load() {
     if (!r.ok) throw new Error();
     text = await r.text();
     $('banner').textContent = '';
-  } catch { $('banner').textContent = 'The Desk server isn\'t answering. Start it again from the Start menu (PDM Sessions).'; return; }
+  } catch { $('banner').textContent = `The ${DESK_NAME} server isn't answering. Start it again from the Start menu (PDM Sessions).`; return; }
   if (text === lastJson) return;
   lastJson = text;
   const state = JSON.parse(text);

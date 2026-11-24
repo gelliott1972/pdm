@@ -37,10 +37,15 @@ app.Use(async (ctx, next) =>
     }
 });
 
-var page = ReadPage("index.html");
-var review = ReadPage("review.html");
-// The pages' version: an open tab reloads itself when it changes (after an install), so it never runs old code.
-var pageVersion = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(page + review)))[..12];
+// The Desk's name (settings deskName) is filled in on the server, so the page never shows the old name first.
+var page = Named(ReadPage("index.html"));
+var review = Named(ReadPage("review.html"));
+// The pages' version: an open tab reloads itself when it changes (after an install or a settings change), so it never
+// runs old code or old settings.
+var pageVersion = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(page + review + settings.Text)))[..12];
+string Named(string html) => html
+    .Replace("{{deskNameJs}}", System.Text.Json.JsonSerializer.Serialize(settings.DeskName)) // a JS string; < > & ' escaped
+    .Replace("{{deskName}}", WebUtility.HtmlEncode(settings.DeskName));
 app.MapGet("/", () => Results.Content(page, "text/html; charset=utf-8"));
 // The draft Review screen (Grant, 15 Nov): one draft at a time, the PDF large, Accept or Redo, then the next.
 app.MapGet("/review", () => Results.Content(review, "text/html; charset=utf-8"));

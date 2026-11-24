@@ -2,7 +2,7 @@
 // roof plates 10 higher, screen unchanged. Read-only commands open P:\ files or copies under C:\PDM-work\. Commands
 // that save write only to copies under C:\PDM-work\grout\ (the rehearsal) or, with --checked-out, to a P:\ file that is
 // checked out here (writable); a read-only vault file is refused. Never M:\, Dropbox or .pdm.
-//   read-only: mates <asm> [config] | dims <file> [config] | xforms <asm> <config> <out.txt> | eq <file>
+//   read-only: mates <asm> [config] | dims <file> [config] | xforms <asm> <config> <out.txt> | eq <file> | floor <asm> [config]
 //   saving:    setdims <file> <config|*> <dim>=<mm> ... | gv <part> <config> <global>=<value> ...
 //              plane <asm> <plane> <offset mm> | feet <part> <sketch> <dim>=<mm> ... | setcomp <asm> <config> <comp> <cfg>
 //              delcomp <asm> <file name> | matedist <asm> <mate> <add mm> | addcfg <part> <base config> <new config>
@@ -292,6 +292,66 @@ static class SwGrout
                         if (!seen.Contains(s)) { seen.Add(s); Console.WriteLine("HOLE\t" + s); }
                     }
                 Console.WriteLine("HOLES\t" + seen.Count);
+            }
+            else if (cmd == "floor")
+            {
+                // floor <asm> [config] (read-only, Admin 24 Nov, before the B/C square-edge exports): every horizontal plate body
+                // in the assembly (any part, so weldment feet count too), with its underside and top in the top assembly's Y
+                // (up), its size, what sits directly above it (the nearest body over its footprint and the gap) and anything
+                // directly under it (grout). Fasteners, anchor kits and LED tiles (SKUS / PANELS folders) are left out.
+                // "Plate": the body's Y extent is at most 30 mm and both X and Z extents are at least 80 mm.
+                var asm = (AssemblyDoc)doc;
+                asm.ResolveAllLightWeightComponents(false);
+                doc.ForceRebuild3(false);
+                var mu = (MathUtility)sw.GetMathUtility();
+                var boxes = new List<Tuple<string, double[]>>();   // name, [x0 y0 z0 x1 y1 z1] in the top assembly (m)
+                int grout = 0, kits = 0;
+                foreach (Component2 k in (object[])asm.GetComponents(false) ?? new object[0])
+                {
+                    if (k.GetSuppression2() == (int)swComponentSuppressionState_e.swComponentSuppressed) continue;
+                    string p = k.GetPathName() ?? "", fn = Path.GetFileName(p).ToUpperInvariant();
+                    if (!fn.EndsWith(".SLDPRT")) continue;
+                    if (fn.Contains("GROUT")) grout++;
+                    if (fn.StartsWith("FAST-") || fn.StartsWith("MDL-ANCHOR")) { kits++; continue; }
+                    if (p.IndexOf(@"\SKUS\", StringComparison.OrdinalIgnoreCase) >= 0 || p.IndexOf(@"\PANELS\", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                    var T = k.Transform2 as MathTransform; if (T == null) continue;
+                    var Ti = (MathTransform)T.Inverse();
+                    object info;
+                    foreach (Body2 b in (object[])k.GetBodies3((int)swBodyType_e.swSolidBody, out info) ?? new object[0])
+                    {
+                        var bx = new double[6];
+                        for (int ax = 0; ax < 3; ax++)
+                            for (int sgn = -1; sgn <= 1; sgn += 2)
+                            {
+                                var dw = new double[3]; dw[ax] = sgn;
+                                var dp = (double[])((MathVector)((MathVector)mu.CreateVector(dw)).MultiplyTransform(Ti)).ArrayData;
+                                double px, py, pz;
+                                b.GetExtremePoint(dp[0], dp[1], dp[2], out px, out py, out pz);
+                                var q = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { px, py, pz })).MultiplyTransform(T)).ArrayData;
+                                bx[sgn < 0 ? ax : ax + 3] = q[ax];
+                            }
+                        boxes.Add(Tuple.Create(k.Name2 + "  [" + S(() => b.Name) + "]  " + Path.GetFileName(p) + " <" + k.ReferencedConfiguration + ">", bx));
+                    }
+                }
+                Func<double[], double[], bool> over = (u, v) => u[0] < v[3] - 1e-4 && v[0] < u[3] - 1e-4 && u[2] < v[5] - 1e-4 && v[2] < u[5] - 1e-4;
+                var plates = boxes.Where(t => t.Item2[4] - t.Item2[1] <= 0.030 + 1e-6 && t.Item2[3] - t.Item2[0] >= 0.080 && t.Item2[5] - t.Item2[2] >= 0.080)
+                    .OrderBy(t => t.Item2[1]).ThenBy(t => t.Item2[0]).ThenBy(t => t.Item2[2]).ToList();
+                Console.WriteLine("BODIES\t" + boxes.Count + "\thorizontal plates " + plates.Count + "\tfastener/kit parts left out " + kits + "\tgrout parts " + grout);
+                foreach (var pl in plates)
+                {
+                    var u = pl.Item2;
+                    // nearest body above the footprint (its underside at or above the plate top, less 0.5 mm) and any body under it
+                    var above = boxes.Where(t => !ReferenceEquals(t, pl) && over(u, t.Item2) && t.Item2[1] >= u[4] - 0.0005).OrderBy(t => t.Item2[1]).FirstOrDefault();
+                    var under = boxes.Where(t => !ReferenceEquals(t, pl) && over(u, t.Item2) && t.Item2[4] <= u[1] + 0.0005 && t.Item2[4] >= u[1] - 0.5).OrderByDescending(t => t.Item2[4]).FirstOrDefault();
+                    Console.WriteLine("PLATE\tunderside " + Mm(u[1]) + "\ttop " + Mm(u[4]) + "\tt " + Mm(u[4] - u[1]) + "\t" + Mm(u[3] - u[0]) + " x " + Mm(u[5] - u[2])
+                        + "\tcentre X " + Mm((u[0] + u[3]) / 2) + " Z " + Mm((u[2] + u[5]) / 2)
+                        + "\tabove " + (above == null ? "nothing" : "gap " + Mm(above.Item2[1] - u[4]) + " " + above.Item1)
+                        + "\tunder " + (under == null ? "nothing" : "gap " + Mm(u[1] - under.Item2[4]) + " " + under.Item1)
+                        + "\t" + pl.Item1);
+                }
+                foreach (var g in plates.GroupBy(t => Math.Round(t.Item2[1] * 1000, 2)).OrderBy(g => g.Key))
+                    Console.WriteLine("LEVEL\tunderside " + g.Key.ToString("0.##", Inv) + "\t" + g.Count() + " plates\t" + string.Join(", ", g.Select(t => Mm(t.Item2[4] - t.Item2[1]) + " thick").Distinct()));
+                Console.WriteLine("LOWEST BODY\t" + Mm(boxes.Min(t => t.Item2[1])) + "\t" + boxes.OrderBy(t => t.Item2[1]).First().Item1);
             }
             else if (cmd == "xforms")
             {

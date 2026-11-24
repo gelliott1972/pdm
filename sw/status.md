@@ -1,5 +1,18 @@
 # SW status
 
+## 24 Nov: square-edge exports (SESTP) of LS-08B-11, LS-08C-11, LS-08B-06, LS-08C-06 for SAP2000, all OK
+
+Admin's go. Before each export, a floor-plate check against its A screen (new read-only `SwGrout floor`, summary `sw\sestploorsum.py`; data `C:\PDM-work\sestploor-1124`). Nothing in the vault changed. Pin 2026-11-24T13:33:43Z for all four.
+
+| Screen | Floor plates (as its A) | Run | END STEEL any / members |
+| --- | --- | --- | --- |
+| LS-08B-11 | 12 at -5590, gap 0, nothing under | `runs\LS-08B-11 2026-11-24T1356Z` | -25/-25, -55/-55 |
+| LS-08C-11 | 12 at -5590, gap 0, nothing under | `runs\LS-08C-11 2026-11-24T1418Z` | -25/-25, -55/-55 |
+| LS-08B-06 | 10 at -4910, gap 0, nothing under | `runs\LS-08B-06 2026-11-24T1435Z` | -25/-200, -55/-230 (mirror of A: expected, apex-admin) |
+| LS-08C-06 | 10 at -4910, gap 0, nothing under | `runs\LS-08C-06 2026-11-24T1454Z` | -25/-200, -55/-230 |
+
+Sandbox copies partly left ("in use"): run `sestp.py tidy` later.
+
 ## 24 Nov: APEX-A86 GNRIC-PLP FP-150X200 anchor holes 15 -> 14 mm, checked in
 
 Admin's brief (Grant, Desk apex-admin-14). pdm get, check-out (2), rehearsal on copies, real change (SwGrout setdims, FP-150X200 only), drawing GNRIC-PLP-01 rebuilt and saved, dry load exactly 2 changed, `pdm checkin` with the note, dry load 0 changed. Vault times: part 2026-11-24T13:33:43Z, drawing 13:33:51Z.

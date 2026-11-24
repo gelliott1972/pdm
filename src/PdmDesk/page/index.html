@@ -194,6 +194,34 @@ a.b:hover { border-color: var(--accent); }
 a.bigreview { display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; background: var(--accent); color: var(--accent-ink); border-radius: 10px; padding: 14px 18px; font-weight: 600; font-size: 16px; margin: 4px 0 6px; box-shadow: var(--shadow); }
 a.bigreview:hover { filter: brightness(1.06); }
 a.bigreview span { font-weight: 400; opacity: .85; }
+.boardwrap { max-width: 1240px; margin: 0 auto; padding: 0 24px 40px; }
+@media (max-width: 880px) { .boardwrap { padding: 0 16px 32px; } }
+.boardscroll { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+table.board { border-collapse: separate; border-spacing: 0; font-size: 12px; min-width: 100%; }
+table.board th, table.board td { padding: 6px 6px; border-top: 1px solid var(--line); vertical-align: top; text-align: left; }
+table.board thead th { border-top: 0; font-weight: 600; color: var(--muted); white-space: nowrap; font-size: 11px; }
+table.board th.lsh { position: sticky; left: 0; background: var(--panel); min-width: 170px; max-width: 220px; font-weight: 400; z-index: 1; }
+table.board .rule { border-left: 2px solid var(--line); }
+table.board .ls { font: 600 12.5px ui-monospace, Consolas, monospace; }
+table.board .desc, table.board .vms { color: var(--muted); font-size: 11px; }
+table.board td { min-width: 78px; }
+.bc { display: block; border-radius: 6px; padding: 4px 6px; cursor: pointer; border: 1px solid transparent; font-weight: 600; white-space: nowrap; }
+.bc .when { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+.bc.done { background: var(--green-soft); color: var(--green); }
+.bc.running { background: var(--accent-soft); color: var(--accent); }
+.bc.waiting { background: var(--amber-soft); color: var(--amber); }
+.bc.blocked { background: var(--red-soft); color: var(--red); }
+.bc.none { color: var(--grey); font-weight: 400; }
+.bc.ood { background: var(--bg); color: var(--muted); border: 1px dashed var(--amber); }
+.bc.unk { background: var(--bg); color: var(--red); border: 1px dashed var(--red); }
+.bc.pin { color: var(--ink); font-weight: 400; }
+.bc .mark { display: block; font-weight: 600; font-size: 10.5px; color: var(--amber); white-space: normal; }
+.bc.sel { box-shadow: 0 0 0 2px var(--accent); }
+.celldetail { margin-top: 8px; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; font-size: 13px; overflow-wrap: anywhere; }
+.celldetail .meta { margin-top: 2px; }
+details.notstarted { margin-top: 8px; font-size: 13px; color: var(--muted); }
+details.notstarted summary { cursor: pointer; }
+details.notstarted div { margin-top: 4px; }
 .gone { opacity: 0; transform: translateY(-4px); transition: opacity .25s, transform .25s; }
 </style>
 </head>
@@ -229,6 +257,7 @@ a.bigreview span { font-weight: 400; opacity: .85; }
     <div class="problems" id="problems"></div>
   </aside>
 </div>
+<div class="boardwrap" id="boardWrap"></div>
 <script>
 const DESK_NAME = {{deskNameJs}}; // filled in by the server from settings (deskName)
 // Sessions, their labels and groups come from settings (state.desk.groups); see readGroups().
@@ -817,6 +846,72 @@ noteSend.onclick = async () => {
   catch (e) { $('noteMsg').textContent = e.message; noteSend.disabled = false; }
 };
 
+// ---- The board (stage 2, item 5): where each screen type is up to, from the register (/api/board, every 10 s).
+let board = null, boardJson = '', boardSel = null, notStartedOpen = false;
+async function loadBoard() {
+  try {
+    const r = await fetch('/api/board', { cache: 'no-store' });
+    if (!r.ok) return;
+    const text = await r.text();
+    if (text === boardJson) return;
+    boardJson = text; board = JSON.parse(text); drawBoard();
+  } catch {}
+}
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const p2 = n => String(n).padStart(2, '0');
+// A pin as a short local time, "22 Nov 18:36".
+const short = iso => { const t = Date.parse(iso); if (!t) return ''; const d = new Date(t); return `${d.getDate()} ${MONTHS[d.getMonth()]} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+const WORDS = { done: 'Done', running: 'Running', waiting: 'Waiting', blocked: 'Blocked' };
+function boardCell(r, s) {
+  const c = (r.cells || {})[s.key], key = r.ls + '|' + s.key, sel = boardSel === key ? ' sel' : '';
+  if (!c) return `<span class="bc none">–</span>`;
+  const tip = esc([c.pin && 'Pin ' + c.pin + ' UTC', c.date, c.by, c.note].filter(Boolean).join(' · '));
+  if (s.kind === 'pin') {
+    if (c.state === '?') return `<span class="bc unk${sel}" data-cell="${esc(key)}" title="${tip}">?</span>`;
+    const later = r.steelSince && Date.parse(r.steelSince) < Date.parse(r.pin);
+    return `<span class="bc pin${sel}" data-cell="${esc(key)}" title="${tip}">${esc(short(r.pin)) || '–'}${later ? `<span class="when">same steel since ${esc(short(r.steelSince))}</span>` : ''}</span>`;
+  }
+  let cls, word;
+  if (c.state === '?') [cls, word] = ['unk', '?'];
+  else if (c.outOfDate) [cls, word] = ['ood', 'Out of date'];
+  else if (c.state === 'not started') [cls, word] = ['none', '–'];
+  else [cls, word] = [c.state, WORDS[c.state] || c.state];
+  const pin = c.pin && c.state !== 'not started' ? (c.outOfDate ? `<s>${esc(short(c.pin))}</s>` : esc(short(c.pin))) : '';
+  const mark = c.olderSteel ? '<span class="mark">given on older steel</span>' : '';
+  return `<span class="bc ${cls}${sel}" data-cell="${esc(key)}" title="${tip}">${esc(word)}${pin ? `<span class="when">${pin}</span>` : ''}${mark}</span>`;
+}
+function drawBoard() {
+  const box = $('boardWrap'), b = board;
+  if (!b || !b.enabled) { box.innerHTML = ''; return; }
+  const rule = new Set(b.dividers || []), steps = b.steps || [];
+  let h = '<h2>Where things are up to</h2>';
+  if ((b.rows || []).length) {
+    h += '<div class="boardscroll"><table class="board"><thead><tr><th class="lsh">Screen type</th>'
+      + steps.map(s => `<th${rule.has(s.key) ? ' class="rule"' : ''}>${esc(s.label)}</th>`).join('') + '</tr></thead><tbody>';
+    for (const r of b.rows) {
+      h += `<tr><th class="lsh"><div class="ls">${esc(r.ls)}</div><div class="desc">${esc(r.description)}</div>`
+        + `${(r.vms || []).length ? `<div class="vms">${esc(r.vms.join(', '))}</div>` : ''}`
+        + `${r.openTickets ? `<button class="link" data-screen="${esc(r.ls)}" title="Show only ${esc(r.ls)} tickets">${r.openTickets} ticket${r.openTickets === 1 ? '' : 's'}</button>` : ''}</th>`
+        + steps.map(s => `<td${rule.has(s.key) ? ' class="rule"' : ''}>${boardCell(r, s)}</td>`).join('') + '</tr>';
+    }
+    h += '</tbody></table></div>';
+  } else h += '<div class="card empty">No screen type has started yet.</div>';
+  // The cell clicked: its full pin, date, who and note.
+  const [sl, sk] = (boardSel || '').split('|'), sr = (b.rows || []).find(r => r.ls === sl), sc = sr?.cells?.[sk], ss = steps.find(s => s.key === sk);
+  if (sc) h += `<div class="celldetail"><b>${esc(sl)} · ${esc(ss?.label || sk)}</b>: ${esc(sc.state === '?' ? "can't tell (see the lines below)" : sc.outOfDate ? 'out of date (' + sc.state + ')' : sc.state)}${sc.olderSteel ? ', given on older steel' : ''}
+    <div class="meta">${[sc.pin && 'pin ' + esc(sc.pin) + ' UTC', esc(sc.date), esc(sc.by)].filter(Boolean).join(' · ')}</div>${sc.note ? `<div>${esc(sc.note)}</div>` : ''}</div>`;
+  const ns = b.notStarted || [];
+  if (ns.length) h += `<details class="notstarted" id="notStarted"${notStartedOpen ? ' open' : ''}><summary>${ns.length} screen type${ns.length === 1 ? '' : 's'} not started</summary>`
+    + `<div>${ns.map(n => `${esc(n.ls)}${n.description ? ' <span class="meta" style="display:inline">' + esc(n.description) + '</span>' : ''}`).join('<br>')}</div></details>`;
+  if ((b.problems || []).length) h += '<div class="problems">' + b.problems.map(esc).join('<br>') + '</div>';
+  box.innerHTML = h;
+  $('notStarted')?.addEventListener('toggle', e => { notStartedOpen = e.target.open; });
+}
+$('boardWrap').addEventListener('click', e => {
+  const c = e.target.closest('[data-cell]'); if (!c) return;
+  boardSel = boardSel === c.dataset.cell ? null : c.dataset.cell; drawBoard();
+});
+
 // ---- Notices (stage 2, item 7): one short sound and a desktop notice when a poll brings a blocking ticket waiting for
 // Grant that wasn't there before, or a session turns to "Needs you". Not on the first load; ids already announced are
 // kept on this PC, so a reload doesn't repeat them. Off until Grant presses the button once (the click browsers need
@@ -883,6 +978,8 @@ theme(document.documentElement.dataset.theme || 'system');
 
 load();
 setInterval(load, 3000);
+loadBoard();
+setInterval(loadBoard, 10000);
 setInterval(() => { if (state) render(); }, 60000); // keeps "5 min ago" current on the session cards
 </script>
 </body>

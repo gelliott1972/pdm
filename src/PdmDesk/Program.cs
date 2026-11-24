@@ -79,6 +79,17 @@ app.MapGet("/api/state", () =>
     return Results.Ok(new { root, tickets, status, activity, sw, notes, problems, warnings, desk, now = Store.Now(), version = pageVersion });
 });
 
+// The board (stage 2, item 5): where each screen type is up to, read from the register in settings; polled by the
+// main page every 10 seconds. Without register and steps in settings it is simply not shown.
+var board = new Board(settings);
+app.MapGet("/api/board", () =>
+{
+    if (!board.Enabled) return Results.Ok(new { enabled = false });
+    var b = board.Build(store.All(store.Tickets, []));
+    b["enabled"] = true;
+    return Results.Ok(b);
+});
+
 app.MapPost("/api/answer", async (HttpRequest req) =>
 {
     var body = await Body(req);

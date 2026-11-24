@@ -267,6 +267,7 @@ def DEC_0807(x):
         "files": files,
         "partnos": pn,
         "all_provisional": "as every import so far (numbers for James's review)",
+        "welded_children_take_parent": "Admin 25 Nov, as 0804 R8: As Welded child with no number of its own takes its parent's number",
     }
     if x == "A":   # the shared parts and the SKUs come in with A; B/C reuses them (--with A)
         for f, (fam, order, first) in SHARED_0807.items():

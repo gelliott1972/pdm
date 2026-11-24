@@ -1,5 +1,19 @@
 # SW status
 
+## 24 Nov: 0807 floor anchors (APEX-A84) checked in
+
+Admin's brief (Desk apex-admin-13, -15). pdm get, check-out 3, rehearsal on Pack and Go copies (`C:\PDM-work\grout\anc07`), real, dry load exactly 3 changed, `pdm checkin`, dry load 0. Vault times: MDL-ANCHOR-GNRIC 15:39:39Z, 08A07-STA-01 15:39:44Z, 08Z07-STA-01 15:39:48Z.
+
+| Check | Result |
+| --- | --- |
+| Kit | New FLOOR_150X200_M12x185 (D1 60 -> 35: anchors x ±35, z ±60); FLOOR_200X200 and both ROOF configurations unchanged |
+| Each STA | 28 kits (22 FLOOR_200X200 + 6 FLOOR_150X200), one per GNRIC-PLP floor plate, 4 x M12x185 each, 3/3 mates, 4/4 anchors on holes, at plate top Y -884.237 |
+| Positions | +STRUCTURE tops 322 -> 462; 0 earlier components moved; 0 errors |
+| LS-08A-11, LS-08A-06 | 120 kit and anchor components unchanged after the kit change; 0 errors |
+| Half turn | 3 kits in 08A07 settled half a turn about the anchor axis; same holes (SwGrout now accepts and reports it) |
+
+Scripts `sw\grout\anc07.ps1`, `sw\grout\anc07_check.py`.
+
 ## 24 Nov: square-edge exports (SESTP) of LS-08B-11, LS-08C-11, LS-08B-06, LS-08C-06 for SAP2000, all OK
 
 Admin's go. Before each export, a floor-plate check against its A screen (new read-only `SwGrout floor`, summary `sw\sestp\floorsum.py`; data `C:\PDM-work\sestp\floor-1124`). Nothing in the vault changed. Pin 2026-11-24T13:33:43Z for all four.

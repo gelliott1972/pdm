@@ -1112,10 +1112,18 @@ static class SwGrout
                     doc.ForceRebuild3(false);
                     var d2 = (double[])kc.Transform2.ArrayData;
                     double dev = Enumerable.Range(0, 12).Max(i => Math.Abs(d2[i] - arr[i]) * (i >= 9 ? 1000 : 1));
+                    // 0807 (24 Nov): the solver may settle on the half turn about the anchor axis (X and Z reversed, Y and the
+                    // origin the same). With a pattern that is the same after that turn, every anchor is where it was planned.
+                    bool halfTurn = dev >= 0.01
+                        && Enumerable.Range(0, 3).All(i => Math.Abs(d2[i] + arr[i]) < 1e-6 && Math.Abs(d2[3 + i] - arr[3 + i]) < 1e-6 && Math.Abs(d2[6 + i] + arr[6 + i]) < 1e-6 && Math.Abs(d2[9 + i] - arr[9 + i]) * 1000 < 0.01)
+                        && kxyz.All(k => kxyz.Any(q => Math.Abs(q[0] + k[0]) < 1e-7 && Math.Abs(q[2] + k[2]) < 1e-7));
+                    if (halfTurn) dev = 0;
                     // the kit's anchors on the plate's holes
                     int onHole = 0;
                     foreach (var k in kxyz) { var kw2 = Enumerable.Range(0, 3).Select(i => d2[9 + i] + k[0] * d2[i] + k[1] * d2[3 + i] + k[2] * d2[6 + i]).ToArray(); if (holes.Any(h => Enumerable.Range(0, 3).All(i => Math.Abs(h.Item2[i] - kw2[i] - ((h.Item2[0] - kw2[0]) * away[0] + (h.Item2[1] - kw2[1]) * away[1] + (h.Item2[2] - kw2[2]) * away[2]) * away[i]) < 2e-4))) onHole++; }
-                    Console.WriteLine("PLACED\t" + kc.Name2 + " <" + kc.ReferencedConfiguration + ">\ton " + pname + "\tmates " + made + "/3\tmoved by the mates " + dev.ToString("0.###", Inv) + "\tanchors on holes " + onHole + "/4\tat (" + Mm(d2[9]) + ", " + Mm(d2[10]) + ", " + Mm(d2[11]) + ")");
+                    Console.WriteLine("PLACED\t" + kc.Name2 + " <" + kc.ReferencedConfiguration + ">\ton " + pname + "\tmates " + made + "/3\tmoved by the mates " + dev.ToString("0.###", Inv) + "\tanchors on holes " + onHole + "/4\tat (" + Mm(d2[9]) + ", " + Mm(d2[10]) + ", " + Mm(d2[11]) + ")"
+                        + (halfTurn ? "\thalf turn about the anchor axis (same anchor positions)" : "")
+                        + (dev >= 0.01 ? "\tplanned axes " + string.Join(" ", arr.Take(9).Select(v => v.ToString("0.###", Inv))) + "\tafter the mates " + string.Join(" ", d2.Take(9).Select(v => v.ToString("0.###", Inv))) : ""));
                     if (made == 3 && dev < 0.01 && onHole == 4) placed++; else failed++;
                 }
                 sw.CloseDoc(kitDoc.GetTitle());

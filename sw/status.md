@@ -1,5 +1,17 @@
 # SW status
 
+## 24 Nov: APEX-A86 GNRIC-PLP FP-150X200 anchor holes 15 -> 14 mm, checked in
+
+Admin's brief (Grant, Desk apex-admin-14). pdm get, check-out (2), rehearsal on copies, real change (SwGrout setdims, FP-150X200 only), drawing GNRIC-PLP-01 rebuilt and saved, dry load exactly 2 changed, `pdm checkin` with the note, dry load 0 changed. Vault times: part 2026-11-24T13:33:43Z, drawing 13:33:51Z.
+
+| Check | Result |
+| --- | --- |
+| FP-150X200 | Thru Hole Dia. 15 -> 14; 4 holes at 14 mm; mass 2.2849 -> 2.2920 kg |
+| Other 8 configurations | Unchanged (FP-200x200 still 14, FP-150X200-CHAMFERED_CORNERS still 15); masses identical |
+| GNRIC-PLP-01 | Hole callout "4 x Ø 14 THRU" (linked); only that dimension changed; 10 dims, 0 dangling, 0 errors |
+
+Not touched: 08X04-LMW and the 18 SFA subframes (they pick it up at their next rebuild). Data and backups `C:\PDM-work\grout\plp-a86`; checks `sw\plp-a86.py`.
+
 ## 20 Nov: the 27 parts + 08X04-SFP-03 (Grant's go) done; white balloons looked at on one drawing
 
 **Run (data `scratch\profiles\real-1120\`):** pdm get, inventory (28 parts used by 203 drawings and 100 assemblies), before checks with values, check-out, backups, SwFix, SwRedim, after checks, dry load exactly 86, `pdm checkin` with 3 notes, dry load 0 changed.

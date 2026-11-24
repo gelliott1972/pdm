@@ -473,17 +473,19 @@ static class SwSestp
         // APEX-A49: the bottom-left corner of the LED face seen from the front. Grant 22 Nov: the LED face is the tile's full flat
         // face (part +Z), Y is up, and on a screen that wraps round, use the FRONT-FACING tiles (the way most tiles face) and
         // their face closest to the front. Viewer looks along -n; right = (-n) x up.
-        // APEX-A67 (24 Nov): the corner line keeps LS-08A-11's wording; on a wrap it is marked "majority facing, front not
-        // decided" and every face gets its own measured line; plus the axis convention and the end-steel distances.
+        // APEX-A67 (24 Nov): the corner line keeps LS-08A-11's wording; on a wrap, front = the VERTICAL face with the most tiles
+        // (Grant 24 Nov, APEX-A49), the corner line says so, and every face gets its own measured line; plus the axis line (words
+        // and unit vectors for left, up and outward) and the end-steel distances.
         if (normals.Count > 0)
         {
             bool wrap = normals.Count > 1;
-            string front = normals.OrderByDescending(kv => kv.Value).First().Key;
+            Func<string, bool> vertical = k => Math.Abs(double.Parse(k.Split(' ')[1], Inv)) < 0.001;
+            string front = normals.OrderByDescending(kv => vertical(kv.Key) ? 1 : 0).ThenByDescending(kv => kv.Value).First().Key;
             var c = LedCorner(front, glo[front], ghi[front]);
             lines.Add(c != null
                 ? "LED CORNER\tbottom-left of the LED face seen from the front (Y up), top assembly axes (mm): X " + Mm(c[0]) + "\tY " + Mm(c[1]) + "\tZ " + Mm(c[2])
-                  + (wrap ? "\t(majority facing " + FacingName(front) + ", " + normals[front] + " of " + tiles.Count + " tiles; front not decided)" : "")
-                : "LED CORNER\tnot worked out: the screen is not square to the axes, or its majority face is not vertical");
+                  + (wrap ? "\t(front: the vertical face with the most tiles, facing " + FacingName(front) + ", " + normals[front] + " of " + tiles.Count + " tiles)" : "")
+                : "LED CORNER\tnot worked out: the screen is not square to the axes, or it has no vertical face");
             if (wrap)
                 foreach (var kv in normals.OrderByDescending(kv => kv.Value))
                 {
@@ -522,7 +524,9 @@ static class SwSestp
                     }
                 }
                 string side = boxes.Count == 0 ? "no steel found" : (slo + shi) / 2 > plane ? "steel at larger " + ax[jn] + " than the LED face" : "steel at smaller " + ax[jn] + " than the LED face";
-                lines.Add("AXES\tseen from the front" + (wrap ? " (majority facing " + FacingName(front) + ")" : "") + ": " + ax[jr] + " increasing to the " + (right[jr] > 0 ? "right" : "left") + ", y up, " + side
+                Func<double[], string> vec = v => "(" + string.Join(" ", v.Select(q => (Math.Abs(q) < 1e-9 ? 0 : q).ToString("0.###", Inv))) + ")";
+                lines.Add("AXES\tfront face, unit vectors in the top assembly's axes: left " + vec(new[] { -right[0], -right[1], -right[2] }) + "\tup " + vec(up) + "\toutward " + vec(n)
+                    + "\tseen from the front" + (wrap ? " (facing " + FacingName(front) + ")" : "") + ": " + ax[jr] + " increasing to the " + (right[jr] > 0 ? "right" : "left") + ", y up, " + side
                     + ", the LED face looking toward " + (n[jn] > 0 ? "+" : "-") + ax[jn]);
                 // END STEEL: along the screen (the right direction), from each LED end to the outermost steel face, in a 1 mm slice
                 // just above the LED corner's height (within 2 mm); positive = the steel reaches beyond the LED end
@@ -562,7 +566,7 @@ static class SwSestp
                 lines.Add(cut == 0
                     ? "END STEEL\tnot measured: no steel in a 1 mm slice just above the LED corner's height (Y " + Mm(c[1]) + ")"
                     : "END STEEL\talong the screen, from each LED end to the outermost steel face, in a 1 mm slice just above the LED corner's height (Y " + Mm(c[1]) + "), mm, positive = steel beyond the LED end: left " + Mm(ledLo - uLo) + "\tright " + Mm(uHi - ledHi)
-                      + (wrap ? "\t(majority face " + FacingName(front) + ")" : ""));
+                      + (wrap ? "\t(front face " + FacingName(front) + ")" : ""));
             }
         }
         else lines.Add("LED CORNER\tnot worked out: no tiles");

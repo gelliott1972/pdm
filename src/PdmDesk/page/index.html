@@ -43,6 +43,8 @@ header { display: flex; align-items: baseline; gap: 14px; padding: 18px 24px 8px
 header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
 header .sum { color: var(--muted); }
 header .ago { margin-left: auto; color: var(--muted); font-size: 12px; }
+header .notif { align-self: center; padding: 6px 10px; font-size: 12px; color: var(--muted); }
+header .notif[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
 .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 20px; padding: 8px 24px 40px; max-width: 1240px; margin: 0 auto; }
 @media (max-width: 880px) { .wrap { grid-template-columns: minmax(0, 1fr); padding: 8px 16px 32px; } header { padding: 16px 16px 8px; flex-wrap: wrap; row-gap: 6px; } header .ago { margin-left: 0; } }
 main { min-width: 0; }
@@ -200,6 +202,7 @@ a.bigreview span { font-weight: 400; opacity: .85; }
   <h1>{{deskName}}</h1>
   <span class="sum" id="sum"></span>
   <span class="ago" id="ago"></span>
+  <button class="b notif" id="notif" aria-pressed="false" title="A sound and a desktop notice when a blocking ticket arrives or a session needs you (only while a Desk tab is open)">Notices: off</button>
   <span class="theme" id="theme" role="group" aria-label="Colours">
     <button data-t="light" title="Light">Light</button><button data-t="dark" title="Dark">Dark</button><button data-t="system" title="Follow Windows">System</button>
   </span>
@@ -279,6 +282,7 @@ async function load() {
       pageVersion ??= state.version;
       if (state.version && state.version !== pageVersion && !busyHere()) { location.reload(); return; }
       render();
+      notices();
     }
   } catch {
     $('banner').innerHTML = `<div>The ${esc(DESK_NAME)} server isn't answering. Start it again from the Start menu (PDM Sessions).</div>`;
@@ -812,6 +816,61 @@ noteSend.onclick = async () => {
   try { await post('/api/note', { text: note.value }); note.value = ''; $('noteMsg').textContent = ''; lastJson = ''; load(); }
   catch (e) { $('noteMsg').textContent = e.message; noteSend.disabled = false; }
 };
+
+// ---- Notices (stage 2, item 7): one short sound and a desktop notice when a poll brings a blocking ticket waiting for
+// Grant that wasn't there before, or a session turns to "Needs you". Not on the first load; ids already announced are
+// kept on this PC, so a reload doesn't repeat them. Off until Grant presses the button once (the click browsers need
+// before they allow sound; it also asks for the notice permission). Works only while a Desk tab is open.
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+let noticesOn = store.get('desk-notices', false) === true, audio = null, firstPoll = true;
+const announced = new Set(store.get('desk-announced', []));
+function noticeButton() { const b = $('notif'); b.textContent = 'Notices: ' + (noticesOn ? 'on' : 'off'); b.setAttribute('aria-pressed', noticesOn); }
+$('notif').onclick = async () => {
+  noticesOn = !noticesOn; store.set('desk-notices', noticesOn); noticeButton();
+  if (!noticesOn) return;
+  try { audio ??= new AudioContext(); await audio.resume(); } catch {}
+  try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch {}
+  beep();
+};
+function beep() {
+  try {
+    audio ??= new AudioContext();
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+    o.frequency.value = 880; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.2, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+    o.connect(g).connect(audio.destination); o.start(t); o.stop(t + 0.3);
+  } catch {}
+}
+function notify(key, text) {
+  if (!noticesOn) return;
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const n = new Notification(DESK_NAME, { body: text, tag: key });
+      n.onclick = () => { window.focus(); n.close(); };
+    }
+  } catch {}
+}
+function notices() {
+  const fresh = [];
+  for (const t of state.tickets || [])
+    if (isOpen(t) && !awaitingOwner(t) && !editing.has(t._file) && t.priority === 'blocking') {
+      const key = 't:' + t._file;
+      if (!announced.has(key)) { announced.add(key); fresh.push([key, [shortId(t), t.screen, t.title].filter(Boolean).join(' · ')]); }
+    }
+  for (const a of state.activity || [])
+    if (a.activity === 'needs-you') {
+      const k = String(a.name || a._file).toLowerCase(), key = 'n:' + k + ':' + (a.at || '');
+      if (!announced.has(key)) { announced.add(key); fresh.push([key, `${name(k)} needs you${a.detail ? ': ' + a.detail : ''}`]); }
+    }
+  if (fresh.length) store.set('desk-announced', [...announced].slice(-500));
+  if (firstPoll) { firstPoll = false; return; } // what was already there when the page opened isn't news
+  if (!fresh.length || !noticesOn) return;
+  beep();
+  fresh.forEach(([key, text]) => notify(key, text));
+}
+noticeButton();
 
 function theme(t) {
   if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;

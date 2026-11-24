@@ -75,6 +75,16 @@ button.ref.scr.on { background: var(--accent); color: var(--accent-ink); border-
 .pill { font-size: 11px; font-weight: 600; border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
 .pill.blocking { background: var(--red-soft); color: var(--red); }
 .pill.later { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.pill.gate { background: var(--amber-soft); color: var(--amber); }
+.pill.gate.blocking { background: var(--red-soft); color: var(--red); }
+.gateinfo { margin-top: 10px; font-size: 13px; }
+.gatewarn { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: var(--amber-soft); color: var(--amber); font-weight: 600; font-size: 13px; }
+.attach { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+input.code { margin-top: 12px; width: 140px; padding: 8px 10px; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.bc.gw { background: var(--amber-soft); color: var(--amber); white-space: normal; }
+.bc.ga { background: none; color: var(--green); border: 2px solid var(--green); white-space: normal; }
+.bc.gn { background: none; color: var(--amber); border: 2px solid var(--amber); white-space: normal; }
+.bc.gg { background: none; color: var(--ink); border: 2px solid var(--grey); white-space: normal; }
 .pill.info { background: var(--accent-soft); color: var(--accent); }
 .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .body { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -368,7 +378,7 @@ function render() {
         if (!c || c.json !== html) { const el = batchHeadEl(lastBatch, tickets); if (c) c.el.replaceWith(el); c = { json: html, el }; cards.set(k, c); }
         keep.add(k); seq.push(k);
       } else if (t.type !== 'draft-review') lastBatch = null;
-      const json = JSON.stringify(t) + editing.has(t._file) + pdfShown.has(t._file);
+      const json = JSON.stringify(t) + editing.has(t._file) + pdfShown.has(t._file) + (t.type === 'gate' ? steelOf(t.screen) : '');
       let c = cards.get(t._file);
       if (!c || c.json !== json) { const el = ticketCard(t); if (c) c.el.replaceWith(el); c = { json, el }; cards.set(t._file, c); }
       keep.add(t._file); seq.push(t._file);
@@ -464,6 +474,7 @@ function ticketCard(t) {
   const type = t.type || 'decision';
   const draft = type === 'draft-review';
   const pill = type === 'info' ? '<span class="pill info">Info</span>' : draft ? `<span class="pill later">Draft v${esc(t.version || 1)}</span>`
+    : type === 'gate' ? `<span class="pill gate${t.priority === 'blocking' ? ' blocking' : ''}">Gate${t.priority === 'blocking' ? ' · blocking' : ''}</span>`
     : `<span class="pill ${t.priority === 'blocking' ? 'blocking' : 'later'}">${t.priority === 'blocking' ? 'Blocking' : 'Later'}</span>`;
   const from = [t.owner ? 'from ' + name(t.owner) : '', ago(draft && t.postedAt || t.createdAt)].filter(Boolean).join(' · ');
   const title = draft ? [t.partNo, t.title].filter(Boolean).join(' · ') : t.title;
@@ -485,6 +496,8 @@ function ticketCard(t) {
     html += '<div class="acts"><button class="b" data-act="dismiss">Dismiss</button><span class="msg"></span></div>';
   } else if (type === 'sw-job') {
     html += swJob(t);
+  } else if (type === 'gate') {
+    html += gateHtml(t);
   } else if (draft) {
     html += draftHtml(t);
   }
@@ -503,8 +516,100 @@ function ticketCard(t) {
     if (e.target.closest('button, a, input, textarea')) return;
     const now = el.classList.toggle('collapsed'); expandPref.set(t._file, !now);
   });
-  if (type === 'sw-job') wireJob(el, t); else if (draft) wireDraft(el, t); else wire(el, t);
+  if (type === 'sw-job') wireJob(el, t); else if (draft) wireDraft(el, t); else if (type === 'gate') wireGate(el, t); else wire(el, t);
   return el;
+}
+
+// ---- Gate tickets (stage 2, item 6): one button per outcome from settings (or a typed code for a code gate), a note
+// (required where the outcome says so), "Other, let's discuss", and a confirm when the steel has changed since it was asked.
+const gateConf = k => (state.desk?.gates || []).find(g => g.key === k);
+// The screen's steel now (steel_since, else its pin) from the board; '' when the board doesn't know.
+const steelOf = ls => { const r = (board?.rows || []).find(x => x.ls === ls); return r ? (r.steelSince || r.pin || '') : ''; };
+const steelChanged = t => { const s = steelOf(t.screen); return !!(s && t.pin && Date.parse(s) > Date.parse(t.pin)); };
+function gateOutcome(t, d) { // { passes: true/false/null, noteRequired, label } or null
+  const g = gateConf(t.gate); if (!g) return null;
+  if (g.input === 'code') {
+    const n = Number(d.code);
+    if (d.choice !== 'code' || String(d.code).trim() === '' || !Number.isInteger(n) || n < 0) return null;
+    const codes = g.codes || [];
+    if (!codes.length) return { passes: null, noteRequired: false, label: 'Code ' + n };
+    const c = codes.find(x => x.code === n); if (!c) return null;
+    return { passes: typeof c.passes === 'boolean' ? c.passes : null, noteRequired: !!c.noteRequired, label: `Code ${n}${c.label ? ' (' + c.label + ')' : ''}` };
+  }
+  const o = (g.outcomes || []).find(x => x.key === d.choice); if (!o) return null;
+  return { passes: !!o.passes, noteRequired: !!o.noteRequired, label: o.label || o.key };
+}
+function gateAnswer(t) {
+  const a = t.answer || {}, g = gateConf(t.gate);
+  if (a.choice === 'code') { const c = (g?.codes || []).find(x => x.code === a.code); return `Code ${a.code}${c?.label ? ' (' + c.label + ')' : ''}`; }
+  const o = (g?.outcomes || []).find(x => x.key === a.choice); return o ? (o.label || o.key) : a.choice;
+}
+function gateHtml(t) {
+  const g = gateConf(t.gate);
+  const d = drafts[t._file] ??= editing.has(t._file) && t.answer ? { choice: t.answer.choice || '', code: t.answer.code ?? '', note: t.answer.note || '', confirm: false } : { choice: '', code: '', note: '', confirm: false };
+  let h = `<div class="gateinfo">${esc(g?.label || t.gate || 'Gate')} for <b>${esc(t.screen || '?')}</b> · asked at pin <span title="${esc(t.pin)} UTC">${esc(short(t.pin) || t.pin || '?')}</span></div>`;
+  if (steelChanged(t)) h += `<div class="gatewarn">The steel has changed since this was asked (steel now from ${esc(short(steelOf(t.screen)))}).</div>`;
+  if ((t.attachments || []).length) h += '<div class="attach">' + t.attachments.map(a => `<a class="b" href="/api/attachment?id=${encodeURIComponent(t._file)}&key=${encodeURIComponent(a.key)}" target="_blank" rel="noopener">${esc(a.label || a.key)}</a>`).join('') + '</div>';
+  h += threadHtml(t);
+  if (!g) return h + '<div class="gatewarn">This gate isn\'t in the Desk\'s settings, so it can\'t be answered here.</div>';
+  const discuss = { key: DISCUSS, label: (t.thread || []).length ? 'Reply' : "Other, let's discuss", note: `Your comment goes to ${name(t.owner) || 'the owner'}, who replies here.` };
+  let opts;
+  if (g.input === 'code') opts = [...(g.codes || []).map(c => ({ key: 'code', code: c.code, label: `Code ${c.code}`, note: c.label })), ...((g.codes || []).length ? [] : [{ key: 'code', label: 'Enter the code', note: 'Type the code number below.' }]), discuss];
+  else opts = [...(g.outcomes || []), discuss];
+  const on = o => d.choice === o.key && (o.code === undefined || Number(d.code) === o.code);
+  h += '<div class="opts">' + opts.map(o => `<button type="button" class="opt${o.key === DISCUSS ? ' discuss' : ''}${on(o) ? ' on' : ''}" data-key="${esc(o.key)}"${o.code !== undefined ? ` data-code="${esc(o.code)}"` : ''} role="radio" aria-checked="${on(o)}">
+      <span class="dot"></span><span><span class="lab">${esc(o.label || o.key)}</span>${o.key === t.recommended ? '<span class="rec">Recommended</span>' : ''}${o.note ? `<span class="note">${fmt(o.note)}</span>` : ''}</span></button>`).join('') + '</div>';
+  if (g.input === 'code' && !(g.codes || []).length && d.choice === 'code') h += `<input class="code" type="number" min="0" step="1" inputmode="numeric" placeholder="Code" value="${esc(d.code)}">`;
+  const out = gateOutcome(t, d);
+  h += `<textarea placeholder="${d.choice === DISCUSS ? 'Your comment' : out?.noteRequired ? 'Note (needed: say why)' : 'Note (optional)'}">${esc(d.note)}</textarea>`;
+  if (d.confirm) h += `<div class="confirm">The steel has changed since this was asked (asked at ${esc(short(t.pin))}; steel now from ${esc(short(steelOf(t.screen)))}). Send "${esc(out?.label || '')}" anyway?
+    <div class="acts"><button class="b primary" data-act="gate-go">Yes, send</button><button class="b" data-act="gate-no">Cancel</button></div></div>`;
+  h += `<div class="acts">${t.recommended && opts.some(o => o.key === t.recommended && o.key !== DISCUSS) ? '<button class="b" data-act="rec">Accept recommendation</button>' : ''}
+    <button class="b primary" data-act="send">Send</button>${editing.has(t._file) ? '<button class="b" data-act="cancel">Cancel</button>' : ''}<span class="msg"></span><span class="hint">Your answer goes on the ticket; ${esc(name(t.owner) || 'the owner')} updates the register</span></div>`;
+  return h;
+}
+function wireGate(el, t) {
+  const d = drafts[t._file], msg = el.querySelector('.msg'), ta = el.querySelector('textarea'), send = el.querySelector('[data-act="send"]');
+  if (!send) return;
+  const sync = () => {
+    const out = gateOutcome(t, d);
+    send.disabled = d.choice === DISCUSS ? !d.note.trim() : !out || (out.noteRequired && !d.note.trim());
+    send.textContent = d.choice === DISCUSS ? 'Send comment' : 'Send';
+  };
+  el.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    const same = d.choice === b.dataset.key && (b.dataset.code === undefined || String(d.code) === b.dataset.code);
+    d.choice = same ? '' : b.dataset.key;
+    if (b.dataset.code !== undefined) d.code = same ? '' : b.dataset.code;
+    d.confirm = false; redraw(t);
+    const c = cards.get(t._file)?.el; (c?.querySelector('input.code') || (d.choice === DISCUSS ? c?.querySelector('textarea') : null))?.focus();
+  });
+  const code = el.querySelector('input.code');
+  if (code) code.oninput = () => { d.code = code.value; sync(); };
+  if (ta) { ta.oninput = () => { d.note = ta.value; sync(); }; ta.onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !send.disabled) send.click(); }; }
+  sync();
+  const go = async (path, body) => {
+    el.querySelectorAll('button').forEach(b => b.disabled = true); msg.textContent = '';
+    try {
+      await post(path, body);
+      delete drafts[t._file]; editing.delete(t._file);
+      el.classList.add('gone'); setTimeout(() => { lastJson = ''; load(); loadBoard(); }, 250);
+    } catch (e) {
+      if (/steel has changed/i.test(e.message)) { d.confirm = true; redraw(t); return; }
+      msg.textContent = e.message; el.querySelectorAll('button').forEach(b => b.disabled = false); sync();
+    }
+  };
+  const answer = confirmed => go('/api/gate', { id: t._file, choice: d.choice, code: d.choice === 'code' ? Number(d.code) : undefined, note: d.note, confirmed });
+  send.onclick = () => {
+    if (d.choice === DISCUSS) return go('/api/discuss', { id: t._file, text: d.note });
+    const out = gateOutcome(t, d);
+    if (out && out.passes !== false && steelChanged(t)) { d.confirm = true; redraw(t); return; }
+    answer(false);
+  };
+  const on = (k, f) => { const b = el.querySelector(`[data-act="${k}"]`); if (b) b.onclick = f; };
+  on('gate-go', () => answer(true));
+  on('gate-no', () => { d.confirm = false; redraw(t); });
+  on('rec', () => { d.choice = t.recommended; send.onclick(); });
+  on('cancel', () => { editing.delete(t._file); delete drafts[t._file]; lastJson = ''; load(); });
 }
 
 // ---- SOLIDWORKS jobs: Start (close all without saving, open the files), steps one at a time, Done / Problem.
@@ -748,12 +853,13 @@ function sentRow(t) {
   if (t.type === 'info') ans = 'Dismissed';
   else if (t.type === 'sw-job' && t.answer) ans = (t.answer.choice === 'problem' ? 'Problem: ' + esc(t.answer.note) : 'Done' + (t.answer.note ? ' · ' + esc(t.answer.note) : ''));
   else if (t.type === 'draft-review' && t.answer) ans = `${t.answer.choice === 'redo' ? 'Redo' : 'Accepted'} (v${esc(t.version || 1)})${t.answer.note ? ' · ' + esc(t.answer.note) : ''}`;
+  else if (t.type === 'gate' && t.answer) ans = [gateAnswer(t), t.answer.note].filter(Boolean).map(esc).join(' · ') + (t.answer.pin ? ` <span class="meta" style="display:inline">(asked at pin ${esc(short(t.answer.pin))})</span>` : '');
   else if (t.answer) {
     const o = (t.options || []).find(o => o.key === t.answer.choice);
     ans = [o ? (o.label || o.key) : t.answer.choice, t.answer.note].filter(Boolean).map(esc).join(' · ');
   }
   const done = t.status === 'done' ? ` · done by ${esc(name(t.owner) || 'owner')}` : '';
-  const change = t.type === 'decision' || t.type === 'sw-job' || t.type === 'draft-review' ? ` · <button class="link" data-change="${esc(t._file)}">Change answer</button>` : '';
+  const change = t.type === 'decision' || t.type === 'gate' || t.type === 'sw-job' || t.type === 'draft-review' ? ` · <button class="link" data-change="${esc(t._file)}">Change answer</button>` : '';
   const title = t.type === 'draft-review' ? [t.partNo, t.title].filter(Boolean).join(' · ') : t.title;
   const dec = t.decision ? ` · decision <b>${esc(t.decision)}</b>` : ''; // the decision this ticket produced
   return `<div class="row"><div class="what"><div>${idChip(t)}${scrChip(t)}${esc(title || t._file)}${refNote(t)}</div>
@@ -855,6 +961,7 @@ async function loadBoard() {
     const text = await r.text();
     if (text === boardJson) return;
     boardJson = text; board = JSON.parse(text); drawBoard();
+    if (state) render(); // gate cards show whether the steel has changed since they were asked
   } catch {}
 }
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -872,6 +979,14 @@ function boardCell(r, s) {
     return `<span class="bc pin${sel}" data-cell="${esc(key)}" title="${tip}">${esc(short(r.pin)) || '–'}${later ? `<span class="when">same steel since ${esc(short(r.steelSince))}</span>` : ''}</span>`;
   }
   let cls, word;
+  // A gate's ticket over the register's cell (stage 2, item 6), until apex-admin sets the ticket done.
+  const g = c.gate;
+  if (g) {
+    const [gc, gw] = { waiting: ['gw', 'Waiting for you'], accepted: ['ga', 'Accepted, not yet in the register'],
+      notAccepted: ['gn', 'Not accepted, not yet in the register'], given: ['gg', `${g.answer || 'Answered'}, not yet in the register`] }[g.overlay] || ['unk', '?'];
+    const pinG = g.ticketPin ? `<span class="when">asked at ${esc(short(g.ticketPin))}</span>` : '';
+    return `<span class="bc ${gc}${sel}" data-cell="${esc(key)}"${g.overlay === 'waiting' ? ` data-ticket="${esc(g.ticket)}"` : ''} title="${tip}${g.answer ? ' · ' + esc(g.answer) : ''}">${esc(gw)}${pinG}</span>`;
+  }
   if (c.state === '?') [cls, word] = ['unk', '?'];
   else if (c.outOfDate) [cls, word] = ['ood', 'Out of date'];
   else if (c.state === 'not started') [cls, word] = ['none', '–'];
@@ -898,7 +1013,7 @@ function drawBoard() {
   } else h += '<div class="card empty">No screen type has started yet.</div>';
   // The cell clicked: its full pin, date, who and note.
   const [sl, sk] = (boardSel || '').split('|'), sr = (b.rows || []).find(r => r.ls === sl), sc = sr?.cells?.[sk], ss = steps.find(s => s.key === sk);
-  if (sc) h += `<div class="celldetail"><b>${esc(sl)} · ${esc(ss?.label || sk)}</b>: ${esc(sc.state === '?' ? "can't tell (see the lines below)" : sc.outOfDate ? 'out of date (' + sc.state + ')' : sc.state)}${sc.olderSteel ? ', given on older steel' : ''}
+  if (sc) h += `<div class="celldetail"><b>${esc(sl)} · ${esc(ss?.label || sk)}</b>: ${esc(sc.state === '?' ? "can't tell (see the lines below)" : sc.outOfDate ? 'out of date (' + sc.state + ')' : sc.state)}${sc.olderSteel ? ', given on older steel' : ''}${sc.gate ? ` · <b>on the Desk:</b> ${esc({ waiting: 'waiting for you', accepted: 'accepted', notAccepted: 'not accepted', given: 'answered' }[sc.gate.overlay] || '')}${sc.gate.answer ? ' (' + esc(sc.gate.answer) + ')' : ''}, ticket ${esc(sc.gate.ticket)}, not yet in the register` : ''}
     <div class="meta">${[sc.pin && 'pin ' + esc(sc.pin) + ' UTC', esc(sc.date), esc(sc.by)].filter(Boolean).join(' · ')}</div>${sc.note ? `<div>${esc(sc.note)}</div>` : ''}</div>`;
   const ns = b.notStarted || [];
   if (ns.length) h += `<details class="notstarted" id="notStarted"${notStartedOpen ? ' open' : ''}><summary>${ns.length} screen type${ns.length === 1 ? '' : 's'} not started</summary>`
@@ -909,6 +1024,11 @@ function drawBoard() {
 }
 $('boardWrap').addEventListener('click', e => {
   const c = e.target.closest('[data-cell]'); if (!c) return;
+  if (c.dataset.ticket) { // "Waiting for you": open that ticket on the to-do list
+    const id = c.dataset.ticket; screenFilter = null; expandPref.set(id, true); render();
+    const card = cards.get(id)?.el; if (card) { card.classList.remove('collapsed'); card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    return;
+  }
   boardSel = boardSel === c.dataset.cell ? null : c.dataset.cell; drawBoard();
 });
 

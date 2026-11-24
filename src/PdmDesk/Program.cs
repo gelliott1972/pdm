@@ -10,6 +10,7 @@ var settings = Settings.Load();
 var Port = settings.Port;
 var url = $"http://127.0.0.1:{Port}/";
 var root = settings.DataFolder;
+var fileRoots = settings.Roots().ToArray(); // the only folders the Desk serves files from
 var openPage = !args.Contains("--no-browser");
 
 if (await AlreadyRunning()) { if (openPage) Open(); return; }
@@ -65,7 +66,7 @@ app.MapGet("/api/state", () =>
     if (swLock != null && (string?)swLock["kind"] == "command" && (int?)swLock["pid"] is int pid && !Running(pid)) swLock = null;
     var sw = new { @lock = swLock, pause = store.ReadOptional(Path.Combine(store.Sw, "pause.json"), problems) };
     // The Desk's name and session groups from settings (labels and order; headings only when the file sets groups).
-    var desk = new { name = settings.DeskName, groups = settings.SessionGroups, grouped = settings.GroupsFromFile };
+    var desk = new { name = settings.DeskName, groups = settings.SessionGroups, grouped = settings.GroupsFromFile, gates = settings.Gates };
     // The id rule (app\desk.md): a ticket from a session with a prefix in settings has an id starting with it.
     // Only told, never enforced, and only for tickets still in play (existing tickets are never renamed).
     var warnings = new List<string>();
@@ -88,6 +89,72 @@ app.MapGet("/api/board", () =>
     var b = board.Build(store.All(store.Tickets, []));
     b["enabled"] = true;
     return Results.Ok(b);
+});
+
+// Gate tickets (stage 2, item 6): posted by apex-admin, one per screen and gate. Grant's answer is written to the ticket
+// only; apex-admin updates the register (workflow.csv) and sets the ticket done. The Desk never writes the register.
+app.MapPost("/api/gate", async (HttpRequest req) =>
+{
+    var body = await Body(req);
+    var id = (string?)body?["id"];
+    var choice = ((string?)body?["choice"] ?? "").Trim();
+    var note = ((string?)body?["note"] ?? "").Trim();
+    int? code = body?["code"] is JsonValue cv && cv.TryGetValue<int>(out var cn) ? cn : null;
+    if (!Store.IdOk(id)) return Fail("Unknown ticket.");
+    if (note.Length > 4000) return Fail("The note is too long (4000 characters at most).");
+    lock (store.Lock)
+    {
+        var file = store.TicketFile(id!);
+        var t = store.Read(file, out var why);
+        if (t == null) return Fail($"Couldn't read the ticket ({why}).");
+        if ((string?)t["type"] != "gate") return Fail("Only gate tickets take this.");
+        var status = (string?)t["status"] ?? "open";
+        if (status is not ("open" or "discuss" or "answered" or "done")) return Fail($"This ticket is {status}.");
+        var gateKey = (string?)t["gate"];
+        if (settings.Gate(gateKey) is not { } gate) return Fail($"The gate \"{gateKey}\" isn't in the Desk's settings.");
+        var outcome = settings.Outcome(gateKey, choice, code);
+        if (outcome == null)
+            return Fail((string?)gate["input"] == "code" ? "Type the code as a whole number" + ((gate["codes"] as JsonArray)?.Count > 0 ? ", one of the codes listed." : ".")
+                : "That answer isn't on this gate any more. Reload and try again.");
+        if (outcome.Value.NoteRequired && note == "") return Fail("This answer needs a note: say why.");
+        // Asked on older steel: a passing (or not yet known) answer needs a confirm.
+        var (screenPin, steel) = board.Current((string?)t["screen"]);
+        if (outcome.Value.Passes != false && (bool?)body?["confirmed"] != true && Board.Utc(steel) > Board.Utc((string?)t["pin"]))
+            return Fail("The steel has changed since this was asked. Confirm to answer anyway.");
+        if (t["answer"] is JsonObject old) // a changed answer keeps the earlier one, with the same fields
+        {
+            if (t["history"] is not JsonArray history) { history = []; t["history"] = history; }
+            var h = (JsonObject)old.DeepClone();
+            h["answeredAt"] = (string?)t["answeredAt"];
+            history.Add(h);
+        }
+        var answer = new JsonObject { ["choice"] = choice };
+        if (code != null && choice == "code") answer["code"] = code;
+        answer["note"] = note;
+        answer["pin"] = (string?)t["pin"];
+        answer["screenPin"] = screenPin;
+        answer["by"] = settings.User;
+        t["answer"] = answer;
+        t["answeredAt"] = Store.Now();
+        t["status"] = "answered";
+        store.Write(file, t);
+    }
+    return Results.Ok(new { ok = true });
+});
+
+// A ticket's attachment by ticket id and key (stage 2, items 6 and 8): only a .pdf, .png or .jpg under a fileRoots
+// folder; the path itself never goes to the browser.
+app.MapGet("/api/attachment", (string? id, string? key) =>
+{
+    if (!Store.IdOk(id) || string.IsNullOrEmpty(key)) return Results.NotFound();
+    var t = store.Read(store.TicketFile(id!), out _);
+    var a = (t?["attachments"] as JsonArray ?? []).OfType<JsonObject>().FirstOrDefault(x => (string?)x["key"] == key);
+    if ((string?)a?["path"] is not { Length: > 0 } path || !Path.IsPathFullyQualified(path)) return Results.NotFound();
+    string full;
+    try { full = Path.GetFullPath(path); } catch { return Results.NotFound(); }
+    var type = Path.GetExtension(full).ToLowerInvariant() switch { ".pdf" => "application/pdf", ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", _ => null };
+    if (type == null || !fileRoots.Any(r => full.StartsWith(r, StringComparison.OrdinalIgnoreCase)) || !File.Exists(full)) return Results.NotFound();
+    return Results.File(full, type, enableRangeProcessing: true);
 });
 
 app.MapPost("/api/answer", async (HttpRequest req) =>
@@ -137,7 +204,7 @@ app.MapPost("/api/discuss", async (HttpRequest req) =>
         var file = store.TicketFile(id!);
         var t = store.Read(file, out var why);
         if (t == null) return Fail($"Couldn't read the ticket ({why}).");
-        if ((string?)t["type"] != "decision") return Fail("Only decision tickets can be discussed.");
+        if ((string?)t["type"] is not ("decision" or "gate")) return Fail("Only decision and gate tickets can be discussed.");
         var status = (string?)t["status"] ?? "open";
         if (status is not ("open" or "answered" or "done" or "discuss")) return Fail($"This ticket is {status}.");
         if (t["thread"] is not JsonArray thread) { thread = []; t["thread"] = thread; }
@@ -202,7 +269,6 @@ app.MapPost("/api/draft/accept-batch", async (HttpRequest req) =>
 
 // The draft's PDF, shown on the page. Only a PDF under a fileRoots folder (default: the repo's scratch and draw
 // folders), named on a draft-review ticket.
-var fileRoots = settings.Roots().ToArray();
 app.MapGet("/api/pdf", (string? id) =>
 {
     if (!Store.IdOk(id)) return Results.NotFound();

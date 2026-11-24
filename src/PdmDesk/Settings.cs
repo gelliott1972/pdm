@@ -130,6 +130,31 @@ public sealed class Settings
         return map;
     }
 
+    public JsonObject? Gate(string? key) => (Gates ?? []).OfType<JsonObject>().FirstOrDefault(x => (string?)x["key"] == key);
+
+    // A gate's answer checked against settings: null when the gate or the outcome isn't there. Two kinds of gate:
+    // a list of "outcomes" (each with passes / noteRequired), or "input": "code", a whole-number code (WDI, APEX-A78)
+    // whose meanings come from "codes" [{ code, label, passes }]. While that list is empty any whole number is taken,
+    // and whether it passes is unknown (Passes null).
+    public (bool? Passes, bool NoteRequired, string Label)? Outcome(string? gate, string? choice, int? code)
+    {
+        if (Gate(gate) is not { } g) return null;
+        if ((string?)g["input"] == "code")
+        {
+            if (choice != "code" || code is not >= 0) return null;
+            var codes = (g["codes"] as JsonArray ?? []).OfType<JsonObject>().ToList();
+            if (codes.Count == 0) return (null, false, $"Code {code}");
+            var c = codes.FirstOrDefault(x => x["code"] is JsonValue v && v.TryGetValue<int>(out var n) && n == code);
+            if (c == null) return null;
+            var label = (string?)c["label"];
+            return (c["passes"] is JsonValue pv && pv.TryGetValue<bool>(out var p) ? p : null, (bool?)c["noteRequired"] == true,
+                $"Code {code}" + (string.IsNullOrWhiteSpace(label) ? "" : $" ({label})"));
+        }
+        var o = (g["outcomes"] as JsonArray ?? []).OfType<JsonObject>().FirstOrDefault(x => (string?)x["key"] == choice);
+        if (o == null) return null;
+        return ((bool?)o["passes"] == true, (bool?)o["noteRequired"] == true, (string?)o["label"] ?? choice!);
+    }
+
     // A folder from fileRoots as a full path ending in a separator, so "C:\a\b" doesn't also allow "C:\a\bc".
     public IEnumerable<string> Roots() => FileRoots.Select(r =>
     {

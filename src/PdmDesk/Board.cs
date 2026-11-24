@@ -39,6 +39,7 @@ public sealed partial class Board(Settings settings)
         if (failed != null) problems.Add(failed + (p != null ? "; showing the last good board" : ""));
         var open = tickets.Where(t => (string?)t["status"] is null or "open" or "started" or "discuss")
             .GroupBy(t => (string?)t["screen"] ?? "").ToDictionary(g => g.Key, g => g.Count());
+        var gateTickets = tickets.Where(t => (string?)t["type"] == "gate").ToList();
         var rows = new JsonArray();
         if (p != null)
         {
@@ -60,9 +61,10 @@ public sealed partial class Board(Settings settings)
                         ["state"] = bad ? "?" : c.State, ["pin"] = c.Pin, ["date"] = c.Date, ["by"] = c.By, ["note"] = c.Note,
                         ["outOfDate"] = older && s.Kind == null && c.State is "done" or "running" or "waiting",
                     };
-                    if (older && s.Kind == "gate") cell["olderSteel"] = true; // a gate keeps its state, marked (question 1)
+                    if (older && s.Kind == "gate") cell["olderSteel"] = true; // a gate keeps its state, marked (APEX-A75)
                     cells[s.Key] = cell;
                 }
+                foreach (var s in steps.Where(s => s.Kind == "gate")) GateOverlay(r, s, cells, gateTickets, problems);
                 rows.Add(new JsonObject
                 {
                     ["ls"] = r.Ls, ["description"] = r.Description, ["pin"] = r.Pin, ["steelSince"] = r.SteelSince,
@@ -79,6 +81,51 @@ public sealed partial class Board(Settings settings)
             ["notStarted"] = new JsonArray((p?.NotStarted ?? []).Select(n => (JsonNode?)new JsonObject { ["ls"] = n.Ls, ["description"] = n.Description }).ToArray()),
             ["problems"] = new JsonArray(problems.Select(x => (JsonNode?)x).ToArray()),
         };
+    }
+
+    // A gate's latest ticket (newest createdAt) over the register's cell, until apex-admin sets the ticket done:
+    // open or discuss -> "waiting" (unless the register already says done); answered -> "accepted" / "notAccepted" /
+    // "given" (a code whose meaning isn't set) until the register has the gate done at that pin. Answered for more than
+    // 15 minutes without the ticket being done: a problems line. Once done, the register's cell stands alone.
+    void GateOverlay(Row r, Step s, JsonObject cells, List<JsonObject> gateTickets, List<string> problems)
+    {
+        var t = gateTickets.Where(x => (string?)x["screen"] == r.Ls && (string?)x["gate"] == s.Key)
+            .OrderByDescending(x => (string?)x["createdAt"] ?? "", StringComparer.Ordinal).FirstOrDefault();
+        if (t == null) return;
+        var status = (string?)t["status"] ?? "open";
+        if (status is not ("open" or "discuss" or "answered")) return;
+        var cell = cells[s.Key] as JsonObject;
+        if (cell == null) cells[s.Key] = cell = new JsonObject { ["state"] = "not started", ["pin"] = "", ["date"] = "", ["by"] = "", ["note"] = "", ["outOfDate"] = false };
+        var registerDone = (string?)cell["state"] == "done";
+        var ticketId = (string?)t["_file"] ?? "";
+        var label = (string?)settings.Gate(s.Key)?["label"] ?? s.Label;
+        string? overlay = null, said = null;
+        if (status is "open" or "discuss") { if (!registerDone) overlay = "waiting"; }
+        else
+        {
+            var a = t["answer"] as JsonObject;
+            int? code = a?["code"] is JsonValue cv && cv.TryGetValue<int>(out var n) ? n : null;
+            var o = settings.Outcome(s.Key, (string?)a?["choice"], code);
+            said = o?.Label ?? (string?)a?["choice"];
+            var doneAtPin = registerDone && Utc((string?)cell["pin"]) is { } cp && Utc((string?)t["pin"]) is { } tp && cp >= tp;
+            if (o?.Passes == false) overlay = "notAccepted";
+            else if (!doneAtPin) overlay = o?.Passes == true ? "accepted" : "given";
+            if (Utc((string?)t["answeredAt"]) is { } at && DateTime.UtcNow - at > TimeSpan.FromMinutes(15))
+                problems.Add($"{r.Ls} {label}: answered, register not updated");
+        }
+        if (overlay != null) cell["gate"] = new JsonObject { ["overlay"] = overlay, ["ticket"] = ticketId, ["answer"] = said, ["ticketPin"] = (string?)t["pin"] };
+    }
+
+    // The screen's current pin and steel (steel_since, else the pin) from the last good read; blanks when unknown.
+    public (string Pin, string Steel) Current(string? ls)
+    {
+        if (!Enabled || ls == null) return ("", "");
+        lock (gate)
+        {
+            Refresh(Steps());
+            var r = last?.Rows.FirstOrDefault(x => x.Ls == ls);
+            return r == null ? ("", "") : (r.Pin, r.SteelSince != "" ? r.SteelSince : r.Pin);
+        }
     }
 
     void Refresh(List<Step> steps)

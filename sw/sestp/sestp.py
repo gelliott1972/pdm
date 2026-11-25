@@ -8,8 +8,15 @@ Speed: a squared part is kept in C:\\PDM-work\\sestp\\cache\\, keyed to the exac
 every file it references, by md5). Next time, if those files are unchanged, the kept copy is dropped in; only new or
 changed tube parts are squared again.
 
+Time limits (Admin, 25 Nov, option A): squaring a part is one SOLIDWORKS call with a 30-min limit, or 75 min for a part
+with more than 4 configurations. Reason, from 08X07-SFP (10 configurations, 15 tube bodies): the first configuration
+switch and rebuild after opening takes ~10 min, each further configuration ~1 min; the whole part squared in one call took
+39 min (2327 s). One call per configuration was tried: each call pays the ~10-min opening again (reopening the squared copy
+and reading its 10 configurations took 16 min), ~21 calls, 3.5-4 h. The kept copy makes the long call a once-per-version
+cost. (SwSestp still has "square <part> --before" and "--config <c>" for that per-configuration way; sestp.py does not use them.)
+
 Usage (SOLIDWORKS lock held by sw: tools\\SwCmd\\bin\\SwCmd.exe lock --as sw --purpose ...):
-  python sw/sestp/sestp.py run  --top <P:\\...\\top.SLDASM> --config <name> --ls <LS-08A-11> [--count]
+  python sw/sestp/sestp.py run  --top <P:\\...\\top.SLDASM> --config <name> --ls <LS-08A-11> [--count] [--plain] [--label <word>]
   python sw/sestp/sestp.py seed --from <old sandbox model folder> --index <vault index json at that pin> --parts A,B,C
   python sw/sestp/sestp.py tubes <folder>        (no SOLIDWORKS: the tube parts in a folder)
   python sw/sestp/sestp.py tidy                  (remove the sandbox model copies of every run; STEPs, notes, cache stay)
@@ -174,7 +181,8 @@ def cmd_run(a):
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H%MZ')
     # --plain (Admin, 25 Nov, the 0807 stairs for wireframe): the same export with the squaring step skipped; the run
     # folder is marked "plain"
-    rd = os.path.join(RUNS, a.ls + (' plain ' if a.plain else ' ') + stamp)
+    # --label <word> (Admin, 25 Nov): a word in the run folder's name and the notes' first line, e.g. "test"
+    rd = os.path.join(RUNS, a.ls + (' plain' if a.plain else '') + (' ' + a.label if a.label else '') + ' ' + stamp)
     os.makedirs(rd)
     LOG = os.path.join(rd, 'log.txt')
     model = os.path.join(rd, 'model')
@@ -232,8 +240,7 @@ def cmd_run(a):
             if not drop_in(name, k, p, model, stage):
                 say('STOPPED: could not drop in', name); return 1
         else:
-            rc, _ = run([os.path.join(MAC, 'SwSestp.exe'), 'square', p], timeout=1800)
-            if rc != 0:
+            if not square_part(p, name):
                 say('STOPPED: squaring failed for', name, '(see log.txt)'); return 1
             store(p, name, k, parts, model, 'squared in ' + rd)
     times['Square / drop in'] = time.time() - t
@@ -261,6 +268,45 @@ def cmd_run(a):
     say('RESULT', 'OK' if good else 'PROBLEMS (see log.txt; the sandbox model is kept for a look)')
     write_notes(rd, a, vault, plan, before, moved, good, times)
     return 0 if good else 1
+
+
+def configs_of(path):
+    """Configuration names of a part, from Document Manager (no SOLIDWORKS)."""
+    tmp = os.path.join(os.path.dirname(path), '_dmconfigs')
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(os.path.join(tmp, 'in')); os.makedirs(os.path.join(tmp, 'out'))
+    shutil.copy2(path, os.path.join(tmp, 'in'))
+    run([os.path.join(PDM, 'tools', 'DmProbe', 'bin', 'DmProbe.exe'), os.path.join(tmp, 'in'), os.path.join(tmp, 'out')], quiet=True)
+    try:
+        rows = open(os.path.join(tmp, 'out', 'configs.csv'), encoding='utf-8-sig').read().splitlines()[1:]
+    except OSError:
+        rows = []
+    shutil.rmtree(tmp, ignore_errors=True)
+    return [r.split(',')[1] for r in rows if r]
+
+
+# Time limits for squaring one part (one SOLIDWORKS call for the whole part). Admin, 25 Nov, option A, from the 08X07-SFP
+# timings: 10 configurations, 15 tube bodies; the first configuration switch and rebuild after opening took about 10 min,
+# each further configuration about 1 min, and the whole part squared in one call took 39 min (2327 s). Splitting it into
+# one call per configuration was written and timed: each call pays the ~10-min opening again (reopening the squared copy
+# and reading its 10 configurations took 16 min), so about 21 calls, 3.5-4 h. So: parts with more than 4 configurations get
+# 75 min in one call; every other part keeps 30 min. The squared part is kept in the cache (keyed to the exact vault files),
+# so the long call is paid once per version of such a part.
+SQUARE_LIMIT, SQUARE_LIMIT_MANY = 1800, 4500
+
+
+def square_part(p, name):
+    """Square one sandbox part in one SOLIDWORKS call, with the longer limit for parts with more than 4 configurations."""
+    n = len(configs_of(p))
+    limit = SQUARE_LIMIT_MANY if n > 4 else SQUARE_LIMIT
+    if limit != SQUARE_LIMIT:
+        say('   ', name, 'has', n, 'configurations: time limit', limit // 60, 'min')
+    try:
+        rc, _ = run([os.path.join(MAC, 'SwSestp.exe'), 'square', p], timeout=limit)
+        return rc == 0
+    except subprocess.TimeoutExpired:
+        say('    TIME LIMIT', name, 'not squared in', limit // 60, 'min')
+        return False
 
 
 def vault_check(model, rd):
@@ -317,7 +363,9 @@ def write_notes(rd, a, vault, plan, before, moved, good, times):
     corner = [l.split('\t', 1)[1] if l.startswith(('LED CORNER', 'ENVELOPE')) else l for l in open(led, encoding='utf-8')
               if l.startswith(('LED CORNER', 'ENVELOPE', 'LED FACE', 'AXES', 'END STEEL'))] if os.path.exists(led) else []
     plain = getattr(a, 'plain', False)
-    L = ['%s %s, %s, made by SW (SOLIDWORKS 2026)' % (a.ls, 'PLAIN STEP (corners as in the vault, NOT squared)' if plain else 'square-edge STEP (SESTP)', os.path.basename(rd)[len(a.ls) + 1:]),
+    label = getattr(a, 'label', '')
+    L = ['%s %s, %s, made by SW (SOLIDWORKS 2026)%s' % (a.ls, 'PLAIN STEP (corners as in the vault, NOT squared)' if plain else 'square-edge STEP (SESTP)', os.path.basename(rd)[len(a.ls) + 1:],
+                                                       ('   ' + label.upper() + ' RUN: not for issue') if label else ''),
          '',
          'Result: ' + ('OK' if good else 'PROBLEMS, see log.txt'),
          'Two STEP files (AP203) from the same top assembly, %s (configuration %s), in the same axes, so they overlay:' % (a.top, a.config),
@@ -343,6 +391,7 @@ def main():
     r = sp.add_parser('run'); r.add_argument('--top', required=True); r.add_argument('--config', required=True)
     r.add_argument('--ls', required=True); r.add_argument('--count', action='store_true')
     r.add_argument('--plain', action='store_true', help='skip the squaring step (plain STEP; run folder marked "plain")')
+    r.add_argument('--label', default='', help='a word for the run folder name and the notes, e.g. test')
     r.add_argument('--keep-model', action='store_true', help='keep the sandbox model after a good run (it is always kept after a bad one)')
     s = sp.add_parser('seed'); s.add_argument('--from', required=True); s.add_argument('--index', required=True); s.add_argument('--parts', required=True)
     t = sp.add_parser('tubes'); t.add_argument('folder')

@@ -227,6 +227,70 @@ static class SwSestp
         return rc;
     }
 
+    // Configuration by configuration, one SOLIDWORKS call each (Admin 25 Nov: 08X07-SFP did not finish in 30 minutes as one
+    // call). "square <part> --before" counts every configuration before anything changes and keeps the counts beside the
+    // part (<part>.square-before.txt); "square <part> --config <c>" then, in <c> only: settles the SQUARE-CORNERS features
+    // made so far, makes the ones still needed, checks <c> against its before counts, and saves. sestp.py runs --config over
+    // every configuration twice: the second pass settles in each configuration the features made after it was visited.
+    static string BeforeFile(ModelDoc2 doc) { return doc.GetPathName() + ".square-before.txt"; }
+
+    static int SquareBefore(ModelDoc2 doc)
+    {
+        var lines = new List<string>();
+        foreach (var c in (string[])doc.GetConfigurationNames())
+        {
+            doc.ShowConfiguration2(c); doc.ForceRebuild3(false);
+            var n = Count(doc);
+            lines.Add(c + "\t" + n[2] + "\t" + n[4]);
+            Console.WriteLine("BEFORE\t" + c + "\t" + Volumes(doc) + "\tcorner faces " + n[1] + " (21 Nov rule " + n[0] + ")\tother cylindrical faces " + n[2] + "\terrors " + Errors(doc, false));
+        }
+        File.WriteAllLines(BeforeFile(doc), lines);
+        Console.WriteLine("CONFIGURATIONS\t" + lines.Count);
+        return 0;
+    }
+
+    static int SquareOneConfig(ModelDoc2 doc, string cfg)
+    {
+        var before = File.ReadAllLines(BeforeFile(doc)).Select(l => l.Split('\t')).ToDictionary(p => p[0], p => new[] { int.Parse(p[1]), int.Parse(p[2]) });
+        var cfgs = (string[])doc.GetConfigurationNames();
+        int ci = Array.IndexOf(cfgs, cfg);
+        if (ci < 0 || !before.ContainsKey(cfg)) throw new Exception("no configuration " + cfg + " (or no before count for it)");
+        doc.ShowConfiguration2(cfg); doc.ForceRebuild3(false);
+        var madeNames = new List<string>();
+        for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature()) if (f.Name.StartsWith("SQUARE-CORNERS ")) madeNames.Add(f.Name);
+        Settle(doc, madeNames, before[cfg][1]);
+        var sd = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
+        int made = 0, failed = 0, bodyNo = 0;
+        foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
+        {
+            bodyNo++;
+            if (!Squarable(b)) continue;
+            var picks = ((object[])b.GetFaces() ?? new object[0]).Cast<Face2>().Where(f => Corner(f) == 2).ToList();
+            if (picks.Count == 0) continue;
+            string bname = b.Name;
+            doc.ClearSelection2(true);
+            var had = new HashSet<string>();
+            for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature()) if (f.GetTypeName2() == "DelFace") had.Add(f.Name);
+            int sel = picks.Count(f => ((Entity)f).Select4(true, sd));
+            bool one = sel == picks.Count && doc.Extension.InsertDeleteFace((int)swFaceDeleteOption_e.swFaceDelete_Patch);
+            Feature nf = null;
+            for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature()) if (f.GetTypeName2() == "DelFace" && !had.Contains(f.Name)) nf = f;
+            if (one && nf != null) { nf.Name = "SQUARE-CORNERS " + (ci + 1) + "-" + bodyNo + " " + bname; made++; }
+            else failed++;
+            Console.WriteLine("DELETEFACE\t" + cfg + "\tbody " + bname + "\t" + sel + " of " + picks.Count + " faces\t" + (one && nf != null ? "OK" : "FAILED"));
+            doc.ClearSelection2(true);
+        }
+        doc.ForceRebuild3(false);
+        var n = Count(doc); int er = Errors(doc, false);
+        bool good = failed == 0 && er == 0 && n[1] == 0 && n[4] == before[cfg][1] && n[2] == before[cfg][0];
+        Console.WriteLine("AFTER\t" + cfg + "\t" + Volumes(doc) + "\tcorner faces " + n[1] + "\tother cylindrical faces " + n[2] + " (before " + before[cfg][0] + ")\tbodies " + n[4] + " (before " + before[cfg][1] + ")\terrors " + er + "\tmade " + made + ", failed " + failed);
+        if (!good) { Console.WriteLine("NOT SAVED\tproblems above"); return 1; }
+        int e = 0, w = 0;
+        bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w);
+        Console.WriteLine(ok ? "SAVED\t" + doc.GetPathName() : "SAVE FAILED\t" + e);
+        return ok ? 0 : 1;
+    }
+
     static int SquareCmd(ModelDoc2 doc)
     {
         string active = ((Configuration)doc.GetActiveConfiguration()).Name;
@@ -659,6 +723,8 @@ static class SwSestp
         {
             doc = Open(file, cmd == "xforms" || cmd == "export" ? a[2] : null, cmd == "square");
             if (cmd == "count") rc = CountCmd(doc);
+            else if (cmd == "square" && a.Length > 2 && a[2] == "--before") rc = SquareBefore(doc);
+            else if (cmd == "square" && a.Length > 3 && a[2] == "--config") rc = SquareOneConfig(doc, a[3]);
             else if (cmd == "square") rc = SquareCmd(doc);
             else if (cmd == "xforms")
             {

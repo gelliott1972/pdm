@@ -73,7 +73,7 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !(a.Length > 5 && a[5] == "dry")) || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
+        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !a.Skip(5).Contains("dry")) || cmd == "brace" || cmd == "replcomp" || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || cmd == "renprops" || cmd == "renumber" || cmd == "setprops" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
@@ -175,7 +175,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -938,6 +938,505 @@ static class SwGrout
                 if (!dry && fixedN > 0 && failed == 0 && er == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
                 else if (!dry) { Console.WriteLine("NOT SAVED"); rc = 1; }
             }
+            else if (cmd == "replcomp")
+            {
+                // replcomp <asm> <component> <new file> <config> (C18, 25 Nov): Replace Components on one instance (mates
+                // re-attached by SOLIDWORKS), rebuild, and save only <asm> (a part the rebuild marks modified but which is
+                // not checked out is left alone, as delinst does). Saved only with 0 errors and the new part where the old was.
+                var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
+                var c = ((object[])asm.GetComponents(true) ?? new object[0]).Cast<Component2>().FirstOrDefault(x => x.Name2 == a[2]);
+                if (c == null) throw new Exception("no top-level component " + a[2]);
+                var tr0 = (double[])c.Transform2.ArrayData;
+                string inst = a[2].Substring(a[2].LastIndexOf('-') + 1);
+                doc.ClearSelection2(true);
+                bool sel = c.Select4(false, null, false);
+                bool ok = sel && asm.ReplaceComponents2(Path.GetFullPath(a[3]), a[4], false, (int)swReplaceComponentsConfiguration_e.swReplaceComponentsConfiguration_MatchName, true);
+                doc.ClearSelection2(true);
+                doc.ForceRebuild3(false);
+                var nc = ((object[])asm.GetComponents(true) ?? new object[0]).Cast<Component2>().FirstOrDefault(x => string.Equals(x.GetPathName(), Path.GetFullPath(a[3]), StringComparison.OrdinalIgnoreCase) && x.Name2.EndsWith("-" + inst));
+                if (nc != null && nc.ReferencedConfiguration != a[4]) { nc.ReferencedConfiguration = a[4]; doc.ForceRebuild3(false); }
+                var t1 = nc == null ? null : (double[])nc.Transform2.ArrayData;
+                double dev = t1 == null ? 999 : Enumerable.Range(0, 12).Max(i => Math.Abs(t1[i] - tr0[i]) * (i >= 9 ? 1000 : 1));
+                int er = Errors(doc, true);
+                Console.WriteLine("REPLCOMP\t" + a[2] + " -> " + (nc == null ? "?" : nc.Name2 + " <" + nc.ReferencedConfiguration + ">") + "\treplaced " + ok + "\tmoved " + dev.ToString("0.###", Inv) + "\terrors " + er);
+                if (ok && nc != null && dev < 0.01 && er == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
+                else { Console.WriteLine("NOT SAVED"); rc = 1; }
+            }
+            else if (cmd == "brace")
+            {
+                // brace <sta> <old sleeve comp> <spigot comp> <kit comp> <kit config> <new sleeve asm file> <x> <y> <z> (C18, 25 Nov):
+                // the plain sleeve <old> is replaced by the braced sleeve assembly, placed with identity rotation and its
+                // origin at (x, y, z) mm in <sta>'s axes, and mated as the plain sleeves are: its post's ROOF_PLATE face on
+                // ROOF_PLATE_PLANE, the post's Right and Front Planes on the spigot's. The bolt kit goes to <kit config> and its
+                // slot mate (on the old sleeve) is made again on the post's M20 Clearance Slot1, same constraint. The kit's
+                // other mates are left as they are (move them off <old> first if they are on it). Saved only when every mate
+                // is made, the new sleeve did not move from where it was placed (0.1 mm), and the rebuild has 0 errors.
+                var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
+                var mu = (MathUtility)sw.GetMathUtility();
+                string staName = Path.GetFileNameWithoutExtension(file);
+                Func<string, Component2> C = n => ((object[])asm.GetComponents(false) ?? new object[0]).Cast<Component2>().FirstOrDefault(c => c.Name2 == n);
+                var oldS = C(a[2]); var spig = C(a[3]); var kit = C(a[4]);
+                if (oldS == null || spig == null || kit == null) throw new Exception("missing " + (oldS == null ? a[2] : spig == null ? a[3] : a[4]));
+                double[] org = { double.Parse(a[7], Inv) / 1000, double.Parse(a[8], Inv) / 1000, double.Parse(a[9], Inv) / 1000 };
+                // the kit's slot mate on the old sleeve: keep the kit-side entity and the constraint
+                Feature mg = null; for (var g = (Feature)doc.FirstFeature(); g != null && mg == null; g = (Feature)g.GetNextFeature()) if (g.GetTypeName2() == "MateGroup") mg = g;
+                object kitSlotEnt = null; int slotC = 1, slotAlign = 0; bool kitSlotFirst = false; int oldMates = 0;
+                string kitSlotComp = null; double kitSlotR = 0;
+                for (var m = (Feature)mg.GetFirstSubFeature(); m != null; m = (Feature)m.GetNextSubFeature())
+                {
+                    var mt = m.GetSpecificFeature2() as Mate2; if (mt == null) continue;
+                    var names = Enumerable.Range(0, mt.GetMateEntityCount()).Select(i => S(() => mt.MateEntity(i).ReferenceComponent.Name2)).ToList();
+                    if (!names.Contains(a[2])) continue;
+                    oldMates++;
+                    int ki = names.FindIndex(n => n.StartsWith(a[4] + "/") || n == a[4]);
+                    Console.WriteLine("OLD MATE\t" + m.Name + "\t" + (swMateType_e)mt.Type + "\t" + string.Join(" | ", names));
+                    if (mt.Type == (int)swMateType_e.swMateSLOT && ki >= 0)
+                    {
+                        kitSlotEnt = mt.MateEntity(ki).Reference; slotC = ((SlotMateFeatureData)m.GetDefinition()).Constraint; slotAlign = mt.Alignment; kitSlotFirst = ki == 0;
+                        kitSlotComp = names[ki];
+                        var kf = kitSlotEnt as Face2; var ks = kf == null ? null : (Surface)kf.GetSurface();
+                        if (ks != null && ks.IsCylinder()) kitSlotR = ((double[])ks.CylinderParams)[6];
+                    }
+                }
+                if (kitSlotEnt == null) throw new Exception("no slot mate between " + a[2] + " and " + a[4]);
+                doc.ClearSelection2(true);
+                bool del = oldS.Select4(false, null, false) && doc.Extension.DeleteSelection2((int)swDeleteSelectionOptions_e.swDelete_Absorbed);
+                doc.ClearSelection2(true);
+                Console.WriteLine("DELETED\t" + a[2] + "\t" + del + "\t(with its " + oldMates + " mates)");
+                if (!del) throw new Exception("could not delete " + a[2]);
+                // the new assembly must be open (in memory) to be added; the top made active again after
+                int oe = 0, ow = 0;
+                var nd = sw.OpenDoc6(Path.GetFullPath(a[6]), (int)swDocumentTypes_e.swDocASSEMBLY, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref oe, ref ow);
+                if (nd == null) throw new Exception("could not open " + a[6] + " (" + oe + ")");
+                sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref oe);
+                var nc = asm.AddComponent5(Path.GetFullPath(a[6]), (int)swAddComponentConfigOptions_e.swAddComponentConfigOptions_CurrentSelectedConfig, "", false, "", org[0], org[1], org[2]);
+                if (nc == null) throw new Exception("could not add " + a[6]);
+                var arr = new double[] { 1, 0, 0, 0, 1, 0, 0, 0, 1, org[0], org[1], org[2], 1, 0, 0, 0 };
+                nc.Transform2 = (MathTransform)mu.CreateTransform(arr);
+                doc.ForceRebuild3(false);
+                var post = ((object[])nc.GetChildren() ?? new object[0]).Cast<Component2>().FirstOrDefault(c => Path.GetFileName(c.GetPathName()).IndexOf("HBW-04", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (post == null) throw new Exception("no post (HBW-04) in " + nc.Name2);
+                Console.WriteLine("ADDED\t" + nc.Name2 + "\tpost " + post.Name2);
+                var sd = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
+                int made = 0, er;
+                // a. the post's planar face (of a feature named like ROOF_PLATE) that lies in ROOF_PLATE_PLANE (plane origin and
+                // normal from the plane's transform; face geometry in part axes, placed by the post's transform)
+                var rpp = FeatureNamed(doc, "ROOF_PLATE_PLANE");
+                var rx = (double[])((MathTransform)((RefPlane)rpp.GetSpecificFeature2()).Transform).ArrayData;
+                double[] po = { rx[9], rx[10], rx[11] }, pn0 = { rx[6], rx[7], rx[8] };
+                Face2 roof = null; object info;
+                var PT = (MathTransform)post.Transform2;
+                foreach (Body2 b in (object[])post.GetBodies3((int)swBodyType_e.swSolidBody, out info) ?? new object[0])
+                    foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
+                    {
+                        string fn = S(() => ((Feature)f.GetFeature()).Name);
+                        var su = (Surface)f.GetSurface(); if (!su.IsPlane()) continue;
+                        var pp = (double[])su.PlaneParams;
+                        var wn = (double[])((MathVector)((MathVector)mu.CreateVector(new[] { pp[0], pp[1], pp[2] })).MultiplyTransform(PT)).ArrayData;
+                        var wp = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { pp[3], pp[4], pp[5] })).MultiplyTransform(PT)).ArrayData;
+                        double dot = wn[0] * pn0[0] + wn[1] * pn0[1] + wn[2] * pn0[2];
+                        double dist = (wp[0] - po[0]) * pn0[0] + (wp[1] - po[1]) * pn0[1] + (wp[2] - po[2]) * pn0[2];
+                        if (Math.Abs(Math.Abs(dot) - 1) < 1e-6 && Math.Abs(dist) < 1e-5)
+                        {
+                            Console.WriteLine("  IN ROOF_PLATE_PLANE\tface of " + fn);
+                            if (fn.IndexOf("ROOF_PLATE", StringComparison.OrdinalIgnoreCase) >= 0 || roof == null) roof = f;
+                        }
+                    }
+                double rppY = po[1];
+                Console.WriteLine("ROOF PLATE FACE\t" + (roof != null) + "\tROOF_PLATE_PLANE y " + Mm(rppY));
+                if (roof != null)
+                {
+                    doc.ClearSelection2(true); ((Entity)roof).Select4(false, sd); rpp.Select2(true, 0);
+                    var m1 = asm.AddMate5((int)swMateType_e.swMateCOINCIDENT, (int)swMateAlign_e.swMateAlignCLOSEST, false, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, out er);
+                    Console.WriteLine("  MATE\troof plate on ROOF_PLATE_PLANE\t" + (m1 != null ? ((Feature)m1).Name : "FAILED " + er)); if (m1 != null) made++;
+                }
+                // b, c. the post's Right and Front Planes on the spigot's
+                foreach (var pn in new[] { "Right Plane", "Front Plane" })
+                {
+                    var f1 = post.FeatureByName(pn) as Feature; var f2 = spig.FeatureByName(pn) as Feature;
+                    doc.ClearSelection2(true);
+                    bool s1 = f1 != null && f1.Select2(false, 0), s2 = f2 != null && f2.Select2(true, 0);
+                    var m2 = asm.AddMate5((int)swMateType_e.swMateCOINCIDENT, (int)swMateAlign_e.swMateAlignCLOSEST, false, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, out er);
+                    Console.WriteLine("  MATE\t" + pn + " on the spigot's\tselected " + s1 + "/" + s2 + "\t" + (m2 != null ? ((Feature)m2).Name : "FAILED " + er)); if (m2 != null) made++;
+                }
+                doc.ClearSelection2(true);
+                // d. the kit: configuration, then the slot mate on the post's slot face nearest the kit
+                if (kit.ReferencedConfiguration != a[5]) kit.ReferencedConfiguration = a[5];
+                doc.ForceRebuild3(false);
+                var kt = (double[])kit.Transform2.ArrayData;
+                Face2 slotF = null; double best = double.MaxValue;
+                foreach (Body2 b in (object[])post.GetBodies3((int)swBodyType_e.swSolidBody, out info) ?? new object[0])
+                    foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
+                    {
+                        // (a component face does not give its feature name here): an M20 slot end is a cylinder of radius
+                        // 9..13 mm with its axis along the bolt (the top's z)
+                        var fsu = (Surface)f.GetSurface(); if (!fsu.IsCylinder()) continue;
+                        var fcp = (double[])fsu.CylinderParams;
+                        var fax = (double[])((MathVector)((MathVector)mu.CreateVector(new[] { fcp[3], fcp[4], fcp[5] })).MultiplyTransform((MathTransform)post.Transform2)).ArrayData;
+                        if (fcp[6] < 0.009 || fcp[6] > 0.013 || Math.Abs(Math.Abs(fax[2]) - 1) > 1e-6) continue;
+                        var bx = (double[])f.GetBox();
+                        var c0 = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { (bx[0] + bx[3]) / 2, (bx[1] + bx[4]) / 2, (bx[2] + bx[5]) / 2 })).MultiplyTransform((MathTransform)post.Transform2)).ArrayData;
+                        double d = Math.Abs(c0[2] - kt[11]) + Math.Abs(c0[0] - kt[9]);
+                        if (d < best) { best = d; slotF = f; }
+                    }
+                Console.WriteLine("KIT\t" + kit.Name2 + " <" + kit.ReferencedConfiguration + ">\tslot face found " + (slotF != null));
+                if (slotF != null)
+                {
+                    var hexC = C(kitSlotComp); Face2 hexF = null;
+                    if (hexC != null)
+                        foreach (Body2 b in (object[])hexC.GetBodies3((int)swBodyType_e.swSolidBody, out info) ?? new object[0])
+                            foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
+                            {
+                                var hs = (Surface)f.GetSurface();
+                                if (hexF == null && hs.IsCylinder() && Math.Abs(((double[])hs.CylinderParams)[6] - kitSlotR) < 1e-7) hexF = f;
+                            }
+                    Console.WriteLine("  KIT FACE\t" + kitSlotComp + "\tradius " + Mm(kitSlotR) + "\tfound " + (hexF != null));
+                    if (hexF != null) kitSlotEnt = hexF;
+                    doc.ClearSelection2(true);
+                    var first = kitSlotFirst ? kitSlotEnt : slotF; var second = kitSlotFirst ? (object)slotF : kitSlotEnt;
+                    ((Entity)first).Select4(false, sd); ((Entity)second).Select4(true, sd);
+                    var m3 = asm.AddMate5((int)swMateType_e.swMateSLOT, slotAlign, false, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, out er) as Feature;
+                    if (m3 != null)
+                    {
+                        var d3 = (SlotMateFeatureData)m3.GetDefinition(); d3.Constraint = slotC; m3.ModifyDefinition(d3, doc, null);
+                        Console.WriteLine("  MATE\tkit slot on the post\t" + m3.Name + "\tconstraint " + ((SlotMateFeatureData)m3.GetDefinition()).Constraint);
+                        if (((SlotMateFeatureData)m3.GetDefinition()).Constraint == slotC) made++;
+                    }
+                    else Console.WriteLine("  MATE\tkit slot\tFAILED " + er);
+                }
+                doc.ClearSelection2(true);
+                doc.ForceRebuild3(false);
+                // e. layout sketches of <sta> that tied a point to the old sleeve's origin: that point, if it sits on the
+                // post's origin (same place in the sketch), is tied to the post's origin instead
+                int danglingLeft = 0;
+                SketchPoint postOrigin = null;
+                for (var of = (Feature)post.FirstFeature(); of != null && postOrigin == null; of = (Feature)of.GetNextFeature())
+                    if (of.GetTypeName2() == "OriginProfileFeature")
+                        postOrigin = ((object[])((Sketch)of.GetSpecificFeature2()).GetSketchPoints2() ?? new object[0]).Cast<SketchPoint>().FirstOrDefault();
+                if (postOrigin == null)
+                {
+                    // from the post's own document: its origin point, mapped into the top
+                    var pd = post.GetModelDoc2() as ModelDoc2;
+                    for (var of = pd == null ? null : (Feature)pd.FirstFeature(); of != null && postOrigin == null; of = (Feature)of.GetNextFeature())
+                        if (of.GetTypeName2() == "OriginProfileFeature")
+                        {
+                            var p0 = ((object[])((Sketch)of.GetSpecificFeature2()).GetSketchPoints2() ?? new object[0]).Cast<SketchPoint>().FirstOrDefault();
+                            if (p0 != null) postOrigin = post.GetCorrespondingEntity(p0) as SketchPoint;
+                        }
+                }
+                Console.WriteLine("POST ORIGIN\t" + (postOrigin != null));
+                var pt0 = (double[])post.Transform2.ArrayData;
+                for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature())
+                {
+                    if (f.GetTypeName2() != "ProfileFeature") continue;
+                    var skf = (Sketch)f.GetSpecificFeature2();
+                    var rels = (object[])skf.RelationManager.GetRelations((int)swSketchRelationFilterType_e.swDangling) ?? new object[0];
+                    if (rels.Length == 0) continue;
+                    var oSk = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { pt0[9], pt0[10], pt0[11] })).MultiplyTransform((MathTransform)skf.ModelToSketchTransform)).ArrayData;
+                    doc.ClearSelection2(true); f.Select2(false, -1); doc.EditSketch();
+                    var own = ((object[])skf.GetSketchPoints2() ?? new object[0]).Cast<SketchPoint>().ToList();
+                    var ids = new List<int[]>();
+                    foreach (SketchRelation r in (object[])skf.RelationManager.GetRelations((int)swSketchRelationFilterType_e.swDangling) ?? new object[0])
+                        foreach (var o in (object[])r.GetEntities() ?? new object[0])
+                        {
+                            var sp = o as SketchPoint; if (sp == null) continue;
+                            var id = (int[])sp.GetID();
+                            if (!own.Any(q => ((int[])q.GetID()).SequenceEqual(id)) || ids.Any(x => x.SequenceEqual(id))) continue;
+                            bool on = Math.Abs(sp.X - oSk[0]) < 1e-7 && Math.Abs(sp.Y - oSk[1]) < 1e-7;
+                            Console.WriteLine("  SKETCH\t" + f.Name + "\tdangling point (" + Mm(sp.X) + ", " + Mm(sp.Y) + ")\ton the post origin " + on);
+                            if (on) ids.Add(id);
+                        }
+                    var sdx2 = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
+                    foreach (var id in ids)
+                    {
+                        var sp0 = ((object[])skf.GetSketchPoints2()).Cast<SketchPoint>().First(q => ((int[])q.GetID()).SequenceEqual(id));
+                        doc.ClearSelection2(true); if (sp0.Select4(false, sdx2) || sp0.Select4(false, sdx2)) doc.SketchConstraintsDelAll();
+                        doc.ClearSelection2(true);
+                        var sp1 = ((object[])skf.GetSketchPoints2()).Cast<SketchPoint>().FirstOrDefault(q => ((int[])q.GetID()).SequenceEqual(id));
+                        bool a1 = sp1 != null && sp1.Select4(false, sdx2), a2 = postOrigin != null && postOrigin.Select4(true, sdx2);
+                        if (!a2)
+                        {
+                            // by name: the post's origin point, nested "Point1@Origin@<sleeve>@<sta>/<post>@<sleeve file>"
+                            string nm = "Point1@Origin@" + nc.Name2 + "@" + staName + "/" + post.Name2.Substring(post.Name2.LastIndexOf('/') + 1) + "@" + Path.GetFileNameWithoutExtension(nc.GetPathName());
+                            a2 = doc.Extension.SelectByID2(nm, "EXTSKETCHPOINT", 0, 0, 0, true, 0, null, 0);
+                            Console.WriteLine("    ORIGIN BY NAME\t" + nm + "\t" + a2);
+                        }
+                        if (a1 && a2) { doc.SketchAddConstraints("sgCOINCIDENT"); Console.WriteLine("    RE-TIED\tto the post origin"); }
+                        else
+                        {
+                            // the post's Right and Front Planes stand across this horizontal sketch: on both = on the post's axis
+                            foreach (var pn in new[] { "Right Plane", "Front Plane" })
+                            {
+                                doc.ClearSelection2(true);
+                                var spx = ((object[])skf.GetSketchPoints2()).Cast<SketchPoint>().FirstOrDefault(q => ((int[])q.GetID()).SequenceEqual(id));
+                                var pf = post.FeatureByName(pn) as Feature;
+                                bool b1 = spx != null && spx.Select4(false, sdx2), b2 = pf != null && pf.Select2(true, 0);
+                                if (b1 && b2) doc.SketchAddConstraints("sgCOINCIDENT");
+                                Console.WriteLine("    RE-TIED\ton the post's " + pn + "\tselected " + b1 + "/" + b2);
+                            }
+                        }
+                        doc.ClearSelection2(true);
+                    }
+                    danglingLeft += ((object[])skf.RelationManager.GetRelations((int)swSketchRelationFilterType_e.swDangling) ?? new object[0]).Length;
+                    string stat = S(() => ((swConstrainedStatus_e)skf.GetConstrainedStatus()).ToString());
+                    Console.WriteLine("    SKETCH STATUS\t" + f.Name + "\t" + stat);
+                    if (stat != "swFullyConstrained") danglingLeft++;
+                    doc.InsertSketch2(true);
+                }
+                doc.ForceRebuild3(false);
+                Console.WriteLine("SKETCHES\tdangling relations left " + danglingLeft);
+                var d2 = (double[])nc.Transform2.ArrayData;
+                double dev = Enumerable.Range(0, 12).Max(i => Math.Abs(d2[i] - arr[i]) * (i >= 9 ? 1000 : 1));
+                var k2 = (double[])kit.Transform2.ArrayData;
+                int er2 = Errors(doc, true);
+                Console.WriteLine("BRACE\t" + nc.Name2 + "\tat (" + Mm(d2[9]) + ", " + Mm(d2[10]) + ", " + Mm(d2[11]) + ")\tmoved by the mates " + dev.ToString("0.###", Inv) + "\tmates " + made + "/4\tkit at (" + Mm(k2[9]) + ", " + Mm(k2[10]) + ", " + Mm(k2[11]) + ")\terrors " + er2);
+                if (made == 4 && dev < 0.1 && er2 == 0 && danglingLeft == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
+                else { Console.WriteLine("NOT SAVED"); rc = 1; }
+            }
+            else if (cmd == "nearpt")
+            {
+                // nearpt <asm> <part file name> <x> <y> <z> <reach mm> (read-only, 25 Nov): for every instance of <part file>,
+                // the point (x, y, z) in that part's axes, placed in the assembly; then every other solid body whose bounding
+                // box (extreme points) comes within <reach> of that point. Says whether anything sits in or by a hole.
+                var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
+                var mu = (MathUtility)sw.GetMathUtility();
+                double[] pt = { double.Parse(a[3], Inv) / 1000, double.Parse(a[4], Inv) / 1000, double.Parse(a[5], Inv) / 1000 };
+                double reach = double.Parse(a[6], Inv) / 1000;
+                var comps = ((object[])asm.GetComponents(false) ?? new object[0]).Cast<Component2>().Where(k => k.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentSuppressed && (k.GetPathName() ?? "").EndsWith(".SLDPRT", StringComparison.OrdinalIgnoreCase)).ToList();
+                var boxes = new List<Tuple<Component2, double[]>>();
+                foreach (var k in comps)
+                {
+                    var T = k.Transform2 as MathTransform; if (T == null) continue; var Ti = (MathTransform)T.Inverse();
+                    object info;
+                    foreach (Body2 b in (object[])k.GetBodies3((int)swBodyType_e.swSolidBody, out info) ?? new object[0])
+                    {
+                        var bx = new double[6];
+                        for (int ax = 0; ax < 3; ax++) for (int sg = -1; sg <= 1; sg += 2)
+                        {
+                            var dw = new double[3]; dw[ax] = sg;
+                            var dp = (double[])((MathVector)((MathVector)mu.CreateVector(dw)).MultiplyTransform(Ti)).ArrayData;
+                            double px, py, pz; b.GetExtremePoint(dp[0], dp[1], dp[2], out px, out py, out pz);
+                            var q = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { px, py, pz })).MultiplyTransform(T)).ArrayData;
+                            bx[sg < 0 ? ax : 3 + ax] = q[ax];
+                        }
+                        boxes.Add(Tuple.Create(k, bx));
+                    }
+                }
+                foreach (var k in comps.Where(k => Path.GetFileName(k.GetPathName()).Equals(a[2], StringComparison.OrdinalIgnoreCase)))
+                {
+                    var w0 = (double[])((MathPoint)((MathPoint)mu.CreatePoint(pt)).MultiplyTransform((MathTransform)k.Transform2)).ArrayData;
+                    var near = boxes.Where(t => t.Item1 != k && Enumerable.Range(0, 3).All(i => w0[i] >= t.Item2[i] - reach && w0[i] <= t.Item2[3 + i] + reach)).ToList();
+                    Console.WriteLine("POINT\t" + k.Name2 + "\tat (" + Mm(w0[0]) + ", " + Mm(w0[1]) + ", " + Mm(w0[2]) + ")\tother bodies within " + a[6] + " mm (box test): " + near.Count);
+                    foreach (var t in near) Console.WriteLine("  NEAR\t" + t.Item1.Name2 + "\t" + Path.GetFileName(t.Item1.GetPathName()) + "\tbox " + string.Join(" ", t.Item2.Select(v => Mm(v))));
+                }
+            }
+            else if (cmd == "geomcfg")
+            {
+                // geomcfg <part|asm> (read-only, 25 Nov): per configuration, mass, volume and the exact bounding box (extreme
+                // points of every solid body along +-x, +-y, +-z in the file's axes; assemblies: every part body, placed).
+                var mu = (MathUtility)sw.GetMathUtility();
+                foreach (string c in (string[])doc.GetConfigurationNames())
+                {
+                    doc.ShowConfiguration2(c); doc.ForceRebuild3(false);
+                    var bodies = new List<Tuple<Body2, MathTransform>>();
+                    if (type == (int)swDocumentTypes_e.swDocPART)
+                        foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]) bodies.Add(Tuple.Create(b, (MathTransform)null));
+                    else
+                    {
+                        var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false);
+                        foreach (Component2 k in (object[])asm.GetComponents(false) ?? new object[0])
+                        {
+                            if (k.GetSuppression2() == (int)swComponentSuppressionState_e.swComponentSuppressed || !(k.GetPathName() ?? "").EndsWith(".SLDPRT", StringComparison.OrdinalIgnoreCase)) continue;
+                            object info;
+                            foreach (Body2 b in (object[])k.GetBodies3((int)swBodyType_e.swSolidBody, out info) ?? new object[0]) bodies.Add(Tuple.Create(b, (MathTransform)k.Transform2));
+                        }
+                    }
+                    var bx = new[] { double.MaxValue, double.MaxValue, double.MaxValue, double.MinValue, double.MinValue, double.MinValue };
+                    foreach (var bt in bodies)
+                        for (int ax = 0; ax < 3; ax++)
+                            for (int sg = -1; sg <= 1; sg += 2)
+                            {
+                                var dw = new double[3]; dw[ax] = sg;
+                                var dp = bt.Item2 == null ? dw : (double[])((MathVector)((MathVector)mu.CreateVector(dw)).MultiplyTransform((MathTransform)bt.Item2.Inverse())).ArrayData;
+                                double px, py, pz; bt.Item1.GetExtremePoint(dp[0], dp[1], dp[2], out px, out py, out pz);
+                                var q = bt.Item2 == null ? new[] { px, py, pz } : (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { px, py, pz })).MultiplyTransform(bt.Item2)).ArrayData;
+                                if (sg < 0) bx[ax] = Math.Min(bx[ax], q[ax]); else bx[3 + ax] = Math.Max(bx[3 + ax], q[ax]);
+                            }
+                    var mp = doc.Extension.CreateMassProperty();
+                    string mass = mp == null ? "?" : mp.Mass.ToString("0.000000", Inv), vol = mp == null ? "?" : (mp.Volume * 1e9).ToString("0.000", Inv);
+                    Console.WriteLine("CFG\t" + c + "\tbodies " + bodies.Count + "\tmass kg " + mass + "\tvolume mm3 " + vol + "\tbox " + (bodies.Count == 0 ? "-" : string.Join(" ", bx.Select(v => Mm(v)))) + "\terrors " + Errors(doc, false));
+                }
+            }
+            else if (cmd == "setprops")
+            {
+                // setprops <file> <config|-> <name>=<value> ... (25 Nov): add or set text custom properties on one configuration
+                // ("-" = the file level), then save. Prints each value and what it resolves to.
+                string sc = a[2] == "-" ? "" : a[2];
+                if (sc != "" && !((string[])doc.GetConfigurationNames()).Contains(sc)) throw new Exception("no configuration " + sc);
+                var pm = doc.Extension.CustomPropertyManager[sc];
+                foreach (var kv in a.Skip(3))
+                {
+                    int eq = kv.IndexOf('='); string n = kv.Substring(0, eq), v = kv.Substring(eq + 1).Replace("{q}", "\"");   // {q} = a double quote
+                    int r1 = pm.Add3(n, (int)swCustomInfoType_e.swCustomInfoText, v, (int)swCustomPropertyAddOption_e.swCustomPropertyReplaceValue);
+                    string val, res; bool wr, lk; pm.Get6(n, false, out val, out res, out wr, out lk);
+                    Console.WriteLine("PROP\t" + (sc == "" ? "(file)" : sc) + "\t" + n + "\t" + val + "\t= " + res + "\t(result " + r1 + ")");
+                    if (val != v) rc = 1;
+                }
+                if (rc == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
+                else Console.WriteLine("NOT SAVED");
+            }
+            else if (cmd == "mirrorcheck")
+            {
+                // mirrorcheck <part|asm> [config] (C18, 25 Nov, read-only): is the model symmetric about its own x = 0 plane?
+                // Fingerprint in the file's axes: every vertex, and every cylindrical face (box centre, radius, axis without
+                // sign), to 0.01 mm; the set mirrored in x must equal the set. Assemblies: every component's bodies, placed.
+                if (cfgArg != "") doc.ShowConfiguration2(cfgArg);
+                var mu = (MathUtility)sw.GetMathUtility();
+                var bodies = new List<Tuple<Body2, MathTransform>>();
+                if (type == (int)swDocumentTypes_e.swDocPART)
+                    foreach (Body2 b in (object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]) bodies.Add(Tuple.Create(b, (MathTransform)null));
+                else
+                {
+                    var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
+                    foreach (Component2 c in (object[])asm.GetComponents(false) ?? new object[0])
+                    {
+                        if (c.GetSuppression2() == (int)swComponentSuppressionState_e.swComponentSuppressed || !(c.GetPathName() ?? "").EndsWith(".SLDPRT", StringComparison.OrdinalIgnoreCase)) continue;
+                        object info;
+                        foreach (Body2 b in (object[])c.GetBodies3((int)swBodyType_e.swSolidBody, out info) ?? new object[0]) bodies.Add(Tuple.Create(b, (MathTransform)c.Transform2));
+                    }
+                }
+                Func<double[], MathTransform, double[]> P = (q, T) => T == null ? q : (double[])((MathPoint)((MathPoint)mu.CreatePoint(q)).MultiplyTransform(T)).ArrayData;
+                Func<double[], MathTransform, double[]> V = (q, T) => T == null ? q : (double[])((MathVector)((MathVector)mu.CreateVector(q)).MultiplyTransform(T)).ArrayData;
+                Func<double, string> R = v => Math.Round(v * 1000, 2).ToString("0.00", Inv);
+                var fp = new List<string>(); var fpm = new List<string>();
+                double xmin = double.MaxValue, xmax = double.MinValue;
+                foreach (var bt in bodies)
+                {
+                    foreach (Vertex vx in (object[])bt.Item1.GetVertices() ?? new object[0])
+                    {
+                        var p = P((double[])vx.GetPoint(), bt.Item2);
+                        xmin = Math.Min(xmin, p[0]); xmax = Math.Max(xmax, p[0]);
+                        fp.Add("v " + R(p[0]) + " " + R(p[1]) + " " + R(p[2])); fpm.Add("v " + R(-p[0]) + " " + R(p[1]) + " " + R(p[2]));
+                    }
+                    foreach (Face2 f in (object[])bt.Item1.GetFaces() ?? new object[0])
+                    {
+                        var su = (Surface)f.GetSurface(); if (!su.IsCylinder()) continue;
+                        var cp = (double[])su.CylinderParams; var bx = (double[])f.GetBox();
+                        var c = P(new[] { (bx[0] + bx[3]) / 2, (bx[1] + bx[4]) / 2, (bx[2] + bx[5]) / 2 }, bt.Item2);
+                        var ax = V(new[] { cp[3], cp[4], cp[5] }, bt.Item2).Select(q => Math.Abs(Math.Round(q, 3)).ToString("0.000", Inv)).ToArray();
+                        fp.Add("h " + R(c[0]) + " " + R(c[1]) + " " + R(c[2]) + " r" + R(cp[6]) + " " + string.Join(",", ax));
+                        fpm.Add("h " + R(-c[0]) + " " + R(c[1]) + " " + R(c[2]) + " r" + R(cp[6]) + " " + string.Join(",", ax));
+                    }
+                }
+                Func<IEnumerable<string>, Dictionary<string, int>> count = s => s.GroupBy(x => x.Replace("-0.00", "0.00")).ToDictionary(g => g.Key, g => g.Count());
+                var A1 = count(fp); var B1 = count(fpm);
+                var miss = A1.Keys.Union(B1.Keys).Where(k => (A1.ContainsKey(k) ? A1[k] : 0) != (B1.ContainsKey(k) ? B1[k] : 0)).ToList();
+                Console.WriteLine("MIRROR\t" + Path.GetFileName(file) + " <" + ((Configuration)doc.GetActiveConfiguration()).Name + ">\tbodies " + bodies.Count + "\tvertices " + fp.Count(x => x[0] == 'v') + "\tcylinder faces " + fp.Count(x => x[0] == 'h')
+                    + "\tx " + Mm(xmin) + ".." + Mm(xmax) + "\t" + (miss.Count == 0 ? "SYMMETRIC about x = 0" : "NOT SYMMETRIC: " + miss.Count + " fingerprints without a mirror twin"));
+                foreach (var k in miss.Take(12)) Console.WriteLine("  ODD\t" + k + "\t" + (A1.ContainsKey(k) ? A1[k] : 0) + " vs mirrored " + (B1.ContainsKey(k) ? B1[k] : 0));
+                if (miss.Count > 0) rc = 1;
+            }
+            else if (cmd == "renumber")
+            {
+                // renumber <top asm> <map.txt> (APEX-A93, 25 Nov): one SOLIDWORKS session. The top is opened and fully resolved
+                // (every level loaded). Each "old path<TAB>new path" line of map.txt, in order (parts before the assemblies that
+                // hold them): the in-memory document is saved as the new file (not a copy), so every open parent now refers
+                // to the new file; then PartNo and the file-link expressions are re-written as renprops does. Finally every
+                // open assembly that referred to an old file is saved. New files only as listed; nothing is overwritten.
+                var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
+                var map = File.ReadAllLines(Path.GetFullPath(a[2])).Where(l => l.Contains("\t")).Select(l => l.Split('\t')).Select(p => new[] { Path.GetFullPath(p[0]), Path.GetFullPath(p[1]) }).ToList();
+                foreach (var m in map) if (File.Exists(m[1])) throw new Exception("already exists: " + m[1]);
+                // the assemblies (any level) that use one of the old files, found before anything is renamed
+                var users = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (Component2 c in (object[])asm.GetComponents(false) ?? new object[0])
+                    if (map.Any(m => string.Equals(c.GetPathName(), m[0], StringComparison.OrdinalIgnoreCase)))
+                    {
+                        var par = c.GetParent() as Component2;
+                        users.Add(par == null ? file : par.GetPathName());
+                    }
+                Console.WriteLine("PARENTS\t" + string.Join(", ", users.Select(Path.GetFileName)));
+                foreach (var m in map)
+                {
+                    var md = sw.GetOpenDocumentByName(m[0]) as ModelDoc2;
+                    if (md == null) throw new Exception("not loaded: " + m[0]);
+                    int se = 0, sw2 = 0;
+                    bool ok = md.Extension.SaveAs3(m[1], (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)swSaveAsOptions_e.swSaveAsOptions_Silent, null, null, ref se, ref sw2);
+                    Console.WriteLine("SAVED AS\t" + Path.GetFileName(m[0]) + " -> " + m[1] + "\t" + ok + "\terrors " + se + " warnings " + sw2 + "\tnow " + md.GetPathName());
+                    if (!ok || !File.Exists(m[1]) || !string.Equals(md.GetPathName(), m[1], StringComparison.OrdinalIgnoreCase)) { rc = 1; break; }
+                    string oldN = Path.GetFileNameWithoutExtension(m[0]), newN = Path.GetFileNameWithoutExtension(m[1]); int changed = 0;
+                    var scopes = new List<string> { "" }; scopes.AddRange((string[])md.GetConfigurationNames());
+                    foreach (var sc in scopes)
+                    {
+                        var pm = md.Extension.CustomPropertyManager[sc];
+                        foreach (string n in (string[])pm.GetNames() ?? new string[0])
+                        {
+                            string val, res; bool wasRes, linked;
+                            pm.Get6(n, false, out val, out res, out wasRes, out linked);
+                            string nv = null;
+                            if (string.Equals(n, "PartNo", StringComparison.OrdinalIgnoreCase) && val == oldN) nv = newN;
+                            else if (val.IndexOf("@" + oldN + ".", StringComparison.OrdinalIgnoreCase) >= 0)
+                                nv = System.Text.RegularExpressions.Regex.Replace(val, "@" + System.Text.RegularExpressions.Regex.Escape(oldN) + "\\.", "@" + newN + ".", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                            if (nv != null) { pm.Set2(n, nv); changed++; }
+                            string v2, r2; bool w3, l3; pm.Get6(n, false, out v2, out r2, out w3, out l3);
+                            if (nv != null || v2.IndexOf(oldN, StringComparison.OrdinalIgnoreCase) >= 0 || v2.IndexOf(newN, StringComparison.OrdinalIgnoreCase) >= 0)
+                                Console.WriteLine("  PROP\t" + (sc == "" ? "(file)" : sc) + "\t" + n + "\t" + v2 + "\t= " + r2 + (nv != null ? "\t(was " + val + ")" : "") + (v2.IndexOf(oldN, StringComparison.OrdinalIgnoreCase) >= 0 ? "\tSTILL OLD" : ""));
+                            if (v2.IndexOf(oldN, StringComparison.OrdinalIgnoreCase) >= 0 && (string.Equals(n, "PartNo", StringComparison.OrdinalIgnoreCase) || v2.Contains("@"))) rc = 1;
+                        }
+                    }
+                    if (changed > 0) { bool sv = md.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref se, ref sw2); Console.WriteLine("  SAVED\t" + newN + "\t" + changed + " properties\t" + sv); if (!sv) rc = 1; }
+                }
+                if (rc == 0)
+                {
+                    // the parents, deepest first so each saves with its children's new names (the top last)
+                    var users2 = users.Select(u => map.Where(m => string.Equals(m[0], u, StringComparison.OrdinalIgnoreCase)).Select(m => m[1]).FirstOrDefault() ?? u).ToList();
+                    foreach (var u in users2.Where(u => !string.Equals(u, file, StringComparison.OrdinalIgnoreCase)).Concat(users2.Where(u => string.Equals(u, file, StringComparison.OrdinalIgnoreCase))))
+                    {
+                        var ud = sw.GetOpenDocumentByName(u) as ModelDoc2;
+                        if (ud == null) { Console.WriteLine("PARENT NOT LOADED\t" + u); rc = 1; continue; }
+                        int se = 0, sw2 = 0;
+                        bool sv = ud.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref se, ref sw2);
+                        Console.WriteLine("PARENT SAVED\t" + u + "\t" + sv + "\terrors " + se + " warnings " + sw2);
+                        if (!sv) rc = 1;
+                    }
+                    doc.ForceRebuild3(false);
+                    Console.WriteLine("WHATSWRONG\t" + Errors(doc, true) + " errors");
+                }
+                Console.WriteLine("RENUMBER\t" + (rc == 0 ? "OK" : "PROBLEM"));
+            }
+            else if (cmd == "renprops")
+            {
+                // renprops <file> <old name> <new name> (APEX-A93 renumber, 25 Nov): in the file's own and every configuration's
+                // custom properties, PartNo = <old> becomes <new>, and every link expression naming the file ("...@<old>.SLDPRT",
+                // "...@<old>.SLDASM") is re-written to <new>. Other properties are listed if they mention <old>, not changed.
+                string oldN = a[2], newN = a[3]; int changed = 0, mention = 0;
+                var scopes = new List<string> { "" }; scopes.AddRange((string[])doc.GetConfigurationNames());
+                foreach (var sc in scopes)
+                {
+                    var pm = doc.Extension.CustomPropertyManager[sc];
+                    foreach (string n in (string[])pm.GetNames() ?? new string[0])
+                    {
+                        string val, res; bool wasRes, linked;
+                        pm.Get6(n, false, out val, out res, out wasRes, out linked);
+                        string nv = null;
+                        if (string.Equals(n, "PartNo", StringComparison.OrdinalIgnoreCase) && val == oldN) nv = newN;
+                        else if (val.IndexOf("@" + oldN + ".", StringComparison.OrdinalIgnoreCase) >= 0)
+                            nv = System.Text.RegularExpressions.Regex.Replace(val, "@" + System.Text.RegularExpressions.Regex.Escape(oldN) + "\\.", "@" + newN + ".", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        if (nv != null)
+                        {
+                            int sr = pm.Set2(n, nv);
+                            string v2, r2; bool w2, l2; pm.Get6(n, false, out v2, out r2, out w2, out l2);
+                            Console.WriteLine("SET\t" + (sc == "" ? "(file)" : sc) + "\t" + n + "\t" + val + " -> " + v2 + "\tresolves to " + r2 + "\t(result " + sr + ")");
+                            if (v2 == nv) changed++; else rc = 1;
+                        }
+                        else if (val.IndexOf(oldN, StringComparison.OrdinalIgnoreCase) >= 0 || res.IndexOf(oldN, StringComparison.OrdinalIgnoreCase) >= 0)
+                        { Console.WriteLine("MENTIONS\t" + (sc == "" ? "(file)" : sc) + "\t" + n + "\t" + val + "\t(not changed)"); mention++; }
+                    }
+                }
+                Console.WriteLine("RENPROPS\tchanged " + changed + "\tother mentions " + mention);
+                if (rc == 0 && changed > 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
+                else if (changed == 0) Console.WriteLine("NOTHING TO CHANGE");
+                else Console.WriteLine("NOT SAVED");
+            }
             else if (cmd == "delinst")
             {
                 // delinst <asm> <component> (LS-08B-11 C16, 25 Nov): delete one top-level instance, rebuild, and save only <asm>
@@ -1056,7 +1555,12 @@ static class SwGrout
                 // starts with <other comp prefix> (e.g. a bolt kit "MDL-ROOF-SLEEVE-BOLT-08XXX-12/") is replaced by the same mate
                 // (type, alignment, flip, slot constraint) on the face of <to> with the same geometry, so <from> can be deleted
                 // without leaving that component under-defined. "dry" only lists.
-                bool dry = a.Length > 5 && a[5] == "dry";
+                // options after the prefix (25 Nov, C18): "dry"; "anyplace" (<to> may sit elsewhere: the entity is matched in the
+                // part's own axes, so use it only where the moved entity is on a plane or line <to> shares); "types=a,b" (only
+                // those mate types, e.g. types=coincident,parallel). A prefix ending in * matches any name that starts with it.
+                bool dry = a.Skip(5).Contains("dry"), anyplace = a.Skip(5).Contains("anyplace");
+                var typesOpt = a.Skip(5).FirstOrDefault(x => x.StartsWith("types="));
+                var types = typesOpt == null ? null : typesOpt.Substring(6).Split(',').Select(t => t.Trim().ToLowerInvariant()).ToList();
                 var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
                 var mu = (MathUtility)sw.GetMathUtility();
                 var all = ((object[])asm.GetComponents(false) ?? new object[0]).Cast<Component2>().ToList();
@@ -1064,7 +1568,7 @@ static class SwGrout
                 if (from == null || to == null) throw new Exception("no component " + (from == null ? a[2] : a[3]));
                 if (from.GetPathName() != to.GetPathName()) throw new Exception("not the same part");
                 var fT = (double[])from.Transform2.ArrayData; var tT = (double[])to.Transform2.ArrayData;
-                if (!Enumerable.Range(0, 12).All(i => Math.Abs(fT[i] - tT[i]) < 1e-9)) throw new Exception("not at the same place");
+                if (!anyplace && !Enumerable.Range(0, 12).All(i => Math.Abs(fT[i] - tT[i]) < 1e-9)) throw new Exception("not at the same place");
                 Feature mg = null; for (var g = (Feature)doc.FirstFeature(); g != null && mg == null; g = (Feature)g.GetNextFeature()) if (g.GetTypeName2() == "MateGroup") mg = g;
                 var plan = new List<object[]>(); int failed = 0;
                 for (var s = (Feature)mg.GetFirstSubFeature(); s != null; s = (Feature)s.GetNextSubFeature())
@@ -1075,14 +1579,27 @@ static class SwGrout
                     {
                         string cn = S(() => mt.MateEntity(i).ReferenceComponent.Name2);
                         // <other comp prefix> may list several, comma-separated
-                        if (cn == a[2]) k = i; else if (a[4].Split(',').Any(px => cn == px || cn.StartsWith(px.EndsWith("/") ? px : px + "/", StringComparison.OrdinalIgnoreCase))) o = i;
+                        if (cn == a[2]) k = i; else if (a[4].Split(',').Any(px => px.EndsWith("*") ? cn.StartsWith(px.TrimEnd('*'), StringComparison.OrdinalIgnoreCase) : (cn == px || cn.StartsWith(px.EndsWith("/") ? px : px + "/", StringComparison.OrdinalIgnoreCase)))) o = i;
                     }
                     if (k < 0 || o < 0) continue;
+                    if (types != null && !types.Any(t => ((swMateType_e)mt.Type).ToString().ToLowerInvariant() == "swmate" + t)) continue;
                     var me = mt.MateEntity(k);
                     var ep = me.EntityParams as double[];
                     int constraint = -1;
                     if (mt.Type == (int)swMateType_e.swMateSLOT) constraint = ((SlotMateFeatureData)s.GetDefinition()).Constraint;
                     Console.WriteLine("MATE\t" + s.Name + "\t" + (swMateType_e)mt.Type + "\talign " + mt.Alignment + "\tflipped " + mt.Flipped + (constraint >= 0 ? "\tslot constraint " + constraint : "") + "\t" + a[2] + " : " + What(me.Reference) + "\t| " + S(() => mt.MateEntity(o).ReferenceComponent.Name2) + " : " + What(mt.MateEntity(o).Reference));
+                    var refSeg = me.Reference as SketchSegment;
+                    if (refSeg != null)
+                    {
+                        // a sketch line of <from>: the segment of the same name in the same-named sketch of <to>
+                        string segName = refSeg.GetName(), skName = ((Feature)refSeg.GetSketch()).Name;
+                        var tsk = to.FeatureByName(skName) as Feature;
+                        SketchSegment tseg = tsk == null ? null : ((object[])((Sketch)tsk.GetSpecificFeature2()).GetSketchSegments() ?? new object[0]).Cast<SketchSegment>().FirstOrDefault(x => x.GetName() == segName);
+                        Console.WriteLine("  TARGET\t" + a[3] + " : " + segName + "@" + skName + "\t" + (tseg != null));
+                        if (tseg == null) { failed++; continue; }
+                        plan.Add(new object[] { s, mt.MateEntity(o).Reference, mt.Type, mt.Alignment, tseg, mt.Flipped, constraint, k });
+                        continue;
+                    }
                     var refFeat = me.Reference as Feature;
                     if (refFeat != null)
                     {
@@ -1177,8 +1694,9 @@ static class SwGrout
                         {
                             // the old mate's order (the moved entity first when it was first)
                             var first = (int)pl[7] == 0 ? pl[4] : pl[1]; var second = (int)pl[7] == 0 ? pl[1] : pl[4];
-                            bool o1 = first is Feature ? ((Feature)first).Select2(true, 0) : ((Entity)first).Select4(true, sdx);
-                            bool o2 = second is Feature ? ((Feature)second).Select2(true, 0) : ((Entity)second).Select4(true, sdx);
+                            Func<object, bool> sel = x => x is Feature ? ((Feature)x).Select2(true, 0) : x is SketchSegment ? ((SketchSegment)x).Select4(true, sdx) : ((Entity)x).Select4(true, sdx);
+                            bool o1 = sel(first);
+                            bool o2 = sel(second);
                             if (!o1 || !o2) Console.WriteLine("  SELECT\t" + o1 + "/" + o2);
                             nf = asm.AddMate5((int)pl[2], (int)pl[3], (bool)pl[5], 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, out er0) as Feature;
                         }

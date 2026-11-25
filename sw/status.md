@@ -1,5 +1,15 @@
 # SW status
 
+## 25 Nov (afternoon): APEX-A93 renumber, DBW-01 kg, C18 LS-08C-11 braces checked in
+
+| Job | Vault times | Notes |
+| --- | --- | --- |
+| Renumber 08A11 brace parts -> `_Shared\08X11-HBA-04/-HBW-04/-HBW-05/-DBW-01` (R1-R5; Admin's pdm move R4) | 02:43:41Z-02:44:16Z | One SOLIDWORKS session (SwGrout renumber); PartNo set, Weight/Material links follow; LS-08A-11 positions and masses identical; 08X11-HBA-04-24 is now -26 |
+| 08X11-DBW-01 PartNo/Weight, then mass unit kg (SwKg) | 02:43:56Z, 03:33:39Z | Weight 18.80, mass unchanged |
+| C18: LS-08C-11 gets A's two sleeve braces mirrored (same 08X11-HBW-05, Grant A19 = A) | 05:52:15Z-05:52:27Z | 08C11-STA-01, -HBA-01, -HBA-03; all 8 placed parts at A's mirror (0.000 mm), plate centres mirrored, 1396 -> 1400, nothing else moved, 0 errors, drawings clean |
+
+HBW-05 and 08XXX-HBW-01 both have one 10 mm HDG hole on the -x wall only; nothing sits in it on LS-08A-11. LS-08A-07 square-edge export failed (08X07-SFP squaring > 30 min): plain 0807 exports next, squaring per configuration later. Scripts `sw\grout\renum0811.ps1` (first try, superseded by SwGrout renumber), `c18.ps1`, `c18_check.py`.
+
 ## 25 Nov: LS-08B-11 doubled components (C16, Desk apex-admin-21) checked in; stopped while Grant moves
 
 Vault times: 08B11-HBA-01 01:22:45Z, 08B11-STA-01 01:22:52Z (new LS-08B-11 pin 01:22:52Z). Deleted spigot 08XXX-HBW-01<1>, sleeves 08XXX-HBA-01<23>/<16>, bolt kit MDL-ROOF-SLEEVE-BOLT-08XXX<17> (+16 fasteners). Kept the copies other things use (<19>: Interface_Plate_Layout_Sketch pattern; <24>: STA drawing balloon 6; spigot <2>: HBA drawing balloon 2 and D14); kit 12, sleeve 24 and kit 18 re-mated to them (SwGrout movemates); Roof_Plate_Layout_Sketch point re-pointed to <24> (fixrel). Checks: 1350 -> 1330, 0 other moved, kits 9 -> 8 all 3 mates, 0 errors, 0 sketch warnings, both drawings 0 dangling. New SwGrout commands: movemates, fixrel, delinst; SwNoteAt (what an annotation is attached to). Scripts `sw\grout\c16.ps1`, `c16_check.py`; data `C:\PDM-work\grout\c16`.

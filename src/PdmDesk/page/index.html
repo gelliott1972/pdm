@@ -232,6 +232,13 @@ table.board td { min-width: 78px; }
 details.notstarted { margin-top: 8px; font-size: 13px; color: var(--muted); }
 details.notstarted summary { cursor: pointer; }
 details.notstarted div { margin-top: 4px; }
+.heldbar, .updbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--amber-soft); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+/* Over the page, not in the list, so nothing moves when it appears. */
+.heldbar { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 20; max-width: calc(100vw - 32px); box-shadow: var(--shadow), 0 0 0 1px var(--amber); }
+/* At the foot of the card, so the box being typed in doesn't move. */
+.updbar { margin-top: 10px; }
+.heldbar .b, .updbar .b { padding: 6px 10px; }
+.card.heldgone { opacity: .45; pointer-events: none; }
 .gone { opacity: 0; transform: translateY(-4px); transition: opacity .25s, transform .25s; }
 </style>
 </head>
@@ -252,6 +259,7 @@ details.notstarted div { margin-top: 4px; }
     <div id="reviewWrap"></div>
     <h2>Tickets</h2>
     <div id="filterWrap"></div>
+    <div id="heldWrap"></div>
     <div id="tickets"></div>
     <div id="sentWrap"></div>
   </main>
@@ -289,6 +297,12 @@ const busyHere = () => running.size > 0 || pdmRunning.size > 0 || [...document.q
 const drafts = {};          // ticket file -> { choice, note } while Grant is typing
 const editing = new Set();  // answered tickets reopened with "Change answer"
 const cards = new Map();    // ticket file -> { json, el }
+// Grant is typing: a note with text anywhere on the page (or something running), or the cursor in a ticket's box.
+const holding = () => busyHere() || !!document.activeElement?.matches?.('#tickets textarea, #tickets input');
+// The card he's typing in: the cursor is in it, or one of its boxes has text.
+const typingIn = el => { const a = document.activeElement; return (!!a && el.contains(a) && a.matches('textarea, input')) || [...el.querySelectorAll('textarea, input.code')].some(x => x.value.trim()); };
+const hasText = k => !!String(drafts[k]?.note || '').trim();
+let showNew = false, frozen = false; // "Show" pressed on the new-tickets bar; the last render held the list still
 
 function ago(iso) {
   const t = Date.parse(iso); if (!t) return '';
@@ -319,10 +333,10 @@ async function load() {
       lastJson = text; state = JSON.parse(text);
       // A new Desk was installed: reload, unless Grant is typing or something is running.
       pageVersion ??= state.version;
-      if (state.version && state.version !== pageVersion && !busyHere()) { location.reload(); return; }
+      if (state.version && state.version !== pageVersion && !holding()) { location.reload(); return; }
       render();
       notices();
-    }
+    } else if (frozen && !holding()) render(); // Grant has finished typing: the held changes and new tickets go in now
   } catch {
     $('banner').innerHTML = `<div>The ${esc(DESK_NAME)} server isn't answering. Start it again from the Start menu (PDM Sessions).</div>`;
   }
@@ -366,7 +380,28 @@ function render() {
   open.splice(0, open.length, ...grouped);
   // Keyed cards: a card is rebuilt only when its file changed, so typing isn't disturbed. A batch header is keyed "batch:<n>".
   const box = $('tickets'), keep = new Set(), seq = [];
-  if (!open.length) { box.innerHTML = '<div class="card empty">No open tickets. New ones appear here by themselves.</div>'; cards.clear(); }
+  // While Grant is typing (Grant, 25 Nov: a refresh threw away his place) the list holds still: nothing collapses, opens
+  // or moves; the card he's typing in is never rebuilt (it says it changed, with a button to refresh it); cards closed
+  // elsewhere fade where they are; new tickets wait behind a bar at the top. It all goes in once he has sent or cleared
+  // his text and left the box, or when he presses Show on the bar.
+  const hold = holding() && !showNew && cards.size > 0;
+  showNew = false; frozen = hold;
+  if (hold) {
+    const now = new Map(open.map(t => [t._file, t]));
+    for (const [k, c] of cards) {
+      if (k.startsWith('batch:')) continue;
+      const t = now.get(k), typing = typingIn(c.el);
+      if (!t && c.el.classList.contains('gone')) { c.el.remove(); cards.delete(k); continue; } // just sent from this page
+      c.el.classList.toggle('heldgone', !t && !typing);
+      if (!t) { if (typing) changedBar(c.el, k, true); continue; }
+      const json = cardJson(t);
+      if (c.json === json) { c.el.querySelector(':scope > .updbar')?.remove(); continue; }
+      if (typing) { changedBar(c.el, k, false); continue; }
+      const el = ticketCard(t); el.classList.toggle('collapsed', c.el.classList.contains('collapsed'));
+      c.el.replaceWith(el); c.el = el; c.json = json;
+    }
+    heldBar(open.filter(t => !cards.has(t._file)));
+  } else if (!open.length) { box.innerHTML = '<div class="card empty">No open tickets. New ones appear here by themselves.</div>'; cards.clear(); }
   else {
     box.querySelector('.empty')?.remove();
     let lastBatch = null;
@@ -378,7 +413,7 @@ function render() {
         if (!c || c.json !== html) { const el = batchHeadEl(lastBatch, tickets); if (c) c.el.replaceWith(el); c = { json: html, el }; cards.set(k, c); }
         keep.add(k); seq.push(k);
       } else if (t.type !== 'draft-review') lastBatch = null;
-      const json = JSON.stringify(t) + editing.has(t._file) + pdfShown.has(t._file) + (t.type === 'gate' ? steelOf(t.screen) : '');
+      const json = cardJson(t);
       let c = cards.get(t._file);
       if (!c || c.json !== json) { const el = ticketCard(t); if (c) c.el.replaceWith(el); c = { json, el }; cards.set(t._file, c); }
       keep.add(t._file); seq.push(t._file);
@@ -389,6 +424,7 @@ function render() {
     const want = seq.map(k => cards.get(k).el);
     if (want.some((el, i) => box.children[i] !== el) || box.children.length !== want.length) want.forEach(el => box.appendChild(el));
   }
+  if (!hold) heldBar([]);
 
   // History: answered, done and dismissed, newest first, closed until opened.
   const sent = tickets.filter(t => !isOpen(t) && t.answeredAt).sort((a, b) => String(b.answeredAt).localeCompare(String(a.answeredAt))).slice(0, 40);
@@ -418,6 +454,34 @@ function render() {
 
   $('notes').innerHTML = (state.notes || []).slice(0, 3).map(n => `<div>${esc(n.text)}<br><small>${when(n.createdAt)}${n.readAt ? ' · read by Admin' : ''}</small></div>`).join('');
   $('problems').innerHTML = [...(state.problems || []).map(p => 'Couldn\'t read ' + esc(p)), ...(state.warnings || []).map(esc)].join('<br>');
+}
+
+const cardJson = t => JSON.stringify(t) + editing.has(t._file) + pdfShown.has(t._file) + (t.type === 'gate' ? steelOf(t.screen) : '');
+// Held while typing: the bar over the page for tickets that arrived meanwhile.
+function heldBar(fresh) {
+  const n = fresh.length, b = fresh.filter(t => t.priority === 'blocking').length;
+  const h = n ? `<div class="heldbar"><span>${n} new ticket${n === 1 ? '' : 's'}${b ? ` (${b} blocking)` : ''} arrived while you were typing.</span><button type="button" class="b" id="showNew">Show</button></div>` : '';
+  const w = $('heldWrap'); if (w.dataset.h === h) return;
+  w.innerHTML = h; w.dataset.h = h;
+  $('showNew')?.addEventListener('click', () => { showNew = true; render(); });
+}
+// Held while typing: the bar on the card being typed in when its ticket changed (or was closed) meanwhile.
+function changedBar(el, k, gone) {
+  let bar = el.querySelector(':scope > .updbar');
+  if (bar && bar.dataset.gone === String(gone)) return;
+  bar?.remove();
+  bar = document.createElement('div'); bar.className = 'updbar'; bar.dataset.gone = String(gone);
+  bar.innerHTML = gone ? '<span>This ticket was answered or closed elsewhere. Copy your text if you still need it.</span><button type="button" class="b">Remove this card</button>'
+    : '<span>This ticket has changed since you started typing.</span><button type="button" class="b">Refresh this card</button><span class="meta">Your text is kept.</span>';
+  bar.querySelector('button').onclick = () => refreshCard(k);
+  el.append(bar);
+}
+function refreshCard(k) {
+  const c = cards.get(k); if (!c) return;
+  const t = (state.tickets || []).find(x => x._file === k);
+  if (!t || !isOpen(t)) { c.el.remove(); cards.delete(k); return; }
+  const el = ticketCard(t); c.el.replaceWith(el); c.el = el; c.json = cardJson(t);
+  const ta = el.querySelector('textarea'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
 }
 
 // The ticket's ID first (SW5, A3 ...), as Admin and the sessions name it: the id's leading letters and number.
@@ -459,12 +523,12 @@ $('swstrip').onclick = async e => {
   catch (err) { e.target.disabled = false; const m = $('swmsg'); if (m) m.textContent = err.message; }
 };
 
-// Which open tickets show in full: the one at the top, any being worked on, and whatever Grant opened.
+// Which open tickets show in full: the one at the top, any with unsent text, any being worked on, and whatever Grant opened.
 const expandPref = new Map();
 let historyOpen = false;
 function isExpanded(t, i) {
   if (expandPref.has(t._file)) return expandPref.get(t._file);
-  return i === 0 || editing.has(t._file) || running.has(t._file) || pdmRunning.has(t._file) || t.status === 'started';
+  return i === 0 || hasText(t._file) || editing.has(t._file) || running.has(t._file) || pdmRunning.has(t._file) || t.status === 'started';
 }
 const firstLine = s => String(s || '').split('\n').map(x => x.trim()).find(Boolean) || '';
 

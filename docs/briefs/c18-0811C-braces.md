@@ -34,7 +34,7 @@ Roof plates stay 10 mm (APEX-A82, final: "Keep 10 mm"); DBW-01's 300 x 220 plate
 
 ## Open (Admin to apex-admin, for Grant if needed)
 
-- **Part numbers:** C will use A's parts 08A11-HBA-04, -HBW-04, -HBW-05, -DBW-01. Under APEX-A87's precedent, parts shared across shafts are numbered 08X..; renaming now would move A's pin and the part keys wireframe and Revit use. Admin's recommendation: keep the 08A11 numbers for now; settle at C's shop drawings.
+- **Part numbers: decided, renumber to 08X11 now** (APEX-A93; section below). Wherever this brief says 08A11-HBA-04, -HBW-04, -HBW-05 or -DBW-01 for C, read the 08X11 file.
 - **Concrete above C:** the brace roof plate needs concrete soffit at the same place as on A. The PDM model holds no building; whether C's soffit matches is for Grant / James.
 
 ## Renumber first (APEX-A93, Grant on the Desk, apex-admin-26 = B, 25 Nov)

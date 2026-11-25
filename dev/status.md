@@ -1,8 +1,16 @@
 # Dev status
 
-Updated 17 Nov 2026, on Grant's laptop.
+Updated 25 Nov 2026, on Grant's laptop.
 
-## Now: on call (17-18 Nov overnight)
+## Done 24-25 Nov: 0807 A and B/C imported into P:\ (brief `docs\briefs\import-0807.md`, APEX-A87)
+
+Plans `scratch\import\LS-08A-07-r2-import-plan.xlsx`, `LS-08BC-07-r2-import-plan.xlsx` (probe of `C:\PDM-work\0807-sweep`
+cut per top with `tools\importplan\cut_probe.py`; B/C planned `--with` A). Rehearsal in `scratch\import\rehearsal-0807`
+(clean). Real run on P:\ (logs `scratch\import\import-0807-real`): pdm get first (0 downloaded), A then B/C, Importer,
+SwFixRefs, SwResave --import, gate 0, SwCheck and rebuild of both tops clean; 20 new files, 70 PartNos (Provisional),
+no existing file written; ledger +90 rows (b731a78). Next: App's load (not Dev's).
+
+## Earlier: on call (17-18 Nov overnight)
 
 SW and Draw run vault jobs; Dev fixes SwCmd or DmEdit if they ask. Nothing else queued. Session name is `dev` (fixed
 names since 17 Nov: admin, dev, sw, app, draw).

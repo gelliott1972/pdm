@@ -1,5 +1,12 @@
 # SW status
 
+## 25 Nov (evening): standing by
+
+- LS-08C-11 square-edge export after C18: `runs\LS-08C-11 2026-11-25T0603Z`, OK, pin 05:52:27Z.
+- James's 01:46Z compare: only 08X06-SFP-03 changed (2 new Ø10 drain holes, -9.8 g); the rest identical (`C:\PDM-work\c18\jcmp`).
+- Plain 0807 exports for wireframe: `runs\LS-08A-07 plain 2026-11-25T0629Z` (pin 15:39:44Z), `runs\LS-08BC-07 plain 2026-11-25T0637Z` (15:39:48Z). Stairs: 65 tread tiles face up, 39 riser tiles +Z; "front" = risers.
+- Squaring: one call per part, 75 min for parts with more than 4 configurations (08X07-SFP: 39 min). 08X07-SFP squared copy in the cache. Test `runs\LS-08A-07 test 2026-11-25T0744Z`: LED lines as plain; 18 moved = 3 floor plates (08A07-SFA-1X PLP-10, -9; SFA-4X PLP-9) and their anchor kits half-turned (plates not fully constrained). Desk A20 (later): fix just before the Revit stairs export. LS-08BC-07 square-edge waits for apex-admin.
+
 ## 25 Nov (afternoon): APEX-A93 renumber, DBW-01 kg, C18 LS-08C-11 braces checked in
 
 | Job | Vault times | Notes |

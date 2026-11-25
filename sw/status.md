@@ -1,5 +1,11 @@
 # SW status
 
+## 25 Nov: LS-08B-11 doubled components (C16, Desk apex-admin-21) checked in; stopped while Grant moves
+
+Vault times: 08B11-HBA-01 01:22:45Z, 08B11-STA-01 01:22:52Z (new LS-08B-11 pin 01:22:52Z). Deleted spigot 08XXX-HBW-01<1>, sleeves 08XXX-HBA-01<23>/<16>, bolt kit MDL-ROOF-SLEEVE-BOLT-08XXX<17> (+16 fasteners). Kept the copies other things use (<19>: Interface_Plate_Layout_Sketch pattern; <24>: STA drawing balloon 6; spigot <2>: HBA drawing balloon 2 and D14); kit 12, sleeve 24 and kit 18 re-mated to them (SwGrout movemates); Roof_Plate_Layout_Sketch point re-pointed to <24> (fixrel). Checks: 1350 -> 1330, 0 other moved, kits 9 -> 8 all 3 mates, 0 errors, 0 sketch warnings, both drawings 0 dangling. New SwGrout commands: movemates, fixrel, delinst; SwNoteAt (what an annotation is attached to). Scripts `sw\grout\c16.ps1`, `c16_check.py`; data `C:\PDM-work\grout\c16`.
+
+Queue (Admin): 0807 square-edge exports (skipped for time), renumber of the 4 brace parts (3a), C18 LS-08C-11 braces (3b): none started; wait for Admin's word.
+
 ## 24 Nov: 0807 floor anchors (APEX-A84) checked in
 
 Admin's brief (Desk apex-admin-13, -15). pdm get, check-out 3, rehearsal on Pack and Go copies (`C:\PDM-work\grout\anc07`), real, dry load exactly 3 changed, `pdm checkin`, dry load 0. Vault times: MDL-ANCHOR-GNRIC 15:39:39Z, 08A07-STA-01 15:39:44Z, 08Z07-STA-01 15:39:48Z.

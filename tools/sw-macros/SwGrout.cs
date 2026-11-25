@@ -73,7 +73,7 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
+        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !(a.Length > 5 && a[5] == "dry")) || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
@@ -175,7 +175,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -937,6 +937,261 @@ static class SwGrout
                 Console.WriteLine("REMATE\tre-attached " + fixedN + "\tfailed " + failed + "\terrors " + er);
                 if (!dry && fixedN > 0 && failed == 0 && er == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
                 else if (!dry) { Console.WriteLine("NOT SAVED"); rc = 1; }
+            }
+            else if (cmd == "delinst")
+            {
+                // delinst <asm> <component> (LS-08B-11 C16, 25 Nov): delete one top-level instance, rebuild, and save only <asm>
+                // (Save3 without "save referenced": a part that a rebuild marks modified, but is not checked out, is left alone).
+                var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
+                var c = ((object[])asm.GetComponents(true) ?? new object[0]).Cast<Component2>().FirstOrDefault(x => x.Name2 == a[2]);
+                if (c == null) throw new Exception("no top-level component " + a[2]);
+                int before = ((object[])asm.GetComponents(true)).Length;
+                doc.ClearSelection2(true);
+                bool sel = c.Select4(false, null, false);
+                bool del = sel && doc.Extension.DeleteSelection2((int)swDeleteSelectionOptions_e.swDelete_Absorbed);
+                doc.ClearSelection2(true);
+                doc.ForceRebuild3(false);
+                int after = ((object[])asm.GetComponents(true)).Length;
+                int er = Errors(doc, true);
+                Console.WriteLine("DELINST\t" + a[2] + "\tdeleted " + del + "\ttop-level components " + before + " -> " + after + "\terrors " + er);
+                if (del && after == before - 1 && er == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file + "\twarnings " + w : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
+                else { Console.WriteLine("NOT SAVED"); rc = 1; }
+            }
+            else if (cmd == "fixrel")
+            {
+                // fixrel <asm> <sketch> <component> [dry] (LS-08B-11 C16, 25 Nov): every dangling relation of <sketch> (a sketch
+                // in <asm> itself) is removed from its sketch point, and that point is made coincident with the origin of
+                // <component> instead, but only when the point already sits on that origin (so nothing moves).
+                bool dry = a.Length > 4 && a[4] == "dry";
+                var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
+                var comp = ((object[])asm.GetComponents(true) ?? new object[0]).Cast<Component2>().FirstOrDefault(c => c.Name2 == a[3]);
+                if (comp == null) throw new Exception("no top-level component " + a[3]);
+                var feat = FeatureNamed(doc, a[2]); var sk = (Sketch)feat.GetSpecificFeature2();
+                var ct = (double[])comp.Transform2.ArrayData;
+                var skXf = (MathTransform)sk.ModelToSketchTransform;
+                var mu = (MathUtility)sw.GetMathUtility();
+                var oSk = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { ct[9], ct[10], ct[11] })).MultiplyTransform(skXf)).ArrayData;
+                doc.ClearSelection2(true); feat.Select2(false, -1); doc.EditSketch();
+                var rm = sk.RelationManager;
+                var dang = (object[])rm.GetRelations((int)swSketchRelationFilterType_e.swDangling) ?? new object[0];
+                Console.WriteLine("DANGLING\t" + dang.Length + "\t" + a[3] + " origin in sketch axes (" + Mm(oSk[0]) + ", " + Mm(oSk[1]) + ", " + Mm(oSk[2]) + ")");
+                foreach (SketchPoint q in (object[])sk.GetSketchPoints2() ?? new object[0])
+                    Console.WriteLine("  SKETCH POINT\tid " + string.Join(",", (int[])q.GetID()) + "\t(" + Mm(q.X) + ", " + Mm(q.Y) + ")");
+                foreach (SketchRelation r in (object[])rm.GetRelations((int)swSketchRelationFilterType_e.swAll) ?? new object[0])
+                    Console.WriteLine("  RELATION\t" + (swConstraintType_e)r.GetRelationType() + "\tpoints " + string.Join(" ", ((object[])r.GetEntities() ?? new object[0]).OfType<SketchPoint>().Select(q => string.Join(",", (int[])q.GetID()))));
+                var pts = new List<SketchPoint>();
+                foreach (SketchRelation r in dang)
+                    foreach (var o in (object[])r.GetEntities() ?? new object[0])
+                    {
+                        // a relation to a model point lists that point's image in the sketch too: keep only the sketch's own points
+                        var sp = o as SketchPoint; if (sp == null) continue;
+                        var sid = (int[])sp.GetID();
+                        if (!((object[])sk.GetSketchPoints2() ?? new object[0]).Cast<SketchPoint>().Any(q => ((int[])q.GetID()).SequenceEqual(sid))) continue;
+                        if (pts.Any(q => ((int[])q.GetID()).SequenceEqual(sid))) continue;
+                        bool on = Math.Abs(sp.X - oSk[0]) < 1e-7 && Math.Abs(sp.Y - oSk[1]) < 1e-7;
+                        Console.WriteLine("  POINT\t(" + Mm(sp.X) + ", " + Mm(sp.Y) + ")\t" + (swConstraintType_e)r.GetRelationType() + "\ton the new origin " + on);
+                        if (!on) { rc = 1; continue; }
+                        pts.Add(sp);
+                    }
+                int made = 0;
+                if (!dry && rc == 0)
+                {
+                    var sdx = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
+                    foreach (var sp0 in pts)
+                    {
+                        var id0 = (int[])sp0.GetID();
+                        doc.ClearSelection2(true);
+                        bool s0 = sp0.Select4(false, sdx) || sp0.Select4(false, sdx);
+                        if (!s0)
+                            foreach (var cand in id0.Select(i => "Point" + i).Distinct())
+                            {
+                                doc.ClearSelection2(true);
+                                if (!doc.Extension.SelectByID2(cand + "@" + a[2], "SKETCHPOINT", 0, 0, 0, false, 0, null, 0)) continue;
+                                var got = ((SelectionMgr)doc.SelectionManager).GetSelectedObject6(1, -1) as SketchPoint;
+                                if (got != null && ((int[])got.GetID()).SequenceEqual(id0)) { s0 = true; break; }
+                            }
+                        Console.WriteLine("  CLEAR\tselected " + s0);
+                        if (s0) doc.SketchConstraintsDelAll();
+                        doc.ClearSelection2(true);
+                        // the same point again by its ID (the object can go stale once its relations are removed; another
+                        // point may sit at the same place)
+                        var sp = ((object[])sk.GetSketchPoints2() ?? new object[0]).Cast<SketchPoint>().FirstOrDefault(q => ((int[])q.GetID()).SequenceEqual(id0));
+                        bool s1 = sp != null && sp.Select4(false, sdx);
+                        string how = "object";
+                        if (!s1)
+                        {
+                            // by name: "PointN@<sketch>", N one of the point's IDs
+                            foreach (var cand in id0.Select(i => "Point" + i).Distinct())
+                            {
+                                doc.ClearSelection2(true);
+                                if (!doc.Extension.SelectByID2(cand + "@" + a[2], "SKETCHPOINT", 0, 0, 0, false, 0, null, 0)) continue;
+                                var got = ((SelectionMgr)doc.SelectionManager).GetSelectedObject6(1, -1) as SketchPoint;
+                                if (got != null && ((int[])got.GetID()).SequenceEqual(id0)) { s1 = true; how = cand; break; }
+                            }
+                        }
+                        Console.WriteLine("  POINT AGAIN\tfound " + (sp != null) + "\tselected by " + (s1 ? how : "-") + "\tid " + string.Join(",", id0));
+                        bool s2 = doc.Extension.SelectByID2("Point1@Origin@" + comp.Name2 + "@" + Path.GetFileNameWithoutExtension(file), "EXTSKETCHPOINT", 0, 0, 0, true, 0, null, 0);
+                        doc.SketchAddConstraints("sgCOINCIDENT");
+                        doc.ClearSelection2(true);
+                        Console.WriteLine("  RELATED\tselected " + s1 + "/" + s2);
+                        if (s1 && s2) made++;
+                    }
+                }
+                var left = ((object[])rm.GetRelations((int)swSketchRelationFilterType_e.swDangling) ?? new object[0]).Length;
+                string status = S(() => ((swConstrainedStatus_e)sk.GetConstrainedStatus()).ToString());
+                doc.InsertSketch2(true);
+                doc.ForceRebuild3(false);
+                int er = Errors(doc, true);
+                Console.WriteLine("FIXREL\tre-related " + made + "\tdangling left " + left + "\tsketch " + status + "\terrors " + er);
+                if (!dry)
+                {
+                    if (rc == 0 && made == pts.Count && made > 0 && left == 0 && er == 0 && status == "swFullyConstrained") { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
+                    else { Console.WriteLine("NOT SAVED"); rc = 1; }
+                }
+            }
+            else if (cmd == "movemates")
+            {
+                // movemates <asm> <from comp> <to comp> <other comp prefix> [dry] (LS-08B-11 C16, 25 Nov): <from> and <to> are two
+                // instances of the same part at the same place. Every mate of <asm> between <from> and a component whose name
+                // starts with <other comp prefix> (e.g. a bolt kit "MDL-ROOF-SLEEVE-BOLT-08XXX-12/") is replaced by the same mate
+                // (type, alignment, flip, slot constraint) on the face of <to> with the same geometry, so <from> can be deleted
+                // without leaving that component under-defined. "dry" only lists.
+                bool dry = a.Length > 5 && a[5] == "dry";
+                var asm = (AssemblyDoc)doc; asm.ResolveAllLightWeightComponents(false); doc.ForceRebuild3(false);
+                var mu = (MathUtility)sw.GetMathUtility();
+                var all = ((object[])asm.GetComponents(false) ?? new object[0]).Cast<Component2>().ToList();
+                var from = all.FirstOrDefault(c => c.Name2 == a[2]); var to = all.FirstOrDefault(c => c.Name2 == a[3]);
+                if (from == null || to == null) throw new Exception("no component " + (from == null ? a[2] : a[3]));
+                if (from.GetPathName() != to.GetPathName()) throw new Exception("not the same part");
+                var fT = (double[])from.Transform2.ArrayData; var tT = (double[])to.Transform2.ArrayData;
+                if (!Enumerable.Range(0, 12).All(i => Math.Abs(fT[i] - tT[i]) < 1e-9)) throw new Exception("not at the same place");
+                Feature mg = null; for (var g = (Feature)doc.FirstFeature(); g != null && mg == null; g = (Feature)g.GetNextFeature()) if (g.GetTypeName2() == "MateGroup") mg = g;
+                var plan = new List<object[]>(); int failed = 0;
+                for (var s = (Feature)mg.GetFirstSubFeature(); s != null; s = (Feature)s.GetNextSubFeature())
+                {
+                    var mt = s.GetSpecificFeature2() as Mate2; if (mt == null || mt.GetMateEntityCount() != 2) continue;
+                    int k = -1, o = -1;
+                    for (int i = 0; i < 2; i++)
+                    {
+                        string cn = S(() => mt.MateEntity(i).ReferenceComponent.Name2);
+                        // <other comp prefix> may list several, comma-separated
+                        if (cn == a[2]) k = i; else if (a[4].Split(',').Any(px => cn == px || cn.StartsWith(px.EndsWith("/") ? px : px + "/", StringComparison.OrdinalIgnoreCase))) o = i;
+                    }
+                    if (k < 0 || o < 0) continue;
+                    var me = mt.MateEntity(k);
+                    var ep = me.EntityParams as double[];
+                    int constraint = -1;
+                    if (mt.Type == (int)swMateType_e.swMateSLOT) constraint = ((SlotMateFeatureData)s.GetDefinition()).Constraint;
+                    Console.WriteLine("MATE\t" + s.Name + "\t" + (swMateType_e)mt.Type + "\talign " + mt.Alignment + "\tflipped " + mt.Flipped + (constraint >= 0 ? "\tslot constraint " + constraint : "") + "\t" + a[2] + " : " + What(me.Reference) + "\t| " + S(() => mt.MateEntity(o).ReferenceComponent.Name2) + " : " + What(mt.MateEntity(o).Reference));
+                    var refFeat = me.Reference as Feature;
+                    if (refFeat != null)
+                    {
+                        // a reference plane (or axis, point) of <from>: the feature of the same name in <to>
+                        var tf = to.FeatureByName(refFeat.Name) as Feature;
+                        Console.WriteLine("  TARGET\t" + a[3] + " : feature " + refFeat.Name + "\t" + (tf != null));
+                        if (tf == null) { failed++; continue; }
+                        plan.Add(new object[] { s, mt.MateEntity(o).Reference, mt.Type, mt.Alignment, tf, mt.Flipped, constraint, k });
+                        continue;
+                    }
+                    if (ep == null || me.ReferenceType2 != (int)swSelectType_e.swSelFACES) { Console.WriteLine("  PROBLEM\tnot a face or a feature"); failed++; continue; }
+                    var inv = (MathTransform)((MathTransform)from.Transform2).Inverse();
+                    var p = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { ep[0], ep[1], ep[2] })).MultiplyTransform(inv)).ArrayData;
+                    var nv = (double[])((MathVector)((MathVector)mu.CreateVector(new[] { ep[3], ep[4], ep[5] })).MultiplyTransform(inv)).ArrayData;
+                    double rad = ep.Length > 6 ? ep[6] : 0;
+                    var matches = new List<Face2>();
+                    foreach (Body2 b in (object[])((PartDoc)to.GetModelDoc2()).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0])
+                        foreach (Face2 f in (object[])b.GetFaces() ?? new object[0])
+                        {
+                            var su = (Surface)f.GetSurface();
+                            if (su.IsPlane() && rad == 0)
+                            {
+                                var pp = (double[])su.PlaneParams;
+                                double dot = pp[0] * nv[0] + pp[1] * nv[1] + pp[2] * nv[2];
+                                double off = (p[0] - pp[3]) * pp[0] + (p[1] - pp[4]) * pp[1] + (p[2] - pp[5]) * pp[2];
+                                if (Math.Abs(Math.Abs(dot) - 1) < 1e-6 && Math.Abs(off) < 1e-6) matches.Add(f);   // several faces can share a plane: the area picks one below
+                            }
+                            if (su.IsCylinder() && rad > 0)
+                            {
+                                var cp = (double[])su.CylinderParams;
+                                double dot = cp[3] * nv[0] + cp[4] * nv[1] + cp[5] * nv[2];
+                                double[] d = { p[0] - cp[0], p[1] - cp[1], p[2] - cp[2] };
+                                double along = d[0] * cp[3] + d[1] * cp[4] + d[2] * cp[5];
+                                double dist = Math.Sqrt(Math.Max(0, d[0] * d[0] + d[1] * d[1] + d[2] * d[2] - along * along));
+                                if (Math.Abs(Math.Abs(dot) - 1) < 1e-6 && dist < 1e-6 && Math.Abs(cp[6] - rad) < 1e-6) matches.Add(f);
+                            }
+                        }
+                    // the face of <from> the mate uses, by the same test in <from>'s own part (same file, so the same face index)
+                    var fromFace = me.Reference as Face2;
+                    Face2 match = null;
+                    if (fromFace != null)
+                    {
+                        // same part, so the very same face has the same area and (in part axes) the same box
+                        double farea = fromFace.GetArea();
+                        var fb = (double[])fromFace.GetBox();
+                        var c1 = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { fb[0], fb[1], fb[2] })).MultiplyTransform(inv)).ArrayData;
+                        var c2 = (double[])((MathPoint)((MathPoint)mu.CreatePoint(new[] { fb[3], fb[4], fb[5] })).MultiplyTransform(inv)).ArrayData;
+                        var lo = Enumerable.Range(0, 3).Select(i => Math.Min(c1[i], c2[i])).ToArray(); var hi = Enumerable.Range(0, 3).Select(i => Math.Max(c1[i], c2[i])).ToArray();
+                        var same = matches.Where(f => Math.Abs(f.GetArea() - farea) < 1e-9).ToList();
+                        // (a component face's box may come in part axes already, so both are tried)
+                        match = same.FirstOrDefault(f => { var b = (double[])f.GetBox(); return Enumerable.Range(0, 3).All(i => Math.Abs(b[i] - lo[i]) < 1e-6 && Math.Abs(b[3 + i] - hi[i]) < 1e-6); })
+                             ?? same.FirstOrDefault(f => { var b = (double[])f.GetBox(); return Enumerable.Range(0, 6).All(i => Math.Abs(b[i] - fb[i]) < 1e-6); });
+                        Console.WriteLine("  FACE\tsame plane " + matches.Count + ", same area " + same.Count + ", same box " + (match != null));
+                    }
+                    if (match == null && matches.Count == 1) match = matches[0];
+                    if (match == null) { Console.WriteLine("  PROBLEM\t" + matches.Count + " faces with the same geometry on " + a[3]); failed++; continue; }
+                    var ent = to.GetCorrespondingEntity(match);
+                    Console.WriteLine("  TARGET\t" + a[3] + " : face of " + S(() => ((Feature)match.GetFeature()).Name) + "\t(" + matches.Count + " candidates)");
+                    plan.Add(new object[] { s, mt.MateEntity(o).Reference, mt.Type, mt.Alignment, ent, mt.Flipped, constraint, k });
+                }
+                Console.WriteLine("MATES TO MOVE\t" + plan.Count + "\tproblems " + failed);
+                if (!dry && failed == 0)
+                {
+                    var sdx = ((SelectionMgr)doc.SelectionManager).CreateSelectData();
+                    int moved = 0;
+                    foreach (var pl in plan)
+                    {
+                        var s = (Feature)pl[0]; string oldName = s.Name;
+                        doc.ClearSelection2(true);
+                        bool del = s.Select2(false, 0) && doc.Extension.DeleteSelection2((int)swDeleteSelectionOptions_e.swDelete_Absorbed);
+                        doc.ClearSelection2(true);
+                        Feature nf = null; int er0 = 0;
+                        if ((int)pl[2] == (int)swMateType_e.swMateSLOT)
+                        {
+                            // AddMate5 makes a free slot mate (the old mate's order: slot face first when it was first); the
+                            // slot constraint is then set through the definition
+                            var first = (int)pl[7] == 0 ? pl[4] : pl[1]; var second = (int)pl[7] == 0 ? pl[1] : pl[4];
+                            bool o1 = first is Feature ? ((Feature)first).Select2(true, 0) : ((Entity)first).Select4(true, sdx);
+                            bool o2 = second is Feature ? ((Feature)second).Select2(true, 0) : ((Entity)second).Select4(true, sdx);
+                            nf = asm.AddMate5((int)pl[2], (int)pl[3], (bool)pl[5], 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, out er0) as Feature;
+                            if (nf != null)
+                            {
+                                var sd2 = (SlotMateFeatureData)nf.GetDefinition();
+                                sd2.Constraint = (int)pl[6];
+                                bool okc = nf.ModifyDefinition(sd2, doc, null);
+                                Console.WriteLine("  SLOT CONSTRAINT\t" + pl[6] + "\tset " + okc + "\tnow " + ((SlotMateFeatureData)nf.GetDefinition()).Constraint);
+                                if (((SlotMateFeatureData)nf.GetDefinition()).Constraint != (int)pl[6]) { failed++; }
+                            }
+                            else Console.WriteLine("  SLOT\tselected " + o1 + "/" + o2);
+                        }
+                        else
+                        {
+                            // the old mate's order (the moved entity first when it was first)
+                            var first = (int)pl[7] == 0 ? pl[4] : pl[1]; var second = (int)pl[7] == 0 ? pl[1] : pl[4];
+                            bool o1 = first is Feature ? ((Feature)first).Select2(true, 0) : ((Entity)first).Select4(true, sdx);
+                            bool o2 = second is Feature ? ((Feature)second).Select2(true, 0) : ((Entity)second).Select4(true, sdx);
+                            if (!o1 || !o2) Console.WriteLine("  SELECT\t" + o1 + "/" + o2);
+                            nf = asm.AddMate5((int)pl[2], (int)pl[3], (bool)pl[5], 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, out er0) as Feature;
+                        }
+                        doc.ClearSelection2(true);
+                        Console.WriteLine("  REPLACED\t" + oldName + "\tdeleted " + del + "\t" + (nf == null ? "FAILED " + er0 : "new " + nf.Name));
+                        if (del && nf != null) moved++; else failed++;
+                    }
+                    doc.ForceRebuild3(false);
+                    int er = Errors(doc, true);
+                    Console.WriteLine("MOVEMATES\tmoved " + moved + "\tfailed " + failed + "\terrors " + er);
+                    if (moved > 0 && failed == 0 && er == 0) { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); if (!sv) rc = 1; }
+                    else { Console.WriteLine("NOT SAVED"); rc = 1; }
+                }
             }
             else if (cmd == "kitcfg")
             {

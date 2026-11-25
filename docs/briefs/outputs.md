@@ -12,6 +12,8 @@ One place where everyone gets the files made **from** the vault, as well as the 
 | Revit wireframe files | wireframe / apex-admin | `C:\code\apex` |
 | Engineering calcs (PDF report + workbook) | calc sessions | `C:\code\apex` |
 
+**LED depth (APEX-A102, 25 Nov, record only):** the DL_APEX tiles in the vault, and so in every `<LS>_LED.STEP`, are 85 mm deep. The real panel is 40 mm thick with a balanced centre of gravity (calcs take its weight at plate + 20 mm). The vault holds no note of why the CAD is 85 mm. DL_APEX is not ours to change; anyone using the LED STEP's depth should know this.
+
 **Why the PDM:** Dropbox is blocked in mainland China without a VPN. The PDM's Hong Kong S3 storage works from China (Phase 0).
 
 ## Stages

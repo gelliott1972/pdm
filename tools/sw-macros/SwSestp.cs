@@ -258,10 +258,14 @@ static class SwSestp
                 if (picks.Count == 0) continue;
                 string bname = b.Name;
                 doc.ClearSelection2(true);
+                // the Delete Face features there before, so the new one is found wherever it lands in the tree (25 Nov:
+                // 08X11-DBW-01 had a feature after it, so "the last feature" was not the new one)
+                var before = new HashSet<string>();
+                for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature()) if (f.GetTypeName2() == "DelFace") before.Add(f.Name);
                 int sel = picks.Count(f => ((Entity)f).Select4(true, sd));
                 bool one = sel == picks.Count && doc.Extension.InsertDeleteFace((int)swFaceDeleteOption_e.swFaceDelete_Patch);
                 Feature last = null;
-                for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature()) last = f;
+                for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature()) if (f.GetTypeName2() == "DelFace" && !before.Contains(f.Name)) last = f;
                 if (one && last != null && last.GetTypeName2() == "DelFace")
                 {
                     last.Name = "SQUARE-CORNERS " + (ci + 1) + "-" + bodyNo + " " + bname;

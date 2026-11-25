@@ -172,7 +172,9 @@ def cmd_run(a):
     if not ok:
         print('STOPPED: the SOLIDWORKS lock is not held by sw. Status:\n' + st); return 2
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H%MZ')
-    rd = os.path.join(RUNS, a.ls + ' ' + stamp)
+    # --plain (Admin, 25 Nov, the 0807 stairs for wireframe): the same export with the squaring step skipped; the run
+    # folder is marked "plain"
+    rd = os.path.join(RUNS, a.ls + (' plain ' if a.plain else ' ') + stamp)
     os.makedirs(rd)
     LOG = os.path.join(rd, 'log.txt')
     model = os.path.join(rd, 'model')
@@ -203,6 +205,9 @@ def cmd_run(a):
         hit = os.path.exists(os.path.join(cache_dir(name, k), 'meta.json'))
         plan.append((name, p, k, parts, hit))
     times['Find tube parts'] = time.time() - t
+    if a.plain:
+        say('PLAIN: squaring skipped for', len(plan), 'tube and angle parts:', ', '.join(x[0] for x in plan))
+        plan = []
     say('TUBE PARTS', len(plan), '| kept squared copies to use:', sum(1 for x in plan if x[4]), '| to square now:', sum(1 for x in plan if not x[4]))
     for name, p, k, _, hit in plan:
         say('   ', 'kept' if hit else 'SQUARE', name, k[:16])
@@ -311,11 +316,13 @@ def write_notes(rd, a, vault, plan, before, moved, good, times):
     # APEX-A67's LED FACE (one per face on a wrap), AXES and END STEEL lines with theirs
     corner = [l.split('\t', 1)[1] if l.startswith(('LED CORNER', 'ENVELOPE')) else l for l in open(led, encoding='utf-8')
               if l.startswith(('LED CORNER', 'ENVELOPE', 'LED FACE', 'AXES', 'END STEEL'))] if os.path.exists(led) else []
-    L = ['%s square-edge STEP (SESTP), %s, made by SW (SOLIDWORKS 2026)' % (a.ls, os.path.basename(rd)[len(a.ls) + 1:]),
+    plain = getattr(a, 'plain', False)
+    L = ['%s %s, %s, made by SW (SOLIDWORKS 2026)' % (a.ls, 'PLAIN STEP (corners as in the vault, NOT squared)' if plain else 'square-edge STEP (SESTP)', os.path.basename(rd)[len(a.ls) + 1:]),
          '',
          'Result: ' + ('OK' if good else 'PROBLEMS, see log.txt'),
          'Two STEP files (AP203) from the same top assembly, %s (configuration %s), in the same axes, so they overlay:' % (a.top, a.config),
-         '  %s_STR.STEP   the structure, every tube and angle corner square (Revit SHAPE ONLY: not for mass or weight)' % a.ls,
+         ('  %s_STR.STEP   the structure as modelled (corners not squared: for analysis, not for the Revit import)' % a.ls) if plain else
+         ('  %s_STR.STEP   the structure, every tube and angle corner square (Revit SHAPE ONLY: not for mass or weight)' % a.ls),
          '  %s_LED.STEP   the DL_APEX tiles, as in the vault (not squared)' % a.ls,
          'Source: ' + vault,
          'Sandbox only: nothing checked out, nothing written to P:\\ or the vault.',
@@ -335,6 +342,7 @@ def main():
     sp = ap.add_subparsers(dest='cmd', required=True)
     r = sp.add_parser('run'); r.add_argument('--top', required=True); r.add_argument('--config', required=True)
     r.add_argument('--ls', required=True); r.add_argument('--count', action='store_true')
+    r.add_argument('--plain', action='store_true', help='skip the squaring step (plain STEP; run folder marked "plain")')
     r.add_argument('--keep-model', action='store_true', help='keep the sandbox model after a good run (it is always kept after a bad one)')
     s = sp.add_parser('seed'); s.add_argument('--from', required=True); s.add_argument('--index', required=True); s.add_argument('--parts', required=True)
     t = sp.add_parser('tubes'); t.add_argument('folder')

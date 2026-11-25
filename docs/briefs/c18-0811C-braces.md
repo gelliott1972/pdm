@@ -36,3 +36,29 @@ Roof plates stay 10 mm (APEX-A82, final: "Keep 10 mm"); DBW-01's 300 x 220 plate
 
 - **Part numbers:** C will use A's parts 08A11-HBA-04, -HBW-04, -HBW-05, -DBW-01. Under APEX-A87's precedent, parts shared across shafts are numbered 08X..; renaming now would move A's pin and the part keys wireframe and Revit use. Admin's recommendation: keep the 08A11 numbers for now; settle at C's shop drawings.
 - **Concrete above C:** the brace roof plate needs concrete soffit at the same place as on A. The PDM model holds no building; whether C's soffit matches is for Grant / James.
+
+## Renumber first (APEX-A93, Grant on the Desk, apex-admin-26 = B, 25 Nov)
+
+"The Revit drawings won't change with a part number change as they are the same. Let's get it right." The four parts become shared 08X11 parts, in `_Shared` (folder = place), **before** the C change, so C is built with the new files. Suffixes kept so the map is one-to-one and nothing clashes with 08A11-HBW-01/-03 (the headers):
+
+| Old | New | Parents (index refs, whole vault) |
+| --- | --- | --- |
+| `ShaftA\08A11-HBA-04.SLDASM` | `_Shared\08X11-HBA-04.SLDASM` | 08A11-STA-01 |
+| `ShaftA\08A11-HBW-04.SLDPRT` | `_Shared\08X11-HBW-04.SLDPRT` | 08A11-HBA-04 |
+| `ShaftA\08A11-HBW-05.SLDPRT` | `_Shared\08X11-HBW-05.SLDPRT` | 08A11-HBA-01, 08A11-HBA-03 |
+| `ShaftA\08A11-DBW-01.SLDPRT` | `_Shared\08X11-DBW-01.SLDPRT` | 08A11-HBA-04 |
+
+No vault drawing references the four directly (DM probe of all 44 LS-08X-11 drawings); none of them has its own drawing. New PartNos are free in `pdm-partnos`. Index today: 08A11-HBA-04 (Default), 08A11-HBW-04 (no config), 08A11-HBW-05 (Default<As Machined>); 08A11-DBW-01 has no PartNo row: check its property.
+
+Steps:
+
+| # | Who | Step |
+| --- | --- | --- |
+| R1 | SW | Before: xforms of `LS-08A-11+STRUCTURE` (Default) and mass of each of the four |
+| R2 | SW | Check out the 7 files: the four, 08A11-HBA-01, 08A11-HBA-03, 08A11-STA-01 |
+| R3 | SW | Open 08A11-STA-01 (all loaded). Save As (not copy) each part, then HBA-04, to the new name in `P:\APEX\SC08\LS-08X-11\_Shared\`, so the open parents follow. PartNo on every configuration that carries one = the new number (status unchanged); Weight formulas name the new file (DmEdit can't write P:\, so in SOLIDWORKS). Save the parents. Close All. DM probe: no file references an old name |
+| R4 | Admin | `pdm move` (list of the 4 lines), dry run, then real: keeps each fileId and history; the old local copies are deleted |
+| R5 | SW | Check in the 7 (4 at the new paths). After: xforms identical to R1 apart from names, masses identical, top and drawings 08A11-HBA-01/-03 and 08A11-STA-01 open with no errors or dangling items |
+| R6 | Admin | Re-read: new LS-08A-11 pin, steel unchanged; PartNo rows; ledger rows; old-to-new list to apex-admin |
+
+Then the C change above uses `_Shared\08X11-*` (live only after revit-fiona's soffit check, via apex-admin).

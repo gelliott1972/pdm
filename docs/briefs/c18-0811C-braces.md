@@ -62,3 +62,7 @@ Steps:
 | R6 | Admin | Re-read: new LS-08A-11 pin, steel unchanged; PartNo rows; ledger rows; old-to-new list to apex-admin |
 
 Then the C change above uses `_Shared\08X11-*` (live only after revit-fiona's soffit check, via apex-admin).
+
+## Soffit over C: confirmed (revit-fiona via apex-admin, 25 Nov)
+
+Concrete is there at the true mirror positions: 200 mm slab, soffit 22490 as on A. Near plate (x_C -6745): 28 mm clear of the 600x800 main beam (A 23 mm). Other plate (x_C -2995): 970 mm to the nearest beam (A 965). **Place by the mirror formula in model axes, not by any "from the right end" wording**: taken from the wrong end, one plate would land under a 400x600 beam. Final check: each C brace roof plate centre = mirror of A's (x_C = -9881.174 - x_A, same y and z). Other differences above C go to the engineer's questions, not the model. C18 live is cleared once the renumber (R1 to R6) is checked in.

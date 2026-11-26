@@ -229,7 +229,7 @@ When Grant's action on the Desk sets a ticket to `answered` or `discuss`, the De
 
 - **Where:** `notices\<session>\<yyyyMMddTHHmmssfff>Z-<ticket id>.json`, written whole (temp file, then rename). `<session>` is the ticket's `owner`, or its `noticeRoutes` entry (`revit-fiona` goes to `apex-admin`). An owner that isn't a plain session name (`a-z`, `0-9`, `-`) gets no notice and a line on the page's problems line; the answer itself is still saved.
 - **Fields:** `ticket`, `title`, `type`, `owner`, `session`, `status` (`answered` or `discuss`), `choice`, `choiceLabel` (the option's label, the gate outcome's label, `Code 3`, `Accepted`, `Redo`, `Done`, `Problem`), `code` (code gates), `note` (the answer's note, or the discuss comment), `by`, `at` (UTC), `screen`, `gate`, `summary` (one line, at most 400 characters).
-- **Never** in `/api` output, and no file paths in it.
+- **Never** in `/api` output, and no file paths in it. Only the counts of unread ones are (`noticeLag`, below).
 - **Watch (every session runs this once, with the Monitor tool; persistent):**
 
   `powershell -NoProfile -ExecutionPolicy Bypass -File "C:/Users/grant/AppData/Local/PDM-Desk/desk-notices.ps1" -Session <your session id>`
@@ -237,6 +237,18 @@ When Grant's action on the Desk sets a ticket to `answered` or `discuss`, the De
   It prints `Watching Desk notices for <session> ...`, then, every 5 seconds, one line per new notice, e.g. `Desk: A16 (Green light for LS-08A-06) answered by grant: Green light. Note: ...`. Each notice is moved into `notices\<session>\seen\` before it is printed, so it is told once, also with two watches running. The full notice stays in `seen\` to read. Options: `-Desk <folder>` (default: the installed settings' `dataFolder`), `-Every <seconds>`, `-Once` (one pass, then exit).
 - **After a notice:** read the ticket as before, act, set `done`.
 - **Housekeeping:** at start the Desk deletes `seen\` notices more than 30 days old.
+
+### Keeping the watch running (26 Nov, Admin)
+
+After the 26 Nov morning restart no session started its watch again, and answers sat unread for hours. Three layers now:
+
+| Layer | What it does |
+| --- | --- |
+| SessionStart hook (startup, resume, clear, compact) | `python -I "$LOCALAPPDATA/PDM-Desk/desk_notices_hook.py" <session>` adds context telling Claude to start the watch now with Monitor (the exact command, `timeout_ms` 1800000, re-arm on every expiry) and how many answers are already waiting. After compact or clear it says to leave a watch that is still running |
+| UserPromptSubmit backstop (same command, synchronous, 5 s timeout) | Quiet unless a notice has waited 5 minutes or more. Then: "N answers to your tickets unread, the oldest for M min, so your Desk notice watch isn't running. Start it again now and act on them", with the command |
+| The Desk page | `/api/state` field `noticeLag`: `[{ session, count, oldestMinutes }]` for each session whose oldest unread notice is 10 minutes old or more (`notices\<session>\*.json`, not `seen\`). The page shows an amber line under the header, e.g. "APEX Admin hasn't picked up 3 answers (oldest 25 min)". Like the cards, it doesn't change while Grant is typing |
+
+The hook script is installed beside the Desk by `install.ps1` (source `src\PdmDesk\desk_notices_hook.py`). It reads the data folder as the watch does (`PDM_DESK`, else `dataFolder` in settings.json beside it, else `C:\code\pdm\desk`), never fails the hook (errors swallowed, exit 0) and prints nothing for an unknown event or a bad session name. The hooks go in each session's `.claude\settings.json` (PDM: admin, dev, sw, app, draw), set up by Admin.
 
 ## Remote later (stage 2, item 8: built, switched off)
 

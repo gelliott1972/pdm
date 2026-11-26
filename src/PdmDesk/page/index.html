@@ -200,6 +200,8 @@ a.b:hover { border-color: var(--accent); }
 .notes div { color: var(--muted); padding: 6px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; white-space: pre-wrap; }
 .banner { max-width: 1240px; margin: 8px auto 0; padding: 0 24px; }
 .banner div { background: var(--red-soft); color: var(--red); border-radius: 8px; padding: 10px 14px; font-weight: 600; }
+.banner.lag div { background: var(--amber-soft); color: var(--amber); }
+.banner.lag small { font-weight: 400; }
 .problems { color: var(--amber); font-size: 12px; margin-top: 6px; }
 a.bigreview { display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; background: var(--accent); color: var(--accent-ink); border-radius: 10px; padding: 14px 18px; font-weight: 600; font-size: 16px; margin: 4px 0 6px; box-shadow: var(--shadow); }
 a.bigreview:hover { filter: brightness(1.06); }
@@ -253,6 +255,7 @@ details.notstarted div { margin-top: 4px; }
   </span>
 </header>
 <div class="banner" id="banner"></div>
+<div class="banner lag" id="lag"></div>
 <div class="swwrap"><div class="swstrip" id="swstrip"></div></div>
 <div class="wrap">
   <main>
@@ -351,6 +354,7 @@ const rank = t => (awaitingOwner(t) ? 2 : t.priority === 'blocking' ? 0 : 1);
 
 function render() {
   readGroups();
+  lagLine();
   const tickets = state.tickets || [];
   const open = tickets.filter(isOpen).sort((a, b) => rank(a) - rank(b) || String(a.createdAt).localeCompare(String(b.createdAt)));
   const mine = open.filter(t => !awaitingOwner(t)), talking = open.length - mine.length;
@@ -456,7 +460,17 @@ function render() {
   $('problems').innerHTML = [...(state.problems || []).map(p => 'Couldn\'t read ' + esc(p)), ...(state.warnings || []).map(esc)].join('<br>');
 }
 
-const cardJson = t => JSON.stringify(t) + editing.has(t._file) + pdfShown.has(t._file) + (t.type === 'gate' ? steelOf(t.screen) : '');
+// Answers a session hasn't picked up for 10 minutes (state.noticeLag): its notice watch isn't running, so Grant can tell it
+// to start the watch. Held like the cards while Grant types, so nothing above the ticket list moves.
+function lagLine() {
+  if (holding()) return;
+  const rows = (state.noticeLag || []).map(x => `${esc(name(String(x.session)))} hasn't picked up ${x.count} ${x.count === 1 ? 'answer' : 'answers'} (oldest ${mins(x.oldestMinutes)})`);
+  const h = rows.length ? `<div>${rows.join('<br>')}<br><small>${rows.length === 1 ? "Its Desk notice watch isn't running. Tell that session to start it." : "Their Desk notice watches aren't running. Tell those sessions to start them."}</small></div>` : '';
+  const w = $('lag'); if (w.innerHTML !== h) w.innerHTML = h;
+}
+const mins = m => m < 60 ? `${m} min` : m < 1440 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${Math.floor(m / 1440)} days`;
+
+const cardJson = t =>JSON.stringify(t) + editing.has(t._file) + pdfShown.has(t._file) + (t.type === 'gate' ? steelOf(t.screen) : '');
 // Held while typing: the bar over the page for tickets that arrived meanwhile.
 function heldBar(fresh) {
   const n = fresh.length, b = fresh.filter(t => t.priority === 'blocking').length;

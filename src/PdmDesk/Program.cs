@@ -133,7 +133,9 @@ app.MapGet("/api/state", () =>
         foreach (var a in (t["attachments"] as JsonArray ?? []).OfType<JsonObject>()) a.Remove("path");
     }
     problems = problems.Select(NoPaths).ToList();
-    return Results.Ok(new { tickets, status, activity, sw, notes, problems, warnings, desk, now = Store.Now(), version = pageVersion });
+    // Answers a session hasn't picked up for 10 minutes or more: its notice watch isn't running (26 Nov).
+    var noticeLag = notices.Lag();
+    return Results.Ok(new { tickets, status, activity, sw, notes, problems, warnings, desk, noticeLag, now = Store.Now(), version = pageVersion });
 });
 
 // The board (stage 2, item 5): where each screen type is up to, read from the register in settings; polled by the

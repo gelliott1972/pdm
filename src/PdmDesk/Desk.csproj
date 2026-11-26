@@ -17,5 +17,7 @@
     <Content Remove="settings.default.json" />
     <!-- Answer notices: each session runs this with Monitor to be told when Grant answers its tickets. -->
     <None Update="desk-notices.ps1" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- The sessions' SessionStart and UserPromptSubmit hook: start the notice watch, and say when it has lapsed. -->
+    <None Update="desk_notices_hook.py" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

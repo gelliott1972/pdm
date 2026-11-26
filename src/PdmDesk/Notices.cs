@@ -81,6 +81,39 @@ public sealed partial class Notices(Store store, Settings settings)
         }
     }
 
+    // Sessions with a notice nobody has picked up for `minutes` or more (its watch isn't running): one row per session,
+    // with how many are unread and the oldest's age. For the Desk's warning line (26 Nov); names and counts only, no paths.
+    public List<NoticeLag> Lag(int minutes = 10)
+    {
+        var rows = new List<NoticeLag>();
+        try
+        {
+            if (!Directory.Exists(Folder)) return rows;
+            var now = DateTime.UtcNow;
+            foreach (var dir in Directory.GetDirectories(Folder).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+            {
+                var session = Path.GetFileName(dir);
+                if (!SessionPattern().IsMatch(session)) continue;
+                var ages = Directory.GetFiles(dir, "*.json").Where(f => Path.GetExtension(f) == ".json")
+                    .Select(f => (now - Written(f)).TotalMinutes).ToList();
+                if (ages.Count == 0 || ages.Max() < minutes) continue;
+                rows.Add(new NoticeLag(session, ages.Count, (int)ages.Max()));
+            }
+        }
+        catch { }
+        return rows;
+    }
+
+    // When a notice was written: from its file name (yyyyMMddTHHmmssfffZ-...), else the file's time.
+    static DateTime Written(string file)
+    {
+        var name = Path.GetFileName(file);
+        if (name.Length > 18 && DateTime.TryParseExact(name[..18], "yyyyMMddTHHmmssfff", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var at))
+            return at;
+        try { return File.GetLastWriteTimeUtc(file); } catch { return DateTime.UtcNow; }
+    }
+
     // At start: seen notices more than 30 days old are deleted.
     public void Prune()
     {
@@ -95,3 +128,5 @@ public sealed partial class Notices(Store store, Settings settings)
         catch { }
     }
 }
+
+public sealed record NoticeLag(string Session, int Count, int OldestMinutes);

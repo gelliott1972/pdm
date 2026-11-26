@@ -1,4 +1,4 @@
-// SwGrout: the no-grout 10 mm change on LS-08X-06 and LS-08X-11 (Grant via Admin, 22 Nov 2026): floor plates 10 lower,
+﻿// SwGrout: the no-grout 10 mm change on LS-08X-06 and LS-08X-11 (Grant via Admin, 22 Nov 2026): floor plates 10 lower,
 // roof plates 10 higher, screen unchanged. Read-only commands open P:\ files or copies under C:\PDM-work\. Commands
 // that save write only to copies under C:\PDM-work\grout\ (the rehearsal) or, with --checked-out, to a P:\ file that is
 // checked out here (writable); a read-only vault file is refused. Never M:\, Dropbox or .pdm.
@@ -175,7 +175,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "snap" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "snap" && cmd != "snapsel" && cmd != "snapsec" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -1246,6 +1246,76 @@ static class SwGrout
                     bool ok = doc.Extension.SaveAs3(png, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)(swSaveAsOptions_e.swSaveAsOptions_Silent | swSaveAsOptions_e.swSaveAsOptions_Copy), null, null, ref se, ref sw2);
                     Console.WriteLine("PICTURE\t" + png + "\t" + ok + "\t" + (File.Exists(png) ? new FileInfo(png).Length + " bytes" : "missing"));
                 }
+            }
+            else if (cmd == "snapsel")
+            {
+                // snapsel <asm> <config> <out folder> <comp1,comp2,...> <label> (read-only, 26 Nov): hides every top-level
+                // component except the named ones (in memory only; the file is opened read-only and never saved), then
+                // saves picture files in the isometric, top, front and right views.
+                string outDir = Path.GetFullPath(a[3]);
+                if (!outDir.StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) throw new Exception("pictures only under C:\\PDM-work");
+                Directory.CreateDirectory(outDir);
+                var keep = new HashSet<string>(a[4].Split(','), StringComparer.OrdinalIgnoreCase);
+                var asm = (AssemblyDoc)doc;
+                int shown = 0;
+                foreach (Component2 c in (object[])asm.GetComponents(true))
+                {
+                    bool k = keep.Contains(c.Name2);
+                    if (k) shown++;
+                    c.Visible = (int)(k ? swComponentVisibilityState_e.swComponentVisible : swComponentVisibilityState_e.swComponentHidden);
+                }
+                Console.WriteLine("SHOWN\t" + shown + " of " + keep.Count);
+                foreach (var v in new[] { "*Isometric", "*Top", "*Front", "*Right" })
+                {
+                    doc.ShowNamedView2(v, -1);
+                    doc.ClearSelection2(true);
+                    foreach (Component2 c in (object[])asm.GetComponents(true)) if (keep.Contains(c.Name2)) c.Select4(true, null, false);
+                    doc.ViewZoomToSelection(); doc.ClearSelection2(true);
+                    string png = Path.Combine(outDir, a[5] + " " + v.TrimStart('*') + ".png");
+                    int se = 0, sw2 = 0;
+                    bool ok = doc.Extension.SaveAs3(png, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)(swSaveAsOptions_e.swSaveAsOptions_Silent | swSaveAsOptions_e.swSaveAsOptions_Copy), null, null, ref se, ref sw2);
+                    Console.WriteLine("PICTURE\t" + png + "\t" + ok + "\t" + (File.Exists(png) ? new FileInfo(png).Length + " bytes" : "missing"));
+                }
+            }
+            else if (cmd == "snapsec")
+            {
+                // snapsec <asm> <config> <out folder> <comp1,comp2,...> <spec> [<spec> ...] (read-only, 26 Nov): shows only the
+                // named top-level components, then for each spec "plane|offset mm|view|rev|picture name" makes a graphics-only
+                // section on the assembly's Front, Top or Right plane at that offset (rev 1 keeps the other side), sets the
+                // view and saves a picture. Nothing is saved to the model; the section is removed before the next spec.
+                string outDir = Path.GetFullPath(a[3]);
+                if (!outDir.StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) throw new Exception("pictures only under C:\\PDM-work");
+                Directory.CreateDirectory(outDir);
+                var keep = new HashSet<string>(a[4].Split(','), StringComparer.OrdinalIgnoreCase);
+                var asm = (AssemblyDoc)doc;
+                foreach (Component2 c in (object[])asm.GetComponents(true))
+                    c.Visible = (int)(keep.Contains(c.Name2) ? swComponentVisibilityState_e.swComponentVisible : swComponentVisibilityState_e.swComponentHidden);
+                var planes = new List<Feature>();
+                for (var f = (Feature)doc.FirstFeature(); f != null && planes.Count < 3; f = (Feature)f.GetNextFeature())
+                    if (f.GetTypeName2() == "RefPlane") planes.Add(f);
+                Console.WriteLine("PLANES\t" + string.Join(", ", planes.ConvertAll(p => p.Name)));
+                var mvm = doc.ModelViewManager;
+                for (int s = 5; s < a.Length; s++)
+                {
+                    var sp = a[s].Split('|');
+                    int pi = sp[0] == "Front" ? 0 : sp[0] == "Top" ? 1 : 2;
+                    mvm.RemoveSectionView();
+                    var d = mvm.CreateSectionViewData();
+                    d.FirstPlane = planes[pi];
+                    d.FirstOffset = double.Parse(sp[1], System.Globalization.CultureInfo.InvariantCulture) / 1000.0;
+                    d.FirstReverseDirection = sp[3] == "1";
+                    d.ShowSectionCap = true; d.KeepCapColor = false; d.GraphicsOnlySection = true;
+                    bool made = mvm.CreateSectionView(d);
+                    doc.ShowNamedView2("*" + sp[2], -1);
+                    doc.ClearSelection2(true);
+                    foreach (Component2 c in (object[])asm.GetComponents(true)) if (keep.Contains(c.Name2)) c.Select4(true, null, false);
+                    doc.ViewZoomToSelection(); doc.ClearSelection2(true);
+                    string png = Path.Combine(outDir, sp[4] + ".png");
+                    int se = 0, sw2 = 0;
+                    bool ok = doc.Extension.SaveAs3(png, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)(swSaveAsOptions_e.swSaveAsOptions_Silent | swSaveAsOptions_e.swSaveAsOptions_Copy), null, null, ref se, ref sw2);
+                    Console.WriteLine("PICTURE\tsection " + made + "\t" + png + "\t" + ok);
+                }
+                mvm.RemoveSectionView();
             }
             else if (cmd == "geomcfg")
             {

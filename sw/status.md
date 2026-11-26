@@ -486,3 +486,13 @@ D32 addition (Dev): file-level PartNo also deleted in -r1 C `LS-08C-11_SF02-LOWE
 **Import hold (26 Oct):** Dev's scratch-vault rehearsal showed suppressed components inside the LMWs as NOT LOADED; cause (Dev): the Importer's DM renames leave stale component names, and a configuration switch then loses suppression; SwResave (rebuild + save) fixes it. Built `SwResave --import <plan files.csv> <vaultRoot> [--dry]` (6b5400f; exe `tools\sw-macros\bin\SwResave-import.exe` while Dev's job holds SwResave.exe): plan "import" assemblies only, refuses others, .pdm and Dropbox, children first by DM references, one SOLIDWORKS start per file with one retry, logs, non-zero on failure. Dry run on Dev's rehearsal3: A 15 assemblies in order. Dev tests it and runs it in the import; I don't run it on P:\ (my rules: no P:\ changes outside check-out).
 
 **0811 imported (26 Oct, Dev):** A, B, C imported into P:\. SwResave-import (4e0151a) saved all 34 new assemblies (15/13/6), no failures; tops check clean (0 not loaded, nothing missing in any configuration). Work copies still aside as `C:\PDM-work\LS-08x-11-hold`: Admin: keep them aside as the pre-import record; tidy later with Grant.
+
+## 26 Nov (evening): WDI1-02/03 checks and every-bolt check (all read-only)
+
+| Job | Result |
+| --- | --- |
+| "Extra" roof-sleeve slots (WDI1-02/03) | No spare slots: 8 per sleeve, every one bolted (40 M20 on LS-08A-11); STEP the same. Grant: no change without talking to him. |
+| Two sleeves turned in Revit | SOLIDWORKS and the 22 Nov STEP are right; the fault was in Revit (fixed there). |
+| Every-bolt check (sestp\boltholes.py) | 0 problems on A-06, A-11, B-06, C-06, B-11, C-11 (both C-11 runs). Results in C:\PDM-work\wdi-slots. |
+
+Open: 2 spare M10 holes in 08X11-DBW-01 (braced kit, A-11 and C-11); B-11's 24 Nov STEP predates the C16 fix (doubled kit), so re-export before any Revit use. Standing by; Admin [5b674b] is the only PDM admin.

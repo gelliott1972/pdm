@@ -175,7 +175,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "snap" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -1228,6 +1228,23 @@ static class SwGrout
                     var near = boxes.Where(t => t.Item1 != k && Enumerable.Range(0, 3).All(i => w0[i] >= t.Item2[i] - reach && w0[i] <= t.Item2[3 + i] + reach)).ToList();
                     Console.WriteLine("POINT\t" + k.Name2 + "\tat (" + Mm(w0[0]) + ", " + Mm(w0[1]) + ", " + Mm(w0[2]) + ")\tother bodies within " + a[6] + " mm (box test): " + near.Count);
                     foreach (var t in near) Console.WriteLine("  NEAR\t" + t.Item1.Name2 + "\t" + Path.GetFileName(t.Item1.GetPathName()) + "\tbox " + string.Join(" ", t.Item2.Select(v => Mm(v))));
+                }
+            }
+            else if (cmd == "snap")
+            {
+                // snap <file> <config> <out folder> (read-only, 26 Nov): picture files of the model in the isometric, front and
+                // right views (SOLIDWORKS's own image export of the open window); the file is never saved.
+                string outDir = Path.GetFullPath(a[3]);
+                if (!outDir.StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) throw new Exception("pictures only under C:\\PDM-work");
+                Directory.CreateDirectory(outDir);
+                doc.ShowConfiguration2(a[2]); doc.ForceRebuild3(false);
+                foreach (var v in new[] { "*Isometric", "*Front", "*Right" })
+                {
+                    doc.ShowNamedView2(v, -1); doc.ViewZoomtofit2();
+                    string png = Path.Combine(outDir, Path.GetFileNameWithoutExtension(file) + " " + v.TrimStart('*') + ".png");
+                    int se = 0, sw2 = 0;
+                    bool ok = doc.Extension.SaveAs3(png, (int)swSaveAsVersion_e.swSaveAsCurrentVersion, (int)(swSaveAsOptions_e.swSaveAsOptions_Silent | swSaveAsOptions_e.swSaveAsOptions_Copy), null, null, ref se, ref sw2);
+                    Console.WriteLine("PICTURE\t" + png + "\t" + ok + "\t" + (File.Exists(png) ? new FileInfo(png).Length + " bytes" : "missing"));
                 }
             }
             else if (cmd == "geomcfg")

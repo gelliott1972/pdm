@@ -22,6 +22,15 @@
             "async": true
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -I \"$LOCALAPPDATA/PDM-Desk/desk_notices_hook.py\" draw",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -70,6 +79,18 @@
             "command": "python -I \"$CLAUDE_PROJECT_DIR/../.claude/hooks/desk_activity.py\" draw",
             "timeout": 10,
             "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -I \"$LOCALAPPDATA/PDM-Desk/desk_notices_hook.py\" draw",
+            "timeout": 10
           }
         ]
       }

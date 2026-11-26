@@ -14,6 +14,15 @@
             "async": true
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -I \"$LOCALAPPDATA/PDM-Desk/desk_notices_hook.py\" admin",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -62,6 +71,18 @@
             "command": "python -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/desk_activity.py\" admin",
             "timeout": 10,
             "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -I \"$LOCALAPPDATA/PDM-Desk/desk_notices_hook.py\" admin",
+            "timeout": 10
           }
         ]
       }

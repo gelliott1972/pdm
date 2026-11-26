@@ -496,3 +496,7 @@ D32 addition (Dev): file-level PartNo also deleted in -r1 C `LS-08C-11_SF02-LOWE
 | Every-bolt check (sestp\boltholes.py) | 0 problems on A-06, A-11, B-06, C-06, B-11, C-11 (both C-11 runs). Results in C:\PDM-work\wdi-slots. |
 
 Open: 2 spare M10 holes in 08X11-DBW-01 (braced kit, A-11 and C-11); B-11's 24 Nov STEP predates the C16 fix (doubled kit), so re-export before any Revit use. Standing by; Admin [5b674b] is the only PDM admin.
+
+## 27 Nov: LS-08X-07 stair foot at x 890 with no floor plate (read-only, for calc-08x-07)
+
+Not missing and not an export fault: the foot is the LS-08X-04 / LS-08X-07 shared foot. 07's `08X07-SFP` there uses configuration `Floor Mount-500_04_07_SHARED` (back leg ends in an end cap, M12 clearance hole). It stands on the 04's shared plate `08X04-MSW-01` (`08X04-PLP-03` 10 mm plate + 2 `08X04-PLP-06` angle cleats, M12 x 80 through the leg), used in `08A04-SFA-5B`, `08B04-SFA-5B`, `08C04-SFA-5B`. The 10 mm gap is that plate's thickness. A-07 vault `GNRIC-PLP-1` at that foot is suppressed, as in James's M:\ original (`PLATE_FLOOR-1` and `GROUT+ANCHOR_BOLTS-75` both suppressed); BC never had one. Evidence: DM component lists, both plain-run STR.STEPs, and M:\311v3\SC08\08A-04+08A-07_TEMP.STEP (18 Sep: 200x300 shared grout + 6 HST3 M12x125). Files in C:\PDM-work\0807-feet.

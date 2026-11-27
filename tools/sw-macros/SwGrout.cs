@@ -79,7 +79,7 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !a.Skip(5).Contains("dry")) || cmd == "brace" || cmd == "replcomp" || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || cmd == "renprops" || cmd == "renumber" || cmd == "setprops" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
+        bool write = cmd == "setdims" || cmd == "addfixed" || (cmd == "wzdlen" && a.Length > 3) || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !a.Skip(5).Contains("dry")) || cmd == "brace" || cmd == "replcomp" || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || cmd == "renprops" || cmd == "renumber" || cmd == "setprops" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
@@ -181,7 +181,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "snap" && cmd != "snapsel" && cmd != "snapsec" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "addfixed" && cmd != "wzdlen" && cmd != "snap" && cmd != "snapsel" && cmd != "snapsec" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -2036,6 +2036,60 @@ static class SwGrout
                 var nc = cm.AddConfiguration2(a[3], "grout +10 (rehearsal)", "", (int)swConfigurationOptions2_e.swConfigOption_DontActivate, cfgArg, "", false);
                 Console.WriteLine("ADDED\t" + (nc == null ? "FAILED" : nc.Name + "\tparent " + ((Configuration)nc.GetParent()).Name));
                 if (nc == null) rc = 1;
+                else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e); }
+            }
+            else if (cmd == "wzdlen")
+            {
+                // wzdlen <part> <hole wizard feature> [<new slot length mm>] (weekend run 28 Nov, APEX-A95): reads a Hole Wizard
+                // feature's type, diameter and Length (a slot's length); with a value, sets Length in every configuration, rebuilds,
+                // checks every configuration and saves only with 0 rebuild errors.
+                var f = FeatureNamed(doc, a[2]);
+                if (f == null) throw new Exception("no feature " + a[2]);
+                var wd = (WizardHoleFeatureData2)f.GetDefinition();
+                Console.WriteLine("WIZARD\t" + a[2] + "\ttype " + wd.Type + "\tthru dia " + Mm(wd.ThruHoleDiameter) + "\tdia " + Mm(wd.Diameter) + "\tlength " + Mm(wd.Length));
+                if (a.Length > 3)
+                {
+                    double v = double.Parse(a[3], Inv) / 1000.0;
+                    wd.AccessSelections(doc, null);
+                    wd.Length = v;
+                    bool ok = f.ModifyDefinition(wd, doc, null);
+                    doc.ForceRebuild3(false);
+                    var wd2 = (WizardHoleFeatureData2)f.GetDefinition();
+                    Console.WriteLine("SET\t" + a[2] + "\tlength " + Mm(wd2.Length) + "\tmodify " + ok);
+                    int bad = 0;
+                    foreach (string c in (string[])doc.GetConfigurationNames()) { doc.ShowConfiguration2(c); doc.ForceRebuild3(false); int er = Errors(doc, false); if (er != 0) bad++; Console.WriteLine("CONFIG\t" + c + "\terrors " + er); }
+                    if (!ok || Math.Abs(wd2.Length - v) > 1e-7 || bad > 0) { rc = 1; Console.WriteLine("NOT SAVED\tproblems above"); }
+                    else { bool sv = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(sv ? "SAVED\t" + file : "SAVE FAILED\t" + e); }
+                }
+            }
+            else if (cmd == "addfixed")
+            {
+                // addfixed <asm> <part> <part config> <r11 r12 r13 r21 r22 r23 r31 r32 r33> <x y z mm> (weekend run 28 Nov:
+                // C-04's M12 kit at its MSW-01, copied from A-04's): the part added once, placed by the given transform (rows =
+                // the part's axes in the assembly, SOLIDWORKS's own layout) and fixed, no mates. Saves.
+                var rot = a[4].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s, Inv)).ToArray();
+                var at = a[5].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s, Inv) / 1000.0).ToArray();
+                if (rot.Length != 9 || at.Length != 3) throw new Exception("need 9 rotation numbers and 3 coordinates");
+                string part = Path.GetFullPath(a[2]);
+                if (!File.Exists(part)) throw new Exception("no part " + part);
+                int pe = 0, pw = 0;
+                var pd = sw.OpenDoc6(part, (int)swDocumentTypes_e.swDocPART, (int)swOpenDocOptions_e.swOpenDocOptions_Silent | (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly, a[3], ref pe, ref pw);
+                if (pd == null) throw new Exception("could not open " + part + " (" + pe + ")");
+                sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref pe);
+                var asm = (AssemblyDoc)doc;
+                var nc = asm.AddComponent5(part, (int)swAddComponentConfigOptions_e.swAddComponentConfigOptions_CurrentSelectedConfig, "", false, a[3], at[0], at[1], at[2]);
+                if (nc == null) throw new Exception("could not add " + part);
+                var mu = (MathUtility)sw.GetMathUtility();
+                nc.Transform2 = (MathTransform)mu.CreateTransform(rot.Concat(at).Concat(new double[] { 1, 0, 0, 0 }).ToArray());
+                doc.ClearSelection2(true);
+                nc.Select4(false, null, false);
+                asm.FixComponent();
+                doc.ClearSelection2(true);
+                doc.ForceRebuild3(false);
+                var tt = (double[])((MathTransform)nc.Transform2).ArrayData;
+                Console.WriteLine("ADDED\t" + nc.Name2 + "\t" + nc.ReferencedConfiguration + "\tfixed " + nc.IsFixed() + "\tat " +
+                    string.Join(" ", tt.Take(9).Select(v => Math.Round(v, 5).ToString(Inv))) + " | " + string.Join(" ", tt.Skip(9).Take(3).Select(v => Math.Round(v * 1000, 3).ToString(Inv))) + "\terrors " + Errors(doc, true));
+                if (nc.ReferencedConfiguration != a[3]) { rc = 1; Console.WriteLine("PROBLEM\tconfiguration " + nc.ReferencedConfiguration); }
                 else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e); }
             }
             else if (cmd == "setcomp")

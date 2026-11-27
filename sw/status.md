@@ -508,3 +508,15 @@ Result: the 07 shared leg is 10 mm too low for the current 04 plate on all three
 ## 27 Nov (evening): James's 27 Nov 07:01Z stair and 0811 check-in (read-only)
 
 Read from S3 copies (C:\PDM-work\0807-feet\vault-27nov, compare27, p27). A-07 origin unchanged; shared leg (SFP Floor Mount-500_04_07_SHARED) unchanged. Changes: density fixed on more BRP, BRP-SHS and DBP configurations; dia 10 dowel holes added (-628 mm3) to several BRP NO_HOLES and all DBP configurations; new unused configurations (BRP 380/1285/2110, SFP Cantilever-500b/_2); BC assemblies unchanged. A-07 SFA-1X gains one 08X07-BRP-SHS 180 tube at (-350, -800, 1190), which by the boxes sits inside the existing front leg of SFP-2 (Floor Mount-500): looks like a doubled member, for James. 08X11-DBW-01 / -HBA-04: geometry unchanged; Material and Weight now read their own file; HBA-04 PartNo back at configuration level; both still also carry a file-level PartNo.
+
+## 28 Nov (night): weekend run APEX-A125/A126 (work copies C:\PDM-work\weekend-2026-11-28)
+
+| Change | Result |
+| --- | --- |
+| A (A116) | Not needed: rebuilt SOLIDWORKS shows all A-06 and C-06 floor plates on the floor (-4910); my 27 Nov "10 mm up" came from Document Manager's stale stored positions. Nothing changed. |
+| B (A115) | Proven on copies (33 plates -5450, legs +10 via LMP-14/-19 and new GNRIC-LM SPL-250+8M+930-FP1 = GNRIC-LMP-20, C-04 M12 kit added fixed, shared foot 0 mm, bolts no new problems). Held: SFA-2B/5B ties also drop 10 (as 0806 A55); Desk A30 for Grant. Apply with sw\weekend\b04.ps1 -CheckedOut. |
+| C (A95) | Checked in 2026-11-27T17:54:03Z / 17:54:08Z: slots 22x40, same centres; every-bolt 0 problems on all 6 STAs from P:\. |
+| D (A97) | Stopped for Grant: post/packer/header stack 10+5+10; 15 mm plates need posts 5 or 10 shorter (packer call), shared GNRIC-LM (overlaps B), splice cuts. |
+| E (A124) | Not started (needs new parts and part numbers; too long to prove overnight). |
+
+Lesson: heights and positions for decisions only from rebuilt SOLIDWORKS or a fresh STEP. New SwGrout commands: addfixed, wzdlen. Pack and Go copies of the 06s resolve the M12 post bolts to old-named fastener files (copy artefact).

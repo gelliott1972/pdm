@@ -3,6 +3,7 @@
 // Commands:
 //   count  <part>                          read-only: per configuration, corner faces found by the 21 Nov rule and by the
 //                                          new rule, and the other cylindrical faces (holes)
+//   square <part> [--plain-shape]          (--plain-shape: every body counts, for plain extruded tubes and angles)
 //   square <part>                          one Delete Face (delete and patch) feature per tube body on its corner faces (new
 //                                          rule), on in every configuration; checks every configuration: 0 corner faces
 //                                          left, holes unchanged, 0 rebuild errors; saves only if all is well
@@ -100,7 +101,11 @@ static class SwSestp
         return false;
     }
 
-    static bool Squarable(Body2 b) { return IsMemberBody(b) || IsInsertedTube(b); }
+    // --plain-shape (28 Nov, APEX-A124: 08X11-BRA-01 rail and 08X11-MSP-01 seat are plain extrudes, not structural members):
+    // every solid body of the part is squarable; the corner rule itself is unchanged (straight edges 20 mm or longer).
+    static bool plainShape = false;
+
+    static bool Squarable(Body2 b) { return plainShape || IsMemberBody(b) || IsInsertedTube(b); }
 
     static int BodyCount(ModelDoc2 doc) { return ((object[])((PartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0]).Length; }
 
@@ -710,6 +715,7 @@ static class SwSestp
     static int Main(string[] a)
     {
         if (a.Length < 2) { Console.Error.WriteLine("Usage: SwSestp count|square <part> | xforms <asm> <config> <out.txt> | export <asm> <config> <outDir> <name>"); return 2; }
+        if (a.Contains("--plain-shape")) { plainShape = true; a = a.Where(x => x != "--plain-shape").ToArray(); }
         string cmd = a[0], file = Path.GetFullPath(a[1]);
         if (!file.StartsWith(Root, StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: sandbox files only (" + Root + ")"); return 2; }
         if (cmd == "export" && !Path.GetFullPath(a[3]).StartsWith(Root, StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: output only under " + Root); return 2; }

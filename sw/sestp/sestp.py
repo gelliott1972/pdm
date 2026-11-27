@@ -212,6 +212,21 @@ def cmd_run(a):
         name = os.path.splitext(os.path.basename(p))[0]
         hit = os.path.exists(os.path.join(cache_dir(name, k), 'meta.json'))
         plan.append((name, p, k, parts, hit))
+    # --plain-shape: parts that are tubes or angles drawn as plain extrudes (no structural member), squared with every body
+    # counted (28 Nov, APEX-A124: 08X11-BRA-01 rail, 08X11-MSP-01 seat)
+    PLAIN_SHAPE.clear()
+    PLAIN_SHAPE.update(x.strip().upper() for x in a.plain_shape.split(',') if x.strip())
+    for dp, _, fs in os.walk(model):
+        for f in fs:
+            n0 = os.path.splitext(f)[0]
+            if f.upper().endswith('.SLDPRT') and n0.upper() in PLAIN_SHAPE and not any(x[1] == os.path.join(dp, f) for x in plan):
+                p = os.path.join(dp, f)
+                k, parts = key_of('P:\\' + os.path.relpath(p, model))
+                k = hashlib.md5((k + '|plain-shape').encode()).hexdigest()
+                plan.append((n0, p, k, parts, os.path.exists(os.path.join(cache_dir(n0, k), 'meta.json'))))
+    missing = PLAIN_SHAPE - set(x[0].upper() for x in plan)
+    if missing:
+        say('STOPPED: --plain-shape parts not in the model:', ', '.join(sorted(missing))); return 1
     times['Find tube parts'] = time.time() - t
     if a.plain:
         say('PLAIN: squaring skipped for', len(plan), 'tube and angle parts:', ', '.join(x[0] for x in plan))
@@ -295,6 +310,9 @@ def configs_of(path):
 SQUARE_LIMIT, SQUARE_LIMIT_MANY = 1800, 4500
 
 
+PLAIN_SHAPE = set()
+
+
 def square_part(p, name):
     """Square one sandbox part in one SOLIDWORKS call, with the longer limit for parts with more than 4 configurations."""
     n = len(configs_of(p))
@@ -302,7 +320,7 @@ def square_part(p, name):
     if limit != SQUARE_LIMIT:
         say('   ', name, 'has', n, 'configurations: time limit', limit // 60, 'min')
     try:
-        rc, _ = run([os.path.join(MAC, 'SwSestp.exe'), 'square', p], timeout=limit)
+        rc, _ = run([os.path.join(MAC, 'SwSestp.exe'), 'square', p] + (['--plain-shape'] if name.upper() in PLAIN_SHAPE else []), timeout=limit)
         return rc == 0
     except subprocess.TimeoutExpired:
         say('    TIME LIMIT', name, 'not squared in', limit // 60, 'min')
@@ -377,6 +395,7 @@ def write_notes(rd, a, vault, plan, before, moved, good, times):
          '',
          'Tube and angle parts: %d (%d kept squared copies used, %d squared in this run)' % (len(plan), sum(1 for x in plan if x[4]), sum(1 for x in plan if not x[4])),
          '  ' + ', '.join(x[0] for x in plan),
+        ] + (['  Plain-extrude parts squared with every body counted: ' + ', '.join(sorted(PLAIN_SHAPE))] if PLAIN_SHAPE else []) + ["  " + n for n in a.note] + [
          'Positions: %d active components; %d moved while squaring or exporting.' % (len(before), len(moved)),
          '',
          'LED face (APEX-A49):'] + ['  ' + c.strip() for c in corner] + [
@@ -392,6 +411,8 @@ def main():
     r.add_argument('--ls', required=True); r.add_argument('--count', action='store_true')
     r.add_argument('--plain', action='store_true', help='skip the squaring step (plain STEP; run folder marked "plain")')
     r.add_argument('--label', default='', help='a word for the run folder name and the notes, e.g. test')
+    r.add_argument('--plain-shape', default='', help='parts (names, comma-separated) that are tubes or angles drawn as plain extrudes: squared with every body counted')
+    r.add_argument('--note', action='append', default=[], help='a line for the notes file (repeatable)')
     r.add_argument('--keep-model', action='store_true', help='keep the sandbox model after a good run (it is always kept after a bad one)')
     s = sp.add_parser('seed'); s.add_argument('--from', required=True); s.add_argument('--index', required=True); s.add_argument('--parts', required=True)
     t = sp.add_parser('tubes'); t.add_argument('folder')

@@ -2105,6 +2105,9 @@ static class SwGrout
                     }
                     var nc = asm.AddComponent5(part, (int)swAddComponentConfigOptions_e.swAddComponentConfigOptions_CurrentSelectedConfig, "", false, j[1], at[0], at[1], at[2]);
                     if (nc == null) throw new Exception("could not add " + part);
+                    // 28 Nov, P:\ 08A11-STA-01: with the part already loaded by the assembly in another configuration, the new
+                    // component took that one (washer -6, nut M24); set the asked configuration explicitly.
+                    if (nc.ReferencedConfiguration != j[1]) nc.ReferencedConfiguration = j[1];
                     nc.Transform2 = (MathTransform)mu.CreateTransform(rot.Concat(at).Concat(new double[] { 1, 0, 0, 0 }).ToArray());
                     doc.ClearSelection2(true);
                     nc.Select4(false, null, false);

@@ -1,5 +1,19 @@
 # SW status
 
+## 28 Nov (night): weekend E checked in; square-edge exports done
+
+- **E (APEX-A124, joint 8.2) checked in** at 2026-11-27T19:08:55Z, one pdm load, 19 files, 0 locks. New parts: 08X11-BRA-01 rail, 08X11-MSP-01 seat, and FAST-HEX-8.8-HDG config "ISO 4014 - M12 x 65-N" (FAST-HEX-M12x65-8.8-HDG).
+  - Per screen A/B/C-11: 12 GNRIC-BRA rails, 24 MDL-80X40 kits and 24 GNRIC-MSW-01 seats out; 12 rails, 24 seats and 24 M12x65 sets in.
+  - Proofs on P:\: every-bolt A 288, B 175, C 192, all 0 problems; 24 M12 through seat and rail on each; 0 other moves. Folder: `C:\PDM-work\weekend-2026-11-28\E\proof`.
+  - Fixed on the way: one A-11 seat (08A11-SFA-3B) that sat 10 mm into its rail.
+  - Pins: A/B/C-11 now at 19:08:55Z.
+- **Square-edge exports for revit-fiona** (Admin told):
+  - LS-08A-11: `runs\LS-08A-11 2026-11-27T2001Z`. New parts squared with --plain-shape; only the rail end caps keep R3 corners.
+  - LS-08A-06: `runs\LS-08A-06 2026-11-27T1936Z`.
+  - Both at pin 19:08:55Z. Run `LS-08A-11 2026-11-27T1916Z` is superseded.
+- **For the morning:** the 11 STA and SFA drawings show the old rails and seats as missing until redrawn (Draw or James). B is held (Desk A30), D is held (Desk A31).
+- SOLIDWORKS lock released.
+
 ## 25 Nov (evening): standing by
 
 - LS-08C-11 square-edge export after C18: `runs\LS-08C-11 2026-11-25T0603Z`, OK, pin 05:52:27Z.

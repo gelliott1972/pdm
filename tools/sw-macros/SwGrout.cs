@@ -64,6 +64,12 @@ static class SwGrout
         return r.GetType().Name;
     }
 
+    // Work copies that saving commands may write (27 Nov: the weekend run's copies, APEX-A125). Never P:\, M:\ or .pdm.
+    static bool WorkCopy(string f)
+    {
+        return f.StartsWith(@"C:\PDM-work\grout\", StringComparison.OrdinalIgnoreCase) || f.StartsWith(@"C:\PDM-work\weekend-2026-11-28\", StringComparison.OrdinalIgnoreCase);
+    }
+
     static int Main(string[] a)
     {
         if (a.Length < 2) { Console.Error.WriteLine("Usage: SwGrout mates <asm> [config] | xforms <asm> <config> <out> | setdims <part> <config> <dim>=<mm> ..."); return 2; }
@@ -86,7 +92,7 @@ static class SwGrout
                 if (!File.Exists(file)) { Console.Error.WriteLine("REFUSED: no such vault file: " + file); return 2; }
                 if ((File.GetAttributes(file) & FileAttributes.ReadOnly) != 0) { Console.Error.WriteLine("REFUSED: the vault file is read-only, so it is not checked out: " + file); return 2; }
             }
-            else if (!file.StartsWith(@"C:\PDM-work\grout\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: writes only to C:\\PDM-work\\grout copies or checked-out P:\\ files"); return 2; }
+            else if (!WorkCopy(file)) { Console.Error.WriteLine("REFUSED: writes only to C:\\PDM-work\\grout or C:\\PDM-work\\weekend-2026-11-28 copies, or checked-out P:\\ files"); return 2; }
         }
         else if (!inVault && !file.StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: only P:\\ or copies under C:\\PDM-work"); return 2; }
         if (cmd == "xforms" && !Path.GetFullPath(a[3]).StartsWith(@"C:\PDM-work\", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("REFUSED: output only under C:\\PDM-work"); return 2; }
@@ -602,7 +608,7 @@ static class SwGrout
                 {
                     string up = Path.GetFullPath(u);
                     bool uv = up.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase);
-                    if (uv ? (!checkedOut || (File.GetAttributes(up) & FileAttributes.ReadOnly) != 0) : !up.StartsWith(@"C:\PDM-work\grout\", StringComparison.OrdinalIgnoreCase))
+                    if (uv ? (!checkedOut || (File.GetAttributes(up) & FileAttributes.ReadOnly) != 0) : !WorkCopy(up))
                         throw new Exception("not writable here: " + up);
                     int ut = up.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : up.EndsWith(".SLDDRW", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocDRAWING : (int)swDocumentTypes_e.swDocPART;
                     int ue = 0, uw = 0;

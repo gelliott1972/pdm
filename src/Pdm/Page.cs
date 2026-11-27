@@ -111,7 +111,8 @@ public sealed class Page(Settings s)
         var mutating = path is "/api/get" or "/api/checkout" or "/api/checkin" or "/api/undo" or "/api/remove" or "/api/restore";
         // One PDM command at a time on this PC, the command line included (PcLock.cs, 27 Nov).
         string? busyWhy = null;
-        using var pcLock = mutating ? PcLock.Take(s.LocalRoot, "the PDM page (" + path[5..] + ")", TimeSpan.FromSeconds(30), out busyWhy) : null;
+        // The page waits less than the command line: it answers one request at a time, so it looks frozen while it waits (Dev).
+        using var pcLock = mutating ? PcLock.Take(s.LocalRoot, "the PDM page (" + path[5..] + ")", TimeSpan.FromSeconds(10), out busyWhy) : null;
         if (mutating && pcLock == null) { await Send(ctx, 409, new { error = busyWhy }); return; }
         if (mutating) Interlocked.Increment(ref working);
         try { await HandleLoggedInAsync(ctx, path, body, Str, Strs, engine, run, log); }

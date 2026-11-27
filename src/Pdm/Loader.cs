@@ -22,7 +22,6 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
             return;
         }
         var existing = indexed.ToDictionary(r => r.Path, StringComparer.OrdinalIgnoreCase);
-        var byId = indexed.ToDictionary(r => r.FileId);
         var files = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
             .Select(f => (Local: f, Key: Paths.KeyOf(root, f)))
             .Where(f => !Paths.IsIgnored(f.Key) && !Junk.Contains(Path.GetFileName(f.Local)))
@@ -34,6 +33,8 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
         var records = new List<(FileRecord Record, string Local, bool Upload)>();
         var removedHere = new List<string>();
         var refused = new List<(string Path, string Why)>();
+        var moved = new MovedAway(indexed, state);
+        var stale = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int releasedHere = 0;
         foreach (var (local, key) in files)
         {
@@ -59,14 +60,19 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
                 releasedHere++;
             }
             if (upload && old != null && Refuse(old, state) is { } why) refused.Add((old.Path, why));
-            // A file this PC got from the vault that has since moved: it isn't new. Get first (the D13 rehearsal, 18 Nov).
-            if (old == null && state.Files.TryGetValue(key, out var got) && byId.TryGetValue(got.FileId, out var now) && !now.Path.Equals(key, StringComparison.OrdinalIgnoreCase))
-                refused.Add((key, $"this PC got it from the vault, which now has it at {now.Path}{(now.Removed ? " (removed)" : "")}. Get first (pdm get); loading would add it back as a new file."));
+            // An old copy of a file that has since moved in the vault (by its Moves, or this PC's state.json): it isn't new.
+            // Get first (the D13 rehearsal, 18 Nov; Moves too since James's re-add, 27 Nov).
+            if (old == null && moved.Find(key) is { } gone)
+            {
+                refused.Add((key, $"an old copy: the vault moved it to {MovedAway.Where(gone)} ({MovedAway.Who(gone)}). Get first (pdm get); loading would add it back as a new file."));
+                stale.Add(key);
+            }
             records.Add((record, local, upload));
         }
 
         // Pass 2: references and PartNos, now that every file has an id.
-        var candidates = records.Select(r => r.Record).ToList();
+        // Old copies aren't candidates, so nothing new links to them (James's stale assembly linked to his stale parts).
+        var candidates = records.Select(r => r.Record).Where(r => !stale.Contains(r.Path)).ToList();
         foreach (var (record, local, _) in records) engine.Describe(record, local, candidates);
 
         // Keep SOLIDWORKS files, weldment profiles and what they refer to; list the rest.

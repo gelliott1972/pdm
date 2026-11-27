@@ -17,6 +17,7 @@ public sealed class Settings
     public string ReleasesBucket { get; set; } = "";
     public string OutputsBucket { get; set; } = "";   // PDM Outputs (Outputs.cs); empty: not set up
     public string OutputsMirror { get; set; } = "";   // the admin PC's Dropbox copy of the outputs; empty or missing: none
+    public bool TickNewFiles { get; set; }             // Check in ticks new files at the start (Grant, A28, 27 Nov: no; tick to add)
 
     public static Settings Load()
     {

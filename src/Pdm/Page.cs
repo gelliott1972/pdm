@@ -140,7 +140,7 @@ public sealed class Page(Settings s)
                 updater.ApplyAndRestart(); // exits this process when an update is ready
                 return;
             case "/api/files":
-                await Send(ctx, 200, await FilesAsync(engine));
+                await Send(ctx, 200, await FilesAsync(engine, log));
                 return;
             case "/api/activity":
                 if (!Activity.IsAdmin(session!.Email)) { await Send(ctx, 403, new { error = "Activity is for the admin only." }); return; }
@@ -348,16 +348,20 @@ public sealed class Page(Settings s)
         catch (IOException) { return false; }
     }
 
-    async Task<object> FilesAsync(Engine engine)
+    async Task<object> FilesAsync(Engine engine, List<string> log)
     {
         var all = await new Index(db!, s).AllAsync();
+        // Old copies of moved files are tidied first (as Download latest does); what can't be stays as an old copy
+        // (movedTo), which the page lists but never ticks, and check-in refuses (27 Nov, James's re-add).
+        var here = engine.LocalNew(all);
+        foreach (var l in log) Console.WriteLine($"Check-in list: {l}");
         var state = LocalState.Load(s.LocalRoot);
         var usedBy = all.Where(f => !f.Removed).SelectMany(f => f.Refs.Distinct().Select(id => (id, by: f.FileId))).GroupBy(x => x.id).ToDictionary(g => g.Key, g => g.Select(x => x.by).ToList());
-        var inVault = all.Select(f => f.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var added = Paths.LocalSolidWorksKeys(s.LocalRoot).Where(k => !inVault.Contains(k)).Select(k => (object)new
+        var added = here.Select(x => (object)new
         {
-            id = "new:" + k, path = k, refs = new List<string>(), missingRefs = 0,
-            shared = Paths.IsShared(k), usedBy = new List<string>(), isNew = true
+            id = "new:" + x.Key, path = x.Key, refs = new List<string>(), missingRefs = 0,
+            shared = Paths.IsShared(x.Key), usedBy = new List<string>(), isNew = true,
+            movedTo = x.Gone == null ? null : MovedAway.Where(x.Gone), movedWho = x.Gone == null ? null : MovedAway.Who(x.Gone)
         });
         return all.OrderBy(f => f.Path, StringComparer.OrdinalIgnoreCase).Select(f =>
         {
@@ -389,7 +393,7 @@ public sealed class Page(Settings s)
 
     object Me() => new
     {
-        email = session!.Email, name = session.Name, sharedEditor = session.SharedEditor, admin = Activity.IsAdmin(session.Email),
+        email = session!.Email, name = session.Name, sharedEditor = session.SharedEditor, admin = Activity.IsAdmin(session.Email), tickNewFiles = s.TickNewFiles,
         version = Updater.Version, updateReady = updater.ReadyVersion, updatedTo = Updater.UpdatedTo,
         tooOld = Vault.TooOld(Updater.Version, minVersion) ? TooOldText() : null
     };

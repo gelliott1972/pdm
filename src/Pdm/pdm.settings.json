@@ -9,5 +9,6 @@
   "localRoot": "P:\\",
   "releasesBucket": "pdm-releases",
   "outputsBucket": "pdm-outputs",
-  "outputsMirror": "%USERPROFILE%\\Dropbox\\Unilumin Shared\\PDM_Outputs"
+  "outputsMirror": "%USERPROFILE%\\Dropbox\\Unilumin Shared\\PDM_Outputs",
+  "tickNewFiles": false
 }

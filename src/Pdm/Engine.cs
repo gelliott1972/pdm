@@ -99,7 +99,8 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             if (!File.Exists(from)) { state.Files.Remove(key); continue; }
             if (entry != null && LocalState.Differs(entry, from))
             {
-                say($"Kept {key}: it was moved in the vault to {f.Path}, but the copy on this PC has changes. Move it aside if you need it.");
+                say(Readable(from) ? $"Kept {key}: it was moved in the vault to {f.Path}, but the copy on this PC has changes. Move it aside if you need it."
+                    : $"Couldn't move {key} to {f.Path} on this PC: it's open in another program (SOLIDWORKS?). Close it, then Download latest.");
                 continue;
             }
             try
@@ -127,6 +128,35 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             }
         }
         return n;
+    }
+
+    // The check-in page's new files (Dev's d, 27 Nov): old copies of moved files are first moved to their new paths as
+    // Download latest does (or deleted, when the new path already has a copy; a changed one, or one SOLIDWORKS holds,
+    // stays). Then each SOLIDWORKS file on this PC that no record holds: new, or an old copy (Gone: where it went).
+    public List<(string Key, MovedAway.Hit? Gone)> LocalNew(List<FileRecord> all)
+    {
+        var inVault = all.Select(f => f.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        List<string> Here() => Paths.LocalSolidWorksKeys(root).Where(k => !inVault.Contains(k)).ToList();
+        var here = Here();
+        var state = LocalState.Load(root);
+        var moved = new MovedAway(all, state);
+        var stale = here.Select(moved.Find).Where(h => h != null && !h.Now.Removed).Select(h => h!.Now).DistinctBy(r => r.FileId).ToList();
+        if (stale.Count > 0)
+        {
+            foreach (var f in stale) FollowMoves(f, Paths.LocalOf(root, f.Path), state);
+            state.Save(root);
+            here = Here();
+            moved = new MovedAway(all, state);
+        }
+        return here.Select(k => (k, moved.Find(k))).ToList();
+    }
+
+    // False when another program holds the file so it can't be read (a changed-looking copy may only be open).
+    static bool Readable(string path)
+    {
+        try { using var _ = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete); return true; }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
     }
 
     // A file removed from the vault leaves this PC too, unless this PC's copy has changes the vault never had.
@@ -367,6 +397,8 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             return;
         }
         var state = LocalState.Load(root);
+        // An old copy of a file moved in the vault isn't new (James, 25 Nov): refused, whatever its content.
+        if (existing == null && new MovedAway(all, state).Find(key) is { } gone) { say(MovedAway.Refusal(key, gone)); return; }
 
         if (existing != null)
         {

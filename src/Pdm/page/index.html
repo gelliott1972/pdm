@@ -119,7 +119,7 @@
 <div id="app" hidden>
   <header>
     <b>PDM</b>
-    <button id="refreshBtn" title="Shows the latest list from the vault and looks for a PDM update. Downloads no vault files.">Reload list</button>
+    <button id="refreshBtn" title="Shows the latest list from the vault and looks for a PDM update. Downloads no vault files, but tidies old copies of files moved in the vault (moves them to their new folders, as Download latest does).">Reload list</button>
     <button id="getBtn" title="Downloads every file that's newer in the vault than on this PC. Your checked-out files are left alone.">Download latest</button>
     <span class="who" id="who"></span>
     <button id="restartBtn" class="main" hidden title="Installs the new version of PDM and restarts it. Log in again afterwards."></button>
@@ -511,7 +511,8 @@ function removeForm(f) {
 // that's left has changes or is open in SOLIDWORKS (27 Nov).
 function oldCopyWhy(f) {
   return `Moved in the vault by ${f.movedWho}. This copy wasn't moved to the new folder: it has changes, or it's open in SOLIDWORKS. `
-    + "It can't be checked in. Close it and Download latest, or move it aside; if it really is a new file, give it a new name.";
+    + "It can't be checked in. Close it and Download latest, or move it aside; if it really is a new file, give it a new name "
+    + '(a moved file\'s old name is never used again for a new file).';
 }
 
 // ---- right: check in

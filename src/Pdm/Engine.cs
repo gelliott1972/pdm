@@ -140,15 +140,40 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         var here = Here();
         var state = LocalState.Load(root);
         var moved = new MovedAway(all, state);
-        var stale = here.Select(moved.Find).Where(h => h != null && !h.Now.Removed).Select(h => h!.Now).DistinctBy(r => r.FileId).ToList();
-        if (stale.Count > 0)
+        var hits = here.Select(k => (Key: k, Gone: moved.Find(k))).Where(x => x.Gone != null).ToList();
+        if (hits.Count > 0)
         {
-            foreach (var f in stale) FollowMoves(f, Paths.LocalOf(root, f.Path), state);
+            foreach (var f in hits.Where(x => !x.Gone!.Now.Removed).Select(x => x.Gone!.Now).DistinctBy(r => r.FileId))
+                FollowMoves(f, Paths.LocalOf(root, f.Path), state);
+            // Moved, then removed: Download latest only clears the new path, so an unchanged old copy goes here (Dev, 27 Nov).
+            foreach (var x in hits.Where(x => x.Gone!.Now.Removed)) ClearOldCopy(x.Key, x.Gone!, state);
             state.Save(root);
             here = Here();
             moved = new MovedAway(all, state);
         }
         return here.Select(k => (k, moved.Find(k))).ToList();
+    }
+
+    // An old copy of a file that was moved and then removed from the vault leaves this PC, if it's the vault's copy
+    // unchanged (its state.json entry, or the file exactly as it was moved). A changed one stays, listed as an old copy.
+    void ClearOldCopy(string key, MovedAway.Hit gone, LocalState state)
+    {
+        var local = Paths.LocalOf(root, key);
+        try
+        {
+            bool vaultCopy = state.Files.TryGetValue(key, out var e) ? !LocalState.Differs(e, local) : gone.Move != null && Vault.Md5(local) == gone.Move.ETag;
+            if (!vaultCopy || !Readable(local)) return;
+            Paths.SetReadOnly(local, false);
+            File.Delete(local);
+            state.Files.Remove(key);
+            say($"Removed {key} from this PC: it was moved to {gone.Now.Path}, which has since been removed from the vault by {gone.Now.RemovedByName}.");
+            Paths.RemoveEmptyFolders(root, local);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            try { Paths.SetReadOnly(local, true); } catch (Exception) { }
+            say($"Couldn't remove {key} from this PC (open in SOLIDWORKS?): {ex.Message}");
+        }
     }
 
     // False when another program holds the file so it can't be read (a changed-looking copy may only be open).

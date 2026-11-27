@@ -81,7 +81,7 @@ public sealed class Loader(Settings s, Index index, Vault vault, Engine engine, 
             && !referenced.Contains(r.Record.FileId)).ToList();
         records = records.Except(skipped).ToList();
         foreach (var r in skipped) say($"  skipped (not a SOLIDWORKS file, and nothing refers to it): {r.Record.Path}");
-        var all = records.Select(r => r.Record).ToList();
+        var all = records.Select(r => r.Record).Where(r => !stale.Contains(r.Path)).ToList(); // old copies aren't counted, nor checked for PartNos (Dev, 27 Nov)
 
         refused.RemoveAll(x => skipped.Any(r => r.Record.Path.Equals(x.Path, StringComparison.OrdinalIgnoreCase)));
         var refusedPaths = refused.Select(x => x.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);

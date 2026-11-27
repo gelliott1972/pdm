@@ -2064,33 +2064,76 @@ static class SwGrout
             }
             else if (cmd == "addfixed")
             {
-                // addfixed <asm> <part> <part config> <r11 r12 r13 r21 r22 r23 r31 r32 r33> <x y z mm> (weekend run 28 Nov:
-                // C-04's M12 kit at its MSW-01, copied from A-04's): the part added once, placed by the given transform (rows =
-                // the part's axes in the assembly, SOLIDWORKS's own layout) and fixed, no mates. Saves.
-                var rot = a[4].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s, Inv)).ToArray();
-                var at = a[5].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s, Inv) / 1000.0).ToArray();
-                if (rot.Length != 9 || at.Length != 3) throw new Exception("need 9 rotation numbers and 3 coordinates");
-                string part = Path.GetFullPath(a[2]);
-                if (!File.Exists(part)) throw new Exception("no part " + part);
-                int pe = 0, pw = 0;
-                var pd = sw.OpenDoc6(part, (int)swDocumentTypes_e.swDocPART, (int)swOpenDocOptions_e.swOpenDocOptions_Silent | (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly, a[3], ref pe, ref pw);
-                if (pd == null) throw new Exception("could not open " + part + " (" + pe + ")");
-                sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref pe);
+                // addfixed <asm> <part> <part config> <r11 .. r33> <x y z mm>, or addfixed <asm> <list.tsv> (weekend run 28 Nov):
+                // parts added and placed by the given transform (rows = the part's axes in the assembly, SOLIDWORKS's own
+                // layout), each fixed, no mates. The list has one line per component: part path, configuration, 9 numbers,
+                // 3 numbers (tab-separated). Saves once, only if every component landed where asked (0.001 mm) in its config.
+                // List directives: "#show<TAB><config>" makes that configuration active first (the parts go in there);
+                // "#suppress-in<TAB><config>[,<config>]" suppresses every added part in those configurations afterwards.
+                var jobs = new List<string[]>();
+                string showCfg = null; var supIn = new List<string>();
+                if (a[2].EndsWith(".tsv", StringComparison.OrdinalIgnoreCase))
+                    foreach (var ln in File.ReadAllLines(a[2]))
+                    {
+                        var f = ln.Split('	');
+                        if (ln.StartsWith("#show	")) showCfg = f[1].Trim();
+                        else if (ln.StartsWith("#suppress-in	")) supIn.AddRange(f[1].Split(',').Select(x => x.Trim()).Where(x => x != ""));
+                        else if (f.Length >= 4 && !ln.StartsWith("#")) jobs.Add(new[] { f[0], f[1], f[2], f[3] });
+                    }
+                else jobs.Add(new[] { a[2], a[3], a[4], a[5] });
+                if (showCfg != null) { doc.ShowConfiguration2(showCfg); if (((Configuration)doc.GetActiveConfiguration()).Name != showCfg) throw new Exception("no configuration " + showCfg); }
+                string activeCfg = ((Configuration)doc.GetActiveConfiguration()).Name;
+                Console.WriteLine("ACTIVE	" + activeCfg);
+                var added = new List<string>();
                 var asm = (AssemblyDoc)doc;
-                var nc = asm.AddComponent5(part, (int)swAddComponentConfigOptions_e.swAddComponentConfigOptions_CurrentSelectedConfig, "", false, a[3], at[0], at[1], at[2]);
-                if (nc == null) throw new Exception("could not add " + part);
                 var mu = (MathUtility)sw.GetMathUtility();
-                nc.Transform2 = (MathTransform)mu.CreateTransform(rot.Concat(at).Concat(new double[] { 1, 0, 0, 0 }).ToArray());
-                doc.ClearSelection2(true);
-                nc.Select4(false, null, false);
-                asm.FixComponent();
-                doc.ClearSelection2(true);
+                int bad = 0, n = 0;
+                var opened = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var j in jobs)
+                {
+                    var rot = j[2].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(x => double.Parse(x, Inv)).ToArray();
+                    var at = j[3].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(x => double.Parse(x, Inv) / 1000.0).ToArray();
+                    if (rot.Length != 9 || at.Length != 3) throw new Exception("need 9 rotation numbers and 3 coordinates: " + string.Join(" | ", j));
+                    string part = Path.GetFullPath(j[0]);
+                    if (!File.Exists(part)) throw new Exception("no part " + part);
+                    int pe = 0, pw = 0;
+                    if (opened.Add(part + "|" + j[1]))
+                    {
+                        var pd = sw.OpenDoc6(part, (int)swDocumentTypes_e.swDocPART, (int)swOpenDocOptions_e.swOpenDocOptions_Silent | (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly, j[1], ref pe, ref pw);
+                        if (pd == null) throw new Exception("could not open " + part + " (" + pe + ")");
+                        sw.ActivateDoc3(doc.GetTitle(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref pe);
+                    }
+                    var nc = asm.AddComponent5(part, (int)swAddComponentConfigOptions_e.swAddComponentConfigOptions_CurrentSelectedConfig, "", false, j[1], at[0], at[1], at[2]);
+                    if (nc == null) throw new Exception("could not add " + part);
+                    nc.Transform2 = (MathTransform)mu.CreateTransform(rot.Concat(at).Concat(new double[] { 1, 0, 0, 0 }).ToArray());
+                    doc.ClearSelection2(true);
+                    nc.Select4(false, null, false);
+                    asm.FixComponent();
+                    doc.ClearSelection2(true);
+                    var tt = (double[])((MathTransform)nc.Transform2).ArrayData;
+                    double dev = 0; for (int k = 0; k < 9; k++) dev = Math.Max(dev, Math.Abs(tt[k] - rot[k])); for (int k = 0; k < 3; k++) dev = Math.Max(dev, Math.Abs(tt[9 + k] - at[k]) * 1000);
+                    bool okc = nc.ReferencedConfiguration == j[1] && dev < 0.001 && nc.IsFixed();
+                    added.Add(nc.Name2);
+                    if (!okc) bad++;
+                    n++;
+                    Console.WriteLine((okc ? "ADDED	" : "PROBLEM	") + nc.Name2 + "	" + nc.ReferencedConfiguration + "	fixed " + nc.IsFixed() + "	at " +
+                        string.Join(" ", tt.Take(9).Select(v => Math.Round(v, 5).ToString(Inv))) + " | " + string.Join(" ", tt.Skip(9).Take(3).Select(v => Math.Round(v * 1000, 3).ToString(Inv))));
+                }
+                foreach (var sc in supIn)
+                {
+                    doc.ShowConfiguration2(sc);
+                    if (((Configuration)doc.GetActiveConfiguration()).Name != sc) throw new Exception("no configuration " + sc);
+                    int sup = 0;
+                    foreach (var nm in added) { var k = (Component2)asm.GetComponentByName(nm); if (k != null && k.SetSuppression2((int)swComponentSuppressionState_e.swComponentSuppressed) == (int)swSuppressionError_e.swSuppressionChangeOk) sup++; }
+                    Console.WriteLine("SUPPRESSED	" + sc + "	" + sup + " of " + added.Count);
+                    if (sup != added.Count) bad++;
+                }
+                if (supIn.Count > 0) doc.ShowConfiguration2(activeCfg);
                 doc.ForceRebuild3(false);
-                var tt = (double[])((MathTransform)nc.Transform2).ArrayData;
-                Console.WriteLine("ADDED\t" + nc.Name2 + "\t" + nc.ReferencedConfiguration + "\tfixed " + nc.IsFixed() + "\tat " +
-                    string.Join(" ", tt.Take(9).Select(v => Math.Round(v, 5).ToString(Inv))) + " | " + string.Join(" ", tt.Skip(9).Take(3).Select(v => Math.Round(v * 1000, 3).ToString(Inv))) + "\terrors " + Errors(doc, true));
-                if (nc.ReferencedConfiguration != a[3]) { rc = 1; Console.WriteLine("PROBLEM\tconfiguration " + nc.ReferencedConfiguration); }
-                else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED\t" + file : "SAVE FAILED\t" + e); }
+                int errs = Errors(doc, true);
+                Console.WriteLine("COUNT	" + n + " added	" + bad + " problems	errors " + errs);
+                if (bad > 0 || errs > 0) { rc = 1; Console.WriteLine("NOT SAVED	problems above"); }
+                else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED	" + file : "SAVE FAILED	" + e); }
             }
             else if (cmd == "setcomp")
             {

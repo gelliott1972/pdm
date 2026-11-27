@@ -54,7 +54,9 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
 
             if (mine) { current++; continue; } // my working copy; never overwrite it
             if (upToDate && !state.IsChanged(f.Path, local)) { Paths.SetReadOnly(local, true); current++; continue; }
-            if (File.Exists(local) && state.IsChanged(f.Path, local) && !(had == null && Vault.Md5(local) == f.ETag))
+            // A copy that is the vault's latest, byte for byte, is up to date whatever state.json says (Dev, 27 Nov: entries
+            // lost by two gets at once left 14 such copies "changed"); it's recorded below.
+            if (File.Exists(local) && state.IsChanged(f.Path, local) && !IsVaultCopy(local, f.ETag))
             {
                 if (had == null) say($"Skipped {f.Path}: a different file is already there. Move it aside and get again.");
                 else say($"Skipped {f.Path}: changed on this PC without a check-out. Undo or move it aside, then get again.");
@@ -141,8 +143,11 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         var state = LocalState.Load(root);
         var moved = new MovedAway(all, state);
         var hits = here.Select(k => (Key: k, Gone: moved.Find(k))).Where(x => x.Gone != null).ToList();
-        if (hits.Count > 0)
+        // Tidying writes this PC's files and state.json: only while no other PDM command runs (it's left for the next list).
+        using var pcLock = hits.Count > 0 ? PcLock.Take(root, "the PDM page (tidying old copies)", TimeSpan.Zero, out _) : null;
+        if (pcLock != null)
         {
+            state = LocalState.Load(root); // as it is now, under the lock
             foreach (var f in hits.Where(x => !x.Gone!.Now.Removed).Select(x => x.Gone!.Now).DistinctBy(r => r.FileId))
                 FollowMoves(f, Paths.LocalOf(root, f.Path), state);
             // Moved, then removed: Download latest only clears the new path, so an unchanged old copy goes here (Dev, 27 Nov).
@@ -174,6 +179,13 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
             try { Paths.SetReadOnly(local, true); } catch (Exception) { }
             say($"Couldn't remove {key} from this PC (open in SOLIDWORKS?): {ex.Message}");
         }
+    }
+
+    // True when the file on this PC is exactly the vault's version with this etag (false if it can't be read).
+    static bool IsVaultCopy(string local, string etag)
+    {
+        try { return Vault.Md5(local).Equals(etag, StringComparison.OrdinalIgnoreCase); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
     }
 
     // False when another program holds the file so it can't be read (a changed-looking copy may only be open).
@@ -338,7 +350,7 @@ public sealed class Engine(Settings s, Index index, Vault vault, string email, s
         var local = Paths.LocalOf(root, f.Path);
         LocalState.Entry? had;
         lock (state) had = state.Files.GetValueOrDefault(f.Path);
-        if (File.Exists(local) && Time.Of("file checks", () => LocalState.Differs(had, local)) && !Mine(f))
+        if (File.Exists(local) && Time.Of("file checks", () => LocalState.Differs(had, local) && !IsVaultCopy(local, f.ETag)) && !Mine(f))
         {
             Say($"{f.Path} was changed on this PC without a check-out. Move it aside first.");
             return;

@@ -20,6 +20,14 @@ if (args.Skip(1).FirstOrDefault(a => (a.StartsWith('-') || a.StartsWith('/')) &&
     return 2;
 }
 
+// Commands that write this PC's root or state.json take the PC lock first (PcLock.cs; 27 Nov, two gets at once).
+string[] writers = ["load", "move", "remove", "restore", "checkin", "checkout", "get", "unlock", "release-file", "release-folders"];
+PcLock? pcLock = null;
+if (writers.Contains(command))
+{
+    pcLock = PcLock.Take(settings.LocalRoot, "pdm " + command, TimeSpan.FromSeconds(30), out var busy);
+    if (pcLock == null) { Console.WriteLine(busy); return 1; }
+}
 try
 {
     switch (command)
@@ -240,6 +248,7 @@ catch (Exception ex)
     Console.WriteLine($"Error: {ex.Message}");
     return 1;
 }
+finally { pcLock?.Dispose(); }
 
 static async Task<int> Shell(Settings s)
 {
@@ -285,8 +294,14 @@ static async Task<int> Shell(Settings s)
         var cmd = words[0].ToLowerInvariant();
         var rest = words.Skip(1).ToList();
         string Full(string p) => Path.IsPathRooted(p) ? p : Path.Combine(s.LocalRoot, p);
+        PcLock? shellLock = null;
         try
         {
+            if (cmd is "get" or "checkout" or "checkin" or "undo")
+            {
+                shellLock = PcLock.Take(s.LocalRoot, "pdm shell " + cmd, TimeSpan.FromSeconds(30), out var busy);
+                if (shellLock == null) { Console.WriteLine(busy); continue; }
+            }
             await session.RefreshAsync();
             engine.Known = null; // each command reads the index afresh
             switch (cmd)
@@ -319,6 +334,7 @@ static async Task<int> Shell(Settings s)
         {
             Console.WriteLine($"Error: {ex.Message}");
         }
+        finally { shellLock?.Dispose(); }
     }
 }
 

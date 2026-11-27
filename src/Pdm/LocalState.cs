@@ -16,6 +16,9 @@ public sealed class LocalState
 
     public Dictionary<string, Entry> Files { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    // The entries as read (or last saved), so Save writes only what this run changed (a private field: not in the file).
+    Dictionary<string, Entry> asRead = new(StringComparer.OrdinalIgnoreCase);
+
     static string FilePath(string root) => Path.Combine(root, ".pdm", "state.json");
 
     public static LocalState Load(string root)
@@ -24,17 +27,34 @@ public sealed class LocalState
         if (!File.Exists(path)) return new LocalState();
         var loaded = JsonSerializer.Deserialize<LocalState>(File.ReadAllText(path)) ?? new LocalState();
         loaded.Files = new Dictionary<string, Entry>(loaded.Files, StringComparer.OrdinalIgnoreCase);
+        loaded.asRead = Copy(loaded.Files);
         return loaded;
     }
 
+    // Saves this run's changes only: state.json is read again and just the entries this run added, changed or removed
+    // are written into it (27 Nov: two gets at once, each saving the whole file, lost entries). The PC lock (PcLock.cs)
+    // keeps commands apart; this keeps another command's entries even if something ever ran outside it.
     public void Save(string root)
     {
         var path = FilePath(root);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var merged = File.Exists(path) ? Load(root).Files : new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, e) in Files)
+            if (!asRead.TryGetValue(key, out var was) || !Same(was, e)) merged[key] = e;
+        foreach (var key in asRead.Keys)
+            if (!Files.ContainsKey(key)) merged.Remove(key);
         var temp = path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(temp, JsonSerializer.Serialize(new LocalState { Files = merged }, new JsonSerializerOptions { WriteIndented = true }));
         File.Move(temp, path, overwrite: true);
+        Files = merged;
+        asRead = Copy(merged);
     }
+
+    static bool Same(Entry a, Entry b) => a.FileId == b.FileId && a.VersionId == b.VersionId && a.ETag == b.ETag && a.Size == b.Size && a.WriteTimeUtc == b.WriteTimeUtc;
+
+    static Dictionary<string, Entry> Copy(Dictionary<string, Entry> files) => files.ToDictionary(x => x.Key,
+        x => new Entry { FileId = x.Value.FileId, VersionId = x.Value.VersionId, ETag = x.Value.ETag, Size = x.Value.Size, WriteTimeUtc = x.Value.WriteTimeUtc },
+        StringComparer.OrdinalIgnoreCase);
 
     public void Record(string key, string localPath, string fileId, string versionId, string etag)
     {

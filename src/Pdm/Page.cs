@@ -109,6 +109,10 @@ public sealed class Page(Settings s)
             return;
         }
         var mutating = path is "/api/get" or "/api/checkout" or "/api/checkin" or "/api/undo" or "/api/remove" or "/api/restore";
+        // One PDM command at a time on this PC, the command line included (PcLock.cs, 27 Nov).
+        string? busyWhy = null;
+        using var pcLock = mutating ? PcLock.Take(s.LocalRoot, "the PDM page (" + path[5..] + ")", TimeSpan.FromSeconds(30), out busyWhy) : null;
+        if (mutating && pcLock == null) { await Send(ctx, 409, new { error = busyWhy }); return; }
         if (mutating) Interlocked.Increment(ref working);
         try { await HandleLoggedInAsync(ctx, path, body, Str, Strs, engine, run, log); }
         finally { if (mutating) { lastWork = DateTime.UtcNow; Interlocked.Decrement(ref working); } }

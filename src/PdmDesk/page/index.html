@@ -524,8 +524,14 @@ function render() {
   open.splice(0, open.length, ...grouped);
   // Three columns (Grant, 28 Nov): the list on the left only ever gains or loses a row; the middle shows the one ticket
   // picked and is never moved, closed or redrawn by a refresh while he's typing in it or has unsaved mark-ups.
-  drawList(open);
-  drawMiddle(open, tickets);
+  // With the owner (Grant, 28 Nov): discussions waiting on the owner, and answers the owner hasn't marked done yet, sit
+  // greyed at the foot of the list and never open by themselves; the middle moves on to what needs him.
+  const parked = tickets.filter(t => t.status === 'answered' && !editing.has(t._file) && !snoozed(t)
+      && (!screenFilter || String(t.screen || '') === screenFilter) && (!ownerFilter || String(t.owner || '').toLowerCase() === ownerFilter))
+    .sort((a, b) => String(b.answeredAt).localeCompare(String(a.answeredAt)));
+  const listAll = [...open, ...parked];
+  drawList(listAll);
+  drawMiddle(listAll, tickets);
   frozen = false;
   heldBar([]);
 
@@ -615,15 +621,17 @@ function markSeen(k) { if (seenT.has(k)) return; seenT.add(k); try { localStorag
 try { selected = localStorage.getItem('desk-selected'); } catch { }
 const listNum = t => { const id = String(t.id || t._file), m = id.match(/(\d+)$/); return m ? m[1] : shortId(t); };
 const ownAbbr = t => String(name(t.owner || '')).split(/[\s()\-]+/).filter(Boolean).map(w => w[0]).join('').slice(0, 3).toUpperCase();
-const dotCls = t => awaitingOwner(t) ? 'talk' : t.priority === 'blocking' ? 'blocking' : t.type === 'gate' ? 'gate' : t.type === 'draft-review' ? 'draft' : t.type === 'info' ? 'info' : '';
-const kindText = t => awaitingOwner(t) ? 'waiting on the owner' : t.priority === 'blocking' ? 'blocking' : t.type === 'gate' ? 'gate' : t.type === 'draft-review' ? 'draft review' : t.type === 'info' ? 'info' : 'later';
+const withOwner = t => awaitingOwner(t) || (t.status === 'answered' && !editing.has(t._file));
+let pickedParked = null; // a with-the-owner ticket Grant clicked: it stays in the middle until he moves on
+const dotCls = t => withOwner(t) ? 'talk' : t.priority === 'blocking' ? 'blocking' : t.type === 'gate' ? 'gate' : t.type === 'draft-review' ? 'draft' : t.type === 'info' ? 'info' : '';
+const kindText = t => t.status === 'answered' ? 'answered, waiting on the owner' : awaitingOwner(t) ? 'waiting on the owner' : t.priority === 'blocking' ? 'blocking' : t.type === 'gate' ? 'gate' : t.type === 'draft-review' ? 'draft review' : t.type === 'info' ? 'info' : 'later';
 function drawList(open) {
   const cur = shownKey || selected;
   let talkSep = false;
   const h = open.length ? open.map(t => {
-    const sep = awaitingOwner(t) && !talkSep ? (talkSep = true, '<div class="lsep">With the owner</div>') : '';
+    const sep = withOwner(t) && !talkSep ? (talkSep = true, '<div class="lsep">With the owner</div>') : '';
     const tip = [String(t.id || t._file), t.title, 'from ' + name(t.owner || ''), kindText(t)].filter(Boolean).join(' · ');
-    return sep + `<button type="button" class="li${t._file === cur ? ' sel' : ''}${seenT.has(t._file) ? '' : ' unseen'}${awaitingOwner(t) ? ' talk' : ''}" data-li="${esc(t._file)}" title="${esc(tip)}">`
+    return sep + `<button type="button" class="li${t._file === cur ? ' sel' : ''}${seenT.has(t._file) ? '' : ' unseen'}${withOwner(t) ? ' talk' : ''}" data-li="${esc(t._file)}" title="${esc(tip)}">`
       + `<span class="ldot ${dotCls(t)}"></span><span class="num">${esc(listNum(t))}</span><span class="own">${esc(ownAbbr(t))}</span></button>`;
   }).join('') : '<div class="lempty">No open tickets.</div>';
   const w = $('listItems'); if (w.dataset.h !== h) { w.innerHTML = h; w.dataset.h = h; }
@@ -633,13 +641,16 @@ $('listItems').addEventListener('click', e => { const b = e.target.closest('[dat
 function pick(k) {
   if (k === shownKey) return;
   if (mk && mk.unsaved() > 0) { const m = $('tickets').querySelector('.mkmsg'); if (m) m.textContent = 'Save or undo your mark-ups first.'; return; }
+  const t = (state.tickets || []).find(x => x._file === k);
+  pickedParked = t && withOwner(t) ? k : null;
+  if (t?.status === 'answered') { editing.add(k); delete drafts[k]; pickedParked = null; } // reopened as Change answer; Cancel puts it back
   selected = k; try { localStorage.setItem('desk-selected', k); } catch { }
   shownKey = null; render();
   const top = $('tickets').getBoundingClientRect().top; if (top < 0) window.scrollBy({ top: top - 8 });
 }
 // The ticket after k in the list as last drawn (or before it), for when k is answered or closed.
 function nextAfter(k) {
-  const live = new Set((state.tickets || []).filter(t => isOpen(t) && !snoozed(t)).map(t => t._file));
+  const live = new Set((state.tickets || []).filter(t => isOpen(t) && !snoozed(t) && !withOwner(t)).map(t => t._file));
   const i = lastOrder.indexOf(k);
   return [...lastOrder.slice(i + 1), ...lastOrder.slice(0, Math.max(0, i)).reverse()].find(x => live.has(x)) || null;
 }
@@ -658,18 +669,20 @@ function drawMiddle(open, tickets) {
   const c = shownKey ? cards.get(shownKey) : null;
   if (shownKey && c) {
     const t = byKey.get(shownKey), sentHere = c.el.classList.contains('gone');
-    if (t && !sentHere) {
+    const away = t && withOwner(t) && pickedParked !== shownKey; // answered or commented: it's the owner's turn
+    if (t && !sentHere && !away) {
       const json = shownJson(t, tickets);
       if (c.json === json) c.el.querySelector(':scope > .updbar')?.remove();
       else if (busyCard(c.el)) changedBar(c.el, shownKey, false);
       else showTicket(t, tickets);
     } else if (!sentHere && busyCard(c.el)) changedBar(c.el, shownKey, true); // closed elsewhere while he types: his text stays
-    else { selected = nextAfter(shownKey); shownKey = null; }
+    else { selected = nextAfter(shownKey); shownKey = null; pickedParked = null; }
   }
   lastOrder = open.map(t => t._file);
   if (shownKey) return;
-  const k = byKey.has(selected) ? selected : open[0]?._file;
-  if (!k) { mk?.destroy(); mk = null; cards.clear(); $('tickets').innerHTML = '<div class="card empty">No open tickets. New ones appear on the left by themselves.</div>'; return; }
+  const needs = open.filter(t => !withOwner(t));
+  const k = byKey.has(selected) && (!withOwner(byKey.get(selected)) || pickedParked === selected) ? selected : needs[0]?._file;
+  if (!k) { mk?.destroy(); mk = null; cards.clear(); $('tickets').innerHTML = `<div class="card empty">Nothing waiting for you.${open.length ? ' The tickets at the foot of the list are with their owners.' : ''} New ones appear on the left by themselves.</div>`; drawList(open); return; }
   showTicket(byKey.get(k), tickets);
   drawList(open); // the highlight follows
 }
@@ -1069,7 +1082,7 @@ function wire(el, t) {
   const dis = el.querySelector('[data-act="dismiss"]');
   if (dis) dis.onclick = () => act('/api/dismiss', { id: t._file });
   const cancel = el.querySelector('[data-act="cancel"]');
-  if (cancel) cancel.onclick = () => { editing.delete(t._file); delete drafts[t._file]; lastJson = ''; load(); };
+  if (cancel) cancel.onclick = () => { editing.delete(t._file); delete drafts[t._file]; pickedParked = null; el.classList.add('gone'); lastJson = ''; load(); }; // back to the owner: the middle moves on
 }
 
 // ---- Draft reviews (Grant's D8): the PDF one click away, Draw's notes, the thread, then Accept / Review comments / Redo.
@@ -1111,7 +1124,7 @@ function wireDraft(el, t) {
   btn('comment').onclick = () => act('comment');
   btn('redo').onclick = () => act('redo');
   const cancel = btn('cancel');
-  if (cancel) cancel.onclick = () => { editing.delete(t._file); delete drafts[t._file]; lastJson = ''; load(); };
+  if (cancel) cancel.onclick = () => { editing.delete(t._file); delete drafts[t._file]; pickedParked = null; el.classList.add('gone'); lastJson = ''; load(); }; // back to the owner: the middle moves on
 }
 const inBatch = (b, tickets) => tickets.filter(t => t.type === 'draft-review' && String(t.batch ?? '') === b);
 const waitingDraft = t => ['open', 'discuss'].includes(t.status || 'open');

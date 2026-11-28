@@ -130,7 +130,15 @@ app.MapGet("/api/state", () =>
     {
         foreach (var k in new[] { "pdf", "drawing" })
             if (t[k] is JsonValue v && v.TryGetValue<string>(out var s) && s != "") t[k] = true;
-        foreach (var a in (t["attachments"] as JsonArray ?? []).OfType<JsonObject>()) a.Remove("path");
+        foreach (var a in (t["attachments"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            // The page is told whether the Desk can serve it, and as what (28 Nov), never where it is.
+            var (_, type, why) = AttachmentFile((string?)a["path"]);
+            a["ok"] = why == null;
+            a["kind"] = type == null ? null : type.StartsWith("image/") ? "image" : "pdf";
+            if (why != null) a["why"] = why;
+            a.Remove("path");
+        }
     }
     problems = problems.Select(NoPaths).ToList();
     // Answers a session hasn't picked up for 10 minutes or more: its notice watch isn't running (26 Nov).
@@ -208,13 +216,26 @@ app.MapGet("/api/attachment", (string? id, string? key) =>
     if (!Store.IdOk(id) || string.IsNullOrEmpty(key)) return Results.NotFound();
     var t = store.Read(store.TicketFile(id!), out _);
     var a = (t?["attachments"] as JsonArray ?? []).OfType<JsonObject>().FirstOrDefault(x => (string?)x["key"] == key);
-    if ((string?)a?["path"] is not { Length: > 0 } path || !Path.IsPathFullyQualified(path)) return Results.NotFound();
-    string full;
-    try { full = Path.GetFullPath(path); } catch { return Results.NotFound(); }
-    var type = Path.GetExtension(full).ToLowerInvariant() switch { ".pdf" => "application/pdf", ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", _ => null };
-    if (type == null || !fileRoots.Any(r => full.StartsWith(r, StringComparison.OrdinalIgnoreCase)) || !File.Exists(full)) return Results.NotFound();
-    return Results.File(full, type, enableRangeProcessing: true);
+    var (full, type, why) = AttachmentFile((string?)a?["path"]);
+    return why != null ? Results.NotFound() : Results.File(full!, type!, enableRangeProcessing: true);
 });
+
+// An attachment's file: (full path, content type, null) if the Desk may serve it, else (.., .., why not, for the page).
+// Only a .pdf, .png, .jpg/.jpeg, .gif or .webp under a fileRoots folder, that exists.
+(string? Full, string? Type, string? Why) AttachmentFile(string? path)
+{
+    if (string.IsNullOrEmpty(path) || !Path.IsPathFullyQualified(path)) return (null, null, "no full path");
+    string full;
+    try { full = Path.GetFullPath(path); } catch { return (null, null, "not a usable path"); }
+    var type = Path.GetExtension(full).ToLowerInvariant() switch
+    {
+        ".pdf" => "application/pdf", ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".gif" => "image/gif", ".webp" => "image/webp", _ => null
+    };
+    if (type == null) return (null, null, "only PDF and image files are shown");
+    if (!fileRoots.Any(r => full.StartsWith(r, StringComparison.OrdinalIgnoreCase))) return (null, type, "not in a folder the Desk serves from");
+    if (!File.Exists(full)) return (null, type, "file not found");
+    return (full, type, null);
+}
 
 app.MapPost("/api/answer", async (HttpRequest req) =>
 {

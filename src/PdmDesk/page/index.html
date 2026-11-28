@@ -79,7 +79,7 @@ button.ref.scr.on { background: var(--accent); color: var(--accent-ink); border-
 .pill.gate.blocking { background: var(--red-soft); color: var(--red); }
 .gateinfo { margin-top: 10px; font-size: 13px; }
 .gatewarn { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: var(--amber-soft); color: var(--amber); font-weight: 600; font-size: 13px; }
-.attach { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+.attach { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
 input.code { margin-top: 12px; width: 140px; padding: 8px 10px; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
 .bc.gw { background: var(--amber-soft); color: var(--amber); white-space: normal; }
 .bc.ga { background: none; color: var(--green); border: 2px solid var(--green); white-space: normal; }
@@ -91,7 +91,17 @@ input.code { margin-top: 12px; width: 140px; padding: 8px 10px; font: inherit; c
 #snoozed summary { cursor: pointer; color: var(--muted); font-size: 13px; margin: 10px 2px; }
 #snoozed .row { display: flex; gap: 10px; align-items: center; padding: 6px 2px; font-size: 13px; border-top: 1px solid var(--line); }
 #snoozed .row .t { flex: 1; }
-.body { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.body { margin: 10px 0 0; overflow-wrap: anywhere; }
+.md > :first-child { margin-top: 0; } .md > :last-child { margin-bottom: 0; }
+.md p { margin: 0 0 8px; } .md ul, .md ol { margin: 0 0 8px; padding-left: 22px; } .md li { margin: 2px 0; }
+.md .h { font-weight: 600; margin: 10px 0 4px; }
+.md pre { font: 12.5px ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; overflow-x: auto; white-space: pre; margin: 0 0 8px; }
+.md table { border-collapse: collapse; margin: 0 0 8px; font-size: 13px; display: block; overflow-x: auto; }
+.md th, .md td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+.md th { background: var(--bg); font-weight: 600; }
+.post code, .steptext code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.attach img { display: block; max-width: 100%; max-height: 320px; border: 1px solid var(--line); border-radius: 6px; }
+.attach .missing { color: var(--muted); font-size: 12px; align-self: center; }
 .body code, .opt code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 .opts { display: grid; gap: 8px; margin-top: 14px; }
 .opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; width: 100%; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: inherit; cursor: pointer; }
@@ -103,7 +113,7 @@ input.code { margin-top: 12px; width: 140px; padding: 8px 10px; font: inherit; c
 .opt .note { display: block; color: var(--muted); font-size: 13px; }
 .opt.discuss { border-style: dashed; }
 .thread { margin-top: 14px; display: grid; gap: 8px; }
-.post { white-space: pre-wrap; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--panel); margin-right: 32px; }
+.post { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--panel); margin-right: 32px; }
 .post.me { background: var(--accent-soft); margin: 0 0 0 32px; }
 .pmeta { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
 .tstate { font-size: 13px; color: var(--muted); }
@@ -136,7 +146,7 @@ details.out pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 26
 .working { color: var(--amber); font-weight: 600; }
 .hint.left { margin-left: 0; }
 .stepbox { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
-.steptext { margin-top: 4px; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.steptext { margin-top: 4px; font-size: 15px; overflow-wrap: anywhere; }
 .stepbox .acts { margin-top: 10px; }
 .pdmact { margin-top: 10px; padding: 8px 10px; border-radius: 6px; border: 1px dashed var(--line); background: var(--panel); font-size: 13px; }
 .pdmact .run { margin-top: 6px; }
@@ -292,6 +302,67 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Plain text with **bold** and `code`; everything else is shown as typed.
 const fmt = s => esc(s).replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+// Ticket text as markdown (Grant, 28 Nov): paragraphs, - and 1. lists, **bold**, *italic*, `code`, ``` blocks, # headings
+// and | tables |. Everything is escaped first; only these few tags are made, so a ticket can't put its own HTML here.
+function inl(s) {
+  const codes = [];
+  let h = esc(s).replace(/`([^`\n]+)`/g, (_, c) => { codes.push(c); return '\u0000' + (codes.length - 1) + '\u0000'; });
+  h = h.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*([^*\s][^*\n]*?)\*(?=[\s).,;:!?]|$)/g, '$1<i>$2</i>');
+  return h.replace(/\u0000(\d+)\u0000/g, (_, i) => '<code>' + codes[i] + '</code>');
+}
+function md(text) {
+  const lines = String(text ?? '').replace(/\r/g, '').split('\n'), out = [];
+  const isRow = l => /^\s*\|.*\|\s*$/.test(l), isSep = l => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l);
+  const cells = l => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => inl(c.trim()));
+  const item = l => l.match(/^(\s*)([-*•]|\d+[.)])\s+(.*)$/);
+  let para = [];
+  const flush = () => { if (para.length) out.push('<p>' + para.join('<br>') + '</p>'); para = []; };
+  for (let i = 0; i < lines.length;) {
+    const l = lines[i];
+    if (/^\s*```/.test(l)) {
+      flush(); const code = []; i++;
+      while (i < lines.length && !/^\s*```/.test(lines[i])) code.push(lines[i++]);
+      i++; out.push('<pre>' + esc(code.join('\n')) + '</pre>'); continue;
+    }
+    if (isRow(l) && i + 1 < lines.length && isSep(lines[i + 1])) {
+      flush(); const head = cells(l), rows = []; i += 2;
+      while (i < lines.length && isRow(lines[i])) rows.push(cells(lines[i++]));
+      out.push('<table><tr>' + head.map(c => '<th>' + c + '</th>').join('') + '</tr>'
+        + rows.map(r => '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') + '</table>');
+      continue;
+    }
+    const hm = l.match(/^\s*#{1,4}\s+(.*)$/);
+    if (hm) { flush(); out.push('<div class="h">' + inl(hm[1]) + '</div>'); i++; continue; }
+    const m = item(l);
+    if (m) {
+      flush(); const ordered = /\d/.test(m[2]), items = [];
+      while (i < lines.length) {
+        const x = item(lines[i]);
+        if (x && /\d/.test(x[2]) === ordered) { items.push(inl(x[3])); i++; continue; }
+        if (!x && /^\s{2,}\S/.test(lines[i]) && items.length) { items[items.length - 1] += '<br>' + inl(lines[i].trim()); i++; continue; }
+        break;
+      }
+      out.push((ordered ? '<ol>' : '<ul>') + items.map(x => '<li>' + x + '</li>').join('') + (ordered ? '</ol>' : '</ul>'));
+      continue;
+    }
+    if (!l.trim()) { flush(); i++; continue; }
+    para.push(inl(l)); i++;
+  }
+  flush();
+  return '<div class="md">' + out.join('') + '</div>';
+}
+// A ticket's attachments (any type of ticket): an image shows small and opens full size; a PDF or other file is a button.
+// The Desk serves each by ticket id and key, only from its fileRoots folders; one it can't serve says why.
+function attachHtml(t) {
+  const list = (t.attachments || []).filter(a => a && a.key);
+  if (!list.length) return '';
+  return '<div class="attach">' + list.map(a => {
+    const url = `/api/attachment?id=${encodeURIComponent(t._file)}&key=${encodeURIComponent(a.key)}`, label = esc(a.label || a.key);
+    if (a.ok === false) return `<span class="missing">${label}: not available (${esc(a.why || 'file not found')})</span>`;
+    if (a.kind === 'image') return `<a href="${url}" target="_blank" rel="noopener" title="${label}"><img src="${url}" alt="${label}" loading="lazy"></a>`;
+    return `<a class="b" href="${url}" target="_blank" rel="noopener">${label}${a.kind === 'pdf' ? ' (PDF)' : ''}</a>`;
+  }).join('') + '</div>';
+}
 const name = s => LABELS[String(s ?? '').toLowerCase()] || (s ? s[0].toUpperCase() + s.slice(1) : '');
 function readGroups() {
   LABELS = {}; CONF = {};
@@ -580,7 +651,7 @@ function ticketCard(t) {
   const snz = `<select class="snooze" title="Take it off the list for a while; it comes back by itself"><option value="">Snooze…</option>`
     + [1, 2, 4, 8, 24].map(h => `<option value="${h}">${h === 24 ? '1 day' : h + (h === 1 ? ' hour' : ' hours')}</option>`).join('') + '</select>';
   let html = `<div class="top"><div class="title">${idChip(t)}${scrChip(t)}${esc(title || t._file)}${refNote(t)}</div>${pill}</div>
-    <div class="meta">${esc(from)}${editing.has(t._file) ? '' : snz}</div>${t.body ? `<div class="body">${fmt(t.body)}</div>` : ''}`;
+    <div class="meta">${esc(from)}${editing.has(t._file) ? '' : snz}</div>${t.body ? `<div class="body">${md(t.body)}</div>` : ''}${type === 'gate' ? '' : attachHtml(t)}`;
   if (type === 'decision') {
     const d = drafts[t._file] ??= editing.has(t._file) && t.answer ? { choice: t.answer.choice || '', note: t.answer.note || '' } : { choice: '', note: '' };
     const opts = t.options || [];
@@ -657,7 +728,7 @@ function gateHtml(t) {
   const d = drafts[t._file] ??= editing.has(t._file) && t.answer ? { choice: t.answer.choice || '', code: t.answer.code ?? '', note: t.answer.note || '', confirm: false } : { choice: '', code: '', note: '', confirm: false };
   let h = `<div class="gateinfo">${esc(g?.label || t.gate || 'Gate')} for <b>${esc(t.screen || '?')}</b> · asked at pin <span title="${esc(t.pin)} UTC">${esc(short(t.pin) || t.pin || '?')}</span></div>`;
   if (steelChanged(t)) h += `<div class="gatewarn">The steel has changed since this was asked (steel now from ${esc(short(steelOf(t.screen)))}).</div>`;
-  if ((t.attachments || []).length) h += '<div class="attach">' + t.attachments.map(a => `<a class="b" href="/api/attachment?id=${encodeURIComponent(t._file)}&key=${encodeURIComponent(a.key)}" target="_blank" rel="noopener">${esc(a.label || a.key)}</a>`).join('') + '</div>';
+  h += attachHtml(t);
   h += threadHtml(t);
   if (!g) return h + '<div class="gatewarn">This gate isn\'t in the Desk\'s settings, so it can\'t be answered here.</div>';
   const discuss = { key: DISCUSS, label: (t.thread || []).length ? 'Reply' : "Other, let's discuss", note: `Your comment goes to ${name(t.owner) || 'the owner'}, who replies here.` };
@@ -742,7 +813,7 @@ function swJob(t) {
       const st = steps[n], act = typeof st === 'object' && st ? st.action : null;
       const done = act ? (t.actions || {})[n] : null, pdmBusy = pdmRunning.has(t._file);
       const lastStep = n >= steps.length - 1;
-      h += `<div class="stepbox"><div class="meta">Step ${n + 1} of ${steps.length}</div><div class="steptext">${fmt(stepText(st))}</div>`;
+      h += `<div class="stepbox"><div class="meta">Step ${n + 1} of ${steps.length}</div><div class="steptext">${md(stepText(st))}</div>`;
       if (act) h += actionBox(act, done, lastStep);
       if (act && d.confirmCheckin) h += `<div class="confirm">Check in ${(act.paths || []).length} file(s) to the vault as you, with the note "${esc(act.note || '')}"?
         <div class="acts"><button class="b primary" data-act="checkin-go">Yes, check in</button><button class="b" data-act="checkin-no">Cancel</button></div></div>`;
@@ -953,7 +1024,7 @@ function threadHtml(t) {
   const last = th.at(-1), who = name(t.owner) || 'the owner';
   const state = t.status !== 'discuss' ? '' : last.from === 'grant' ? `<div class="tstate">Waiting for ${esc(who)} to reply</div>`
     : `<div class="tstate new">${esc(name(last.from))} replied. ${t.type === 'draft-review' ? 'Comment again, Accept or Redo.' : 'Reply again, or pick an option to decide.'}</div>`;
-  return '<div class="thread">' + th.map(p => `<div class="post${p.from === 'grant' ? ' me' : ''}"><div class="pmeta">${esc(p.from === 'grant' ? 'You' : name(p.from))} · ${ago(p.at)}</div><div>${fmt(p.text || '')}</div></div>`).join('') + state + '</div>';
+  return '<div class="thread">' + th.map(p => `<div class="post${p.from === 'grant' ? ' me' : ''}"><div class="pmeta">${esc(p.from === 'grant' ? 'You' : name(p.from))} · ${ago(p.at)}</div><div>${md(p.text || '')}</div></div>`).join('') + state + '</div>';
 }
 
 function sentRow(t) {

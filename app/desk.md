@@ -22,7 +22,7 @@ The page is named from settings ("APEX Desk"). The exe, its folder, the data fol
 | `deskName` | `"PDM Desk"` | The page title, heading, tab title and banners (installed: `"APEX Desk"`) |
 | `dataFolder`, `port` | `C:\code\pdm\desk`, `5180` | |
 | `listenAddresses`, `allowedHosts`, `auth.mode`, `user` | `["127.0.0.1"]`, `["127.0.0.1","localhost"]`, `"none"`, `"grant"` | Remote-ready plumbing (stage 2 item 8): see "Remote later" below. Only `none` and loopback today |
-| `fileRoots` | `C:\code\pdm\scratch\`, `C:\code\pdm\draw\` | The only folders the Desk serves files from (draft PDFs, attachments). Admin agrees any new root; never `C:\code\apex` or `data\` |
+| `fileRoots` | `C:\code\pdm\scratch\`, `C:\code\pdm\draw\` | The only folders the Desk serves files from (draft PDFs, attachments). Admin agrees any new root; never `C:\code\apex` or `data\`. Installed since 28 Nov (Admin agreed): also `C:\Users\grant\Dropbox\Unilumin Shared\APEX-Claude-Transfer\`, for attachments Grant sends through Dropbox; no other Dropbox folder |
 | `register` | none | `workflow`, `screenTypes`, `screens`: the APEX register CSVs the board reads (never writes) |
 | `sessionGroups` | one group "PDM": admin, dev, sw, app, draw | `[{ name, sessions: [{ id, label, prefix?, remote?, via? }] }]`: the session list, in order, with headings |
 | `steps` | none | Board columns in order: `{ key, label, kind?, ruleBefore? }`. `kind`: `pin`, `gate`, or none (depends on the model). `ruleBefore` draws a light rule before the column |
@@ -45,10 +45,11 @@ Without `register`, `steps` and `gates` the board and gate answers aren't shown.
 | Field | Values | Notes |
 | --- | --- | --- |
 | `id` | `"D16"`, `"apex-admin-14"` | Same as the file name. The id rule: `<session prefix><number>`, the prefix being the session's `prefix` in settings; for the APEX sessions that is the full session name and a dash (`apex-admin-1`, `calc-08a-11-2`). Existing PDM ids (`A`, `SW`, `DR`, `DW`) stay. If the owner has a prefix and the id doesn't start with it, the page says so under Sessions; nothing is refused. Never rename an existing ticket |
+| `body` | text | Shown as markdown (28 Nov): paragraphs, `-` and `1.` lists (an indented line continues the item), `**bold**`, `*italic*`, inline code in backticks, fenced code blocks, `#` headings and pipe tables with a `| --- |` line. Thread posts and sw-job step text too. Everything is escaped first, so HTML in a ticket shows as text |
 | `type` | `decision`, `info`, `sw-job`, `draft-review`, `gate` | `sw-job`, `draft-review` and `gate` have their own sections below |
 | `screen` | `"LS-08A-06"` | Optional: the register's `ls` value (never part of the id). A second chip on the card, in History and on `/review`; clicking it shows only that screen's open tickets |
 | `decision` | `"APEX-A62"` | Optional: the decision the ticket produced, shown in its History row |
-| `attachments` | `[{ "key": "summary", "label": "Check summary", "path": "C:\\…\\summary.pdf" }]` | Optional: links on the card, served by id at `/api/attachment?id=<id>&key=<key>` only if the full path is under a `fileRoots` folder, exists and ends `.pdf`, `.png` or `.jpg`. The path never goes to the browser |
+| `attachments` | `[{ "key": "summary", "label": "Check summary", "path": "C:\\…\\summary.pdf" }]` | Optional, on any ticket type (28 Nov). Served by id at `/api/attachment?id=<id>&key=<key>` only if the full path is under a `fileRoots` folder, exists and ends `.pdf`, `.png`, `.jpg`/`.jpeg`, `.gif` or `.webp`. An image shows on the card (click for full size); a PDF is a button that opens it. The path never goes to the browser: `/api/state` sends `ok`, `kind` (`image`/`pdf`) and, when it can't be served, `why`, which the card shows ("not available (file not found)") |
 | `ref` | `"D16"` | Optional chip before the title |
 | `title` | text | One line |
 | `body` | text | Short context |

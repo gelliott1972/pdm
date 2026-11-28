@@ -1,5 +1,16 @@
 # SW status
 
+## 28 Nov (morning): B rework (Desk A30 / APEX-A130) on copies, in progress
+
+- Grant: the posts get 10 mm longer at the bottom only; the screen frame stays put. The first B dropped the SFA-2B/5B subframes 10 mm, so it was not accepted.
+- Copies: `C:\PDM-work\weekend-2026-11-28\B2\LS-08A/B/C-04` (fresh Pack and Go; vault versions as in B's run, apart from FAST-HEX's E config).
+- Script: `sw\weekend04r.ps1` = b04.ps1 + SwGrout movecomp, which moves GNRIC-LM-1 10 mm down in 08X04-LMW's 9 B configurations (fixed component, per configuration; the other configurations are unchanged).
+- A-04 only: 08A04-SFA-2B Coincident26 (the LMW-3 leg bottom to the 08X04-HBW-04 underside) is replaced by Distance5 = 10 mm (SwGrout todist), so HBW-04 and GNRIC-BRP-16 stay put.
+- A-04 proof (`B2\proof`):
+  - Whole-top xforms (bdiff.py against B's before): only 10 GNRIC-PLP, the MSW-01 kit, the M12 kit and 11 legs moved (0,-10,0); the legs changed configuration with the top unchanged. Nothing else moved.
+  - Every-bolt: the same 3 pre-existing problems.
+- Next: B-04 and C-04 xforms (running), any re-mates there, the floor check (about 12 min each), the 04/07 foot, then check-out and check-in (APEX-A126). After that, D (APEX-A128).
+
 ## 28 Nov (night): weekend E checked in; square-edge exports done
 
 - **E (APEX-A124, joint 8.2) checked in** at 2026-11-27T19:08:55Z, one pdm load, 19 files, 0 locks. New parts: 08X11-BRA-01 rail, 08X11-MSP-01 seat, and FAST-HEX-8.8-HDG config "ISO 4014 - M12 x 65-N" (FAST-HEX-M12x65-8.8-HDG).

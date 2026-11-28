@@ -79,7 +79,7 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "addfixed" || cmd == "todist" || cmd == "matesup" || cmd == "skpt" || cmd == "setmat" || cmd == "movelist" || (cmd == "movecomp" && !(a.Length > 5 && a[5] == "dry")) || (cmd == "wzdlen" && a.Length > 3) || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !a.Skip(5).Contains("dry")) || cmd == "brace" || cmd == "replcomp" || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || cmd == "renprops" || cmd == "renumber" || cmd == "setprops" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
+        bool write = cmd == "setdims" || cmd == "addfixed" || cmd == "todist" || cmd == "matesup" || cmd == "skpt" || cmd == "setmat" || cmd == "movelist" || cmd == "compsup" || (cmd == "movecomp" && !(a.Length > 5 && a[5] == "dry")) || (cmd == "wzdlen" && a.Length > 3) || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !a.Skip(5).Contains("dry")) || cmd == "brace" || cmd == "replcomp" || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || cmd == "renprops" || cmd == "renumber" || cmd == "setprops" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
@@ -2272,6 +2272,52 @@ static class SwGrout
                 int errs = Errors(doc, true);
                 Console.WriteLine("COUNT	" + done + " moves	" + bad + " problems	errors " + errs);
                 if (bad > 0 || errs > 0) { rc = 1; Console.WriteLine("NOT SAVED	problems above"); }
+                else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED	" + file : "SAVE FAILED	" + e); }
+            }
+            else if (cmd == "compsup")
+            {
+                // compsup <asm> <config> <component> on|off (A33, 28 Nov): suppress (off) or resolve (on) one top-level component in
+                // that configuration only. Only that configuration is ever shown (showing another one rebuilds it, and in
+                // 08A07-SFA-1X V2 that half-turned two under-constrained floor plates); check the others with Document Manager.
+                // Saves only if the component ends in the asked state and the rebuild has 0 errors.
+                var asm = (AssemblyDoc)doc;
+                doc.ShowConfiguration2(cfgArg);
+                if (((Configuration)doc.GetActiveConfiguration()).Name != cfgArg) throw new Exception("no configuration " + cfgArg);
+                var comp = (Component2)asm.GetComponentByName(a[3]);
+                if (comp == null) throw new Exception("no component " + a[3]);
+                int b0 = comp.GetSuppression2();
+                var mu0 = (MathUtility)sw.GetMathUtility();
+                var snap = ((object[])asm.GetComponents(true) ?? new object[0]).Cast<Component2>()
+                    .Where(k => k.Name2 != a[3] && k.GetSuppression2() != (int)swComponentSuppressionState_e.swComponentSuppressed)
+                    .ToDictionary(k => k.Name2, k => (double[])((MathTransform)k.Transform2).ArrayData);
+                int r2 = comp.SetSuppression2(a[4] == "off" ? (int)swComponentSuppressionState_e.swComponentSuppressed : (int)swComponentSuppressionState_e.swComponentFullyResolved);
+                doc.EditRebuild3();   // not a forced rebuild: that re-solved and half-turned two loose floor plates (A33, 28 Nov)
+                // a component the re-solve moved (28 Nov: two loose floor plates half-turned) is put back where it was
+                // "turned-ok" (6th argument): the moves are reported but accepted (A33: two square-symmetric floor plates half-turn,
+                // with their world geometry unchanged, checked from STEP)
+                bool turnedOk = a.Length > 5 && a[5] == "turned-ok";
+                for (int pass = turnedOk ? 1 : 0; pass < 2; pass++)
+                {
+                    int back = 0, still = 0;
+                    foreach (var kv in snap)
+                    {
+                        var k = (Component2)asm.GetComponentByName(kv.Key); if (k == null) continue;
+                        var t = (double[])((MathTransform)k.Transform2).ArrayData;
+                        double dev = 0; for (int i = 0; i < 12; i++) dev = Math.Max(dev, Math.Abs(t[i] - kv.Value[i]) * (i >= 9 ? 1000 : 1));
+                        if (dev < 1e-4) continue;
+                        if (pass == 0) { k.Transform2 = (MathTransform)mu0.CreateTransform(kv.Value); back++; Console.WriteLine("PUT BACK	" + kv.Key + "	(moved " + Math.Round(dev, 4) + ")"); }
+                        else if (turnedOk) Console.WriteLine("MOVED (accepted)	" + kv.Key + "	" + string.Join(" ", t.Take(9).Select(v => Math.Round(v, 3).ToString(Inv))) + " | " + string.Join(" ", t.Skip(9).Take(3).Select(v => Math.Round(v * 1000, 3).ToString(Inv))));
+                        else { still++; Console.WriteLine("PROBLEM	" + kv.Key + " still moved after putting back (" + Math.Round(dev, 4) + ")"); }
+                    }
+                    if (pass == 0 && back > 0) doc.EditRebuild3();
+                    if (pass == 1 && still > 0) rc = 1;
+                    if (pass == 0 && back == 0) break;
+                }
+                int b1 = ((Component2)asm.GetComponentByName(a[3])).GetSuppression2();
+                int errs = Errors(doc, true);
+                Console.WriteLine("COMPONENT	" + cfgArg + "	" + a[3] + "	" + b0 + " -> " + b1 + " (0 suppressed, 2 resolved)	result " + r2 + "	errors " + errs);
+                bool good = a[4] == "off" ? b1 == 0 : b1 != 0;
+                if (!good || errs > 0 || rc != 0) { rc = 1; Console.WriteLine("NOT SAVED	problems above"); }
                 else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED	" + file : "SAVE FAILED	" + e); }
             }
             else if (cmd == "todist")

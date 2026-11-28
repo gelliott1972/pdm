@@ -8,15 +8,26 @@ same component) runs it; it never talks to the browser itself. Needs PyMuPDF (pi
 Coordinates are in page points as displayed (top-left origin, y down, the page's rotation applied), the same space the
 browser draws in. annots.json: [{"type": "box"|"arrow"|"highlight"|"text", "page": 0-based,
  "rect": [x0, y0, x1, y1] (box, cloud, highlight, text, callout), "point": [x, y] (callout: where its arrow points),
- "from": [x, y], "to": [x, y] (arrow), "text": "..." (text, callout; a note on others)}]
+ "from": [x, y], "to": [x, y] (arrow), "text": "..." (text, callout; a note on others), "color": "#rrggbb" (red if missing)}]
 save writes standard annotations (Square, a Square with a cloudy border for a cloud, Line with an open arrow head,
-Highlight, FreeText, and FreeText with the Callout intent and an arrowed leader line for a callout), red, by <author>. An image
+Highlight, FreeText, and FreeText with the Callout intent and an arrowed leader line for a callout), in each one's colour, by <author>. An image
 file is first made into a one-page PDF the size of the image. <out.pdf> may be <file> itself: then it's saved in place.
 Exit code 0 and JSON {"ok": true, "count": n} on success; otherwise 1 and a plain-English line on stdout.
 """
 import json, os, sys
 
 RED = (0.85, 0.1, 0.1)
+
+
+def colour(text):
+    # "#rrggbb" from the page (Grant's swatches, 28 Nov) -> (r, g, b) 0..1; anything else is red.
+    t = str(text or "").strip().lstrip("#")
+    if len(t) == 6:
+        try:
+            return tuple(int(t[i:i + 2], 16) / 255 for i in (0, 2, 4))
+        except ValueError:
+            pass
+    return RED
 
 
 def open_doc(path):
@@ -55,6 +66,7 @@ def save(path, annots_file, out, author):
         m = page.derotation_matrix  # displayed -> unrotated page space, where annotations live
         t = a.get("type")
         note = (a.get("text") or "").strip()
+        col = colour(a.get("color"))  # stroke, or text colour for FreeText, written into the annotation itself
         if t in ("box", "cloud", "highlight", "text", "callout"):
             x0, y0, x1, y1 = a["rect"]
             r = (pymupdf.Rect(min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)) * m).normalize()
@@ -62,7 +74,7 @@ def save(path, annots_file, out, author):
                 continue
             if t in ("box", "cloud"):
                 an = page.add_rect_annot(r)
-                an.set_colors(stroke=RED)
+                an.set_colors(stroke=col)
                 # A revision cloud (Bluebeam's, Disney's reviewers): a Square with the cloudy border effect (BE /S /C).
                 an.set_border(width=1.5, clouds=2 if t == "cloud" else -1)
             elif t == "callout":
@@ -70,14 +82,15 @@ def save(path, annots_file, out, author):
                 tip = pymupdf.Point(*a["point"]) * m
                 knee = pymupdf.Point(r.x0 if tip.x < r.x0 else r.x1 if tip.x > r.x1 else (r.x0 + r.x1) / 2,
                                      r.y0 if tip.y < r.y0 else r.y1 if tip.y > r.y1 else (r.y0 + r.y1) / 2)
-                an = page.add_freetext_annot(r, note or " ", fontsize=11, fontname="helv", text_color=RED, callout=(tip, knee),
+                an = page.add_freetext_annot(r, note or " ", fontsize=11, fontname="helv", text_color=col, callout=(tip, knee),
                                              line_end=pymupdf.PDF_ANNOT_LE_OPEN_ARROW, rotate=page.rotation)
                 an.set_border(width=1)
             elif t == "highlight":
                 an = page.add_highlight_annot(r)
-                an.set_colors(stroke=(1, 0.85, 0.2))
+                an.set_colors(stroke=col)
+                an.set_opacity(0.4)  # a see-through version of the colour
             else:
-                an = page.add_freetext_annot(r, note or " ", fontsize=11, fontname="helv", text_color=RED, rotate=page.rotation)
+                an = page.add_freetext_annot(r, note or " ", fontsize=11, fontname="helv", text_color=col, rotate=page.rotation)
                 an.set_border(width=1)
         elif t == "arrow":
             p1 = pymupdf.Point(*a["from"]) * m
@@ -85,7 +98,7 @@ def save(path, annots_file, out, author):
             if abs(p1 - p2) < 3:
                 continue
             an = page.add_line_annot(p1, p2)
-            an.set_colors(stroke=RED)
+            an.set_colors(stroke=col)
             an.set_border(width=1.5)
             an.set_line_ends(pymupdf.PDF_ANNOT_LE_NONE, pymupdf.PDF_ANNOT_LE_OPEN_ARROW)
         else:

@@ -15,9 +15,13 @@
 //   onSaved(result)   called after a save
 // Annotations are sent in page points, top-left origin, y down, as the page is displayed:
 //   { type: 'box'|'cloud'|'highlight'|'text', page, rect: [x0, y0, x1, y1], text? },  { type: 'arrow', page, from: [x, y], to: [x, y] }
-//   or { type: 'callout', page, rect, point: [x, y] (where its arrow points), text }
+//   or { type: 'callout', page, rect, point: [x, y] (where its arrow points), text }; each with color: '#rrggbb' (the swatch picked)
 (function () {
   const RED = '#d91a1a', SVG = 'http://www.w3.org/2000/svg';
+  // Grant's swatches (28 Nov): red first (the default), then blue, green, magenta, black. The pick is kept per browser.
+  const COLOURS = [['#d91a1a', 'Red'], ['#1f5fd6', 'Blue'], ['#1a8f3c', 'Green'], ['#c21bb5', 'Magenta'], ['#111111', 'Black']];
+  const ci = c => Math.max(0, COLOURS.findIndex(x => x[0] === c));
+  const translucent = (c, a) => `rgba(${parseInt(c.slice(1, 3), 16)},${parseInt(c.slice(3, 5), 16)},${parseInt(c.slice(5, 7), 16)},${a})`;
   const css = `
 .pmk { font: 14px system-ui, Segoe UI, sans-serif; color: var(--ink, #1c2024); }
 .pmk-bar { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px; background: var(--panel, #fff); border-bottom: 1px solid var(--line, #e3e6ea); }
@@ -32,6 +36,9 @@
 .pmk-page img { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
 .pmk-page svg { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
 .pmk-page textarea { position: absolute; font: 13px Helvetica, Arial, sans-serif; color: ${RED}; border: 1px solid ${RED}; background: rgba(255,255,255,.9); resize: none; padding: 2px 4px; box-sizing: border-box; }
+.pmk-sw { display: inline-flex; gap: 4px; margin: 0 4px; }
+.pmk-sw button { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid var(--panel, #fff); box-shadow: 0 0 0 1px var(--line, #cfd4da); }
+.pmk-sw button.on { box-shadow: 0 0 0 2px var(--ink, #1c2024); }
 .pmk-pageno { position: absolute; right: 6px; bottom: 4px; font-size: 11px; color: #888; pointer-events: none; }`;
 
   function mount(root, opt) {
@@ -39,6 +46,7 @@
     const base = opt.base || '';
     const headers = Object.assign({ 'Content-Type': 'application/json' }, opt.headers || {});
     let info = null, tool = 'box', pending = [], key = opt.key, busy = false, typing = false;
+    let colour = (() => { try { const c = localStorage.getItem('pmk-colour'); return COLOURS.some(x => x[0] === c) ? c : RED; } catch { return RED; } })();
     const q = () => `id=${encodeURIComponent(opt.id)}&key=${encodeURIComponent(key)}`; // after a picture's first save: its marked-up copy
     root.classList.add('pmk');
     root.innerHTML = `<div class="pmk-bar">
@@ -48,6 +56,7 @@
       <button data-t="cloud" title="Drag a revision cloud round an area">Cloud</button>
       <button data-t="text" title="Drag where the text goes (or click), then type">Text</button>
       <button data-t="callout" title="Drag from the point to where the text goes, then type">Callout</button>
+      <span class="pmk-sw">${COLOURS.map(([c, n]) => `<button data-c="${c}" title="${n}" aria-label="${n}" style="background:${c}"></button>`).join('')}</span>
       <button data-a="undo" title="Undo the last unsaved mark-up (Ctrl+Z)">Undo</button>
       <button data-a="save" class="save" title="Write the mark-ups into the file">Save</button>
       <span class="pmk-msg"></span></div><div class="pmk-pages"></div>`;
@@ -55,6 +64,7 @@
     const say = (t, bad) => { msg.textContent = t; msg.classList.toggle('bad', !!bad); };
     const sync = () => {
       bar.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === tool));
+      bar.querySelectorAll('[data-c]').forEach(b => b.classList.toggle('on', b.dataset.c === colour));
       bar.querySelector('[data-a="undo"]').disabled = !pending.length || busy;
       bar.querySelector('[data-a="save"]').disabled = !pending.length || busy;
       if (!busy) say(pending.length ? `${pending.length} unsaved mark-up${pending.length === 1 ? '' : 's'}` : (info ? 'Pick a tool and draw on the page.' : ''));
@@ -62,6 +72,7 @@
     bar.onclick = e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.t) { tool = b.dataset.t; sync(); }
+      else if (b.dataset.c) { colour = b.dataset.c; try { localStorage.setItem('pmk-colour', colour); } catch { } sync(); }
       else if (b.dataset.a === 'undo') undo();
       else if (b.dataset.a === 'save') save();
     };
@@ -86,7 +97,7 @@
         const el = document.createElement('div');
         el.className = 'pmk-page'; el.style.width = w + 'px'; el.style.height = h + 'px';
         el.innerHTML = `<img alt="Page ${n + 1}" src="${base}/api/markup/page?${q()}&n=${n}&zoom=${zoom}&v=${encodeURIComponent(info.version)}"><svg viewBox="0 0 ${p.w} ${p.h}" preserveAspectRatio="none">
-          <defs><marker id="pmk-ah${n}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10" fill="none" stroke="${RED}" stroke-width="2"/></marker></defs></svg>
+          <defs>${COLOURS.map(([c], i) => `<marker id="pmk-ah${n}-${i}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10" fill="none" stroke="${c}" stroke-width="2"/></marker>`).join('')}</defs></svg>
           <span class="pmk-pageno">${n + 1} / ${info.pages.length}</span>`;
         pagesEl.appendChild(el);
         wirePage(el, n, p);
@@ -109,26 +120,27 @@
     // Where a callout's leader line meets its box: the nearest side's middle or corner.
     const knee = (r, p) => [p[0] < r[0] ? r[0] : p[0] > r[2] ? r[2] : (r[0] + r[2]) / 2, p[1] < r[1] ? r[1] : p[1] > r[3] ? r[3] : (r[1] + r[3]) / 2];
     function shape(a) {
+      const c = a.color || RED, ah = `url(#pmk-ah${a.page}-${ci(c)})`;
       if (a.type === 'cloud') {
         const s = document.createElementNS(SVG, 'path');
-        s.setAttribute('d', cloudD(...a.rect)); s.setAttribute('fill', 'none'); s.setAttribute('stroke', RED); s.setAttribute('stroke-width', 1.5);
+        s.setAttribute('d', cloudD(...a.rect)); s.setAttribute('fill', 'none'); s.setAttribute('stroke', c); s.setAttribute('stroke-width', 1.5);
         s.setAttribute('vector-effect', 'non-scaling-stroke'); return s;
       }
       if (a.type === 'callout') {
         const g = document.createElementNS(SVG, 'g'), [x0, y0, x1, y1] = a.rect, k = knee(a.rect, a.point);
-        g.innerHTML = `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="rgba(255,255,255,.85)" stroke="${RED}" stroke-width="1" vector-effect="non-scaling-stroke"/>`
-          + `<line x1="${k[0]}" y1="${k[1]}" x2="${a.point[0]}" y2="${a.point[1]}" stroke="${RED}" stroke-width="1.5" marker-end="url(#pmk-ah${a.page})" vector-effect="non-scaling-stroke"/>`;
+        g.innerHTML = `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="rgba(255,255,255,.85)" stroke="${c}" stroke-width="1" vector-effect="non-scaling-stroke"/>`
+          + `<line x1="${k[0]}" y1="${k[1]}" x2="${a.point[0]}" y2="${a.point[1]}" stroke="${c}" stroke-width="1.5" marker-end="${ah}" vector-effect="non-scaling-stroke"/>`;
         return g;
       }
       const s = a.type === 'arrow' ? document.createElementNS(SVG, 'line') : document.createElementNS(SVG, 'rect');
       if (a.type === 'arrow') {
         s.setAttribute('x1', a.from[0]); s.setAttribute('y1', a.from[1]); s.setAttribute('x2', a.to[0]); s.setAttribute('y2', a.to[1]);
-        s.setAttribute('stroke', RED); s.setAttribute('stroke-width', 1.5); s.setAttribute('marker-end', `url(#pmk-ah${a.page})`);
+        s.setAttribute('stroke', c); s.setAttribute('stroke-width', 1.5); s.setAttribute('marker-end', ah);
       } else {
         const [x0, y0, x1, y1] = a.rect;
         s.setAttribute('x', Math.min(x0, x1)); s.setAttribute('y', Math.min(y0, y1)); s.setAttribute('width', Math.abs(x1 - x0)); s.setAttribute('height', Math.abs(y1 - y0));
-        if (a.type === 'highlight') { s.setAttribute('fill', 'rgba(255,217,51,.45)'); }
-        else { s.setAttribute('fill', 'none'); s.setAttribute('stroke', RED); s.setAttribute('stroke-width', a.type === 'text' ? 1 : 1.5); }
+        if (a.type === 'highlight') { s.setAttribute('fill', translucent(c, .35)); }
+        else { s.setAttribute('fill', 'none'); s.setAttribute('stroke', c); s.setAttribute('stroke-width', a.type === 'text' ? 1 : 1.5); }
       }
       s.setAttribute('vector-effect', 'non-scaling-stroke');
       return s;
@@ -137,7 +149,7 @@
       if (!['text', 'callout'].includes(a.type) || !a.text) return null;
       const t = document.createElementNS(SVG, 'text');
       t.setAttribute('x', Math.min(a.rect[0], a.rect[2]) + 3); t.setAttribute('y', Math.min(a.rect[1], a.rect[3]) + 13);
-      t.setAttribute('fill', RED); t.setAttribute('font-size', 11); t.setAttribute('font-family', 'Helvetica, Arial, sans-serif');
+      t.setAttribute('fill', a.color || RED); t.setAttribute('font-size', 11); t.setAttribute('font-family', 'Helvetica, Arial, sans-serif');
       t.textContent = a.text.length > 120 ? a.text.slice(0, 120) + '…' : a.text;
       svg.appendChild(t); return t;
     }
@@ -146,9 +158,9 @@
     const calloutBox = (p, c) => { const x = Math.min(Math.max(0, c[0]), p.w - 180), y = Math.min(Math.max(0, c[1] - 20), p.h - 40); return [x, y, x + 180, y + 40]; };
     function preview(n, s0, c) {
       const pg = info.pages[n];
-      if (tool === 'arrow') return { type: 'arrow', page: n, from: s0, to: c };
-      if (tool === 'callout') return { type: 'callout', page: n, point: s0, rect: calloutBox(pg, c) };
-      return { type: tool, page: n, rect: [...s0, ...c] };
+      if (tool === 'arrow') return { type: 'arrow', page: n, from: s0, to: c, color: colour };
+      if (tool === 'callout') return { type: 'callout', page: n, point: s0, rect: calloutBox(pg, c), color: colour };
+      return { type: tool, page: n, rect: [...s0, ...c], color: colour };
     }
     function wirePage(el, n, p) {
       const svg = el.querySelector('svg');
@@ -187,6 +199,7 @@
       ta.style.left = rect[0] * k + 'px'; ta.style.top = rect[1] * k + 'px';
       ta.style.width = Math.max(120, (rect[2] - rect[0]) * k) + 'px'; ta.style.height = Math.max(36, (rect[3] - rect[1]) * k) + 'px';
       ta.placeholder = 'Type, then click away (Esc cancels)';
+      ta.style.color = ta.style.borderColor = colour;
       el.appendChild(ta); ta.focus(); typing = true;
       let done = false;
       const finish = keep => {
@@ -199,6 +212,7 @@
     }
 
     function add(svg, a) {
+      a.color = a.color || colour;
       const s = shape(a); svg.appendChild(s);
       a._els = [s, label(svg, a)].filter(Boolean);
       pending.push(a); sync();

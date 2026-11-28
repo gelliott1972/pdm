@@ -102,6 +102,10 @@ input.code { margin-top: 12px; width: 140px; padding: 8px 10px; font: inherit; c
 .post code, .steptext code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 .attach img { display: block; max-width: 100%; max-height: 320px; border: 1px solid var(--line); border-radius: 6px; }
 .attach .missing { color: var(--muted); font-size: 12px; align-self: center; }
+.attach .pdfatt { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.attach .small { font-size: 12px; color: var(--muted); }
+.attach .pill.marked { background: var(--green-soft, var(--accent-soft)); color: var(--green, var(--accent)); }
+.attach .msg { font-size: 12px; color: var(--red); }
 .body code, .opt code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 .opts { display: grid; gap: 8px; margin-top: 14px; }
 .opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; width: 100%; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: inherit; cursor: pointer; }
@@ -360,7 +364,11 @@ function attachHtml(t) {
     const url = `/api/attachment?id=${encodeURIComponent(t._file)}&key=${encodeURIComponent(a.key)}`, label = esc(a.label || a.key);
     if (a.ok === false) return `<span class="missing">${label}: not available (${esc(a.why || 'file not found')})</span>`;
     if (a.kind === 'image') return `<a href="${url}" target="_blank" rel="noopener" title="${label}"><img src="${url}" alt="${label}" loading="lazy"></a>`;
-    return `<a class="b" href="${url}" target="_blank" rel="noopener">${label}${a.kind === 'pdf' ? ' (PDF)' : ''}</a>`;
+    // A PDF opens in this PC's PDF app (to mark up and save in place); the browser view is a small link beside it.
+    if (a.kind === 'pdf') return `<span class="pdfatt"><button class="b" data-open="${esc(a.key)}" data-id="${esc(t._file)}" title="Opens the file itself in your PDF app; save your mark-up there">${label} (PDF)</button>`
+      + `${a.markedUp ? `<span class="pill marked" title="Saved ${esc(when(a.savedAt))}">marked up</span>` : ''}`
+      + `<a class="small" href="${url}" target="_blank" rel="noopener">view in browser</a><span class="msg"></span></span>`;
+    return `<a class="b" href="${url}" target="_blank" rel="noopener">${label}</a>`;
   }).join('') + '</div>';
 }
 const name = s => LABELS[String(s ?? '').toLowerCase()] || (s ? s[0].toUpperCase() + s.slice(1) : '');
@@ -1122,6 +1130,15 @@ const dur = sec => sec < 60 ? 'under a minute' : sec < 3600 ? Math.round(sec / 6
 
 // A snoozed ticket's line on a card's failure: shown in the card's .msg if it has one.
 function alertLine(el, text) { const m = el.querySelector('.msg'); if (m) m.textContent = text; }
+// A PDF attachment's button: the Desk opens the file in this PC's PDF app.
+document.addEventListener('click', async e => {
+  const b = e.target.closest?.('[data-open]'); if (!b) return;
+  const m = b.parentElement.querySelector('.msg'); if (m) m.textContent = '';
+  b.disabled = true;
+  try { await post('/api/open', { id: b.dataset.id, key: b.dataset.open }); }
+  catch (err) { if (m) m.textContent = err.message; }
+  finally { setTimeout(() => { b.disabled = false; }, 1500); }
+});
 $('snoozeWrap').onclick = async e => {
   const id = e.target?.dataset?.wake; if (!id) return;
   e.target.disabled = true;

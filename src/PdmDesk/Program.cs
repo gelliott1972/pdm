@@ -40,6 +40,16 @@ var store = new Store(root);
 store.Ensure();
 var notices = new Notices(store, settings); // the owning session is told of each answer (desk\notices\<session>\)
 notices.Prune();
+// Each PDF attachment's saved time when the Desk first saw it, for its "marked up" tag (see MarkedUp).
+var attachSeenFile = Path.Combine(store.Root, "attachments-seen.json");
+var attachSeen = new Dictionary<string, DateTime>();
+try
+{
+    if (File.Exists(attachSeenFile) && JsonNode.Parse(File.ReadAllText(attachSeenFile)) is JsonObject seenJson)
+        foreach (var (k, v) in seenJson)
+            if (DateTime.TryParse((string?)v, null, System.Globalization.DateTimeStyles.RoundtripKind, out var when)) attachSeen[k] = when.ToUniversalTime();
+}
+catch { } // unreadable: start again; at worst a tag waits for the next save
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [], ContentRootPath = AppContext.BaseDirectory });
 builder.Logging.ClearProviders();
@@ -50,7 +60,7 @@ var app = builder.Build();
 // web site can't send that header without a preflight, which this server never allows), then Authorise. No endpoint
 // does its own check.
 // The endpoints that drive SOLIDWORKS or the PDM app on this PC: Authorise allows them only from this PC.
-string[] LocalOnly = ["/api/sw/start", "/api/sw/step", "/api/sw/action", "/api/sw/finish", "/api/sw/pause", "/api/sw/handback"];
+string[] LocalOnly = ["/api/open", "/api/sw/start", "/api/sw/step", "/api/sw/action", "/api/sw/finish", "/api/sw/pause", "/api/sw/handback"];
 var allowedHosts = settings.AllowedHosts.Select(h => h.ToLowerInvariant()).ToHashSet();
 app.Use(async (ctx, next) =>
 {
@@ -137,6 +147,10 @@ app.MapGet("/api/state", () =>
             a["ok"] = why == null;
             a["kind"] = type == null ? null : type.StartsWith("image/") ? "image" : "pdf";
             if (why != null) a["why"] = why;
+            // Marked up (28 Nov): a PDF saved after it was attached (Grant marks it up in PDF-XChange and saves in place).
+            // Against the attachment's fileTime when the poster wrote one, else the ticket's createdAt plus a minute.
+            if (why == null && a["kind"]?.ToString() == "pdf" && MarkedUp(a, $"{t["_file"]}|{a["key"]}", (string?)a["path"]) is { } at)
+            { a["markedUp"] = true; a["savedAt"] = at; }
             a.Remove("path");
         }
     }
@@ -219,6 +233,47 @@ app.MapGet("/api/attachment", (string? id, string? key) =>
     var (full, type, why) = AttachmentFile((string?)a?["path"]);
     return why != null ? Results.NotFound() : Results.File(full!, type!, enableRangeProcessing: true);
 });
+
+// Opens a ticket's PDF attachment in this PC's default PDF app (Grant, 28 Nov: PDF-XChange, to mark it up and save in
+// place). This PC only (LocalOnly), the same checks as serving it, and the path never goes to the browser.
+app.MapPost("/api/open", async (HttpRequest req) =>
+{
+    var b = await Body(req);
+    var id = (string?)b?["id"]; var key = (string?)b?["key"];
+    if (!Store.IdOk(id) || string.IsNullOrEmpty(key)) return Fail("Unknown attachment.");
+    var t = store.Read(store.TicketFile(id!), out _);
+    var a = (t?["attachments"] as JsonArray ?? []).OfType<JsonObject>().FirstOrDefault(x => (string?)x["key"] == key);
+    var (full, type, why) = AttachmentFile((string?)a?["path"]);
+    if (why != null) return Fail($"Can't open it: {why}.");
+    if (type != "application/pdf") return Fail("Only PDFs open in the PDF app; view this one in the browser.");
+    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(full!) { UseShellExecute = true }); }
+    catch (Exception ex) { return Fail($"Windows couldn't open it ({ex.GetType().Name})."); }
+    return Results.Ok(new { ok = true });
+});
+
+// When a PDF attachment was saved after it was attached (UTC ISO), or null. "Attached" is the attachment's fileTime when
+// the poster wrote one, else the file's saved time when the Desk first saw it (kept in attachments-seen.json in the data
+// folder): a PDF often lands after its ticket is posted, so the ticket's createdAt can't tell (28 Nov).
+string? MarkedUp(JsonObject a, string seenKey, string? path)
+{
+    try
+    {
+        var saved = File.GetLastWriteTimeUtc(path!);
+        DateTime since;
+        if (DateTime.TryParse((string?)a["fileTime"], null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var ft)) since = ft.AddSeconds(2);
+        else lock (attachSeen)
+        {
+            var k = seenKey + "|" + path;
+            if (!attachSeen.TryGetValue(k, out since))
+            {
+                attachSeen[k] = since = saved;
+                store.Write(attachSeenFile, new JsonObject(attachSeen.Select(x => KeyValuePair.Create(x.Key, (JsonNode?)JsonValue.Create(x.Value.ToString("o"))))));
+            }
+        }
+        return saved > since ? saved.ToString("yyyy-MM-ddTHH:mm:ssZ") : null;
+    }
+    catch { return null; }
+}
 
 // An attachment's file: (full path, content type, null) if the Desk may serve it, else (.., .., why not, for the page).
 // Only a .pdf, .png, .jpg/.jpeg, .gif or .webp under a fileRoots folder, that exists.

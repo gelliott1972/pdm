@@ -9,7 +9,14 @@
 - A-04 proof (`B2\proof`):
   - Whole-top xforms (bdiff.py against B's before): only 10 GNRIC-PLP, the MSW-01 kit, the M12 kit and 11 legs moved (0,-10,0); the legs changed configuration with the top unchanged. Nothing else moved.
   - Every-bolt: the same 3 pre-existing problems.
-- Next: B-04 and C-04 xforms (running), any re-mates there, the floor check (about 12 min each), the 04/07 foot, then check-out and check-in (APEX-A126). After that, D (APEX-A128).
+- 28 Nov later: all B proofs pass on the copies (B-04, C-04: SFA-2B Coincident26 -> Distance 10 (todist); SFA-5B MSW-01 Distance3-6 +10 (matedist)). 8 files. Held: HBW-04's leg is welded to the FP-350 plate (Draw: 5 mm fillet all round on 08A04-SFA-2B.SLDDRW), so it now stands 10 mm off its plate. Desk A32 for Grant.
+- Queue after B: A136 joint 8.2 caps.
+  - 08X11-BRA-01: tube 436, caps start 218 and 5 deep, holes +/-199.
+  - 08X11-MSP-01: hole 31 from the post face; material "1.0553 (S355J0)" (SolidWorks DIN Materials). The rail stays Plain Carbon Steel (body materials are APEX-A98, later); say both in the note.
+  - Bolts 1 mm with the holes. Then the LS-08A-11 export.
+  - Then the end-cap survey: SwGrout endcaps over C:\PDM-work\endcaps-tubes.txt, 94 parts, read-only.
+  - Then D (APEX-A128).
+- Earlier next: B-04 and C-04 xforms (running), any re-mates there, the floor check (about 12 min each), the 04/07 foot, then check-out and check-in (APEX-A126). After that, D (APEX-A128).
 
 ## 28 Nov (night): weekend E checked in; square-edge exports done
 

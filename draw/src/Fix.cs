@@ -152,4 +152,68 @@ static partial class Draw
         Console.WriteLine("Left open.");
         return ok ? 0 : 3;
     }
+
+    // loose-probe <drawing> --parts=A,B : look only. Per view that holds loose (dangling) ordinate dimensions: the loose
+    // and the sound dimensions of the view, the view's outer edges, and the flat and upright edges of the components
+    // whose name contains one of the given part names (the new parts), in sheet mm and in model mm from the top/left.
+    static int LooseProbe(string file, string[] rawArgs)
+    {
+        var parts = (rawArgs.Where(a => a.StartsWith("--parts=", StringComparison.OrdinalIgnoreCase)).Select(a => a.Substring(8)).FirstOrDefault() ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+        var doc = OpenDoc(file, null, true); var drw = (DrawingDoc)doc;
+        var mu = (MathUtility)sw.GetMathUtility();
+        foreach (var v in LiveViews(drw).ToList())
+        {
+            var anns = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().ToList();
+            if (!anns.Any(a => a.IsDangling() && a.GetType() == (int)swAnnotationType_e.swDisplayDimension)) continue;
+            double vs = v.ScaleDecimal;
+            Console.WriteLine("VIEW " + v.GetName2() + " scale 1:" + (1 / vs).ToString("0.##"));
+            foreach (var a in anns.Where(a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension))
+            {
+                var dd = (DisplayDimension)a.GetSpecificAnnotation(); var d = dd.GetDimension2(0) as Dimension; var p = (double[])a.GetPosition();
+                Console.WriteLine("  dim " + a.GetName() + " " + DimKind(dd) + " value " + (d == null ? "?" : Math.Round(d.GetSystemValue2("") * 1000, 2).ToString()) + " at " + Mm(p[0]) + "," + Mm(p[1]) + (a.IsDangling() ? " LOOSE" : ""));
+            }
+            var es = AsmEdges(mu, v);
+            if (!es.Any(e => e.Hor) || !es.Any(e => !e.Hor)) { Console.WriteLine("  no straight edges"); continue; }
+            double top = es.Where(e => e.Hor).Max(e => e.At), bot = es.Where(e => e.Hor).Min(e => e.At), left = es.Where(e => !e.Hor).Min(e => e.At), right = es.Where(e => !e.Hor).Max(e => e.At);
+            Console.WriteLine("  outer edges: top " + Mm(top) + " bottom " + Mm(bot) + " left " + Mm(left) + " right " + Mm(right) + "  (" + Math.Round((top - bot) / vs * 1000, 1) + " high, " + Math.Round((right - left) / vs * 1000, 1) + " wide)");
+            foreach (var grp in es.Where(e => parts.Any(pn => e.Comp.IndexOf(pn, StringComparison.OrdinalIgnoreCase) >= 0)).GroupBy(e => e.Comp))
+                Console.WriteLine("  " + grp.Key + ": flat edges down from top " + string.Join(" ", grp.Where(e => e.Hor).Select(e => Math.Round((top - e.At) / vs * 1000, 1)).Distinct().OrderBy(x => x))
+                    + " | upright edges from left " + string.Join(" ", grp.Where(e => !e.Hor).Select(e => Math.Round((e.At - left) / vs * 1000, 1)).Distinct().OrderBy(x => x)));
+        }
+        sw.CloseDoc(doc.GetTitle());
+        return 0;
+    }
+
+    // The straight edges a view shows that lie flat or upright on the sheet, with the component each belongs to
+    // (an assembly view: each edge is in its component's own space, so the component's transform comes first).
+    class AsmEdge { public Edge E; public string Comp; public bool Hor; public double At, From, To; }
+
+    static List<AsmEdge> AsmEdges(MathUtility mu, View v)
+    {
+        var l = new List<AsmEdge>();
+        var comps = ((v.GetVisibleComponents() as object[]) ?? new object[0]).Cast<Component2>().ToList();
+        var asm = v.ReferencedDocument as AssemblyDoc; bool warned = false; var byName = new Dictionary<string, Component2>(StringComparer.OrdinalIgnoreCase);
+        if (asm != null) foreach (Component2 mc0 in (asm.GetComponents(false) as object[]) ?? new object[0]) byName[mc0.Name2] = mc0;
+        Action<Component2> add = c =>
+        {
+            // the view's own component (named <view root>/<path>) may carry no transform: take it from the model's component
+            MathTransform mt = c == null ? null : c.Transform2;
+            if (c != null && asm != null && c.Name2.IndexOf('/') > 0)
+            {
+                Component2 mc; byName.TryGetValue(c.Name2.Substring(c.Name2.IndexOf('/') + 1), out mc);
+                if (mc != null && mc.Transform2 != null) mt = mc.Transform2; else if (!warned) { warned = true; Console.WriteLine("  (no model component for " + c.Name2 + ")"); }
+            }
+            var ct = mt == null ? null : (double[])mt.ArrayData;
+            foreach (Edge e in (v.GetVisibleEntities2(c, (int)swViewEntityType_e.swViewEntityType_Edge) as object[]) ?? new object[0])
+            {
+                if (!((Curve)e.GetCurve()).IsLine()) continue;
+                var cp = e.GetCurveParams3(); var p0 = (double[])cp.StartPoint; var p1 = (double[])cp.EndPoint;
+                var a = ToSheet(mu, v, ct == null ? p0 : Xf(ct, p0)); var b = ToSheet(mu, v, ct == null ? p1 : Xf(ct, p1));
+                if (Math.Abs(a[1] - b[1]) < 1e-7 && Math.Abs(a[0] - b[0]) > 1e-7) l.Add(new AsmEdge { E = e, Comp = c == null ? "" : c.Name2, Hor = true, At = a[1], From = Math.Min(a[0], b[0]), To = Math.Max(a[0], b[0]) });
+                else if (Math.Abs(a[0] - b[0]) < 1e-7 && Math.Abs(a[1] - b[1]) > 1e-7) l.Add(new AsmEdge { E = e, Comp = c == null ? "" : c.Name2, Hor = false, At = a[0], From = Math.Min(a[1], b[1]), To = Math.Max(a[1], b[1]) });
+            }
+        };
+        if (comps.Count == 0) add(null); else foreach (var c in comps) add(c);
+        return l;
+    }
 }

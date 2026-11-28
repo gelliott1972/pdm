@@ -363,11 +363,13 @@ function attachHtml(t) {
   return '<div class="attach">' + list.map(a => {
     const url = `/api/attachment?id=${encodeURIComponent(t._file)}&key=${encodeURIComponent(a.key)}`, label = esc(a.label || a.key);
     if (a.ok === false) return `<span class="missing">${label}: not available (${esc(a.why || 'file not found')})</span>`;
-    if (a.kind === 'image') return `<a href="${url}" target="_blank" rel="noopener" title="${label}"><img src="${url}" alt="${label}" loading="lazy"></a>`;
+    // "mark up here": the in-browser commenting tool (markup.js), for anyone away from this PC's PDF app (28 Nov).
+    const mk = `<a class="small" href="/markup?id=${encodeURIComponent(t._file)}&key=${encodeURIComponent(a.key)}" target="_blank" rel="noopener">mark up here</a>`;
+    if (a.kind === 'image') return `<span class="pdfatt"><a href="${url}" target="_blank" rel="noopener" title="${label}"><img src="${url}" alt="${label}" loading="lazy"></a>${mk}</span>`;
     // A PDF opens in this PC's PDF app (to mark up and save in place); the browser view is a small link beside it.
     if (a.kind === 'pdf') return `<span class="pdfatt"><button class="b" data-open="${esc(a.key)}" data-id="${esc(t._file)}" title="Opens the file itself in your PDF app; save your mark-up there">${label} (PDF)</button>`
       + `${a.markedUp ? `<span class="pill marked" title="Saved ${esc(when(a.savedAt))}">marked up</span>` : ''}`
-      + `<a class="small" href="${url}" target="_blank" rel="noopener">view in browser</a><span class="msg"></span></span>`;
+      + `<a class="small" href="${url}" target="_blank" rel="noopener">view in browser</a>${mk}<span class="msg"></span></span>`;
     return `<a class="b" href="${url}" target="_blank" rel="noopener">${label}</a>`;
   }).join('') + '</div>';
 }

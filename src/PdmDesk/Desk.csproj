@@ -12,6 +12,8 @@
   <ItemGroup>
     <EmbeddedResource Include="page\index.html" LogicalName="index.html" />
     <EmbeddedResource Include="page\review.html" LogicalName="review.html" />
+    <EmbeddedResource Include="page\markup.html" LogicalName="markup.html" />
+    <EmbeddedResource Include="page\markup.js" LogicalName="markup.js" />
     <Content Remove="page\**" />
     <!-- The settings template: install.ps1 copies it to settings.json beside the exe only if that file is missing. -->
     <Content Remove="settings.default.json" />
@@ -19,5 +21,7 @@
     <None Update="desk-notices.ps1" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- The sessions' SessionStart and UserPromptSubmit hook: start the notice watch, and say when it has lapsed. -->
     <None Update="desk_notices_hook.py" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Mark-up: reads and writes PDF annotations with PyMuPDF for markup.js (/api/markup/*). -->
+    <None Update="pdfmark.py" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

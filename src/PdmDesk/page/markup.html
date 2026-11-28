@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mark up · {{deskName}}</title>
+<style>
+:root { --bg: #f5f6f8; --panel: #ffffff; --ink: #1c2024; --muted: #646d78; --line: #e3e6ea; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #111317; --panel: #1a1d22; --ink: #e7e9ec; --muted: #9aa2ac; --line: #2a2f36; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #111317; --panel: #1a1d22; --ink: #e7e9ec; --muted: #9aa2ac; --line: #2a2f36; color-scheme: dark; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px system-ui, Segoe UI, sans-serif; }
+header { padding: 10px 16px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+header h1 { font-size: 16px; margin: 0; }
+header .sub { color: var(--muted); font-size: 13px; }
+header a { color: var(--muted); font-size: 13px; margin-left: auto; }
+</style>
+</head>
+<body>
+<header><h1 id="h">Mark up</h1><span class="sub" id="sub"></span><a href="/">Back to the Desk</a></header>
+<div id="box"></div>
+<script src="/markup.js"></script>
+<script>
+// The Desk's full-page mark-up: /markup?id=<ticket>&key=<attachment>. Saves go into the file (a picture's into
+// "<name> marked up.pdf" beside it, added to the ticket); the ticket then shows "marked up".
+const p = new URLSearchParams(location.search);
+try { const t = localStorage.getItem('desk-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch { }
+const m = PdfMarkup.mount(document.getElementById('box'), {
+  id: p.get('id'), key: p.get('key'), headers: { 'X-Desk': '1' },
+  onInfo: i => { document.getElementById('h').textContent = 'Mark up: ' + (i.label || p.get('key'));
+    document.getElementById('sub').textContent = [p.get('id'), i.title].filter(Boolean).join(' · ') + (i.image ? ' · saved as a marked-up PDF copy' : ''); }
+});
+window.addEventListener('beforeunload', e => { if (m.unsaved()) { e.preventDefault(); e.returnValue = ''; } });
+</script>
+</body>
+</html>

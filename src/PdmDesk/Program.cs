@@ -106,6 +106,12 @@ string Named(string html) => html
 app.MapGet("/", () => Results.Content(page, "text/html; charset=utf-8"));
 // The draft Review screen (Grant, 15 Nov): one draft at a time, the PDF large, Accept or Redo, then the next.
 app.MapGet("/review", () => Results.Content(review, "text/html; charset=utf-8"));
+// Mark-up (Grant, 28 Nov): commenting on a ticket's PDF or picture in the browser, for people away from this PC. The
+// component (markup.js) is one file any portal can load; markup.html is the Desk's full-page use of it.
+var markupJs = ReadPage("markup.js");
+var markupPage = Named(ReadPage("markup.html"));
+app.MapGet("/markup", () => Results.Content(markupPage, "text/html; charset=utf-8"));
+app.MapGet("/markup.js", () => Results.Content(markupJs, "text/javascript; charset=utf-8"));
 app.MapGet("/api/ping", () => Results.Ok(new { desk = true }));
 
 var prefixes = settings.Prefixes();
@@ -249,6 +255,97 @@ app.MapPost("/api/open", async (HttpRequest req) =>
     try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(full!) { UseShellExecute = true }); }
     catch (Exception ex) { return Fail($"Windows couldn't open it ({ex.GetType().Name})."); }
     return Results.Ok(new { ok = true });
+});
+
+// ---- Mark-up routes (markup.js talks only to these; a portal offers the same three). The file is found by ticket id and
+// attachment key, with the attachment checks; no path goes to the browser. PyMuPDF does the reading and writing
+// (pdfmark.py beside the exe), so the annotations are the standard ones PDF-XChange shows and desk.py markup reads.
+var markupCache = Path.Combine(Path.GetTempPath(), "PDM-Desk-markup");
+(string? Full, string? Why, string? Label, string? Title) MarkupFile(string? id, string? key)
+{
+    if (!Store.IdOk(id) || string.IsNullOrEmpty(key)) return (null, "unknown attachment", null, null);
+    var t = store.Read(store.TicketFile(id!), out _);
+    var a = (t?["attachments"] as JsonArray ?? []).OfType<JsonObject>().FirstOrDefault(x => (string?)x["key"] == key);
+    var (full, _, why) = AttachmentFile((string?)a?["path"]);
+    return (full, why, (string?)a?["label"] ?? key, (string?)t?["title"]);
+}
+(int Code, string Out) PdfMark(params string[] args)
+{
+    var psi = new System.Diagnostics.ProcessStartInfo("python") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
+    psi.ArgumentList.Add("-I"); psi.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "pdfmark.py"));
+    foreach (var a in args) psi.ArgumentList.Add(a);
+    psi.Environment["PYTHONIOENCODING"] = "utf-8";
+    try
+    {
+        using var p = System.Diagnostics.Process.Start(psi)!;
+        var outText = p.StandardOutput.ReadToEndAsync(); var errText = p.StandardError.ReadToEndAsync();
+        if (!p.WaitForExit(90_000)) { try { p.Kill(true); } catch { } return (1, "It took too long."); }
+        return (p.ExitCode, outText.Result.Trim());
+    }
+    catch (Exception ex) { return (1, $"Python couldn't be started on the Desk's PC ({ex.GetType().Name})."); }
+}
+app.MapGet("/api/markup/info", (HttpRequest req, string? id, string? key) =>
+{
+    var (full, why, label, title) = MarkupFile(id, key);
+    if (why != null) return Fail($"Can't open it: {why}.");
+    var (code, text) = PdfMark("info", full!);
+    if (code != 0) return Fail(text);
+    var info = JsonNode.Parse(text)!.AsObject();
+    var image = (bool?)info["image"] == true;
+    info["saveAs"] = image ? "copy" : "inplace"; // a picture's mark-ups go into a PDF beside it, added to the ticket
+    info["version"] = File.GetLastWriteTimeUtc(full!).Ticks.ToString(); // page images change when the file does
+    info["label"] = label; info["ticket"] = id; info["title"] = title; info["user"] = Who(req);
+    return Results.Ok(info);
+});
+app.MapGet("/api/markup/page", (string? id, string? key, int n, double zoom) =>
+{
+    var (full, why, _, _) = MarkupFile(id, key);
+    if (why != null) return Results.NotFound();
+    zoom = Math.Clamp(zoom, 0.5, 4);
+    Directory.CreateDirectory(markupCache);
+    var stamp = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{full}|{File.GetLastWriteTimeUtc(full!).Ticks}|{n}|{zoom:0.00}")))[..24];
+    var png = Path.Combine(markupCache, stamp + ".png");
+    if (!File.Exists(png) && PdfMark("render", full!, n.ToString(), zoom.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), png).Code != 0) return Results.NotFound();
+    return Results.File(png, "image/png");
+});
+app.MapPost("/api/markup/save", async (HttpRequest req) =>
+{
+    var b = await Body(req);
+    var id = (string?)b?["id"]; var key = (string?)b?["key"];
+    if (b?["annots"] is not JsonArray annots || annots.Count == 0) return Fail("Nothing to save: add a mark-up first.");
+    if (annots.Count > 500) return Fail("Too many mark-ups in one save (500 at most).");
+    var (full, why, _, _) = MarkupFile(id, key);
+    if (why != null) return Fail($"Can't save: {why}.");
+    var image = !full!.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+    // A picture: its mark-ups go into "<name> marked up.pdf" beside it (later rounds add to that copy).
+    var target = image ? Path.Combine(Path.GetDirectoryName(full)!, Path.GetFileNameWithoutExtension(full) + " marked up.pdf") : full;
+    var source = image && File.Exists(target) ? target : full;
+    var json = Path.Combine(markupCache, Guid.NewGuid().ToString("N") + ".json");
+    Directory.CreateDirectory(markupCache);
+    File.WriteAllText(json, annots.ToJsonString());
+    var who = Who(req);
+    if (!image) MarkedUp(new JsonObject(), $"{id}|{key}", full); // its saved time before this save, so the tag shows after it
+    var (code, text) = PdfMark("save", source, json, target, who);
+    try { File.Delete(json); } catch { }
+    if (code != 0) return Fail(text);
+    string? newKey = null;
+    if (image)
+    {
+        newKey = key + "-marked";
+        lock (store.Lock)
+        {
+            var file = store.TicketFile(id!);
+            var t = store.Read(file, out var rwhy);
+            if (t == null) return Fail($"Saved, but the ticket couldn't be read to add the marked-up copy ({rwhy}).");
+            var list = t["attachments"] as JsonArray ?? new JsonArray();
+            var label = (string?)list.OfType<JsonObject>().FirstOrDefault(x => (string?)x["key"] == key)?["label"] ?? key;
+            if (!list.OfType<JsonObject>().Any(x => (string?)x["key"] == newKey))
+                list.Add(new JsonObject { ["key"] = newKey, ["label"] = label + " (marked up)", ["path"] = target, ["fileTime"] = "2000-01-01T00:00:00Z", ["markedBy"] = who });
+            t["attachments"] = list;
+            store.Write(file, t);
+        }
+    }
+    return Results.Ok(new { ok = true, count = (int?)JsonNode.Parse(text)?["count"] ?? 0, key = newKey });
 });
 
 // When a PDF attachment was saved after it was attached (UTC ISO), or null. "Attached" is the attachment's fileTime when

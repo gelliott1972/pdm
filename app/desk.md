@@ -252,6 +252,23 @@ After the 26 Nov morning restart no session started its watch again, and answers
 
 The hook script is installed beside the Desk by `install.ps1` (source `src\PdmDesk\desk_notices_hook.py`). It reads the data folder as the watch does (`PDM_DESK`, else `dataFolder` in settings.json beside it, else `C:\code\pdm\desk`), never fails the hook (errors swallowed, exit 0) and prints nothing for an unknown event or a bad session name. The hooks go in each session's `.claude\settings.json` (PDM: admin, dev, sw, app, draw), set up by Admin.
 
+## Mark-up in the browser (Grant, 28 Nov)
+
+For anyone without this PC's PDF app (Kevin's portal, Fiona's board, James's page): comment on a ticket's PDF or picture in the browser. Each attachment on a card has "mark up here", which opens `/markup?id=<ticket>&key=<attachment>`.
+
+- **Tools:** Highlight, Box, Arrow, Text (drag or click where it goes, type, click away; Esc cancels), all red; Undo (also Ctrl+Z) for anything not yet saved; Save.
+- **Save** writes standard PDF annotations (Square, Line with an open arrow head, Highlight, FreeText), with the user as author, so PDF-XChange shows them and `desk.py markup --id <ticket>` reads them. A PDF is saved in place (an incremental save). A picture's mark-ups go into `<name> marked up.pdf` beside it, added to the ticket as `<key>-marked` ("<label> (marked up)"); later rounds add to that copy. The ticket shows "marked up" afterwards. A PDF open in PDF-XChange can't be saved into: the page says to close it first.
+- **No libraries in the browser and nothing from the internet.** The server draws each page as a PNG and writes the annotations with PyMuPDF (`pdfmark.py` beside the exe; `python` must be on PATH with `pymupdf`, as for desk.py). No path goes to the browser.
+- **Routes**, the same for any portal (the component only talks to these):
+
+| Route | Gives |
+| --- | --- |
+| `GET /api/markup/info?id=&key=` | `{ pages: [{w, h}], image, saveAs: "inplace"/"copy", version, label, title, user }` (page sizes in points) |
+| `GET /api/markup/page?id=&key=&n=&zoom=` | PNG of page n (0-based) at zoom 0.5 to 4 (1 = 72 dpi), cached by file time |
+| `POST /api/markup/save {id, key, annots}` | `{ ok, count, key }` (key: a picture's marked-up copy). annots in page points, top-left origin: `{type: "box"/"highlight"/"text", page, rect: [x0,y0,x1,y1], text?}` or `{type: "arrow", page, from: [x,y], to: [x,y]}`; 500 at most |
+
+- **Embedding it elsewhere:** load `/markup.js` (or a copy), then `PdfMarkup.mount(element, { id, key, base: "<route prefix>", headers: { ... }, onSaved })`. A portal on another PC either proxies these three routes to the Desk, or offers its own with the same shapes (using `pdfmark.py`).
+
 ## Remote later (stage 2, item 8: built, switched off)
 
 - The Desk listens on each of settings `listenAddresses`, and always on 127.0.0.1 (Start again uses it). It answers only Hosts in `allowedHosts`; every POST needs `X-Desk: 1`.

@@ -2251,10 +2251,16 @@ static class SwGrout
                 {
                     doc.ShowConfiguration2(cn);
                     int here = 0;
+                    // top-level components only, by name: GetComponentByName can return a same-named component inside a
+                    // sub-assembly (28 Nov: FAST-HEX-8.8-HDG-1 is also inside every roof-sleeve kit)
+                    var topLevel = new Dictionary<string, Component2>();
+                    foreach (Component2 c0 in (object[])((Component2)((Configuration)doc.GetActiveConfiguration()).GetRootComponent3(true)).GetChildren() ?? new object[0]) topLevel[c0.Name2] = c0;
                     foreach (var j in jobs)
                     {
-                        var k = (Component2)asm.GetComponentByName(j[0]);
+                        Component2 k; topLevel.TryGetValue(j[0], out k);
                         if (k == null || k.GetSuppression2() == (int)swComponentSuppressionState_e.swComponentSuppressed) continue;
+                        // a component with no mates that was left floating (28 Nov: some of E's fasteners were not fixed by
+                        // addfixed) is moved and then fixed; one with mates is refused
                         if (!k.IsFixed()) { Console.WriteLine("PROBLEM	" + cn + "	" + j[0] + " is not fixed"); bad++; continue; }
                         var dv = j[1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(x => double.Parse(x, Inv) / 1000).ToArray();
                         var t = (double[])((MathTransform)k.Transform2).ArrayData;

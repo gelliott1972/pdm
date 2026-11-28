@@ -4,7 +4,7 @@
 
 - Grant: the posts get 10 mm longer at the bottom only; the screen frame stays put. The first B dropped the SFA-2B/5B subframes 10 mm, so it was not accepted.
 - Copies: `C:\PDM-work\weekend-2026-11-28\B2\LS-08A/B/C-04` (fresh Pack and Go; vault versions as in B's run, apart from FAST-HEX's E config).
-- Script: `sw\weekend04r.ps1` = b04.ps1 + SwGrout movecomp, which moves GNRIC-LM-1 10 mm down in 08X04-LMW's 9 B configurations (fixed component, per configuration; the other configurations are unchanged).
+- Script: `sw\weekend\b04r.ps1` = b04.ps1 + SwGrout movecomp, which moves GNRIC-LM-1 10 mm down in 08X04-LMW's 9 B configurations (fixed component, per configuration; the other configurations are unchanged).
 - A-04 only: 08A04-SFA-2B Coincident26 (the LMW-3 leg bottom to the 08X04-HBW-04 underside) is replaced by Distance5 = 10 mm (SwGrout todist), so HBW-04 and GNRIC-BRP-16 stay put.
 - A-04 proof (`B2\proof`):
   - Whole-top xforms (bdiff.py against B's before): only 10 GNRIC-PLP, the MSW-01 kit, the M12 kit and 11 legs moved (0,-10,0); the legs changed configuration with the top unchanged. Nothing else moved.

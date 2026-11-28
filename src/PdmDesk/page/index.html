@@ -262,17 +262,23 @@ details.notstarted div { margin-top: 4px; }
 .card.heldgone { opacity: .45; pointer-events: none; }
 .gone { opacity: 0; transform: translateY(-4px); transition: opacity .25s, transform .25s; }
 /* Three columns (Grant, 28 Nov): a narrow ticket list, the one ticket being worked on, a tight sessions panel. */
-.wrap.desk3 { grid-template-columns: 132px minmax(0, 1fr) 270px; max-width: 1600px; gap: 16px; }
+.wrap.desk3 { grid-template-columns: 230px minmax(0, 1fr) 270px; max-width: 1600px; gap: 16px; }
 header, .swwrap, .banner, .boardwrap { max-width: 1600px; }
-@media (max-width: 1100px) { .wrap.desk3 { grid-template-columns: 112px minmax(0, 1fr); } .wrap.desk3 > aside { grid-column: 1 / -1; } }
+@media (max-width: 1100px) { .wrap.desk3 { grid-template-columns: 200px minmax(0, 1fr); } .wrap.desk3 > aside { grid-column: 1 / -1; } }
 @media (max-width: 640px) { .wrap.desk3 { grid-template-columns: minmax(0, 1fr); } }
 #listCol { min-width: 0; overflow-x: hidden; position: sticky; top: 8px; align-self: start; max-height: calc(100vh - 16px); overflow-y: auto; }
 #listItems { display: grid; gap: 4px; }
 .li { min-width: 0; display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; font: 600 14px/1.2 "Segoe UI", system-ui, sans-serif; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; cursor: pointer; }
 .li:hover { border-color: var(--accent); }
 .li.sel { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.li { flex-wrap: wrap; row-gap: 2px; }
 .li .num { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .li .own { font: 400 11px/1 "Segoe UI", system-ui, sans-serif; color: var(--muted); }
+.li .ttl { flex-basis: 100%; padding-left: 15px; font: 400 12px/1.3 "Segoe UI", system-ui, sans-serif; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lhead { font-size: 12px; font-weight: 600; color: var(--ink); margin: 6px 2px 4px; }
+.lhead.owner { color: var(--muted); margin-top: 14px; }
+.lhead small { font-weight: 400; }
+.lnone { font-size: 13px; color: var(--muted); background: var(--panel); border: 1px dashed var(--line); border-radius: 8px; padding: 8px; }
 .li.unseen .num::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-left: 5px; vertical-align: middle; }
 .li.talk { color: var(--muted); font-weight: 400; }
 .ldot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--grey); }
@@ -619,21 +625,24 @@ const mkSel = new Map(); // ticket -> the attachment key shown in its viewer
 const seenT = new Set((() => { try { return JSON.parse(localStorage.getItem('desk-seen') || '[]'); } catch { return []; } })());
 function markSeen(k) { if (seenT.has(k)) return; seenT.add(k); try { localStorage.setItem('desk-seen', JSON.stringify([...seenT].slice(-800))); } catch { } }
 try { selected = localStorage.getItem('desk-selected'); } catch { }
-const listNum = t => { const id = String(t.id || t._file), m = id.match(/(\d+)$/); return m ? m[1] : shortId(t); };
-const ownAbbr = t => String(name(t.owner || '')).split(/[\s()\-]+/).filter(Boolean).map(w => w[0]).join('').slice(0, 3).toUpperCase();
+const listNum = t => String(t.id || t._file); // the full id: numbers repeat across owners (Grant, 28 Nov)
+const ownAbbr = t => String(t.owner || '').toLowerCase(); // the owner's session name (admin, draw, apex-admin)
 const withOwner = t => awaitingOwner(t) || (t.status === 'answered' && !editing.has(t._file));
 let pickedParked = null; // a with-the-owner ticket Grant clicked: it stays in the middle until he moves on
 const dotCls = t => withOwner(t) ? 'talk' : t.priority === 'blocking' ? 'blocking' : t.type === 'gate' ? 'gate' : t.type === 'draft-review' ? 'draft' : t.type === 'info' ? 'info' : '';
 const kindText = t => t.status === 'answered' ? 'answered, waiting on the owner' : awaitingOwner(t) ? 'waiting on the owner' : t.priority === 'blocking' ? 'blocking' : t.type === 'gate' ? 'gate' : t.type === 'draft-review' ? 'draft review' : t.type === 'info' ? 'info' : 'later';
 function drawList(open) {
   const cur = shownKey || selected;
+  const nNeed = open.filter(t => !withOwner(t)).length, nOwner = open.length - nNeed;
   let talkSep = false;
-  const h = open.length ? open.map(t => {
-    const sep = withOwner(t) && !talkSep ? (talkSep = true, '<div class="lsep">With the owner</div>') : '';
+  const top = `<div class="lhead">Needs you (${nNeed})</div>` + (nNeed ? '' : '<div class="lnone">Nothing needs you right now.</div>');
+  const h = top + open.map(t => {
+    const sep = withOwner(t) && !talkSep ? (talkSep = true, `<div class="lhead owner">With the owner (${nOwner})<br><small>nothing for you to do</small></div>`) : '';
     const tip = [String(t.id || t._file), t.title, 'from ' + name(t.owner || ''), kindText(t)].filter(Boolean).join(' · ');
     return sep + `<button type="button" class="li${t._file === cur ? ' sel' : ''}${seenT.has(t._file) ? '' : ' unseen'}${withOwner(t) ? ' talk' : ''}" data-li="${esc(t._file)}" title="${esc(tip)}">`
-      + `<span class="ldot ${dotCls(t)}"></span><span class="num">${esc(listNum(t))}</span><span class="own">${esc(ownAbbr(t))}</span></button>`;
-  }).join('') : '<div class="lempty">No open tickets.</div>';
+      + `<span class="ldot ${dotCls(t)}"></span><span class="num">${esc(listNum(t))}</span><span class="own">${esc(ownAbbr(t))}</span>`
+      + `<span class="ttl">${esc(t.type === 'draft-review' ? [t.partNo, t.title].filter(Boolean).join(' · ') : t.title || '')}</span></button>`;
+  }).join('');
   const w = $('listItems'); if (w.dataset.h !== h) { w.innerHTML = h; w.dataset.h = h; }
 }
 $('listItems').addEventListener('click', e => { const b = e.target.closest('[data-li]'); if (b) pick(b.dataset.li); });
@@ -643,7 +652,7 @@ function pick(k) {
   if (mk && mk.unsaved() > 0) { const m = $('tickets').querySelector('.mkmsg'); if (m) m.textContent = 'Save or undo your mark-ups first.'; return; }
   const t = (state.tickets || []).find(x => x._file === k);
   pickedParked = t && withOwner(t) ? k : null;
-  if (t?.status === 'answered') { editing.add(k); delete drafts[k]; pickedParked = null; } // reopened as Change answer; Cancel puts it back
+  if (t?.status === 'answered' && ['decision', 'gate'].includes(t.type || 'decision')) { editing.add(k); delete drafts[k]; pickedParked = null; } // reopened as Change answer; Cancel puts it back
   selected = k; try { localStorage.setItem('desk-selected', k); } catch { }
   shownKey = null; render();
   const top = $('tickets').getBoundingClientRect().top; if (top < 0) window.scrollBy({ top: top - 8 });
@@ -692,6 +701,11 @@ function showTicket(t, tickets) {
   if (t.type === 'draft-review') box.appendChild(batchHeadEl(String(t.batch ?? ''), tickets));
   const el = ticketCard(t);
   el.classList.remove('collapsed'); el.classList.add('one');
+  if (withOwner(t)) { // opened from "With the owner": say so, so it isn't mistaken for something to do
+    const n = document.createElement('div'); n.className = 'gatewarn';
+    n.textContent = t.status === 'answered' ? `With ${name(t.owner)} since you answered${t.answeredAt ? ' ' + ago(t.answeredAt) : ''}: nothing for you to do.` : `With ${name(t.owner)}: waiting for their reply, nothing for you to do.`;
+    el.insertBefore(n, el.querySelector(':scope > .meta')?.nextSibling || null);
+  }
   box.appendChild(el);
   attachViewer(el, t);
   cards.set(t._file, { json: shownJson(t, tickets), el });

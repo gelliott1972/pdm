@@ -14,7 +14,8 @@
 //   headers     extra request headers (the Desk needs X-Desk: 1 on POST; a portal adds its own sign-in)
 //   onSaved(result)   called after a save
 // Annotations are sent in page points, top-left origin, y down, as the page is displayed:
-//   { type: 'box'|'highlight'|'text', page, rect: [x0, y0, x1, y1], text? }  or  { type: 'arrow', page, from: [x, y], to: [x, y] }
+//   { type: 'box'|'cloud'|'highlight'|'text', page, rect: [x0, y0, x1, y1], text? },  { type: 'arrow', page, from: [x, y], to: [x, y] }
+//   or { type: 'callout', page, rect, point: [x, y] (where its arrow points), text }
 (function () {
   const RED = '#d91a1a', SVG = 'http://www.w3.org/2000/svg';
   const css = `
@@ -44,7 +45,9 @@
       <button data-t="highlight" title="Drag over what to highlight">Highlight</button>
       <button data-t="box" title="Drag a box">Box</button>
       <button data-t="arrow" title="Drag from the tail to the point">Arrow</button>
+      <button data-t="cloud" title="Drag a revision cloud round an area">Cloud</button>
       <button data-t="text" title="Drag where the text goes (or click), then type">Text</button>
+      <button data-t="callout" title="Drag from the point to where the text goes, then type">Callout</button>
       <button data-a="undo" title="Undo the last unsaved mark-up (Ctrl+Z)">Undo</button>
       <button data-a="save" class="save" title="Write the mark-ups into the file">Save</button>
       <span class="pmk-msg"></span></div><div class="pmk-pages"></div>`;
@@ -76,7 +79,7 @@
 
     function draw() {
       pagesEl.innerHTML = '';
-      const avail = Math.max(320, (pagesEl.clientWidth || root.clientWidth || 900) - 24);
+      const avail = Math.max(320, (pagesEl.clientWidth || root.clientWidth || 900) - 44); // padding and a scroll bar
       info.pages.forEach((p, n) => {
         const w = Math.min(avail, 1600), scale = w / p.w, h = p.h * scale;
         const zoom = Math.min(4, Math.max(0.5, Math.ceil(scale * (window.devicePixelRatio || 1) * 2) / 2));
@@ -92,7 +95,31 @@
 
     // Points from a pointer event, in page points.
     const pt = (svg, p, e) => { const r = svg.getBoundingClientRect(); return [(e.clientX - r.left) * p.w / r.width, (e.clientY - r.top) * p.h / r.height]; };
+    // A revision cloud's outline: scallops along each side of the rectangle.
+    function cloudD(x0, y0, x1, y1) {
+      const [l, t, r, b] = [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)];
+      const step = Math.max(8, Math.min(18, Math.min(r - l, b - t) / 3 || 8)), pts = [];
+      const side = (ax, ay, bx, by) => { const n = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / step)); for (let i = 0; i < n; i++) pts.push([ax + (bx - ax) * i / n, ay + (by - ay) * i / n]); };
+      side(l, t, r, t); side(r, t, r, b); side(r, b, l, b); side(l, b, l, t);
+      pts.push(pts[0]);
+      let d = `M${pts[0][0]},${pts[0][1]}`;
+      for (let i = 1; i < pts.length; i++) { const rr = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]) / 2; d += ` A${rr},${rr} 0 0 1 ${pts[i][0]},${pts[i][1]}`; }
+      return d;
+    }
+    // Where a callout's leader line meets its box: the nearest side's middle or corner.
+    const knee = (r, p) => [p[0] < r[0] ? r[0] : p[0] > r[2] ? r[2] : (r[0] + r[2]) / 2, p[1] < r[1] ? r[1] : p[1] > r[3] ? r[3] : (r[1] + r[3]) / 2];
     function shape(a) {
+      if (a.type === 'cloud') {
+        const s = document.createElementNS(SVG, 'path');
+        s.setAttribute('d', cloudD(...a.rect)); s.setAttribute('fill', 'none'); s.setAttribute('stroke', RED); s.setAttribute('stroke-width', 1.5);
+        s.setAttribute('vector-effect', 'non-scaling-stroke'); return s;
+      }
+      if (a.type === 'callout') {
+        const g = document.createElementNS(SVG, 'g'), [x0, y0, x1, y1] = a.rect, k = knee(a.rect, a.point);
+        g.innerHTML = `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="rgba(255,255,255,.85)" stroke="${RED}" stroke-width="1" vector-effect="non-scaling-stroke"/>`
+          + `<line x1="${k[0]}" y1="${k[1]}" x2="${a.point[0]}" y2="${a.point[1]}" stroke="${RED}" stroke-width="1.5" marker-end="url(#pmk-ah${a.page})" vector-effect="non-scaling-stroke"/>`;
+        return g;
+      }
       const s = a.type === 'arrow' ? document.createElementNS(SVG, 'line') : document.createElementNS(SVG, 'rect');
       if (a.type === 'arrow') {
         s.setAttribute('x1', a.from[0]); s.setAttribute('y1', a.from[1]); s.setAttribute('x2', a.to[0]); s.setAttribute('y2', a.to[1]);
@@ -107,7 +134,7 @@
       return s;
     }
     function label(svg, a) {
-      if (a.type !== 'text' || !a.text) return null;
+      if (!['text', 'callout'].includes(a.type) || !a.text) return null;
       const t = document.createElementNS(SVG, 'text');
       t.setAttribute('x', Math.min(a.rect[0], a.rect[2]) + 3); t.setAttribute('y', Math.min(a.rect[1], a.rect[3]) + 13);
       t.setAttribute('fill', RED); t.setAttribute('font-size', 11); t.setAttribute('font-family', 'Helvetica, Arial, sans-serif');
@@ -115,6 +142,14 @@
       svg.appendChild(t); return t;
     }
 
+    // While dragging: what the drawn shape will be. A callout drags from the point it marks to where its text goes.
+    const calloutBox = (p, c) => { const x = Math.min(Math.max(0, c[0]), p.w - 180), y = Math.min(Math.max(0, c[1] - 20), p.h - 40); return [x, y, x + 180, y + 40]; };
+    function preview(n, s0, c) {
+      const pg = info.pages[n];
+      if (tool === 'arrow') return { type: 'arrow', page: n, from: s0, to: c };
+      if (tool === 'callout') return { type: 'callout', page: n, point: s0, rect: calloutBox(pg, c) };
+      return { type: tool, page: n, rect: [...s0, ...c] };
+    }
     function wirePage(el, n, p) {
       const svg = el.querySelector('svg');
       let start = null, live = null;
@@ -122,13 +157,13 @@
         if (busy || typing || e.button !== 0) return; // a click away from a text box only finishes that box
         e.preventDefault(); svg.setPointerCapture(e.pointerId);
         start = pt(svg, p, e);
-        live = shape(tool === 'arrow' ? { type: 'arrow', page: n, from: start, to: start } : { type: tool, page: n, rect: [...start, ...start] });
+        live = shape(preview(n, start, start));
         svg.appendChild(live);
       });
       svg.addEventListener('pointermove', e => {
         if (!start) return;
         const c = pt(svg, p, e);
-        const s = shape(tool === 'arrow' ? { type: 'arrow', page: n, from: start, to: c } : { type: tool, page: n, rect: [...start, ...c] });
+        const s = shape(preview(n, start, c));
         live.replaceWith(s); live = s;
       });
       svg.addEventListener('pointerup', e => {
@@ -136,6 +171,7 @@
         const c = pt(svg, p, e), s0 = start; start = null;
         live.remove(); live = null;
         if (tool === 'arrow') { if (Math.hypot(c[0] - s0[0], c[1] - s0[1]) > 4) add(svg, { type: 'arrow', page: n, from: s0, to: c }); return; }
+        if (tool === 'callout') { askText(el, svg, p, n, calloutBox(p, c), s0); return; }
         let rect = [Math.min(s0[0], c[0]), Math.min(s0[1], c[1]), Math.max(s0[0], c[0]), Math.max(s0[1], c[1])];
         if (tool === 'text') {
           if (rect[2] - rect[0] < 20 || rect[3] - rect[1] < 12) rect = [s0[0], s0[1], Math.min(p.w, s0[0] + 180), Math.min(p.h, s0[1] + 40)];
@@ -146,7 +182,7 @@
       });
     }
 
-    function askText(el, svg, p, n, rect) {
+    function askText(el, svg, p, n, rect, point) {
       const ta = document.createElement('textarea'), k = el.clientWidth / p.w;
       ta.style.left = rect[0] * k + 'px'; ta.style.top = rect[1] * k + 'px';
       ta.style.width = Math.max(120, (rect[2] - rect[0]) * k) + 'px'; ta.style.height = Math.max(36, (rect[3] - rect[1]) * k) + 'px';
@@ -156,7 +192,7 @@
       const finish = keep => {
         if (done) return; done = true; setTimeout(() => { typing = false; }, 0);
         const text = ta.value.trim(); ta.remove();
-        if (keep && text) add(svg, { type: 'text', page: n, rect, text });
+        if (keep && text) add(svg, point ? { type: 'callout', page: n, rect, point, text } : { type: 'text', page: n, rect, text });
       };
       ta.addEventListener('blur', () => finish(true));
       ta.addEventListener('keydown', e => { if (e.key === 'Escape') finish(false); if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) finish(true); });

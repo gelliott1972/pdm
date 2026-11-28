@@ -184,6 +184,7 @@ aside { min-width: 0; }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
 .s .doing { margin-top: 4px; overflow-wrap: anywhere; }
 .card.collapsed .more { display: none; }
+#tickets .card.one .more { display: block; } #tickets .card.one .line { display: none; } #tickets .card.one > .top { cursor: default; }
 .batchhead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 18px 2px 8px; }
 .batchhead .bt { font-weight: 600; }
 .batchhead .acts { margin: 0 0 0 auto; }
@@ -260,6 +261,46 @@ details.notstarted div { margin-top: 4px; }
 .heldbar .b, .updbar .b { padding: 6px 10px; }
 .card.heldgone { opacity: .45; pointer-events: none; }
 .gone { opacity: 0; transform: translateY(-4px); transition: opacity .25s, transform .25s; }
+/* Three columns (Grant, 28 Nov): a narrow ticket list, the one ticket being worked on, a tight sessions panel. */
+.wrap.desk3 { grid-template-columns: 132px minmax(0, 1fr) 270px; max-width: 1600px; gap: 16px; }
+header, .swwrap, .banner, .boardwrap { max-width: 1600px; }
+@media (max-width: 1100px) { .wrap.desk3 { grid-template-columns: 112px minmax(0, 1fr); } .wrap.desk3 > aside { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .wrap.desk3 { grid-template-columns: minmax(0, 1fr); } }
+#listCol { min-width: 0; overflow-x: hidden; position: sticky; top: 8px; align-self: start; max-height: calc(100vh - 16px); overflow-y: auto; }
+#listItems { display: grid; gap: 4px; }
+.li { min-width: 0; display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; font: 600 14px/1.2 "Segoe UI", system-ui, sans-serif; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; cursor: pointer; }
+.li:hover { border-color: var(--accent); }
+.li.sel { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.li .num { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.li .own { font: 400 11px/1 "Segoe UI", system-ui, sans-serif; color: var(--muted); }
+.li.unseen .num::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-left: 5px; vertical-align: middle; }
+.li.talk { color: var(--muted); font-weight: 400; }
+.ldot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--grey); }
+.ldot.blocking { background: var(--red); } .ldot.gate { background: var(--amber); } .ldot.draft { background: #7c5cd6; } .ldot.info { background: transparent; border: 2px solid var(--grey); width: 5px; height: 5px; }
+.ldot.talk { background: transparent; border: 2px solid var(--muted); width: 5px; height: 5px; }
+.lempty { color: var(--muted); font-size: 12px; padding: 6px 2px; }
+.lsep { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 8px 2px 2px; }
+#listCol #snoozed summary { margin: 10px 2px 4px; font-size: 12px; }
+#listCol #snoozed .row { display: block; padding: 6px 4px; font-size: 12px; }
+#listCol #snoozed .row .b { margin-top: 4px; padding: 3px 8px; font-size: 12px; }
+#listCol .filterbar { font-size: 12px; margin: 0 2px 6px; }
+.desk3 main .card { margin-bottom: 12px; }
+.mkwrap { margin-top: 12px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.mktabs { display: flex; gap: 4px; flex-wrap: wrap; padding: 6px 8px; border-bottom: 1px solid var(--line); background: var(--panel); font-size: 12px; align-items: center; }
+.mktabs button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+.mktabs button.on { border-color: var(--accent); color: var(--accent); }
+.mktabs .sp { flex: 1; }
+.mkwrap .pmk-bar { position: sticky; top: 0; }
+.mkwrap .pmk-pages { max-height: 78vh; overflow: auto; }
+/* Sessions: one line each; the state is the name's colour, details in the tooltip or a click. */
+#sessions > div { padding: 6px 10px; }
+.srow2 { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.srow2 .sname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.sname.c-working { color: var(--green, #1f8a4c); } .sname.c-waiting { color: var(--amber); } .sname.c-blocked, .sname.c-needs { color: var(--red); } .sname.c-idle, .sname.c-none { color: var(--muted); font-weight: 500; }
+.tk { font: 600 12px/1 "Segoe UI", system-ui, sans-serif; color: var(--accent); background: var(--accent-soft); border: 0; border-radius: 10px; padding: 3px 7px; cursor: pointer; }
+.tk.on { box-shadow: inset 0 0 0 1px var(--accent); }
+.srow2 .pulse { display: inline-block; margin-right: 5px; vertical-align: middle; }
+.sage { color: var(--muted); font-size: 12px; min-width: 26px; text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -275,14 +316,17 @@ details.notstarted div { margin-top: 4px; }
 <div class="banner" id="banner"></div>
 <div class="banner lag" id="lag"></div>
 <div class="swwrap"><div class="swstrip" id="swstrip"></div></div>
-<div class="wrap">
-  <main>
-    <div id="reviewWrap"></div>
+<div class="wrap desk3">
+  <nav id="listCol" aria-label="Tickets">
     <h2>Tickets</h2>
     <div id="filterWrap"></div>
+    <div id="listItems"></div>
+    <div id="snoozeWrap"></div>
+  </nav>
+  <main>
+    <div id="reviewWrap"></div>
     <div id="heldWrap"></div>
     <div id="tickets"></div>
-    <div id="snoozeWrap"></div>
     <div id="sentWrap"></div>
   </main>
   <aside>
@@ -298,6 +342,7 @@ details.notstarted div { margin-top: 4px; }
   </aside>
 </div>
 <div class="boardwrap" id="boardWrap"></div>
+<script src="/markup.js"></script>
 <script>
 const DESK_NAME = {{deskNameJs}}; // filled in by the server from settings (deskName)
 // Sessions, their labels and groups come from settings (state.desk.groups); see readGroups().
@@ -382,7 +427,7 @@ function readGroups() {
   }
 }
 let state = null, lastSeen = 0, lastJson = '', pageVersion = null;
-const busyHere = () => running.size > 0 || pdmRunning.size > 0 || [...document.querySelectorAll('textarea')].some(t => t.value.trim());
+const busyHere = () => running.size > 0 || pdmRunning.size > 0 || [...document.querySelectorAll('textarea')].some(t => t.value.trim()) || !!(typeof mk !== 'undefined' && mk && mk.unsaved() > 0);
 const drafts = {};          // ticket file -> { choice, note } while Grant is typing
 const editing = new Set();  // answered tickets reopened with "Change answer"
 const cards = new Map();    // ticket file -> { json, el }
@@ -461,10 +506,12 @@ function render() {
   const rv = nReview ? `<a class="bigreview" href="/review">Review drafts <span>(${nReview} waiting)</span></a>` : '';
   if ($('reviewWrap').dataset.h !== rv) { $('reviewWrap').innerHTML = rv; $('reviewWrap').dataset.h = rv; }
 
-  // A screen chip filters the open list to that screen; clicking it again (or Show all) clears it.
-  const fb = screenFilter ? `<div class="filterbar">Only <b>${esc(screenFilter)}</b> tickets (${open.filter(t => String(t.screen || '') === screenFilter).length} of ${open.length} open) <button class="link" data-screen="${esc(screenFilter)}">Show all</button></div>` : '';
-  if ($('filterWrap').dataset.h !== fb) { $('filterWrap').innerHTML = fb; $('filterWrap').dataset.h = fb; }
+  // A screen chip, or a session's ticket count on the right, filters the list; clicking it again (or Show all) clears it.
+  const fl = [screenFilter && `<b>${esc(screenFilter)}</b>`, ownerFilter && `from <b>${esc(name(ownerFilter))}</b>`].filter(Boolean);
   if (screenFilter) open.splice(0, open.length, ...open.filter(t => String(t.screen || '') === screenFilter));
+  if (ownerFilter) open.splice(0, open.length, ...open.filter(t => String(t.owner || '').toLowerCase() === ownerFilter));
+  const fb = fl.length ? `<div class="filterbar">Only ${fl.join(' ')} (${open.length}) <button class="link" data-clearfilter="1">Show all</button></div>` : '';
+  if ($('filterWrap').dataset.h !== fb) { $('filterWrap').innerHTML = fb; $('filterWrap').dataset.h = fb; }
 
   // Draft reviews stay together under their batch, at the place of the batch's first draft; drafts in a batch by PartNo.
   const grouped = [], seenBatch = new Set();
@@ -475,53 +522,12 @@ function render() {
       .sort((x, y) => String(x.partNo || x._file).localeCompare(String(y.partNo || y._file))).forEach(x => grouped.push(x));
   }
   open.splice(0, open.length, ...grouped);
-  // Keyed cards: a card is rebuilt only when its file changed, so typing isn't disturbed. A batch header is keyed "batch:<n>".
-  const box = $('tickets'), keep = new Set(), seq = [];
-  // While Grant is typing (Grant, 25 Nov: a refresh threw away his place) the list holds still: nothing collapses, opens
-  // or moves; the card he's typing in is never rebuilt (it says it changed, with a button to refresh it); cards closed
-  // elsewhere fade where they are; new tickets wait behind a bar at the top. It all goes in once he has sent or cleared
-  // his text and left the box, or when he presses Show on the bar.
-  const hold = holding() && !showNew && cards.size > 0;
-  showNew = false; frozen = hold;
-  if (hold) {
-    const now = new Map(open.map(t => [t._file, t]));
-    for (const [k, c] of cards) {
-      if (k.startsWith('batch:')) continue;
-      const t = now.get(k), typing = typingIn(c.el);
-      if (!t && c.el.classList.contains('gone')) { c.el.remove(); cards.delete(k); continue; } // just sent from this page
-      c.el.classList.toggle('heldgone', !t && !typing);
-      if (!t) { if (typing) changedBar(c.el, k, true); continue; }
-      const json = cardJson(t);
-      if (c.json === json) { c.el.querySelector(':scope > .updbar')?.remove(); continue; }
-      if (typing) { changedBar(c.el, k, false); continue; }
-      const el = ticketCard(t); el.classList.toggle('collapsed', c.el.classList.contains('collapsed'));
-      c.el.replaceWith(el); c.el = el; c.json = json;
-    }
-    heldBar(open.filter(t => !cards.has(t._file)));
-  } else if (!open.length) { box.innerHTML = '<div class="card empty">No open tickets. New ones appear here by themselves.</div>'; cards.clear(); }
-  else {
-    box.querySelector('.empty')?.remove();
-    let lastBatch = null;
-    open.forEach(t => {
-      if (t.type === 'draft-review' && String(t.batch ?? '') !== lastBatch) {
-        lastBatch = String(t.batch ?? '');
-        const k = 'batch:' + lastBatch, html = batchHead(lastBatch, tickets) + (batchConfirm === lastBatch);
-        let c = cards.get(k);
-        if (!c || c.json !== html) { const el = batchHeadEl(lastBatch, tickets); if (c) c.el.replaceWith(el); c = { json: html, el }; cards.set(k, c); }
-        keep.add(k); seq.push(k);
-      } else if (t.type !== 'draft-review') lastBatch = null;
-      const json = cardJson(t);
-      let c = cards.get(t._file);
-      if (!c || c.json !== json) { const el = ticketCard(t); if (c) c.el.replaceWith(el); c = { json, el }; cards.set(t._file, c); }
-      keep.add(t._file); seq.push(t._file);
-    });
-    for (const [k, c] of cards) if (!keep.has(k)) { c.el.remove(); cards.delete(k); }
-    open.forEach((t, i) => cards.get(t._file).el.classList.toggle('collapsed', !isExpanded(t, i)));
-    // Move cards only when the order changed (moving a card would take the cursor out of its note).
-    const want = seq.map(k => cards.get(k).el);
-    if (want.some((el, i) => box.children[i] !== el) || box.children.length !== want.length) want.forEach(el => box.appendChild(el));
-  }
-  if (!hold) heldBar([]);
+  // Three columns (Grant, 28 Nov): the list on the left only ever gains or loses a row; the middle shows the one ticket
+  // picked and is never moved, closed or redrawn by a refresh while he's typing in it or has unsaved mark-ups.
+  drawList(open);
+  drawMiddle(open, tickets);
+  frozen = false;
+  heldBar([]);
 
   // Snoozed tickets: listed under the open ones, closed until opened, each with when it comes back and Wake now.
   const sz = asleep.length ? `<details id="snoozed"${snoozeOpen ? ' open' : ''}><summary>Snoozed (${asleep.length})</summary><div class="card">`
@@ -588,16 +594,126 @@ function changedBar(el, k, gone) {
   bar?.remove();
   bar = document.createElement('div'); bar.className = 'updbar'; bar.dataset.gone = String(gone);
   bar.innerHTML = gone ? '<span>This ticket was answered or closed elsewhere. Copy your text if you still need it.</span><button type="button" class="b">Remove this card</button>'
-    : '<span>This ticket has changed since you started typing.</span><button type="button" class="b">Refresh this card</button><span class="meta">Your text is kept.</span>';
+    : '<span>This ticket has changed since you started on it.</span><button type="button" class="b">Refresh this card</button><span class="meta">Your typed text is kept; save or undo mark-ups first.</span>';
   bar.querySelector('button').onclick = () => refreshCard(k);
   el.append(bar);
 }
 function refreshCard(k) {
-  const c = cards.get(k); if (!c) return;
   const t = (state.tickets || []).find(x => x._file === k);
-  if (!t || !isOpen(t)) { c.el.remove(); cards.delete(k); return; }
-  const el = ticketCard(t); c.el.replaceWith(el); c.el = el; c.json = cardJson(t);
-  const ta = el.querySelector('textarea'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  const keep = cards.get(k)?.el.querySelector('textarea')?.value;
+  if (!t || !isOpen(t) || snoozed(t)) { shownKey = null; selected = nextAfter(k); render(); return; }
+  showTicket(t, state.tickets || []);
+  const ta = $('tickets').querySelector('textarea');
+  if (ta) { if (keep != null && !ta.value) ta.value = keep; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+
+// ---- Left: the ticket list. Just the number, a dot for its kind, the owner's initials; the title is the tooltip.
+let selected = null, shownKey = null, lastOrder = [], ownerFilter = null, mk = null;
+const mkSel = new Map(); // ticket -> the attachment key shown in its viewer
+const seenT = new Set((() => { try { return JSON.parse(localStorage.getItem('desk-seen') || '[]'); } catch { return []; } })());
+function markSeen(k) { if (seenT.has(k)) return; seenT.add(k); try { localStorage.setItem('desk-seen', JSON.stringify([...seenT].slice(-800))); } catch { } }
+try { selected = localStorage.getItem('desk-selected'); } catch { }
+const listNum = t => { const id = String(t.id || t._file), m = id.match(/(\d+)$/); return m ? m[1] : shortId(t); };
+const ownAbbr = t => String(name(t.owner || '')).split(/[\s()\-]+/).filter(Boolean).map(w => w[0]).join('').slice(0, 3).toUpperCase();
+const dotCls = t => awaitingOwner(t) ? 'talk' : t.priority === 'blocking' ? 'blocking' : t.type === 'gate' ? 'gate' : t.type === 'draft-review' ? 'draft' : t.type === 'info' ? 'info' : '';
+const kindText = t => awaitingOwner(t) ? 'waiting on the owner' : t.priority === 'blocking' ? 'blocking' : t.type === 'gate' ? 'gate' : t.type === 'draft-review' ? 'draft review' : t.type === 'info' ? 'info' : 'later';
+function drawList(open) {
+  const cur = shownKey || selected;
+  let talkSep = false;
+  const h = open.length ? open.map(t => {
+    const sep = awaitingOwner(t) && !talkSep ? (talkSep = true, '<div class="lsep">With the owner</div>') : '';
+    const tip = [String(t.id || t._file), t.title, 'from ' + name(t.owner || ''), kindText(t)].filter(Boolean).join(' · ');
+    return sep + `<button type="button" class="li${t._file === cur ? ' sel' : ''}${seenT.has(t._file) ? '' : ' unseen'}${awaitingOwner(t) ? ' talk' : ''}" data-li="${esc(t._file)}" title="${esc(tip)}">`
+      + `<span class="ldot ${dotCls(t)}"></span><span class="num">${esc(listNum(t))}</span><span class="own">${esc(ownAbbr(t))}</span></button>`;
+  }).join('') : '<div class="lempty">No open tickets.</div>';
+  const w = $('listItems'); if (w.dataset.h !== h) { w.innerHTML = h; w.dataset.h = h; }
+}
+$('listItems').addEventListener('click', e => { const b = e.target.closest('[data-li]'); if (b) pick(b.dataset.li); });
+// Open a ticket in the middle. Unsaved mark-ups stop it (they'd be lost); typed text is kept per ticket anyway.
+function pick(k) {
+  if (k === shownKey) return;
+  if (mk && mk.unsaved() > 0) { const m = $('tickets').querySelector('.mkmsg'); if (m) m.textContent = 'Save or undo your mark-ups first.'; return; }
+  selected = k; try { localStorage.setItem('desk-selected', k); } catch { }
+  shownKey = null; render();
+  const top = $('tickets').getBoundingClientRect().top; if (top < 0) window.scrollBy({ top: top - 8 });
+}
+// The ticket after k in the list as last drawn (or before it), for when k is answered or closed.
+function nextAfter(k) {
+  const live = new Set((state.tickets || []).filter(t => isOpen(t) && !snoozed(t)).map(t => t._file));
+  const i = lastOrder.indexOf(k);
+  return [...lastOrder.slice(i + 1), ...lastOrder.slice(0, Math.max(0, i)).reverse()].find(x => live.has(x)) || null;
+}
+document.addEventListener('click', e => {
+  const o = e.target.closest?.('[data-owner]');
+  if (o) { e.preventDefault(); e.stopPropagation(); ownerFilter = ownerFilter === o.dataset.owner ? null : o.dataset.owner; render(); return; }
+  if (e.target.closest?.('[data-clearfilter]')) { screenFilter = null; ownerFilter = null; render(); }
+}, true);
+
+// ---- Middle: the one ticket picked. A refresh rebuilds it only when its file changed and Grant isn't typing in it or
+// holding unsaved mark-ups; otherwise a bar at its foot offers the refresh. Answered or closed: the next one opens.
+const busyCard = el => typingIn(el) || !!(mk && mk.unsaved() > 0);
+const shownJson = (t, tickets) => cardJson(t) + (t.type === 'draft-review' ? batchHead(String(t.batch ?? ''), tickets) + (batchConfirm === String(t.batch ?? '')) : '');
+function drawMiddle(open, tickets) {
+  const byKey = new Map(open.map(t => [t._file, t]));
+  const c = shownKey ? cards.get(shownKey) : null;
+  if (shownKey && c) {
+    const t = byKey.get(shownKey), sentHere = c.el.classList.contains('gone');
+    if (t && !sentHere) {
+      const json = shownJson(t, tickets);
+      if (c.json === json) c.el.querySelector(':scope > .updbar')?.remove();
+      else if (busyCard(c.el)) changedBar(c.el, shownKey, false);
+      else showTicket(t, tickets);
+    } else if (!sentHere && busyCard(c.el)) changedBar(c.el, shownKey, true); // closed elsewhere while he types: his text stays
+    else { selected = nextAfter(shownKey); shownKey = null; }
+  }
+  lastOrder = open.map(t => t._file);
+  if (shownKey) return;
+  const k = byKey.has(selected) ? selected : open[0]?._file;
+  if (!k) { mk?.destroy(); mk = null; cards.clear(); $('tickets').innerHTML = '<div class="card empty">No open tickets. New ones appear on the left by themselves.</div>'; return; }
+  showTicket(byKey.get(k), tickets);
+  drawList(open); // the highlight follows
+}
+function showTicket(t, tickets) {
+  const box = $('tickets');
+  mk?.destroy(); mk = null; cards.clear(); box.innerHTML = '';
+  if (t.type === 'draft-review') box.appendChild(batchHeadEl(String(t.batch ?? ''), tickets));
+  const el = ticketCard(t);
+  el.classList.remove('collapsed'); el.classList.add('one');
+  box.appendChild(el);
+  attachViewer(el, t);
+  cards.set(t._file, { json: shownJson(t, tickets), el });
+  shownKey = selected = t._file; markSeen(t._file);
+  try { localStorage.setItem('desk-selected', t._file); } catch { }
+}
+// The ticket's PDF or picture, open right there in the mark-up viewer (markup.js); a tab per attachment.
+function attachViewer(el, t) {
+  const list = (t.attachments || []).filter(a => a && a.key);
+  if (!list.length) return;
+  el.querySelectorAll('.attach').forEach(x => x.remove());
+  const ok = list.filter(a => a.ok !== false && (a.kind === 'pdf' || a.kind === 'image'));
+  let key = mkSel.get(t._file);
+  if (!ok.some(a => a.key === key)) key = (ok.find(a => a.markedBy) || ok[0])?.key;
+  const wrap = document.createElement('div'); wrap.className = 'mkwrap';
+  const tabs = () => list.map(a => a.ok === false || !ok.includes(a) ? `<span class="missing">${esc(a.label || a.key)}: not available (${esc(a.why || 'not a PDF or picture')})</span>`
+    : `<button type="button" data-mk="${esc(a.key)}" class="${a.key === key ? 'on' : ''}">${esc(a.label || a.key)}${a.markedUp ? ' · marked up' : ''}</button>`).join('')
+    + '<span class="sp"></span><span class="mkmsg msg"></span>'
+    + (ok.find(a => a.key === key)?.kind === 'pdf' ? `<button type="button" data-open="${esc(key)}" data-id="${esc(t._file)}" title="Opens the file itself in your PDF app (this PC only)">Open in PDF app</button>` : '');
+  wrap.innerHTML = `<div class="mktabs">${tabs()}</div><div class="mkhost"></div>`;
+  // Right under the ticket's text, above the options, so the picture is what he reads first.
+  const body = el.querySelector(':scope > .more > .body');
+  if (body) body.after(wrap); else (el.querySelector(':scope > .more') || el).appendChild(wrap);
+  const mount = () => {
+    mk?.destroy();
+    wrap.querySelector('.mktabs').innerHTML = tabs();
+    mk = key ? PdfMarkup.mount(wrap.querySelector('.mkhost'), { id: t._file, key, headers: { 'X-Desk': '1' },
+      onSaved: r => { if (r.key) { key = r.key; mkSel.set(t._file, r.key); } lastJson = ''; load(); } }) : null;
+  };
+  wrap.querySelector('.mktabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-mk]'); if (!b || b.dataset.mk === key) return;
+    if (mk && mk.unsaved() > 0) { wrap.querySelector('.mkmsg').textContent = 'Save or undo your mark-ups first.'; return; }
+    key = b.dataset.mk; mkSel.set(t._file, key); mount();
+  });
+  mount();
 }
 
 // The ticket's ID first (SW5, A3 ...), as Admin and the sessions name it: the id's leading letters and number.
@@ -610,8 +726,8 @@ document.addEventListener('click', e => {
   const b = e.target.closest?.('[data-screen]'); if (!b) return;
   e.preventDefault();
   screenFilter = screenFilter === b.dataset.screen ? null : b.dataset.screen;
-  for (const [k, c] of cards) { c.el.remove(); cards.delete(k); } // chips redraw with the filter shown
   $('sentWrap').dataset.h = '';
+  if (shownKey && cards.get(shownKey) && !busyCard(cards.get(shownKey).el)) shownKey = null; // its chip redraws with the filter shown
   render();
 });
 const refNote = t => t.ref && t.ref !== shortId(t) ? ` <span class="refnote">${esc(t.ref)}</span>` : '';
@@ -1113,12 +1229,15 @@ function sessionCard(k, s, a, owned) {
   else [pill, cls] = ['Idle', 'idle'];
   const heard = [a?.at, s?.updatedAt].filter(Boolean).sort().pop();
   const openRow = sessionOpen.has(k);
-  let h = `<div class="srow s-${cls}${openRow ? ' open' : ''}" title="Click for details">
-    <span class="sname">${esc(name(s?.name || k))}</span>
-    <span class="state st-${cls}">${cls === 'working' && a ? '<span class="pulse" aria-hidden="true"></span>' : ''}${pill}</span>
-    ${owned ? `<span class="owned" title="Open tickets from ${esc(name(k))}">${owned} ticket${owned === 1 ? '' : 's'}</span>` : ''}
-    <span class="heard">${heardText ? esc(heardText) : heard ? ago(heard) : 'not heard from'}</span></div>`;
-  if (live) h += `<div class="slive">${esc(live)}</div>`;
+  // One line (Grant, 28 Nov): the name in its state's colour, its open tickets (click: only those on the left), a short age.
+  // What it's doing is the tooltip, and the click-open details.
+  const tip = [pill, live || s?.doing || '', s?.waitingOn ? 'Waiting on: ' + s.waitingOn : '', heardText].filter(Boolean).join(' · ');
+  const ccls = { working: 'working', waiting: 'waiting', blocked: 'blocked', needs: 'needs', idle: 'idle', none: 'none' }[cls] || 'idle';
+  let h = `<div class="srow2${openRow ? ' open' : ''}" title="${esc(tip)}">
+    <span class="sname c-${ccls}">${cls === 'working' && a ? '<span class="pulse" aria-hidden="true"></span>' : ''}${esc(name(s?.name || k))}</span>
+    ${owned ? `<button type="button" class="tk${ownerFilter === k ? ' on' : ''}" data-owner="${esc(k)}" title="${owned} open ticket${owned === 1 ? '' : 's'} from ${esc(name(k))}: show only these">`
+      + `<svg width="12" height="10" viewBox="0 0 12 10" aria-hidden="true" style="vertical-align:-1px"><path d="M1 1h10v2.5a1.5 1.5 0 0 0 0 3V9H1V6.5a1.5 1.5 0 0 0 0-3z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg> ${owned}</button>` : ''}
+    <span class="sage">${heard ? shortAgo(heard) : conf.remote ? 'msg' : '–'}</span></div>`;
   if (a?.activity === 'needs-you') h += `<div class="act needs"><b>Needs you in the ${esc(name(k))} window</b>${a.detail ? `<span>${esc(a.detail)}</span>` : ''}</div>`;
   if (openRow) {
     const st = s?.state ? String(s.state) : '';
@@ -1128,6 +1247,7 @@ function sessionCard(k, s, a, owned) {
   }
   return h;
 }
+const shortAgo = iso => { const t = Date.parse(iso); if (!t) return ''; const m = Math.max(0, (Date.now() - t) / 60000); return m < 1 ? 'now' : m < 60 ? Math.round(m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; };
 const dur = sec => sec < 60 ? 'under a minute' : sec < 3600 ? Math.round(sec / 60) + ' min' : Math.floor(sec / 3600) + ' h ' + Math.round(sec % 3600 / 60) + ' min';
 
 // A snoozed ticket's line on a card's failure: shown in the card's .msg if it has one.
@@ -1235,8 +1355,8 @@ function drawBoard() {
 $('boardWrap').addEventListener('click', e => {
   const c = e.target.closest('[data-cell]'); if (!c) return;
   if (c.dataset.ticket) { // "Waiting for you": open that ticket on the to-do list
-    const id = c.dataset.ticket; screenFilter = null; expandPref.set(id, true); render();
-    const card = cards.get(id)?.el; if (card) { card.classList.remove('collapsed'); card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    screenFilter = null; ownerFilter = null; pick(c.dataset.ticket);
+    $('tickets').scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
   boardSel = boardSel === c.dataset.cell ? null : c.dataset.cell; drawBoard();

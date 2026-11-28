@@ -79,7 +79,7 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "addfixed" || cmd == "todist" || cmd == "matesup" || (cmd == "movecomp" && !(a.Length > 5 && a[5] == "dry")) || (cmd == "wzdlen" && a.Length > 3) || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !a.Skip(5).Contains("dry")) || cmd == "brace" || cmd == "replcomp" || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || cmd == "renprops" || cmd == "renumber" || cmd == "setprops" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
+        bool write = cmd == "setdims" || cmd == "addfixed" || cmd == "todist" || cmd == "matesup" || cmd == "skpt" || cmd == "setmat" || cmd == "movelist" || (cmd == "movecomp" && !(a.Length > 5 && a[5] == "dry")) || (cmd == "wzdlen" && a.Length > 3) || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !a.Skip(5).Contains("dry")) || cmd == "brace" || cmd == "replcomp" || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || cmd == "renprops" || cmd == "renumber" || cmd == "setprops" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
@@ -181,7 +181,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "addfixed" && cmd != "todist" && cmd != "matesup" && cmd != "movecomp" && cmd != "wzdlen" && cmd != "snap" && cmd != "snapsel" && cmd != "snapsec" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "addfixed" && cmd != "todist" && cmd != "matesup" && cmd != "skpt" && cmd != "setmat" && cmd != "movelist" && cmd != "movecomp" && cmd != "wzdlen" && cmd != "snap" && cmd != "snapsel" && cmd != "snapsec" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -2187,6 +2187,91 @@ static class SwGrout
                 int errs = Errors(doc, true);
                 Console.WriteLine("COUNT	errors " + errs);
                 if (errs > 0) { rc = 1; Console.WriteLine("NOT SAVED	problems above"); }
+                else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED	" + file : "SAVE FAILED	" + e); }
+            }
+            else if (cmd == "skpt")
+            {
+                // skpt <part> <sketch> "<x y mm>" "<new x y mm>" [...pairs] (A136, 28 Nov): move undimensioned sketch points (circle
+                // centres) found at the old sketch coordinates (0.01 mm) to the new ones, keeping the same sketch entities (so
+                // faces keep their ids). Rebuilds; saves only if every point moved and there are 0 errors.
+                var sk = FeatureNamed(doc, a[2]);
+                if (sk == null) throw new Exception("no sketch " + a[2]);
+                var ske = (Sketch)sk.GetSpecificFeature2();
+                doc.ClearSelection2(true);
+                sk.Select2(false, 0);
+                doc.EditSketch();
+                int moved = 0, want = 0;
+                for (int i = 3; i + 1 < a.Length; i += 2)
+                {
+                    want++;
+                    var o = a[i].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(x => double.Parse(x, Inv) / 1000).ToArray();
+                    var n = a[i + 1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(x => double.Parse(x, Inv) / 1000).ToArray();
+                    SketchPoint hit = null;
+                    foreach (SketchPoint pt in (object[])ske.GetSketchPoints2() ?? new object[0])
+                        if (Math.Abs(pt.X - o[0]) < 1e-5 && Math.Abs(pt.Y - o[1]) < 1e-5) { hit = pt; break; }
+                    if (hit == null) { Console.WriteLine("PROBLEM	no point at " + a[i]); continue; }
+                    bool ok = hit.SetCoords(n[0], n[1], 0);
+                    Console.WriteLine("POINT	" + a[i] + " -> " + a[i + 1] + "	" + ok + "	now " + Math.Round(hit.X * 1000, 3).ToString(Inv) + " " + Math.Round(hit.Y * 1000, 3).ToString(Inv));
+                    if (ok && Math.Abs(hit.X - n[0]) < 1e-6 && Math.Abs(hit.Y - n[1]) < 1e-6) moved++;
+                }
+                doc.SketchManager.InsertSketch(true);
+                doc.ForceRebuild3(false);
+                int errs = Errors(doc, true);
+                Console.WriteLine("COUNT	" + moved + " of " + want + " moved	errors " + errs);
+                if (moved != want || errs > 0) { rc = 1; Console.WriteLine("NOT SAVED	problems above"); }
+                else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED	" + file : "SAVE FAILED	" + e); }
+            }
+            else if (cmd == "setmat")
+            {
+                // setmat <part> <database> <material> (A136, 28 Nov): the part's material in every configuration ("" config).
+                ((PartDoc)doc).SetMaterialPropertyName2("", a[2], a[3]);
+                doc.ForceRebuild3(false);
+                foreach (var cn in (string[])doc.GetConfigurationNames())
+                {
+                    string db; string mn = ((PartDoc)doc).GetMaterialPropertyName2(cn, out db);
+                    Console.WriteLine("MATERIAL	" + cn + "	" + mn + "	(" + db + ")");
+                    if (mn != a[3]) rc = 1;
+                }
+                int errs = Errors(doc, true);
+                if (rc != 0 || errs > 0) { rc = 1; Console.WriteLine("NOT SAVED	problems above"); }
+                else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED	" + file : "SAVE FAILED	" + e); }
+            }
+            else if (cmd == "movelist")
+            {
+                // movelist <asm> <list.tsv> (A136, 28 Nov): fixed top-level components moved by (dx dy dz mm, the assembly's axes),
+                // one "name<TAB>dx dy dz" per line, in every configuration where the component is present and fixed. Saves only
+                // if every move landed exactly (0.001 mm) and the rebuild has 0 errors.
+                var asm = (AssemblyDoc)doc;
+                var mu = (MathUtility)sw.GetMathUtility();
+                var jobs = File.ReadAllLines(a[2]).Where(l => l.Trim() != "" && !l.StartsWith("#")).Select(l => l.Split('	')).ToList();
+                var cfgNames = (string[])doc.GetConfigurationNames();
+                string first = ((Configuration)doc.GetActiveConfiguration()).Name;
+                int bad = 0, done = 0;
+                foreach (var cn in cfgNames)
+                {
+                    doc.ShowConfiguration2(cn);
+                    int here = 0;
+                    foreach (var j in jobs)
+                    {
+                        var k = (Component2)asm.GetComponentByName(j[0]);
+                        if (k == null || k.GetSuppression2() == (int)swComponentSuppressionState_e.swComponentSuppressed) continue;
+                        if (!k.IsFixed()) { Console.WriteLine("PROBLEM	" + cn + "	" + j[0] + " is not fixed"); bad++; continue; }
+                        var dv = j[1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(x => double.Parse(x, Inv) / 1000).ToArray();
+                        var t = (double[])((MathTransform)k.Transform2).ArrayData;
+                        var nt = (double[])t.Clone(); nt[9] += dv[0]; nt[10] += dv[1]; nt[11] += dv[2];
+                        k.Transform2 = (MathTransform)mu.CreateTransform(nt);
+                        var t2 = (double[])((MathTransform)k.Transform2).ArrayData;
+                        double dev = 0; for (int i = 0; i < 3; i++) dev = Math.Max(dev, Math.Abs(t2[9 + i] - nt[9 + i]) * 1000);
+                        if (dev > 0.001) { bad++; Console.WriteLine("PROBLEM	" + cn + "	" + j[0] + " off " + dev); } else { here++; done++; }
+                    }
+                    doc.ForceRebuild3(false);
+                    Console.WriteLine("CFG	" + cn + "	" + here + " moved");
+                }
+                doc.ShowConfiguration2(first);
+                doc.ForceRebuild3(false);
+                int errs = Errors(doc, true);
+                Console.WriteLine("COUNT	" + done + " moves	" + bad + " problems	errors " + errs);
+                if (bad > 0 || errs > 0) { rc = 1; Console.WriteLine("NOT SAVED	problems above"); }
                 else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED	" + file : "SAVE FAILED	" + e); }
             }
             else if (cmd == "todist")

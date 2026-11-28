@@ -79,7 +79,7 @@ static class SwGrout
         bool checkedOut = a.Contains("--checked-out");
         a = a.Where(x => x != "--checked-out").ToArray();
         string cmd = a[0], file = Path.GetFullPath(a[1]);
-        bool write = cmd == "setdims" || cmd == "addfixed" || cmd == "todist" || (cmd == "movecomp" && !(a.Length > 5 && a[5] == "dry")) || (cmd == "wzdlen" && a.Length > 3) || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !a.Skip(5).Contains("dry")) || cmd == "brace" || cmd == "replcomp" || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || cmd == "renprops" || cmd == "renumber" || cmd == "setprops" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
+        bool write = cmd == "setdims" || cmd == "addfixed" || cmd == "todist" || cmd == "matesup" || (cmd == "movecomp" && !(a.Length > 5 && a[5] == "dry")) || (cmd == "wzdlen" && a.Length > 3) || cmd == "plane" || cmd == "addcfg" || cmd == "setcomp" || (cmd == "eq" && a.Length > 2) || cmd == "gv" || cmd == "feet" || cmd == "delcomp" || cmd == "matedist" || cmd == "rename" || cmd == "props" || cmd == "kitseed" || cmd == "repoint" || cmd == "resave" || cmd == "breaklink" || (cmd == "remate" && !(a.Length > 5 && a[5] == "dry")) || cmd == "kitcfg" || (cmd == "movemates" && !a.Skip(5).Contains("dry")) || cmd == "brace" || cmd == "replcomp" || (cmd == "fixrel" && !(a.Length > 4 && a[4] == "dry")) || cmd == "delinst" || cmd == "renprops" || cmd == "renumber" || cmd == "setprops" || (cmd == "placekits" && !(a.Length > 8 && a[8] == "dry"));
         if (file.StartsWith(@"M:\", StringComparison.OrdinalIgnoreCase) || file.IndexOf("Dropbox", StringComparison.OrdinalIgnoreCase) >= 0 || file.IndexOf(@"\.pdm", StringComparison.OrdinalIgnoreCase) >= 0)
         { Console.Error.WriteLine("REFUSED: never the Dropbox files or .pdm: " + file); return 2; }
         bool inVault = file.StartsWith(@"P:\", StringComparison.OrdinalIgnoreCase) || file.StartsWith(@"C:\PDM\", StringComparison.OrdinalIgnoreCase);
@@ -181,7 +181,7 @@ static class SwGrout
         int type = file.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
         int e = 0, w = 0;
         var t0 = DateTime.Now;
-        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "addfixed" && cmd != "todist" && cmd != "movecomp" && cmd != "wzdlen" && cmd != "snap" && cmd != "snapsel" && cmd != "snapsec" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
+        string cfgArg = a.Length > 2 && cmd != "plane" && cmd != "feet" && cmd != "delcomp" && cmd != "matedist" && cmd != "props" && cmd != "kitseed" && cmd != "remate" && cmd != "placekits" && cmd != "movemates" && cmd != "fixrel" && cmd != "delinst" && cmd != "renprops" && cmd != "renumber" && cmd != "nearpt" && cmd != "geomcfg" && cmd != "addfixed" && cmd != "todist" && cmd != "matesup" && cmd != "movecomp" && cmd != "wzdlen" && cmd != "snap" && cmd != "snapsel" && cmd != "snapsec" && cmd != "brace" && cmd != "replcomp" ? a[2] : "";
         var doc = sw.OpenDoc6(file, type, (int)(swOpenDocOptions_e.swOpenDocOptions_Silent | swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight)
             | (write ? 0 : (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly), (cfgArg == "*" ? "" : cfgArg), ref e, ref w);
         if (doc == null) { Console.WriteLine("FAILED\tcould not open " + file + " (" + e + ")"); return 3; }
@@ -2167,6 +2167,27 @@ static class SwGrout
                     }
                 }
                 Console.WriteLine("COUNT	" + n + " end cap features	" + names.Length + " configurations");
+            }
+            else if (cmd == "matesup")
+            {
+                // matesup <asm> <mate=on|off> [<mate=on|off> ...] (B redo, 28 Nov): suppress or unsuppress mates by name, rebuild,
+                // save only with 0 errors.
+                foreach (var arg in a.Skip(2))
+                {
+                    var kv = arg.Split('='); if (kv.Length != 2) throw new Exception("need mate=on|off: " + arg);
+                    Feature mf = null;
+                    for (var f = (Feature)doc.FirstFeature(); f != null && mf == null; f = (Feature)f.GetNextFeature())
+                        if (f.GetTypeName2() == "MateGroup")
+                            for (var m = (Feature)f.GetFirstSubFeature(); m != null; m = (Feature)m.GetNextSubFeature()) if (m.Name == kv[0]) { mf = m; break; }
+                    if (mf == null) throw new Exception("no mate " + kv[0]);
+                    bool ok = mf.SetSuppression2(kv[1] == "off" ? (int)swFeatureSuppressionAction_e.swSuppressFeature : (int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swAllConfiguration, null);
+                    Console.WriteLine("MATE	" + kv[0] + "	" + (kv[1] == "off" ? "suppressed" : "on") + "	" + ok + "	now suppressed " + mf.IsSuppressed());
+                }
+                doc.ForceRebuild3(false);
+                int errs = Errors(doc, true);
+                Console.WriteLine("COUNT	errors " + errs);
+                if (errs > 0) { rc = 1; Console.WriteLine("NOT SAVED	problems above"); }
+                else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED	" + file : "SAVE FAILED	" + e); }
             }
             else if (cmd == "todist")
             {

@@ -62,6 +62,17 @@ static partial class Draw
                 if (cands == null) { cands = NewPartPoints(mu, v, isNew); Console.WriteLine("  " + cands.Count + " points on new parts"); }
 
                 bool ok = false; int tried = 0; string onto = "", shows = "";
+                if (cands.Count == 0)
+                {
+                    // the view shows none of the new parts: the balloon's part has left this assembly, nothing to point at
+                    if (dry) { Console.WriteLine("  balloon at " + Mm(p[0]) + "," + Mm(p[1]) + ": would be deleted (no new part in this view)"); continue; }
+                    doc.ClearSelection2(true);
+                    bool goneB = a.Select3(false, null) && doc.Extension.DeleteSelection2(0);
+                    doc.ClearSelection2(true);
+                    Console.WriteLine("  balloon at " + Mm(p[0]) + "," + Mm(p[1]) + ": none of the new parts is in this view; " + (goneB ? "deleted" : "NOT deleted"));
+                    if (goneB) { deleted++; notes.Add(v.GetName2() + ": loose balloon deleted (its part is no longer in this assembly; none of the new parts is in the view)"); } else left++;
+                    continue;
+                }
                 var seenEdge = new HashSet<Edge>();
                 foreach (var q in cands.OrderBy(q => Math.Pow(q.Item1[0] - ax, 2) + Math.Pow(q.Item1[1] - ay, 2)).Take(400))
                 {
@@ -93,7 +104,7 @@ static partial class Draw
 
             // 2. ordinate rows with loose members
             anns = ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().ToList();
-            Func<Annotation, bool> isOrd = a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension && DimKind((DisplayDimension)a.GetSpecificAnnotation()) == "swOrdinateDimension";
+            Func<Annotation, bool> isOrd = a => a.GetType() == (int)swAnnotationType_e.swDisplayDimension && DimKind((DisplayDimension)a.GetSpecificAnnotation()).Contains("Ordinate");
             Func<Annotation, double> val = a => { var d = ((DisplayDimension)a.GetSpecificAnnotation()).GetDimension2(0) as Dimension; return d == null ? double.NaN : d.GetSystemValue2(""); };
             var ords = anns.Where(isOrd).ToList();
             var handled = new HashSet<Annotation>();
@@ -110,6 +121,8 @@ static partial class Draw
                 foreach (var a in row) handled.Add(a);
                 Func<Annotation, double> m = a => ((double[])a.GetPosition())[upright ? 1 : 0];
                 var zeros = row.Where(a => Math.Abs(val(a)) < 1e-9).ToList();
+                // a second zero in brackets is a reference value on the zero edge, not the row's zero
+                if (zeros.Count > 1 && zeros.Count(a => !((DisplayDimension)a.GetSpecificAnnotation()).ShowParenthesis) == 1) zeros = zeros.Where(a => !((DisplayDimension)a.GetSpecificAnnotation()).ShowParenthesis).ToList();
                 string rowName = (upright ? "upright" : "flat") + " row " + string.Join("/", row.OrderBy(a => val(a)).Select(a => Math.Round(val(a) * 1000, 2).ToString()));
                 if (zeros.Count != 1) { left += row.Count(a => a.IsDangling()); Console.WriteLine("  " + rowName + ": " + zeros.Count + " zeros; left"); continue; }
                 if (es == null) es = AsmEdges(mu, v);
@@ -173,7 +186,7 @@ static partial class Draw
                 foreach (var a in ((v.GetAnnotations() as object[]) ?? new object[0]).Cast<Annotation>().Where(a => a.IsDangling()).ToList())
                 {
                     bool bead = a.GetType() == (int)swAnnotationType_e.swWeldBeadSymbol;
-                    bool zeroDim = a.GetType() == (int)swAnnotationType_e.swDisplayDimension && DimKind((DisplayDimension)a.GetSpecificAnnotation()) != "swOrdinateDimension" && Math.Abs(val(a)) < 1e-9;
+                    bool zeroDim = a.GetType() == (int)swAnnotationType_e.swDisplayDimension && !DimKind((DisplayDimension)a.GetSpecificAnnotation()).Contains("Ordinate") && Math.Abs(val(a)) < 1e-9;
                     if (!bead && !zeroDim) continue;
                     doc.ClearSelection2(true);
                     bool gone = a.Select3(false, null) && doc.Extension.DeleteSelection2(0);
@@ -189,7 +202,7 @@ static partial class Draw
         var after = AnnFacts(drw);
         var pool = after.ToList(); int missing = 0;
         var gonePurpose = new List<AnnFact>();
-        foreach (var b in before)
+        foreach (var b in before.OrderBy(x => x.Dangling ? 1 : 0))
         {
             var hit = pool.FirstOrDefault(x => x.View == b.View && x.What == b.What && Math.Abs(x.X - b.X) < 2e-6 && Math.Abs(x.Y - b.Y) < 2e-6);
             if (hit != null) { pool.Remove(hit); continue; }

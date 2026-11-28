@@ -60,6 +60,7 @@ Without `register`, `steps` and `gates` the board and gate answers aren't shown.
 | `status` | `open` → `answered` → `done`; `open` → `discuss` → `answered`; `info`: `open` → `dismissed` | The page sets `answered`, `discuss` or `dismissed`. The owner sets `done` after acting |
 | `answer` | `{ "choice": "A", "note": "…" }` | Set by the page. `choice` is `""` when Grant only typed a note |
 | `answeredAt` | UTC ISO | Set by the page |
+| `snoozedUntil`, `snoozedAt`, `snoozedBy` | UTC ISO, UTC ISO, `"grant"` | Snooze (Grant, 28 Nov): set by the page's Snooze menu on an open card (1, 2, 4, 8 hours or 1 day; `POST /api/snooze {id, hours}`). Until `snoozedUntil` the ticket is out of the list, the counts, the draft Review count and blocking notices, listed under "Snoozed (N)" with Wake now (`hours` 0: `snoozedUntil` removed, `wokenAt` set). Status and answer are untouched. A session's own check should show it as "snoozed until <time>", not waiting. An owner that rewrites its ticket keeps these fields; removing `snoozedUntil` wakes it |
 | `history` | `[{ choice, note, answeredAt }]` | Set by the page when Grant uses **Change answer**: the earlier answers, oldest first |
 | `thread` | `[{ "from": "grant", "text": "…", "at": "…" }]` | `decision` only: the discussion, oldest first. The page adds Grant's comments; the owner adds its replies (`from` = its role) |
 

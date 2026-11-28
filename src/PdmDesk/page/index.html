@@ -87,6 +87,10 @@ input.code { margin-top: 12px; width: 140px; padding: 8px 10px; font: inherit; c
 .bc.gg { background: none; color: var(--ink); border: 2px solid var(--grey); white-space: normal; }
 .pill.info { background: var(--accent-soft); color: var(--accent); }
 .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.meta select.snooze { margin-left: 8px; font: inherit; font-size: 12px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 1px 4px; }
+#snoozed summary { cursor: pointer; color: var(--muted); font-size: 13px; margin: 10px 2px; }
+#snoozed .row { display: flex; gap: 10px; align-items: center; padding: 6px 2px; font-size: 13px; border-top: 1px solid var(--line); }
+#snoozed .row .t { flex: 1; }
 .body { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .body code, .opt code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 .opts { display: grid; gap: 8px; margin-top: 14px; }
@@ -264,6 +268,7 @@ details.notstarted div { margin-top: 4px; }
     <div id="filterWrap"></div>
     <div id="heldWrap"></div>
     <div id="tickets"></div>
+    <div id="snoozeWrap"></div>
     <div id="sentWrap"></div>
   </main>
   <aside>
@@ -340,6 +345,7 @@ async function load() {
       render();
       notices();
     } else if (frozen && !holding()) render(); // Grant has finished typing: the held changes and new tickets go in now
+    else if (nextWake && Date.now() >= nextWake) render(); // a snoozed ticket's time is up
   } catch {
     $('banner').innerHTML = `<div>The ${esc(DESK_NAME)} server isn't answering. Start it again from the Start menu (PDM Sessions).</div>`;
   }
@@ -351,20 +357,26 @@ const isOpen = t => ['open', 'started', 'discuss'].includes(t.status || 'open') 
 const lastPost = t => (t.thread || []).at(-1);
 const awaitingOwner = t => t.status === 'discuss' && lastPost(t)?.from === 'grant' && !editing.has(t._file);
 const rank = t => (awaitingOwner(t) ? 2 : t.priority === 'blocking' ? 0 : 1);
+// Snoozed (Grant, 28 Nov): out of the list and the counts until snoozedUntil, then back as it was. nextWake: when the
+// earliest one comes back, so the page redraws then even if nothing else changed.
+const snoozed = t => !!t.snoozedUntil && Date.parse(t.snoozedUntil) > Date.now() && !editing.has(t._file);
+let nextWake = 0, snoozeOpen = false;
 
 function render() {
   readGroups();
   lagLine();
   const tickets = state.tickets || [];
-  const open = tickets.filter(isOpen).sort((a, b) => rank(a) - rank(b) || String(a.createdAt).localeCompare(String(b.createdAt)));
+  const asleep = tickets.filter(t => isOpen(t) && snoozed(t)).sort((a, b) => String(a.snoozedUntil).localeCompare(String(b.snoozedUntil)));
+  nextWake = asleep.length ? Date.parse(asleep[0].snoozedUntil) : 0;
+  const open = tickets.filter(t => isOpen(t) && !snoozed(t)).sort((a, b) => rank(a) - rank(b) || String(a.createdAt).localeCompare(String(b.createdAt)));
   const mine = open.filter(t => !awaitingOwner(t)), talking = open.length - mine.length;
   const blocking = mine.filter(t => t.priority === 'blocking').length;
   $('sum').textContent = (mine.length ? `${mine.length} open${blocking ? ` · ${blocking} blocking` : ''}` : 'Nothing waiting for you')
-    + (talking ? ` · ${talking} in discussion` : '');
+    + (talking ? ` · ${talking} in discussion` : '') + (asleep.length ? ` · ${asleep.length} snoozed` : '');
   document.title = mine.length ? `(${mine.length}) ${DESK_NAME}` : DESK_NAME;
 
   // The draft Review screen (/review): one draft at a time with the PDF large. The button shows while any wait for Grant.
-  const nReview = tickets.filter(t => t.type === 'draft-review' && waitingDraft(t) && !awaitingOwner(t)).length;
+  const nReview = tickets.filter(t => t.type === 'draft-review' && waitingDraft(t) && !awaitingOwner(t) && !snoozed(t)).length;
   const rv = nReview ? `<a class="bigreview" href="/review">Review drafts <span>(${nReview} waiting)</span></a>` : '';
   if ($('reviewWrap').dataset.h !== rv) { $('reviewWrap').innerHTML = rv; $('reviewWrap').dataset.h = rv; }
 
@@ -429,6 +441,15 @@ function render() {
     if (want.some((el, i) => box.children[i] !== el) || box.children.length !== want.length) want.forEach(el => box.appendChild(el));
   }
   if (!hold) heldBar([]);
+
+  // Snoozed tickets: listed under the open ones, closed until opened, each with when it comes back and Wake now.
+  const sz = asleep.length ? `<details id="snoozed"${snoozeOpen ? ' open' : ''}><summary>Snoozed (${asleep.length})</summary><div class="card">`
+    + asleep.map(t => `<div class="row"><span class="t">${esc(shortId(t))} ${esc(t.title || t._file)}</span><span class="meta">back ${esc(when(t.snoozedUntil))}</span>`
+      + `<button class="b" data-wake="${esc(t._file)}">Wake now</button></div>`).join('') + '</div></details>' : '';
+  if ($('snoozeWrap').dataset.h !== sz) {
+    $('snoozeWrap').innerHTML = sz; $('snoozeWrap').dataset.h = sz;
+    $('snoozed')?.addEventListener('toggle', e => { snoozeOpen = e.target.open; });
+  }
 
   // History: answered, done and dismissed, newest first, closed until opened.
   const sent = tickets.filter(t => !isOpen(t) && t.answeredAt).sort((a, b) => String(b.answeredAt).localeCompare(String(a.answeredAt))).slice(0, 40);
@@ -556,8 +577,10 @@ function ticketCard(t) {
     : `<span class="pill ${t.priority === 'blocking' ? 'blocking' : 'later'}">${t.priority === 'blocking' ? 'Blocking' : 'Later'}</span>`;
   const from = [t.owner ? 'from ' + name(t.owner) : '', ago(draft && t.postedAt || t.createdAt)].filter(Boolean).join(' · ');
   const title = draft ? [t.partNo, t.title].filter(Boolean).join(' · ') : t.title;
+  const snz = `<select class="snooze" title="Take it off the list for a while; it comes back by itself"><option value="">Snooze…</option>`
+    + [1, 2, 4, 8, 24].map(h => `<option value="${h}">${h === 24 ? '1 day' : h + (h === 1 ? ' hour' : ' hours')}</option>`).join('') + '</select>';
   let html = `<div class="top"><div class="title">${idChip(t)}${scrChip(t)}${esc(title || t._file)}${refNote(t)}</div>${pill}</div>
-    <div class="meta">${esc(from)}</div>${t.body ? `<div class="body">${fmt(t.body)}</div>` : ''}`;
+    <div class="meta">${esc(from)}${editing.has(t._file) ? '' : snz}</div>${t.body ? `<div class="body">${fmt(t.body)}</div>` : ''}`;
   if (type === 'decision') {
     const d = drafts[t._file] ??= editing.has(t._file) && t.answer ? { choice: t.answer.choice || '', note: t.answer.note || '' } : { choice: '', note: '' };
     const opts = t.options || [];
@@ -595,6 +618,13 @@ function ticketCard(t) {
     const now = el.classList.toggle('collapsed'); expandPref.set(t._file, !now);
   });
   if (type === 'sw-job') wireJob(el, t); else if (draft) wireDraft(el, t); else if (type === 'gate') wireGate(el, t); else wire(el, t);
+  const sel = el.querySelector(':scope > .meta select.snooze');
+  if (sel) sel.onchange = async () => {
+    if (!sel.value) return;
+    sel.disabled = true;
+    try { await post('/api/snooze', { id: t._file, hours: Number(sel.value) }); el.classList.add('gone'); setTimeout(() => { lastJson = ''; load(); }, 250); }
+    catch (e) { sel.disabled = false; sel.value = ''; alertLine(el, e.message); }
+  };
   return el;
 }
 
@@ -1019,6 +1049,15 @@ function sessionCard(k, s, a, owned) {
 }
 const dur = sec => sec < 60 ? 'under a minute' : sec < 3600 ? Math.round(sec / 60) + ' min' : Math.floor(sec / 3600) + ' h ' + Math.round(sec % 3600 / 60) + ' min';
 
+// A snoozed ticket's line on a card's failure: shown in the card's .msg if it has one.
+function alertLine(el, text) { const m = el.querySelector('.msg'); if (m) m.textContent = text; }
+$('snoozeWrap').onclick = async e => {
+  const id = e.target?.dataset?.wake; if (!id) return;
+  e.target.disabled = true;
+  try { await post('/api/snooze', { id, hours: 0 }); expandPref.set(id, true); lastJson = ''; load(); }
+  catch (err) { e.target.disabled = false; e.target.textContent = err.message; }
+};
+
 $('sentWrap').onclick = e => {
   const id = e.target?.dataset?.change; if (!id) return;
   editing.add(id); delete drafts[id]; lastJson = ''; load(); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1151,7 +1190,7 @@ function notify(key, text) {
 function notices() {
   const fresh = [];
   for (const t of state.tickets || [])
-    if (isOpen(t) && !awaitingOwner(t) && !editing.has(t._file) && t.priority === 'blocking') {
+    if (isOpen(t) && !awaitingOwner(t) && !editing.has(t._file) && !snoozed(t) && t.priority === 'blocking') {
       const key = 't:' + t._file;
       if (!announced.has(key)) { announced.add(key); fresh.push([key, [shortId(t), t.screen, t.title].filter(Boolean).join(' · ')]); }
     }

@@ -361,6 +361,33 @@ app.MapPost("/api/dismiss", async (HttpRequest req) =>
     return Results.Ok(new { ok = true });
 });
 
+// Snooze (Grant, via apex-admin, 28 Nov): an open ticket leaves the list and the counts for 1 to 24 hours, then comes back
+// as it was. hours 0 wakes it now. Only snoozedUntil, snoozedAt and snoozedBy are written; the answer and status stay.
+app.MapPost("/api/snooze", async (HttpRequest req) =>
+{
+    var b = await Body(req);
+    var id = (string?)b?["id"];
+    if (!Store.IdOk(id)) return Fail("Unknown ticket.");
+    var hours = b?["hours"] is JsonValue hv && hv.TryGetValue<int>(out var h) ? h : -1;
+    if (hours is < 0 or > 24) return Fail("Snooze for 1 to 24 hours (0 wakes it).");
+    lock (store.Lock)
+    {
+        var file = store.TicketFile(id!);
+        var t = store.Read(file, out var why);
+        if (t == null) return Fail($"Couldn't read the ticket ({why}).");
+        if ((string?)t["status"] is not (null or "open" or "started" or "discuss")) return Fail("Only an open ticket can be snoozed.");
+        if (hours == 0) { t.Remove("snoozedUntil"); t["wokenAt"] = Store.Now(); }
+        else
+        {
+            t["snoozedUntil"] = DateTime.UtcNow.AddHours(hours).ToString("yyyy-MM-ddTHH:mm:ssZ");
+            t["snoozedAt"] = Store.Now();
+            t["snoozedBy"] = Who(req);
+        }
+        store.Write(file, t);
+    }
+    return Results.Ok(new { ok = true });
+});
+
 app.MapPost("/api/note", async (HttpRequest req) =>
 {
     var text = ((string?)(await Body(req))?["text"] ?? "").Trim();

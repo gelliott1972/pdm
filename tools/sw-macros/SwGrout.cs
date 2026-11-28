@@ -2140,6 +2140,34 @@ static class SwGrout
                 if (bad > 0 || errs > 0) { rc = 1; Console.WriteLine("NOT SAVED	problems above"); }
                 else { bool ok = doc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref e, ref w); Console.WriteLine(ok ? "SAVED	" + file : "SAVE FAILED	" + e); }
             }
+            else if (cmd == "endcaps")
+            {
+                // endcaps <part> (read-only, APEX-A136, 28 Nov): every End Cap feature with, per configuration, whether it is on
+                // and its thickness (from the feature's dimensions, read for every configuration without switching), plus the
+                // active configuration's thickness from the feature data as a cross-check.
+                var names = (string[])doc.GetConfigurationNames();
+                int n = 0;
+                for (var f = (Feature)doc.FirstFeature(); f != null; f = (Feature)f.GetNextFeature())
+                {
+                    var subs = new List<Feature> { f };
+                    for (var sf = (Feature)f.GetFirstSubFeature(); sf != null; sf = (Feature)sf.GetNextSubFeature()) subs.Add(sf);
+                    foreach (var g in subs)
+                    {
+                        if (g.GetTypeName2() != "EndCap") continue;
+                        n++;
+                        string act = S(() => Mm(((EndCapFeatureData)g.GetDefinition()).Thickness));
+                        var sup = g.IsSuppressed2((int)swInConfigurationOpts_e.swSpecifyConfiguration, names) as bool[];
+                        var dims = new List<Dimension>();
+                        for (var dd = g.GetFirstDisplayDimension() as DisplayDimension; dd != null; dd = g.GetNextDisplayDimension(dd) as DisplayDimension) dims.Add(dd.GetDimension2(0));
+                        for (int i = 0; i < names.Length; i++)
+                        {
+                            var vals = dims.Select(d => d.FullName.Split('@')[0] + "=" + S(() => Mm(((double[])d.GetSystemValue3((int)swInConfigurationOpts_e.swSpecifyConfiguration, new[] { names[i] }))[0])));
+                            Console.WriteLine("ENDCAP	" + Path.GetFileName(file) + "	" + names[i] + "	" + g.Name + "	" + (sup != null && i < sup.Length && sup[i] ? "off" : "on") + "	" + string.Join(" ", vals) + "	active-config thickness " + act);
+                        }
+                    }
+                }
+                Console.WriteLine("COUNT	" + n + " end cap features	" + names.Length + " configurations");
+            }
             else if (cmd == "todist")
             {
                 // todist <asm> <mate> <mm> <component> "<x y z mm>" (weekend B redo, 28 Nov, Desk A30): a coincident mate between
